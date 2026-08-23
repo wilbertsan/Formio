@@ -27,3 +27,7 @@
     animation: none;
   }
 }
+
+.studio-parameters .amplify-field {
+  margin-block: 0;
+}
