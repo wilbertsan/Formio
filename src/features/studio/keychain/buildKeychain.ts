@@ -13,7 +13,7 @@ export interface BuildKeychainInput {
 }
 
 const TEXT_WIDTH_FACTOR = 0.62
-const CSG_TEXT_OVERFLOW = 1
+const ENGRAVE_EPSILON = 0.2
 
 export function buildKeychain({ font, params, onError }: BuildKeychainInput): BufferGeometry {
   const baseShape = createBaseShape(params.shape, params.width, params.height, params.holeDiameter)
@@ -33,11 +33,13 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
     factor: TEXT_WIDTH_FACTOR,
   })
 
-  const textDepth =
-    params.textMode === 'raised' ? params.textDepth : params.thickness + CSG_TEXT_OVERFLOW
-  const textGeometry = nameToGeometry({ font, name: params.name, size: textSize, depth: textDepth })
-
   if (params.textMode === 'raised') {
+    const textGeometry = nameToGeometry({
+      font,
+      name: params.name,
+      size: textSize,
+      depth: params.textDepth,
+    })
     textGeometry.translate(0, 0, params.thickness - 0.01)
     const merged = mergeGeometries([baseGeometry, textGeometry])
     if (!merged) {
@@ -48,17 +50,26 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
     return merged
   }
 
-  // Engraved mode: CSG subtraction
   try {
-    const textClone = textGeometry.clone()
-    textClone.translate(0, 0, -CSG_TEXT_OVERFLOW / 2)
+    const textGeometry = nameToGeometry({
+      font,
+      name: params.name,
+      size: textSize,
+      depth: params.textDepth + ENGRAVE_EPSILON,
+    })
+    textGeometry.translate(0, 0, params.thickness)
     const evaluator = new Evaluator()
-    const result = evaluator.evaluate(new Brush(baseGeometry), new Brush(textClone), SUBTRACTION)
+    const result = evaluator.evaluate(new Brush(baseGeometry), new Brush(textGeometry), SUBTRACTION)
     result.geometry.computeVertexNormals()
     return result.geometry
   } catch {
     onError?.('Falha na gravação; usando relevo')
-    const fallback = textGeometry.clone()
+    const fallback = nameToGeometry({
+      font,
+      name: params.name,
+      size: textSize,
+      depth: params.textDepth,
+    })
     fallback.translate(0, 0, params.thickness - 0.01)
     const merged = mergeGeometries([baseGeometry, fallback])
     if (!merged) return baseGeometry
