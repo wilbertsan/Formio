@@ -26,4 +26,9 @@ describe('Navbar', () => {
     expect(screen.getByRole('link', { name: 'Preços' })).toHaveAttribute('href', '#precos')
     expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '#faq')
   })
+
+  it('exibe link de acesso ao Studio 3D', () => {
+    renderNavbar()
+    expect(screen.getByRole('link', { name: 'Studio 3D' })).toHaveAttribute('href', '/studio')
+  })
 })

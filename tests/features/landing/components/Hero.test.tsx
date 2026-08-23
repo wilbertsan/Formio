@@ -35,4 +35,12 @@ describe('Hero', () => {
     renderHero()
     expect(screen.getByRole('img', { name: /ilustração de modelos 3d/i })).toBeInTheDocument()
   })
+
+  it('exibe CTA terciário para o Studio', () => {
+    renderHero()
+    expect(screen.getByRole('link', { name: /abrir o studio/i })).toHaveAttribute(
+      'href',
+      '/studio',
+    )
+  })
 })

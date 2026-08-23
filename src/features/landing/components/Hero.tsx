@@ -28,6 +28,12 @@ export function Hero() {
               Ver preços
             </a>
           </Flex>
+          <Link
+            to="/studio"
+            className="text-sm font-medium text-teal-600 no-underline underline-offset-4 hover:underline"
+          >
+            Abrir o Studio →
+          </Link>
         </Flex>
         <HeroVisual />
       </Flex>

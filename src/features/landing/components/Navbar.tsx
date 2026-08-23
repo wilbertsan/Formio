@@ -32,6 +32,9 @@ export function Navbar() {
           <a href="#faq" className={anchorLinkClassName}>
             FAQ
           </a>
+          <Link to="/studio" className={anchorLinkClassName}>
+            Studio 3D
+          </Link>
           <Link to="/cadastro" className="btn-primary">
             Criar conta
           </Link>
