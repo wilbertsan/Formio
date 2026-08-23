@@ -2,18 +2,17 @@
 
 ## Visão geral
 
-O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Nesta fase (frontend
-puro), o shell está completo com viewport 3D real e um sólido de exemplo
-paramétrico:
+O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. A primeira ferramenta
+real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
-- **Topbar** — marca, nome do projeto editável, Salvar e Exportar STL (disabled,
-  disponíveis a partir do Sprint 2)
+- **Topbar** — marca, nome do projeto editável, Exportar STL (funcional) e
+  Salvar (disabled, disponível a partir do Sprint 2)
 - **Toolbar** — Selecionar, Mover, Rotacionar, Zoom (visuais, com estado ativo) e
   Resetar câmera (funcional)
 - **Viewport** — Canvas React Three Fiber com OrbitControls, Grid, Environment,
-  sombras e RoundedBox teal paramétrico
-- **Parâmetros** — sliders Largura, Altura, Profundidade, Raio de arredondamento
-  e Segmentos; alteram o sólido em tempo real
+  sombras; renderiza chaveiro com material teal, agnóstico (recebe geometria)
+- **Parâmetros** — nome (1-12 caracteres, acentos normalizados), forma (retângulo/
+  círculo/coração), modo de texto (rebaixado/gravado), 6 sliders
 - **Status bar** — dimensões atuais em mm e dicas de navegação
 
 Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
@@ -23,11 +22,24 @@ Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 
 | O que | Onde |
 |---|---|
-| Ranges/defaults dos parâmetros | `src/features/studio/config/parameters.ts` |
-| Layout do shell | `src/features/studio/StudioPage.tsx` |
-| Sólido de exemplo | `src/features/studio/components/SampleSolid.tsx` |
-| Câmera e cena | `src/features/studio/components/StudioViewport.tsx` |
-| Ferramentas da toolbar | `src/features/studio/components/StudioToolbar.tsx` |
+| Parâmetros/ranges/defaults | `src/features/studio/keychain/schema.ts` |
+| Formas da base | `src/features/studio/keychain/shapes.ts` |
+| Texto 3D | `src/features/studio/keychain/textToGeometry.ts` |
+| Composição (merge/CSG) | `src/features/studio/keychain/buildKeychain.ts` |
+| Exportação STL | `src/features/studio/keychain/exportStl.ts` |
+| Estado + debounce | `src/features/studio/hooks/useKeychain.ts` |
+
+## Gerador de chaveiros
+
+Pipeline completo de geração do chaveiro 3D:
+
+**schema.ts (Zod)** → **shapes.ts (THREE.Shape + furo nativo)** → **textToGeometry.ts (TextGeometry + fit-to-width)** → **buildKeychain.ts (raised = merge, engraved = CSG)** → **exportStl.ts (STL binário + download)**
+
+1. **schema.ts** — Valida e normaliza parâmetros (nome 1-12 chars, forma, modo de texto, dimensões)
+2. **shapes.ts** — Gera a forma base (retângulo, círculo ou coração) com furo nativo para o aro
+3. **textToGeometry.ts** — Cria geometria 3D do texto com TextGeometry, ajusta escura para caber na base
+4. **buildKeychain.ts** — Composição: raised (rebaixado) usa merge, engraved (gravado) usa CSG subtração
+5. **exportStl.ts** — Exporta geometria final como STL binário e dispara download
 
 ## Decisões
 
