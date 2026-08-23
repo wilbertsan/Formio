@@ -1,16 +1,17 @@
 import { Suspense, useEffect, useRef } from 'react'
+import { Loader } from '@aws-amplify/ui-react'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import type { BufferGeometry } from 'three'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Grid, OrbitControls } from '@react-three/drei'
-import { SampleSolid } from './SampleSolid'
-import type { ModelParameters } from '../config/parameters'
+import { KeychainPreview } from './KeychainPreview'
 
 interface StudioViewportProps {
-  parameters: ModelParameters
+  geometry: BufferGeometry | null
   resetCameraSignal: number
 }
 
-export function StudioViewport({ parameters, resetCameraSignal }: StudioViewportProps) {
+export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
 
   useEffect(() => {
@@ -25,9 +26,14 @@ export function StudioViewport({ parameters, resetCameraSignal }: StudioViewport
       aria-label="Visualização 3D do modelo"
       className="relative flex-1 bg-neutral-950"
     >
+      {geometry ? null : (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <Loader />
+        </div>
+      )}
       <Canvas
         shadows
-        camera={{ position: [90, 70, 90], fov: 45 }}
+        camera={{ position: [60, 50, 60], fov: 45 }}
         className="absolute inset-0"
       >
         <Suspense fallback={null}>
@@ -38,7 +44,7 @@ export function StudioViewport({ parameters, resetCameraSignal }: StudioViewport
             castShadow
             shadow-mapSize={[1024, 1024]}
           />
-          <SampleSolid parameters={parameters} />
+          <KeychainPreview geometry={geometry} />
           <Grid
             args={[300, 300]}
             cellSize={10}
