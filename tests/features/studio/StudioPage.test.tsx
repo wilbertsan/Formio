@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { StudioPage } from '@/features/studio/StudioPage'
 
@@ -53,10 +53,13 @@ describe('StudioPage', () => {
     expect(screen.getByRole('textbox', { name: /nome do projeto/i })).toBeInTheDocument()
   })
 
-  it('renderiza os controles de ferramentas', () => {
+  it('renderiza as ferramentas de formas e modos na coluna esquerda', () => {
     renderStudioPage()
-    expect(screen.getByRole('navigation', { name: /ferramentas do studio/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /selecionar/i })).toBeInTheDocument()
+    const toolbar = screen.getByRole('navigation', { name: /ferramentas do studio/i })
+    expect(toolbar).toBeInTheDocument()
+    expect(within(toolbar).getByRole('button', { name: 'Retângulo' })).toBeInTheDocument()
+    expect(within(toolbar).getByRole('button', { name: 'Relevo' })).toBeInTheDocument()
+    expect(within(toolbar).queryByRole('button', { name: /selecionar/i })).not.toBeInTheDocument()
   })
 
   it('renderiza a seção de parâmetros', () => {

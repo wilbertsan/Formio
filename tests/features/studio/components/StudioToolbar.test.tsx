@@ -1,50 +1,84 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { StudioToolbar, StudioTool } from '@/features/studio/components/StudioToolbar'
+import { StudioToolbar } from '@/features/studio/components/StudioToolbar'
+import type { KeychainParams } from '@/features/studio/keychain/schema'
 
-const renderToolbar = (overrides?: Partial<{ activeTool: StudioTool }>) =>
-  render(
+function renderToolbar(overrides?: {
+  activeShape?: KeychainParams['shape']
+  textMode?: KeychainParams['textMode']
+}) {
+  return render(
     <StudioToolbar
-      activeTool={overrides?.activeTool ?? 'select'}
-      onSelectTool={() => undefined}
+      activeShape={overrides?.activeShape ?? 'rect'}
+      textMode={overrides?.textMode ?? 'raised'}
+      onSelectShape={() => undefined}
+      onSelectTextMode={() => undefined}
       onResetCamera={() => undefined}
     />,
   )
+}
 
 describe('StudioToolbar', () => {
-  it('renderiza as cinco ferramentas', () => {
+  it('renderiza formas, modos de texto e reset de câmera', () => {
     renderToolbar()
-    expect(screen.getByRole('button', { name: 'Selecionar' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Mover' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Rotacionar' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Zoom' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retângulo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Círculo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Coração' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Relevo' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Gravado' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Resetar câmera' })).toBeInTheDocument()
   })
 
-  it('marca a ferramenta ativa com aria-pressed', () => {
-    renderToolbar({ activeTool: 'move' })
-    expect(screen.getByRole('button', { name: 'Mover' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    )
-    expect(screen.getByRole('button', { name: 'Selecionar' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
+  it('não renderiza botões de câmera decorativos antigos', () => {
+    renderToolbar()
+    expect(screen.queryByRole('button', { name: 'Selecionar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mover' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Rotacionar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Zoom' })).not.toBeInTheDocument()
   })
 
-  it('dispara onSelectTool ao clicar em uma ferramenta', async () => {
+  it('marca a forma ativa com aria-pressed', () => {
+    renderToolbar({ activeShape: 'heart' })
+    expect(screen.getByRole('button', { name: 'Coração' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Retângulo' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('marca o modo de texto ativo com aria-pressed', () => {
+    renderToolbar({ textMode: 'engraved' })
+    expect(screen.getByRole('button', { name: 'Gravado' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Relevo' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('dispara onSelectShape ao clicar em uma forma', async () => {
     const user = userEvent.setup()
-    const onSelectTool = vi.fn()
+    const onSelectShape = vi.fn()
     render(
       <StudioToolbar
-        activeTool="select"
-        onSelectTool={onSelectTool}
+        activeShape="rect"
+        textMode="raised"
+        onSelectShape={onSelectShape}
+        onSelectTextMode={() => undefined}
         onResetCamera={() => undefined}
       />,
     )
-    await user.click(screen.getByRole('button', { name: 'Rotacionar' }))
-    expect(onSelectTool).toHaveBeenCalledWith('rotate')
+    await user.click(screen.getByRole('button', { name: 'Círculo' }))
+    expect(onSelectShape).toHaveBeenCalledWith('circle')
+  })
+
+  it('dispara onSelectTextMode ao clicar em um modo', async () => {
+    const user = userEvent.setup()
+    const onSelectTextMode = vi.fn()
+    render(
+      <StudioToolbar
+        activeShape="rect"
+        textMode="raised"
+        onSelectShape={() => undefined}
+        onSelectTextMode={onSelectTextMode}
+        onResetCamera={() => undefined}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Gravado' }))
+    expect(onSelectTextMode).toHaveBeenCalledWith('engraved')
   })
 
   it('dispara onResetCamera ao clicar em resetar', async () => {
@@ -52,8 +86,10 @@ describe('StudioToolbar', () => {
     const onResetCamera = vi.fn()
     render(
       <StudioToolbar
-        activeTool="select"
-        onSelectTool={() => undefined}
+        activeShape="rect"
+        textMode="raised"
+        onSelectShape={() => undefined}
+        onSelectTextMode={() => undefined}
         onResetCamera={onResetCamera}
       />,
     )
