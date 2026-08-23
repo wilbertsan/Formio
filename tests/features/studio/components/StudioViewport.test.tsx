@@ -9,9 +9,10 @@ vi.mock('@react-three/fiber', () => ({
 
 vi.mock('@react-three/drei', () => ({
   OrbitControls: () => <div data-testid="orbit-controls" />,
-  Grid: () => <div data-testid="grid" />,
+  Grid: ({ position }: { position?: [number, number, number] }) => (
+    <div data-testid="grid" data-position={position?.join(',')} />
+  ),
   Environment: () => <div data-testid="environment" />,
-  ContactShadows: () => <div data-testid="contact-shadows" />,
 }))
 
 vi.mock('@/features/studio/components/KeychainPreview', () => ({
@@ -37,5 +38,10 @@ describe('StudioViewport', () => {
     expect(screen.getByTestId('grid')).toBeInTheDocument()
     expect(screen.getByTestId('environment')).toBeInTheDocument()
     expect(screen.getByTestId('keychain-preview')).toBeInTheDocument()
+  })
+
+  it('posiciona o grid como piso distante abaixo da figura', () => {
+    render(<StudioViewport geometry={{} as never} resetCameraSignal={0} />)
+    expect(screen.getByTestId('grid')).toHaveAttribute('data-position', '0,-25,0')
   })
 })

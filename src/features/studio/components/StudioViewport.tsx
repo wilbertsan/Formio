@@ -24,7 +24,7 @@ export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportPr
     <div
       role="img"
       aria-label="Visualização 3D do modelo"
-      className="relative flex-1 bg-neutral-950"
+      className="relative flex-1 bg-neutral-100"
     >
       {geometry ? null : (
         <div className="absolute inset-0 z-10 flex items-center justify-center">
@@ -33,7 +33,7 @@ export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportPr
       )}
       <Canvas
         shadows
-        camera={{ position: [60, 50, 60], fov: 45 }}
+        camera={{ position: [40, 30, 80], fov: 45 }}
         className="absolute inset-0"
       >
         <Suspense fallback={null}>
@@ -46,12 +46,13 @@ export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportPr
           />
           <KeychainPreview geometry={geometry} />
           <Grid
+            position={[0, -25, 0]}
             args={[300, 300]}
             cellSize={10}
-            cellColor="#404040"
+            cellColor="#d4d4d4"
             sectionSize={50}
-            sectionColor="#525252"
-            fadeDistance={280}
+            sectionColor="#a3a3a3"
+            fadeDistance={150}
             infiniteGrid
           />
           <Environment preset="city" />
