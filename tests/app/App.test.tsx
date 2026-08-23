@@ -2,9 +2,11 @@ import { render, screen } from '@testing-library/react'
 import { App } from '@/app/App'
 
 describe('App', () => {
-  it('renderiza sem crash', () => {
+  it('renderiza a landing na rota raiz', () => {
     render(<App />)
-    expect(screen.getByText('3DFormio')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Modelos 3D personalizados em segundos' }),
+    ).toBeInTheDocument()
   })
 
   it('aplica o tema custom do 3DFormio', () => {
