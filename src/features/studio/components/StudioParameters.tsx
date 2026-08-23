@@ -1,20 +1,43 @@
-import { Button, Flex, Heading, SliderField, Text, View } from '@aws-amplify/ui-react'
 import {
-  parameterDefinitions,
-  type ModelParameters,
-  type ParameterKey,
-} from '../config/parameters'
+  Button,
+  Flex,
+  Heading,
+  Radio,
+  RadioGroupField,
+  SliderField,
+  Text,
+  TextField,
+  View,
+} from '@aws-amplify/ui-react'
+import { type KeychainParams } from '../keychain/schema'
 
 interface StudioParametersProps {
-  parameters: ModelParameters
-  onUpdateParameter: (key: ParameterKey, value: number) => void
-  onResetParameters: () => void
+  params: KeychainParams
+  onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
+  onUpdateName: (name: string) => void
+  onReset: () => void
 }
 
+const SLIDERS = [
+  { key: 'width' as const, label: 'Largura', min: 20, max: 80, step: 1, unit: 'mm' },
+  { key: 'height' as const, label: 'Altura', min: 20, max: 80, step: 1, unit: 'mm' },
+  { key: 'thickness' as const, label: 'Espessura', min: 2, max: 6, step: 0.5, unit: 'mm' },
+  { key: 'textHeight' as const, label: 'Tamanho do texto', min: 10, max: 24, step: 1, unit: 'mm' },
+  { key: 'textDepth' as const, label: 'Profundidade do texto', min: 0.4, max: 2, step: 0.1, unit: 'mm' },
+  { key: 'holeDiameter' as const, label: 'Diâmetro do furo', min: 3, max: 8, step: 0.5, unit: 'mm' },
+]
+
+const SHAPES = [
+  { value: 'rect' as const, label: 'Retângulo' },
+  { value: 'circle' as const, label: 'Círculo' },
+  { value: 'heart' as const, label: 'Coração' },
+]
+
 export function StudioParameters({
-  parameters,
-  onUpdateParameter,
-  onResetParameters,
+  params,
+  onUpdateParam,
+  onUpdateName,
+  onReset,
 }: StudioParametersProps) {
   return (
     <View
@@ -26,26 +49,60 @@ export function StudioParameters({
         <Heading level={2} fontSize="large" color="font.primary">
           Parâmetros
         </Heading>
-        <Button size="small" variation="link" onClick={onResetParameters}>
+        <Button size="small" variation="link" onClick={onReset}>
           Restaurar padrão
         </Button>
       </Flex>
-      {parameterDefinitions.map((def) => (
-        <View key={def.key} className="flex flex-col gap-1">
+
+      <TextField
+        label="Nome"
+        value={params.name}
+        onChange={(e) => onUpdateName(e.target.value)}
+      />
+
+      <View className="flex flex-col gap-1">
+        <Text fontSize="small">Forma</Text>
+        <Flex direction="row" gap="small">
+          {SHAPES.map((shape) => (
+            <Button
+              key={shape.value}
+              size="small"
+              variation={params.shape === shape.value ? 'primary' : 'link'}
+              onClick={() => onUpdateParam('shape', shape.value)}
+            >
+              {shape.label}
+            </Button>
+          ))}
+        </Flex>
+      </View>
+
+      <RadioGroupField
+        legend="Modo de texto"
+        name="textMode"
+        value={params.textMode}
+        onChange={(e) => onUpdateParam('textMode', e.target.value)}
+        direction="row"
+      >
+        <Radio value="raised">Relevo</Radio>
+        <Radio value="engraved">Gravado</Radio>
+      </RadioGroupField>
+
+      {SLIDERS.map((slider) => (
+        <View key={slider.key} className="flex flex-col gap-1">
           <Flex direction="row" justifyContent="space-between">
-            <Text fontSize="small">{def.label}</Text>
+            <Text fontSize="small">{slider.label}</Text>
             <Text fontSize="small">
-              {parameters[def.key]} {def.unit}
+              {params[slider.key]} {slider.unit}
             </Text>
           </Flex>
           <SliderField
             label=""
-            aria-label={def.label}
-            min={def.min}
-            max={def.max}
-            step={def.step}
-            value={parameters[def.key]}
-            onChange={(value) => onUpdateParameter(def.key, value as number)}
+            aria-label={slider.label}
+            min={slider.min}
+            max={slider.max}
+            step={slider.step}
+            value={params[slider.key]}
+            onChange={(value) => onUpdateParam(slider.key, value as number)}
           />
         </View>
       ))}

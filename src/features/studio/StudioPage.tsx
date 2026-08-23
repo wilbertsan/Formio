@@ -4,14 +4,14 @@ import { StudioToolbar, type StudioTool } from './components/StudioToolbar'
 import { StudioViewport } from './components/StudioViewport'
 import { StudioParameters } from './components/StudioParameters'
 import { StudioStatusBar } from './components/StudioStatusBar'
-import { useModelParameters } from './hooks/useModelParameters'
+import { useKeychain } from './hooks/useKeychain'
 
 export function StudioPage() {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [activeTool, setActiveTool] = useState<StudioTool>('select')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
 
-  const { parameters, updateParameter, resetParameters } = useModelParameters()
+  const { params, geometry, dimensions, updateParam, updateName, reset } = useKeychain()
 
   return (
     <div className="flex h-screen flex-col">
@@ -22,14 +22,15 @@ export function StudioPage() {
           onSelectTool={setActiveTool}
           onResetCamera={() => setResetCameraSignal((s) => s + 1)}
         />
-        <StudioViewport parameters={parameters} resetCameraSignal={resetCameraSignal} />
+        <StudioViewport geometry={geometry} resetCameraSignal={resetCameraSignal} />
         <StudioParameters
-          parameters={parameters}
-          onUpdateParameter={updateParameter}
-          onResetParameters={resetParameters}
+          params={params}
+          onUpdateParam={updateParam}
+          onUpdateName={updateName}
+          onReset={reset}
         />
       </div>
-      <StudioStatusBar parameters={parameters} />
+      <StudioStatusBar dimensions={dimensions} />
     </div>
   )
 }
