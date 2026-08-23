@@ -12,3 +12,14 @@ const mockMatchMedia = (query: string): MediaQueryList => ({
 })
 
 window.matchMedia = mockMatchMedia
+
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+window.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver
+
+HTMLElement.prototype.setPointerCapture = function () {}
+HTMLElement.prototype.hasPointerCapture = function () { return false }
