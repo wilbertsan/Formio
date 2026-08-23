@@ -3,6 +3,8 @@ dist
 coverage
 *.local
 .env
+.env.*
+!.env.example
 amplify_outputs.json
 .amplify
 amplify/.amplify
