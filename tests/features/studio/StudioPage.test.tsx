@@ -6,6 +6,10 @@ vi.mock('@/features/studio/keychain/buildKeychain', () => ({
   buildKeychain: vi.fn(() => ({ dispose: vi.fn() })),
 }))
 
+vi.mock('@/features/studio/keychain/exportStl', () => ({
+  exportStl: vi.fn(),
+}))
+
 vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({
   default: '/mock-font.json',
 }))
@@ -69,5 +73,10 @@ describe('StudioPage', () => {
   it('renderiza a barra de status', () => {
     renderStudioPage()
     expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
+  })
+
+  it(' Exportar STL começa desabilitado sem geometria', () => {
+    renderStudioPage()
+    expect(screen.getByRole('button', { name: 'Exportar STL' })).toBeDisabled()
   })
 })

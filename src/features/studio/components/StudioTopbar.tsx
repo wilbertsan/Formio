@@ -3,9 +3,11 @@ import { Flex, View } from '@aws-amplify/ui-react'
 interface StudioTopbarProps {
   projectName: string
   onProjectNameChange: (name: string) => void
+  canExport: boolean
+  onExport: () => void
 }
 
-export function StudioTopbar({ projectName, onProjectNameChange }: StudioTopbarProps) {
+export function StudioTopbar({ projectName, onProjectNameChange, canExport, onExport }: StudioTopbarProps) {
   return (
     <View
       as="header"
@@ -22,7 +24,12 @@ export function StudioTopbar({ projectName, onProjectNameChange }: StudioTopbarP
         />
       </Flex>
       <Flex direction="row" gap="small">
-        <button type="button" disabled title="disponível no Sprint 2" className="btn-secondary">
+        <button
+          type="button"
+          disabled={!canExport}
+          onClick={onExport}
+          className="btn-secondary"
+        >
           Exportar STL
         </button>
         <button type="button" disabled title="disponível no Sprint 2" className="btn-primary">

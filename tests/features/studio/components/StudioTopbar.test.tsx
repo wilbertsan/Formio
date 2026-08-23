@@ -2,11 +2,15 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StudioTopbar } from '@/features/studio/components/StudioTopbar'
 
-const renderTopbar = (overrides?: Partial<{ projectName: string }>) =>
+const renderTopbar = (
+  overrides?: Partial<{ projectName: string; canExport: boolean }>,
+) =>
   render(
     <StudioTopbar
       projectName={overrides?.projectName ?? 'Projeto sem título'}
       onProjectNameChange={() => undefined}
+      canExport={overrides?.canExport ?? false}
+      onExport={() => undefined}
     />,
   )
 
@@ -33,5 +37,26 @@ describe('StudioTopbar', () => {
     renderTopbar()
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Exportar STL' })).toBeDisabled()
+  })
+
+  it('habilita Exportar STL quando canExport é true', () => {
+    renderTopbar({ canExport: true })
+    expect(screen.getByRole('button', { name: 'Exportar STL' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled()
+  })
+
+  it('chama onExport ao clicar em Exportar STL', async () => {
+    const user = userEvent.setup()
+    const handleExport = vi.fn()
+    render(
+      <StudioTopbar
+        projectName="Projeto"
+        onProjectNameChange={() => undefined}
+        canExport={true}
+        onExport={handleExport}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Exportar STL' }))
+    expect(handleExport).toHaveBeenCalledOnce()
   })
 })
