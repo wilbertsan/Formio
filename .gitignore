@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+*.local
+.env
+amplify_outputs.json
+.amplify
+amplify/.amplify
