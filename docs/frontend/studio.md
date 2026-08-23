@@ -7,12 +7,9 @@ real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
 - **Topbar** — marca, nome do projeto editável, Exportar STL (funcional) e
   Salvar (disabled, disponível a partir do Sprint 2)
-- **Toolbar** — Selecionar, Mover, Rotacionar, Zoom (visuais, com estado ativo) e
-  Resetar câmera (funcional)
-- **Viewport** — Canvas React Three Fiber com OrbitControls, Grid, Environment,
-  sombras; renderiza chaveiro com material teal, agnóstico (recebe geometria)
-- **Parâmetros** — nome (1-12 caracteres, acentos normalizados), forma (retângulo/
-  círculo/coração), modo de texto (rebaixado/gravado), 6 sliders
+- **Toolbar** — formas (Retângulo/Círculo/Coração) e modo do texto (Relevo/Gravado) como ferramentas na coluna esquerda, além de Resetar câmera (funcional)
+- **Viewport** — tema claro com chaveiro vertical; câmera frontal e grid distante como piso de fundo (nunca cruza a figura)
+- **Parâmetros** — nome (1–12 chars, acentos normalizados) e sliders condensados com Amplify UI (largura, altura, espessura, tamanho e profundidade do texto, diâmetro do furo)
 - **Status bar** — dimensões atuais em mm e dicas de navegação
 
 Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
@@ -22,8 +19,9 @@ Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 
 | O que | Onde |
 |---|---|
+| Formas e modos de texto | `src/features/studio/components/StudioToolbar.tsx` |
 | Parâmetros/ranges/defaults | `src/features/studio/keychain/schema.ts` |
-| Formas da base | `src/features/studio/keychain/shapes.ts` |
+| Shapes das bases | `src/features/studio/keychain/shapes.ts` |
 | Texto 3D | `src/features/studio/keychain/textToGeometry.ts` |
 | Composição (merge/CSG) | `src/features/studio/keychain/buildKeychain.ts` |
 | Exportação STL | `src/features/studio/keychain/exportStl.ts` |
@@ -52,6 +50,10 @@ Pipeline completo de geração do chaveiro 3D:
   valida e clampa os valores dos sliders.
 - **Mock de fiber/drei nos testes:** jsdom não tem WebGL; Canvas e componentes
   drei são mockados nos testes do viewport/page.
+- **Tema claro consistente com a landing** (painéis brancos, bordas neutral-200, ativos teal-600); componentes Amplify UI mantidos (SliderField, TextField).
+- **Gravação rasa:** o texto gravado corta apenas `textDepth` a partir da face frontal (epsilon 0.2 anti-coplanar) — o verso fica sólido e o texto nunca aparece espelhado por trás.
+- **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
+- **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
 
 ## Próximos passos (fora de escopo desta fase)
 
