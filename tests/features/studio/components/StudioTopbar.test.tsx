@@ -25,7 +25,12 @@ describe('StudioTopbar', () => {
     const user = userEvent.setup()
     const handleChange = vi.fn()
     render(
-      <StudioTopbar projectName="Projeto sem título" onProjectNameChange={handleChange} />,
+      <StudioTopbar
+        projectName="Projeto sem título"
+        onProjectNameChange={handleChange}
+        canExport={false}
+        onExport={() => undefined}
+      />,
     )
     const input = screen.getByRole('textbox', { name: /nome do projeto/i })
     expect(input).toHaveValue('Projeto sem título')
