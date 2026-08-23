@@ -11,16 +11,16 @@ export function StudioTopbar({ projectName, onProjectNameChange, canExport, onEx
   return (
     <View
       as="header"
-      className="flex h-12 items-center justify-between border-b border-neutral-800 bg-neutral-900 px-4"
+      className="flex h-12 items-center justify-between border-b border-neutral-200 bg-white px-4"
     >
       <Flex direction="row" alignItems="center" gap="medium">
-        <span className="text-sm font-bold tracking-tight text-white">3DFormio</span>
+        <span className="text-sm font-bold tracking-tight text-neutral-900">3DFormio</span>
         <View
           as="input"
           aria-label="Nome do projeto"
           value={projectName}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => onProjectNameChange(event.target.value)}
-          className="w-56 rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-sm text-neutral-100 outline-none focus:border-teal-500"
+          className="w-56 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 outline-none focus:border-teal-600"
         />
       </Flex>
       <Flex direction="row" gap="small">
