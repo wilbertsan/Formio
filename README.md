@@ -33,6 +33,7 @@ amplify/                      # Backend Amplify Gen2 (auth Cognito)
 src/
   app/                        # App, roteamento, providers, páginas da aplicação
   features/landing/           # Feature da landing page (components + config)
+  features/studio/            # Feature do Studio 3D (viewport R3F + parâmetros)
   theme/                      # Tema custom do Amplify UI
 tests/                        # Testes (espelham a estrutura de src)
 docs/                         # Documentação do projeto
