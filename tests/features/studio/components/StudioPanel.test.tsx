@@ -12,6 +12,7 @@ function renderPanel(overrides?: {
   onAddText?: () => void
   onRemoveText?: () => void
   onReset?: () => void
+  onOpenEditor?: () => void
 }) {
   return render(
     <StudioPanel
@@ -23,6 +24,7 @@ function renderPanel(overrides?: {
       onRemoveText={overrides?.onRemoveText ?? (() => undefined)}
       onUpdateParam={overrides?.onUpdateParam ?? (() => undefined)}
       onReset={overrides?.onReset ?? (() => undefined)}
+      onOpenEditor={overrides?.onOpenEditor ?? (() => undefined)}
     />,
   )
 }
@@ -46,14 +48,26 @@ describe('StudioPanel', () => {
     expect(onAddText).toHaveBeenCalledTimes(1)
   })
 
-  it('renderiza controles do texto selecionado (conteúdo, estilo, toggle, relevo, posición)', () => {
+  it('renderiza controles do texto selecionado (conteúdo, estilo, toggle, relevo)', () => {
     renderPanel()
     expect(screen.getByLabelText(/conteúdo/i)).toBeInTheDocument()
     expect(screen.getByRole('listbox', { name: /estilo da letra/i })).toBeInTheDocument()
     expect(screen.getByText(/proporcional à peça/i)).toBeInTheDocument()
     expect(screen.getByLabelText('Altura do relevo')).toBeInTheDocument()
-    expect(screen.getByLabelText('Posição X')).toBeInTheDocument()
-    expect(screen.getByLabelText('Posição Y')).toBeInTheDocument()
+  })
+
+  it('não renderiza sliders de posição X/Y', () => {
+    renderPanel()
+    expect(screen.queryByLabelText('Posição X')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Posição Y')).not.toBeInTheDocument()
+  })
+
+  it('renderiza botão de posicionar textos', async () => {
+    const user = userEvent.setup()
+    const onOpenEditor = vi.fn()
+    renderPanel({ onOpenEditor })
+    await user.click(screen.getByRole('button', { name: /posicionar textos/i }))
+    expect(onOpenEditor).toHaveBeenCalledTimes(1)
   })
 
   it('esconde sliders de largura/altura quando proporcional está ligado', () => {
@@ -71,6 +85,7 @@ describe('StudioPanel', () => {
         onRemoveText={() => undefined}
         onUpdateParam={() => undefined}
         onReset={() => undefined}
+        onOpenEditor={() => undefined}
       />,
     )
     expect(screen.queryByLabelText('Largura do texto')).not.toBeInTheDocument()

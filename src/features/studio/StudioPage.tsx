@@ -69,6 +69,7 @@ export function StudioPage() {
           onRemoveText={removeText}
           onUpdateParam={updateParam}
           onReset={reset}
+          onOpenEditor={() => undefined}
         />
         <StudioViewport
           geometry={geometry}

@@ -21,6 +21,7 @@ interface StudioPanelProps {
   onRemoveText: (id: string) => void
   onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
   onReset: () => void
+  onOpenEditor: () => void
 }
 
 function ColorSwatches({
@@ -58,6 +59,7 @@ export function StudioPanel({
   onRemoveText,
   onUpdateParam,
   onReset,
+  onOpenEditor,
 }: StudioPanelProps) {
   const selectedText = params.texts.find((t) => t.id === selectedTextId) ?? params.texts[0]
   const canAddText = params.texts.length < 3
@@ -119,6 +121,15 @@ export function StudioPanel({
 
               {selectedText && (
                 <>
+                  <Button
+                    size="small"
+                    variation="link"
+                    onClick={onOpenEditor}
+                    aria-label="Posicionar textos"
+                  >
+                    ✥ Posicionar textos
+                  </Button>
+
                   <TextField
                     label="Conteúdo"
                     descriptiveText="Até 12 caracteres. Acentos são removidos."
@@ -189,29 +200,6 @@ export function StudioPanel({
                     onChange={(value) => onUpdateText(selectedText.id, { relief: value as number })}
                   />
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Posição X</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.offsetX} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Posição X"
-                    min={-20} max={20} step={0.5}
-                    value={selectedText.offsetX}
-                    onChange={(value) => onUpdateText(selectedText.id, { offsetX: value as number })}
-                  />
-
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Posição Y</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.offsetY} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Posição Y"
-                    min={-20} max={20} step={0.5}
-                    value={selectedText.offsetY}
-                    onChange={(value) => onUpdateText(selectedText.id, { offsetY: value as number })}
-                  />
                 </>
               )}
             </Flex>
