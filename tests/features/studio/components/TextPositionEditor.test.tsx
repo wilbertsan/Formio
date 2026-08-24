@@ -27,6 +27,11 @@ describe('TextPositionEditor', () => {
     expect(screen.getByTestId('editor-text-text-1')).toBeInTheDocument()
   })
 
+  it('mostra a área válida para posicionamento de texto', () => {
+    renderEditor()
+    expect(screen.getByTestId('editor-valid-area')).toBeInTheDocument()
+  })
+
   it('mostra o conteúdo do texto como label', () => {
     renderEditor()
     expect(screen.getByText(/meu nome/i)).toBeInTheDocument()

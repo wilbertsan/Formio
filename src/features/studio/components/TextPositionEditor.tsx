@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Button, Flex, Heading } from '@aws-amplify/ui-react'
 import { createBaseShape, getRingPosition, RING_WALL } from '../keychain/shapes'
 import { snapTextToSupport } from '../keychain/positioning'
+import { TEXT_BORDER_MIN } from '../keychain/schema'
 import type { KeychainParams } from '../keychain/schema'
 
 interface TextPositionEditorProps {
@@ -42,7 +43,7 @@ export function TextPositionEditor({
   const hole = { x: holeCenter.x, y: holeCenter.y, radius: ring.innerDiameter / 2 }
 
   const baseShape = createBaseShape(params.baseShape, params.width, params.width, ring)
-  const basePoints = baseShape.getPoints(64).map((p) => `${p.x},${p.y}`).join(' ')
+  const basePoints = baseShape.getPoints(64).map((p) => `${p.x},${-p.y}`).join(' ')
 
   const toSvg = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
@@ -134,9 +135,21 @@ export function TextPositionEditor({
           viewBox={`${-halfW - 5} ${-halfH - 5} ${halfW * 2 + 10} ${halfH * 2 + 10}`}
           className="w-full touch-none select-none rounded border border-neutral-200"
         >
+          <rect x={-halfW - 5} y={halfH + 5} width={halfW * 2 + 10} height={halfH * 2 + 10} fill="#f5f5f5" />
           <polygon data-testid="editor-base" points={basePoints} fill="#ccfbf1" stroke="#14b8a6" strokeWidth="0.3" />
-          <circle data-testid="editor-ring" cx={hole.x} cy={hole.y} r={hole.radius + RING_WALL} fill="#99f6e4" />
-          <circle data-testid="editor-hole" cx={hole.x} cy={hole.y} r={hole.radius} fill="white" stroke="#14b8a6" strokeWidth="0.3" />
+          <rect
+            data-testid="editor-valid-area"
+            x={-halfW + TEXT_BORDER_MIN}
+            y={halfH - TEXT_BORDER_MIN}
+            width={(halfW - TEXT_BORDER_MIN) * 2}
+            height={(halfH - TEXT_BORDER_MIN) * 2}
+            fill="none"
+            stroke="#14b8a680"
+            strokeWidth="0.2"
+            strokeDasharray="1,0.5"
+          />
+          <circle data-testid="editor-ring" cx={hole.x} cy={-hole.y} r={hole.radius + RING_WALL} fill="#99f6e4" />
+          <circle data-testid="editor-hole" cx={hole.x} cy={-hole.y} r={hole.radius} fill="white" stroke="#14b8a6" strokeWidth="0.3" />
 
           {params.texts.map((t) => {
             const isDragging = dragPos?.id === t.id
@@ -152,7 +165,7 @@ export function TextPositionEditor({
               >
                 <rect
                   x={x - t.width / 2}
-                  y={y - t.height / 2}
+                  y={-y - t.height / 2}
                   width={t.width}
                   height={t.height}
                   fill={selected ? '#14b8a6' : '#0d948899'}
@@ -161,7 +174,7 @@ export function TextPositionEditor({
                 />
                 <text
                   x={x}
-                  y={y}
+                  y={-y}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fontSize={Math.min(t.height * 0.6, 4)}
