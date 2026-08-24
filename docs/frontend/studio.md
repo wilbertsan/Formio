@@ -7,8 +7,8 @@ real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
 - **Topbar** — nome do projeto, Exportar STL (funcional), Salvar (disabled)
 - **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 3 blocos Accordion (Texto, Base, Argola):
-  - **Texto** — chips de seleção (até 3 textos), adicionar/remover, conteúdo, estilo da letra (dropdown), toggle proporcional à peça, largura/altura do texto (quando proporcional off), altura do relevo, posição X/Y
-  - **Drag 3D** — clicar no texto no viewport seleciona; arrastar move com clamp de borda (4mm) e furo (2mm); OrbitControls pausados durante o drag
+  - **Texto** — chips de seleção (até 3 textos), adicionar/remover, conteúdo, estilo da letra (dropdown), toggle proporcional à peça, largura/altura do texto (quando proporcional off), altura do relevo
+  - **Posicionamento 2D** — botão ✥ no bloco Texto abre editor SVG com o desenho da base, furo e textos arrastáveis; snapping de contato garante que todo texto fique conectado (topo, furo ou texto anterior) — nunca flutua
   - **Base** — largura da peça, forma, cores, espessura, borda
   - **Argola** — posição (SelectField com 4 opções), diâmetro interno (3–10mm), embutimento (0–3mm)
 - **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
@@ -31,7 +31,8 @@ Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 | Estado + fontes lazy | `src/features/studio/hooks/useKeychain.ts` |
 | Painel de blocos | `src/features/studio/components/StudioPanel.tsx` |
 | Posicionamento/empilhamento | `src/features/studio/keychain/positioning.ts` |
-| Arraste no viewport | `src/features/studio/components/TextDraggable.tsx` |
+| Editor 2D de textos | `src/features/studio/components/TextPositionEditor.tsx` |
+| Snapping de contato | `src/features/studio/keychain/positioning.ts` |
 
 ## Gerador de chaveiros
 
@@ -71,10 +72,9 @@ Pipeline completo de geração do chaveiro 3D:
 - **Argola com SelectField:** posição da argola usa dropdown nativo (Cima/Baixo/Esquerda/Direita); embutimento e diâmetro interno mantidos como sliders.
 - **Textos múltiplos:** `texts: TextItem[]` (1–3) no schema; cada item com conteúdo, fonte, tamanho, largura, relevo, proporcional e posição X/Y próprios. Campos globais antigos (`name`, `fontStyle`, `letterHeight`, `textWidth`, `textSize`) removidos.
 - **Empilhamento automático:** textos empilhados verticalmente centrados; offsets X/Y são relativos à posição base.
-- **Drag 3D:** `TextDraggable` usa raycaster no plano da peça; `clampTextPosition` limita à borda (4mm) e afasta do furo (distância centro-a-centro). OrbitControls desabilitado durante o drag; commit do offset no pointerup.
 - **Toggle proporcional por texto:** ligado = escala automática; desligado = sliders manuais de largura/altura.
-- **Textos múltiplos:** `texts: TextItem[]` (1–3) substitui campos globais de texto.
-- **Drag 3D:** raycaster R3F, clamp AABB para borda + centro para furo, commit no pointerup.
+- **Snap de contato:** todo texto encosta no topo interno, no furo/anel ou na base do texto anterior (fusão de 0.5mm). Aplicado no editor (pointerUp) e no build — fonte única de verdade.
+- **Sliders Posição X/Y removidos** e drag 3D removidos — posicionamento exclusivamente pelo editor 2D.
 
 ## Próximos passos (fora de escopo desta fase)
 
