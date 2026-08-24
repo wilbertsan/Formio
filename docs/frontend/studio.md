@@ -7,7 +7,8 @@ real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
 - **Topbar** — nome do projeto, Exportar STL (funcional), Salvar (disabled)
 - **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 3 blocos Accordion (Texto, Base, Argola):
-  - **Texto** — Chips de seleção por texto (+ adicionar até 3, lixeira); controles do selecionado: conteúdo, estilo da letra (dropdown), toggle proporcional à peça, largura/altura do texto (quando proporcional desligado), altura do relevo, posição X/Y (−20–20mm); modo Relevo/Gravado
+  - **Texto** — chips de seleção (até 3 textos), adicionar/remover, conteúdo, estilo da letra (dropdown), toggle proporcional à peça, largura/altura do texto (quando proporcional off), altura do relevo, posição X/Y
+  - **Drag 3D** — clicar no texto no viewport seleciona; arrastar move com clamp de borda (4mm) e furo (2mm); OrbitControls pausados durante o drag
   - **Base** — largura da peça, forma, cores, espessura, borda
   - **Argola** — posição (SelectField com 4 opções), diâmetro interno (3–10mm), embutimento (0–3mm)
 - **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
@@ -72,6 +73,8 @@ Pipeline completo de geração do chaveiro 3D:
 - **Empilhamento automático:** textos empilhados verticalmente centrados; offsets X/Y são relativos à posição base.
 - **Drag 3D:** `TextDraggable` usa raycaster no plano da peça; `clampTextPosition` limita à borda (4mm) e afasta do furo (distância centro-a-centro). OrbitControls desabilitado durante o drag; commit do offset no pointerup.
 - **Toggle proporcional por texto:** ligado = escala automática; desligado = sliders manuais de largura/altura.
+- **Textos múltiplos:** `texts: TextItem[]` (1–3) substitui campos globais de texto.
+- **Drag 3D:** raycaster R3F, clamp AABB para borda + centro para furo, commit no pointerup.
 
 ## Próximos passos (fora de escopo desta fase)
 
