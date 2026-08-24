@@ -9,7 +9,7 @@ real é o **gerador de chaveiros** (frontend puro, exportação STL):
 - **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 3 blocos Accordion (Texto, Base, Argola):
   - **Texto** — nome, estilo da letra (dropdown Negrito/Normal/Serifada), largura do texto (8–60mm), altura do texto (4–20mm), altura do relevo (0.4–2mm)
   - **Base** — largura da peça, forma, cores, espessura, borda
-  - **Argola** — posição, diâmetro interno, espessura, encaixe, ajustes
+  - **Argola** — posição (SelectField com 4 opções), diâmetro interno (3–10mm), embutimento (0–3mm)
 - **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
 - **Status bar** — dimensões em mm + dicas
 
@@ -65,6 +65,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Painel Antigo removido:** `StudioToolbar` e `StudioParameters` mortos.
 - **Controle direto do texto:** `textWidth` (8–60mm) e `textSize` (4–20mm) no schema; escala uniforme no build limitada pela área útil (regra de 4mm preservada).
 - **Estilo em SelectField:** dropdown nativo no painel — elimina overflow do ButtonGroup anterior.
+- **Argola com SelectField:** posição da argola usa dropdown nativo (Cima/Baixo/Esquerda/Direita); embutimento e diâmetro interno mantidos como sliders.
 
 ## Próximos passos (fora de escopo desta fase)
 
