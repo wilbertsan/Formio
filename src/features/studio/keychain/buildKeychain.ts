@@ -3,7 +3,7 @@ import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
 import { createBaseShape, createReinforcementRing, getRingPosition, type RingParams } from './shapes'
-import { fitTextHeight, nameToGeometry } from './textToGeometry'
+import { nameToGeometry } from './textToGeometry'
 import type { KeychainParams } from './schema'
 
 export interface BuildKeychainInput {
@@ -17,7 +17,6 @@ export interface BuildKeychainResult {
   text: BufferGeometry
 }
 
-const TEXT_WIDTH_FACTOR = 0.62
 const ENGRAVE_EPSILON = 0.2
 
 function translatedShape(shape: Shape, x: number, y: number): Shape {
@@ -29,6 +28,32 @@ function translatedShape(shape: Shape, x: number, y: number): Shape {
     translated.holes.push(translatedHole)
   }
   return translated
+}
+
+function buildScaledText({
+  font,
+  name,
+  textSize,
+  targetWidth,
+  depth,
+}: {
+  font: Font
+  name: string
+  textSize: number
+  targetWidth: number
+  depth: number
+}): BufferGeometry {
+  const geometry = nameToGeometry({ font, name, size: textSize, depth })
+  geometry.computeBoundingBox()
+  const naturalWidth = geometry.boundingBox
+    ? geometry.boundingBox.max.x - geometry.boundingBox.min.x
+    : 0
+  if (naturalWidth > targetWidth && naturalWidth > 0) {
+    const scale = targetWidth / naturalWidth
+    geometry.scale(scale, scale, 1)
+    geometry.center()
+  }
+  return geometry
 }
 
 export function buildKeychain({ font, params, onError }: BuildKeychainInput): BuildKeychainResult {
@@ -64,18 +89,14 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   const mergedBase = mergeGeometries([baseGeometry, reinforcementGeometry]) ?? baseGeometry
 
   const availableWidth = params.width - 2 * params.borderWidth
-  const textSize = fitTextHeight({
-    name: params.name,
-    requestedSize: params.letterHeight,
-    maxWidth: availableWidth,
-    factor: TEXT_WIDTH_FACTOR,
-  })
+  const targetWidth = Math.min(params.textWidth, availableWidth)
 
   if (params.textMode === 'raised') {
-    const textGeometry = nameToGeometry({
+    const textGeometry = buildScaledText({
       font,
       name: params.name,
-      size: textSize,
+      textSize: params.textSize,
+      targetWidth,
       depth: params.letterHeight,
     })
     textGeometry.translate(0, 0, params.thickness - 0.01)
@@ -84,10 +105,11 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   }
 
   try {
-    const textGeometry = nameToGeometry({
+    const textGeometry = buildScaledText({
       font,
       name: params.name,
-      size: textSize,
+      textSize: params.textSize,
+      targetWidth,
       depth: params.letterHeight + ENGRAVE_EPSILON,
     })
     textGeometry.translate(0, 0, params.thickness)
@@ -97,10 +119,11 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
     return { base: result.geometry, text: textGeometry }
   } catch {
     onError?.('Falha na gravação; usando relevo')
-    const fallback = nameToGeometry({
+    const fallback = buildScaledText({
       font,
       name: params.name,
-      size: textSize,
+      textSize: params.textSize,
+      targetWidth,
       depth: params.letterHeight,
     })
     fallback.translate(0, 0, params.thickness - 0.01)
