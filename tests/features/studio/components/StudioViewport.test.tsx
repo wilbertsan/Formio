@@ -6,6 +6,10 @@ vi.mock('@react-three/fiber', () => ({
   Canvas: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="canvas-mock">{children}</div>
   ),
+  useThree: () => ({
+    camera: { position: [0, 0, 5] },
+    gl: { domElement: document.createElement('canvas') },
+  }),
 }))
 
 vi.mock('@react-three/drei', () => ({
@@ -17,8 +21,8 @@ vi.mock('@react-three/drei', () => ({
 }))
 
 vi.mock('@/features/studio/components/KeychainPreview', () => ({
-  KeychainPreview: ({ geometry }: { geometry: unknown }) =>
-    geometry ? <div data-testid="keychain-preview" /> : <div data-testid="keychain-loading" />,
+  KeychainPreview: ({ baseGeometry }: { baseGeometry: unknown }) =>
+    baseGeometry ? <div data-testid="keychain-preview" /> : <div data-testid="keychain-loading" />,
 }))
 
 describe('StudioViewport', () => {
@@ -30,6 +34,9 @@ describe('StudioViewport', () => {
         onResetCamera={() => undefined}
         baseColor="#14b8a6"
         letterColor="#f5f5f5"
+        selectedTextId={null}
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
       />,
     )
     expect(screen.getByTestId('canvas-mock')).toBeInTheDocument()
@@ -44,6 +51,9 @@ describe('StudioViewport', () => {
         onResetCamera={() => undefined}
         baseColor="#14b8a6"
         letterColor="#f5f5f5"
+        selectedTextId={null}
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
       />,
     )
     expect(screen.getByTestId('keychain-loading')).toBeInTheDocument()
@@ -52,11 +62,14 @@ describe('StudioViewport', () => {
   it('renderiza controles, grid, ambiente e preview', () => {
     render(
       <StudioViewport
-        geometry={{} as never}
+        geometry={{ base: {}, text: {}, textItems: [], pieceBB: { minX: 0, maxX: 0, minY: 0, maxY: 0 }, hole: { x: 0, y: 0, radius: 0 } } as never}
         resetCameraSignal={0}
         onResetCamera={() => undefined}
         baseColor="#14b8a6"
         letterColor="#f5f5f5"
+        selectedTextId={null}
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
       />,
     )
     expect(screen.getByTestId('orbit-controls')).toBeInTheDocument()
@@ -73,6 +86,9 @@ describe('StudioViewport', () => {
         onResetCamera={() => undefined}
         baseColor="#14b8a6"
         letterColor="#f5f5f5"
+        selectedTextId={null}
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
       />,
     )
     expect(screen.getByTestId('grid')).toHaveAttribute('data-position', '0,-25,0')
@@ -86,6 +102,9 @@ describe('StudioViewport', () => {
         onResetCamera={() => undefined}
         baseColor="#14b8a6"
         letterColor="#f5f5f5"
+        selectedTextId={null}
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
       />,
     )
     expect(screen.getByRole('button', { name: /resetar câmera/i })).toBeInTheDocument()
@@ -101,6 +120,9 @@ describe('StudioViewport', () => {
         onResetCamera={onResetCamera}
         baseColor="#14b8a6"
         letterColor="#f5f5f5"
+        selectedTextId={null}
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
       />,
     )
     await user.click(screen.getByRole('button', { name: /resetar câmera/i }))

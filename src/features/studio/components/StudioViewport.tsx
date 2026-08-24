@@ -12,6 +12,9 @@ interface StudioViewportProps {
   onResetCamera: () => void
   baseColor: string
   letterColor: string
+  selectedTextId: string | null
+  onSelectText: (id: string) => void
+  onMoveText: (id: string, x: number, y: number) => void
 }
 
 export function StudioViewport({
@@ -20,6 +23,9 @@ export function StudioViewport({
   onResetCamera,
   baseColor,
   letterColor,
+  selectedTextId,
+  onSelectText,
+  onMoveText,
 }: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
 
@@ -64,7 +70,18 @@ export function StudioViewport({
             castShadow
             shadow-mapSize={[1024, 1024]}
           />
-          <KeychainPreview geometry={geometry} baseColor={baseColor} letterColor={letterColor} />
+          <KeychainPreview
+            baseGeometry={geometry?.base ?? null}
+            textMeshes={geometry?.textItems?.map((ti) => ({ id: ti.id, geometry: ti.geometry, x: 0, y: 0 })) ?? []}
+            baseColor={baseColor}
+            letterColor={letterColor}
+            selectedTextId={selectedTextId}
+            onSelectText={onSelectText}
+            onMoveText={onMoveText}
+            pieceBB={geometry?.pieceBB ?? null}
+            hole={geometry?.hole ?? null}
+            pieceThickness={3}
+          />
           <Grid
             position={[0, -25, 0]}
             args={[300, 300]}

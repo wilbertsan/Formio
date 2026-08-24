@@ -17,6 +17,10 @@ export function StudioPage() {
     setResetCameraSignal((signal) => signal + 1)
   }, [])
 
+  const handleMoveText = useCallback((id: string, x: number, y: number) => {
+    updateText(id, { offsetX: x, offsetY: y })
+  }, [updateText])
+
   const handleExport = useCallback(() => {
     if (geometry) {
       exportStl(geometry, projectName)
@@ -48,6 +52,9 @@ export function StudioPage() {
           onResetCamera={handleResetCamera}
           baseColor={params.baseColor}
           letterColor={params.letterColor}
+          selectedTextId={selectedTextId}
+          onSelectText={setSelectedTextId}
+          onMoveText={handleMoveText}
         />
       </div>
       <StudioStatusBar dimensions={dimensions} />
