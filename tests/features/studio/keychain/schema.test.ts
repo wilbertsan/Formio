@@ -67,4 +67,24 @@ describe('keychain schema', () => {
     expect(sanitizeFilename('Meu Projeto! @#')).toBe('Meu-Projeto')
     expect(sanitizeFilename('///')).toBe('chaveiro')
   })
+
+  it('rejeita textWidth e textSize fora dos ranges', () => {
+    expect(
+      keychainParamsSchema.safeParse({ ...defaultKeychainParams, textWidth: 4 }).success,
+    ).toBe(false)
+    expect(
+      keychainParamsSchema.safeParse({ ...defaultKeychainParams, textWidth: 65 }).success,
+    ).toBe(false)
+    expect(
+      keychainParamsSchema.safeParse({ ...defaultKeychainParams, textSize: 2 }).success,
+    ).toBe(false)
+    expect(
+      keychainParamsSchema.safeParse({ ...defaultKeychainParams, textSize: 25 }).success,
+    ).toBe(false)
+  })
+
+  it('defaults incluem textWidth 40 e textSize 10', () => {
+    expect(defaultKeychainParams.textWidth).toBe(40)
+    expect(defaultKeychainParams.textSize).toBe(10)
+  })
 })
