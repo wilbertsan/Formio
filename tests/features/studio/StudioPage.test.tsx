@@ -1,18 +1,18 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { StudioPage } from '@/features/studio/StudioPage'
 
 vi.mock('@/features/studio/keychain/buildKeychain', () => ({
-  buildKeychain: vi.fn(() => ({ dispose: vi.fn() })),
+  buildKeychain: vi.fn(() => ({ base: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) }, text: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) } })),
 }))
 
 vi.mock('@/features/studio/keychain/exportStl', () => ({
   exportStl: vi.fn(),
 }))
 
-vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({
-  default: '/mock-font.json',
-}))
+vi.mock('@/assets/fonts/helvetiker_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
+vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({ default: '/mock-font.json' }))
+vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
 
 vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
   FontLoader: class {
@@ -47,39 +47,37 @@ function renderStudioPage() {
 }
 
 describe('StudioPage', () => {
-  it('renderiza o topo com o nome do projeto', () => {
+  it('renderiza topbar com nome do projeto', () => {
     renderStudioPage()
     expect(screen.getByText('3DFormio')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /nome do projeto/i })).toBeInTheDocument()
   })
 
-  it('renderiza as ferramentas de formas e modos na coluna esquerda', () => {
+  it('renderiza painel único à esquerda com blocos', () => {
     renderStudioPage()
-    const toolbar = screen.getByRole('navigation', { name: /ferramentas do studio/i })
-    expect(toolbar).toBeInTheDocument()
-    expect(within(toolbar).getByRole('button', { name: 'Retângulo' })).toBeInTheDocument()
-    expect(within(toolbar).getByRole('button', { name: 'Relevo' })).toBeInTheDocument()
-    expect(within(toolbar).queryByRole('button', { name: /selecionar/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /texto/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /base/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /argola/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /relevo/i })).toBeInTheDocument()
   })
 
-  it('renderiza a seção de parâmetros', () => {
+  it('renderiza viewport 3D', () => {
     renderStudioPage()
-    expect(screen.getByRole('complementary', { name: /parâmetros do modelo/i })).toBeInTheDocument()
-    expect(screen.getByText('Parâmetros')).toBeInTheDocument()
+    expect(screen.getByTestId('canvas-mock')).toBeInTheDocument()
   })
 
-  it('renderiza a viewport 3d', () => {
-    renderStudioPage()
-    expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
-  })
-
-  it('renderiza a barra de status', () => {
+  it('renderiza barra de status', () => {
     renderStudioPage()
     expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
   })
 
-  it(' Exportar STL começa desabilitado sem geometria', () => {
+  it('exportar stl começa desabilitado', () => {
     renderStudioPage()
     expect(screen.getByRole('button', { name: 'Exportar STL' })).toBeDisabled()
+  })
+
+  it('não renderiza toolbar antiga', () => {
+    renderStudioPage()
+    expect(screen.queryByRole('navigation', { name: /ferramentas do studio/i })).not.toBeInTheDocument()
   })
 })
