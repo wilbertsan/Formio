@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Button, Flex, Heading } from '@aws-amplify/ui-react'
 import { createBaseShape, getRingPosition, RING_WALL } from '../keychain/shapes'
-import { snapTextToSupport } from '../keychain/positioning'
 import { TEXT_BORDER_MIN } from '../keychain/schema'
 import type { KeychainParams } from '../keychain/schema'
 
@@ -29,8 +28,6 @@ export function TextPositionEditor({
   onMoveTextRef.current = onMoveText
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
 
-  const halfW = params.width / 2
-  const halfH = params.width / 4
   const ring = {
     position: params.ringPosition,
     innerDiameter: params.ringInnerDiameter,
@@ -43,22 +40,37 @@ export function TextPositionEditor({
   const hole = { x: holeCenter.x, y: holeCenter.y, radius: ring.innerDiameter / 2 }
 
   const baseShape = createBaseShape(params.baseShape, params.width, params.width, ring)
-  const basePoints = baseShape.getPoints(64).map((p) => `${p.x},${-p.y}`).join(' ')
+
+  const { minX, maxX, minY, maxY, vbWidth, vbHeight, basePoints } = useMemo(() => {
+    const points = baseShape.getPoints(64)
+    const xs = points.map((p) => p.x)
+    const ys = points.map((p) => p.y)
+    const mnX = Math.min(...xs) - 5
+    const mxX = Math.max(...xs) + 5
+    const mnY = Math.min(...ys) - 5
+    const mxY = Math.max(...ys) + 5
+    return {
+      minX: mnX,
+      maxX: mxX,
+      minY: mnY,
+      maxY: mxY,
+      vbWidth: mxX - mnX,
+      vbHeight: mxY - mnY,
+      basePoints: points.map((p) => `${p.x},${-p.y}`).join(' '),
+    }
+  }, [baseShape])
 
   const toSvg = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
-    const p = paramsRef.current
-    const vbW = p.width + 10
-    const vbH = p.width / 2 + 10
-    const scaleX = vbW / (rect.width || 1)
-    const scaleY = vbH / (rect.height || 1)
+    const scaleX = vbWidth / (rect.width || 1)
+    const scaleY = vbHeight / (rect.height || 1)
     return {
-      x: (clientX - rect.left) * scaleX - vbW / 2,
-      y: -(clientY - rect.top) * scaleY + vbH / 2 - 5,
+      x: (clientX - rect.left) * scaleX + minX,
+      y: -((clientY - rect.top) * scaleY + minY),
     }
-  }, [])
+  }, [vbWidth, vbHeight, minX, minY])
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -72,33 +84,10 @@ export function TextPositionEditor({
       const p = paramsRef.current
       const item = p.texts.find((t) => t.id === drag.id)
       if (item) {
-        const halfW = p.width / 2
-        const halfH = p.width / 4
-        const bb = { minX: -halfW, maxX: halfW, minY: -halfH, maxY: halfH }
-        const r = {
-          position: p.ringPosition,
-          innerDiameter: p.ringInnerDiameter,
-          thickness: RING_WALL,
-          embedding: p.ringEmbedding,
-          lateralOffset: p.ringLateralOffset,
-          radialOffset: p.ringRadialOffset,
-        }
-        const center = getRingPosition(p.baseShape, p.width, p.width, r)
-        const h = { x: center.x, y: center.y, radius: r.innerDiameter / 2 }
         const pos = toSvg(e.clientX, e.clientY)
-        const supports = p.texts
-          .filter((t) => t.id !== drag.id)
-          .map((t) => ({
-            x: t.offsetX,
-            y: t.offsetY,
-            halfWidth: t.width / 2,
-            halfHeight: t.height / 2,
-          }))
-        const snapped = snapTextToSupport(
-          { x: pos.x, y: pos.y, halfWidth: item.width / 2, halfHeight: item.height / 2 },
-          { supports, pieceBB: bb, hole: h },
-        )
-        onMoveTextRef.current(drag.id, snapped.x, snapped.y)
+        const clampedX = Math.max(minX + TEXT_BORDER_MIN, Math.min(maxX - TEXT_BORDER_MIN - item.width, pos.x))
+        const clampedY = Math.max(minY + TEXT_BORDER_MIN + item.height, Math.min(maxY - TEXT_BORDER_MIN, pos.y))
+        onMoveTextRef.current(drag.id, clampedX, clampedY)
       }
       dragRef.current = null
       setDragPos(null)
@@ -109,7 +98,7 @@ export function TextPositionEditor({
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
     }
-  }, [toSvg])
+  }, [toSvg, minX, maxX, minY, maxY])
 
   const handlePointerDown = useCallback((id: string, e: ReactPointerEvent) => {
     e.stopPropagation()
@@ -132,17 +121,17 @@ export function TextPositionEditor({
         <svg
           ref={svgRef}
           data-testid="editor-svg"
-          viewBox={`${-halfW - 5} ${-halfH - 5} ${halfW * 2 + 10} ${halfH * 2 + 10}`}
+          viewBox={`${minX} ${-maxY} ${vbWidth} ${vbHeight}`}
           className="w-full touch-none select-none rounded border border-neutral-200"
         >
-          <rect x={-halfW - 5} y={halfH + 5} width={halfW * 2 + 10} height={halfH * 2 + 10} fill="#f5f5f5" />
+          <rect x={minX} y={-maxY} width={vbWidth} height={vbHeight} fill="#f5f5f5" />
           <polygon data-testid="editor-base" points={basePoints} fill="#ccfbf1" stroke="#14b8a6" strokeWidth="0.3" />
           <rect
             data-testid="editor-valid-area"
-            x={-halfW + TEXT_BORDER_MIN}
-            y={halfH - TEXT_BORDER_MIN}
-            width={(halfW - TEXT_BORDER_MIN) * 2}
-            height={(halfH - TEXT_BORDER_MIN) * 2}
+            x={minX + TEXT_BORDER_MIN}
+            y={-(maxY - TEXT_BORDER_MIN)}
+            width={vbWidth - TEXT_BORDER_MIN * 2}
+            height={vbHeight - TEXT_BORDER_MIN * 2}
             fill="none"
             stroke="#14b8a680"
             strokeWidth="0.2"

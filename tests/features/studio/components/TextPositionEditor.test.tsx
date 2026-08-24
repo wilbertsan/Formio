@@ -68,4 +68,34 @@ describe('TextPositionEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: /concluir/i }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('calcula viewBox dinamicamente a partir do bounding box da base', () => {
+    const { container: rectContainer } = render(
+      <TextPositionEditor
+        params={{ ...defaultKeychainParams, baseShape: 'rect' }}
+        selectedTextId="text-1"
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+    const rectSvg = rectContainer.querySelector('svg')
+    const rectViewBox = rectSvg?.getAttribute('viewBox')
+
+    const { container: heartContainer } = render(
+      <TextPositionEditor
+        params={{ ...defaultKeychainParams, baseShape: 'heart' }}
+        selectedTextId="text-1"
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+    const heartSvg = heartContainer.querySelector('svg')
+    const heartViewBox = heartSvg?.getAttribute('viewBox')
+
+    expect(rectViewBox).toBeTruthy()
+    expect(heartViewBox).toBeTruthy()
+    expect(rectViewBox).not.toBe(heartViewBox)
+  })
 })
