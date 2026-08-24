@@ -4,10 +4,12 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
 import { createBaseShape, createReinforcementRing, getRingPosition, type RingParams } from './shapes'
 import { nameToGeometry } from './textToGeometry'
-import type { KeychainParams } from './schema'
+import { defaultStackOffsets, type BoundingBox2D, type Circle2D } from './positioning'
+import type { KeychainParams, FontStyle, TextItem } from './schema'
 
 export interface BuildKeychainInput {
-  font: Font
+  font?: Font
+  fonts?: Partial<Record<FontStyle, Font>>
   params: KeychainParams
   onError?: (message: string) => void
 }
@@ -15,6 +17,9 @@ export interface BuildKeychainInput {
 export interface BuildKeychainResult {
   base: BufferGeometry
   text: BufferGeometry
+  textItems: Array<{ id: string; geometry: BufferGeometry }>
+  pieceBB: BoundingBox2D
+  hole: Circle2D
 }
 
 const ENGRAVE_EPSILON = 0.2
@@ -56,9 +61,37 @@ function buildScaledText({
   return geometry
 }
 
-export function buildKeychain({ font, params, onError }: BuildKeychainInput): BuildKeychainResult {
-  const text0 = params.texts[0]
+function resolveFont(
+  fonts: Partial<Record<FontStyle, Font>> | undefined,
+  font: Font | undefined,
+  style: FontStyle,
+): Font {
+  if (fonts?.[style]) return fonts[style]!
+  if (font) return font
+  throw new Error(`No font provided for style "${style}"`)
+}
 
+function buildItemGeometry(
+  item: TextItem,
+  resolvedFont: Font,
+  availableWidth: number,
+): BufferGeometry {
+  const targetWidth = Math.min(item.width, availableWidth)
+  return buildScaledText({
+    font: resolvedFont,
+    name: item.content,
+    textSize: item.height,
+    targetWidth,
+    depth: item.relief,
+  })
+}
+
+export function buildKeychain({
+  font,
+  fonts,
+  params,
+  onError,
+}: BuildKeychainInput): BuildKeychainResult {
   const ring: RingParams = {
     position: params.ringPosition,
     innerDiameter: params.ringInnerDiameter,
@@ -90,45 +123,80 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   const mergedBase = mergeGeometries([baseGeometry, reinforcementGeometry]) ?? baseGeometry
 
   const availableWidth = params.width - 2 * params.borderWidth
-  const targetWidth = Math.min(text0.width, availableWidth)
+
+  const heights = params.texts.map((t) => t.height)
+  const baseYs = defaultStackOffsets(heights)
+
+  const textGeometries: BufferGeometry[] = []
+  const textItems: Array<{ id: string; geometry: BufferGeometry }> = []
+
+  for (let i = 0; i < params.texts.length; i++) {
+    const item = params.texts[i]
+    const resolvedFont = resolveFont(fonts, font, item.fontStyle)
+    const textGeometry = buildItemGeometry(item, resolvedFont, availableWidth)
+    textGeometry.translate(item.offsetX, baseYs[i] + item.offsetY, params.thickness - 0.01)
+    textGeometries.push(textGeometry)
+    textItems.push({ id: item.id, geometry: textGeometry })
+  }
 
   if (params.textMode === 'raised') {
-    const textGeometry = buildScaledText({
-      font,
-      name: text0.content,
-      textSize: text0.height,
-      targetWidth,
-      depth: text0.relief,
-    })
-    textGeometry.translate(0, 0, params.thickness - 0.01)
+    const merged = mergeGeometries(textGeometries) ?? textGeometries[0]
+    merged.computeVertexNormals()
     mergedBase.computeVertexNormals()
-    return { base: mergedBase, text: textGeometry }
+    const baseBB = computeBaseBB(mergedBase)
+    return {
+      base: mergedBase,
+      text: merged,
+      textItems,
+      pieceBB: baseBB.pieceBB,
+      hole: baseBB.hole,
+    }
   }
 
   try {
-    const textGeometry = buildScaledText({
-      font,
-      name: text0.content,
-      textSize: text0.height,
-      targetWidth,
-      depth: text0.relief + ENGRAVE_EPSILON,
-    })
-    textGeometry.translate(0, 0, params.thickness)
+    const mergedText = mergeGeometries(textGeometries) ?? textGeometries[0]
+    mergedText.translate(0, 0, ENGRAVE_EPSILON)
     const evaluator = new Evaluator()
-    const result = evaluator.evaluate(new Brush(mergedBase), new Brush(textGeometry), SUBTRACTION)
+    const result = evaluator.evaluate(new Brush(mergedBase), new Brush(mergedText), SUBTRACTION)
     result.geometry.computeVertexNormals()
-    return { base: result.geometry, text: textGeometry }
+    const baseBB = computeBaseBB(result.geometry)
+    return {
+      base: result.geometry,
+      text: mergedText,
+      textItems,
+      pieceBB: baseBB.pieceBB,
+      hole: baseBB.hole,
+    }
   } catch {
     onError?.('Falha na gravação; usando relevo')
-    const fallback = buildScaledText({
-      font,
-      name: text0.content,
-      textSize: text0.height,
-      targetWidth,
-      depth: text0.relief,
-    })
-    fallback.translate(0, 0, params.thickness - 0.01)
+    const fallbackMerged = mergeGeometries(textGeometries) ?? textGeometries[0]
+    fallbackMerged.computeVertexNormals()
     mergedBase.computeVertexNormals()
-    return { base: mergedBase, text: fallback }
+    const baseBB = computeBaseBB(mergedBase)
+    return {
+      base: mergedBase,
+      text: fallbackMerged,
+      textItems,
+      pieceBB: baseBB.pieceBB,
+      hole: baseBB.hole,
+    }
   }
+}
+
+function computeBaseBB(geometry: BufferGeometry): {
+  pieceBB: BoundingBox2D
+  hole: Circle2D
+} {
+  geometry.computeBoundingBox()
+  const bb = geometry.boundingBox!
+  const pieceBB: BoundingBox2D = {
+    minX: bb.min.x,
+    maxX: bb.max.x,
+    minY: bb.min.y,
+    maxY: bb.max.y,
+  }
+  const cx = (bb.min.x + bb.max.x) / 2
+  const cy = (bb.min.y + bb.max.y) / 2
+  const hole: Circle2D = { x: cx, y: cy, radius: 0 }
+  return { pieceBB, hole }
 }

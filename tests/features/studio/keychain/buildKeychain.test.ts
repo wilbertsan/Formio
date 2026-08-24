@@ -44,8 +44,31 @@ vi.mock('three-bvh-csg', () => ({
 vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
   mergeGeometries: (geos: THREE.BufferGeometry[]) => {
     if (geos.length === 0) return null
+    if (geos.length === 1) return geos[0].clone()
     const merged = new THREE.BufferGeometry()
-    Object.assign(merged, geos[0].clone())
+    const posArrays: Float32Array[] = []
+    const idxArrays: number[][] = []
+    let vertexOffset = 0
+    for (const geo of geos) {
+      geo.computeBoundingBox()
+      const pos = geo.getAttribute('position') as THREE.BufferAttribute
+      const arr = new Float32Array(pos.array)
+      posArrays.push(arr)
+      const idx = geo.getIndex()
+      if (idx) {
+        const shifted = Array.from(idx.array).map((v: number) => v + vertexOffset)
+        idxArrays.push(shifted)
+      }
+      vertexOffset += pos.count
+    }
+    const allPos = new Float32Array(posArrays.reduce((s, a) => s + a.length, 0))
+    let offset = 0
+    for (const a of posArrays) { allPos.set(a, offset); offset += a.length }
+    merged.setAttribute('position', new THREE.BufferAttribute(allPos, 3))
+    if (idxArrays.length > 0) {
+      const allIdx = idxArrays.flat()
+      merged.setIndex(allIdx)
+    }
     return merged
   },
 }))
@@ -53,6 +76,7 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
 function makeInput(overrides?: Partial<BuildKeychainInput>): BuildKeychainInput {
   return {
     font: fontStub,
+    fonts: { bold: fontStub, normal: fontStub, serif: fontStub },
     params: { ...defaultKeychainParams, ...overrides?.params },
     onError: () => undefined,
   }
@@ -177,5 +201,53 @@ describe('buildKeychain', () => {
     const w4 = (result4.text.boundingBox?.max.x ?? 0) - (result4.text.boundingBox?.min.x ?? 0)
     const w10 = (result10.text.boundingBox?.max.x ?? 0) - (result10.text.boundingBox?.min.x ?? 0)
     expect(w4).toBeGreaterThan(w10)
+  })
+
+  it('dois textos empilhados têm bboxes Y distintos', () => {
+    const result = buildKeychain(makeInput({
+      fonts: { bold: fontStub },
+      params: {
+        ...defaultKeychainParams,
+        texts: [
+          { ...defaultKeychainParams.texts[0], offsetY: 3 },
+          { ...defaultKeychainParams.texts[0], id: 'text-2', content: 'Outro', offsetY: -3 },
+        ],
+      },
+    }))
+    result.text.computeBoundingBox()
+    const textBB = result.text.boundingBox
+    expect(textBB).not.toBeNull()
+    const textHeight = (textBB!.max.y - textBB!.min.y)
+    expect(textHeight).toBeGreaterThan(20)
+  })
+
+  it('offsetX move o texto', () => {
+    const centered = buildKeychain(makeInput({
+      fonts: { bold: fontStub },
+      params: { ...defaultKeychainParams, texts: [{ ...defaultKeychainParams.texts[0], offsetX: 0 }] },
+    }))
+    const shifted = buildKeychain(makeInput({
+      fonts: { bold: fontStub },
+      params: { ...defaultKeychainParams, texts: [{ ...defaultKeychainParams.texts[0], offsetX: 10 }] },
+    }))
+    centered.text.computeBoundingBox()
+    shifted.text.computeBoundingBox()
+    expect(shifted.text.boundingBox?.max.x).toBeGreaterThan(centered.text.boundingBox!.max.x)
+  })
+
+  it('gravado subtrai todos os textos com um único CSG', () => {
+    csgCalls.length = 0
+    buildKeychain(makeInput({
+      fonts: { bold: fontStub },
+      params: {
+        ...defaultKeychainParams,
+        textMode: 'engraved',
+        texts: [
+          { ...defaultKeychainParams.texts[0], offsetY: 3 },
+          { ...defaultKeychainParams.texts[0], id: 't2', content: 'Dois', offsetY: -3 },
+        ],
+      },
+    }))
+    expect(csgCalls).toHaveLength(1)
   })
 })
