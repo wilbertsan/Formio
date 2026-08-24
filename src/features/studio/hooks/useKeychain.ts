@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { FontLoader, type Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import fontUrl from '@/assets/fonts/helvetiker_bold.typeface.json?url'
-import {
-  defaultKeychainParams,
-  keychainParamsSchema,
-  type KeychainParams,
-} from '../keychain/schema'
+import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
+import { fontUrls } from '../keychain/fonts'
+import { defaultKeychainParams, keychainParamsSchema, type KeychainParams, type FontStyle } from '../keychain/schema'
 import { buildKeychain, type BuildKeychainResult } from '../keychain/buildKeychain'
 
 type KeychainAction =
@@ -14,11 +11,14 @@ type KeychainAction =
 
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   width: { min: 20, max: 80 },
-  height: { min: 20, max: 80 },
+  borderWidth: { min: 4, max: 10 },
   thickness: { min: 2, max: 6 },
-  textHeight: { min: 10, max: 24 },
-  textDepth: { min: 0.4, max: 2 },
-  holeDiameter: { min: 3, max: 8 },
+  letterHeight: { min: 0.4, max: 2 },
+  ringInnerDiameter: { min: 3, max: 10 },
+  ringThickness: { min: 1.5, max: 4 },
+  ringEmbedding: { min: 0, max: 3 },
+  ringLateralOffset: { min: -10, max: 10 },
+  ringRadialOffset: { min: 0, max: 5 },
 }
 
 function clampValue(key: string, value: number): number {
@@ -42,27 +42,43 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
   }
 }
 
+function deriveHeight(shape: string, width: number): number {
+  switch (shape) {
+    case 'circle': return width
+    case 'heart': return width * 14 / 16
+    case 'rect':
+    default: return width / 2
+  }
+}
+
 export function useKeychain() {
   const [params, dispatch] = useReducer(keychainReducer, defaultKeychainParams)
-  const [font, setFont] = useState<Font | null>(null)
+  const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
   const [fontError, setFontError] = useState(false)
-  const [keychainResult, setKeychainResult] = useState<BuildKeychainResult | null>(null)
+  const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
-    new FontLoader().load(
-      fontUrl,
-      (loaded) => setFont(loaded as unknown as Font),
+    const style = params.fontStyle
+    if (fontCache.has(style)) return
+    const loader = new FontLoader()
+    loader.load(
+      fontUrls[style],
+      (font) => {
+        setFontCache((prev) => new Map(prev).set(style, font as unknown as Font))
+      },
       undefined,
       () => setFontError(true),
     )
-  }, [])
+  }, [params.fontStyle, fontCache])
+
+  const font = fontCache.get(params.fontStyle) ?? null
 
   useEffect(() => {
     if (!font) return
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      setKeychainResult((prev) => {
+      setGeometry((prev) => {
         prev?.base.dispose()
         prev?.text.dispose()
         return buildKeychain({ font, params, onError: () => undefined })
@@ -83,10 +99,10 @@ export function useKeychain() {
     dispatch({ type: 'reset' })
   }, [])
 
-  const dimensions = useMemo(
-    () => ({ width: params.width, height: params.height, thickness: params.thickness }),
-    [params.width, params.height, params.thickness],
-  )
+  const dimensions = useMemo(() => {
+    const height = deriveHeight(params.baseShape, params.width)
+    return { width: params.width, height, thickness: params.thickness }
+  }, [params.width, params.baseShape, params.thickness])
 
-  return { params, keychainResult, fontError, dimensions, updateParam, updateName, reset }
+  return { params, geometry, fontError, dimensions, updateParam, updateName, reset }
 }
