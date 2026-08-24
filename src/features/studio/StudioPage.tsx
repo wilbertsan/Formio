@@ -10,7 +10,8 @@ export function StudioPage() {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
 
-  const { params, geometry, dimensions, updateParam, updateName, updateText, reset } = useKeychain()
+  const { params, geometry, dimensions, updateParam, addText, removeText, updateText, reset } = useKeychain()
+  const [selectedTextId, setSelectedTextId] = useState(params.texts[0]?.id ?? '')
 
   const handleResetCamera = useCallback(() => {
     setResetCameraSignal((signal) => signal + 1)
@@ -33,9 +34,12 @@ export function StudioPage() {
       <div className="flex min-h-0 flex-1">
         <StudioPanel
           params={params}
-          onUpdateParam={updateParam}
-          onUpdateName={updateName}
+          selectedTextId={selectedTextId}
+          onSelectText={setSelectedTextId}
           onUpdateText={updateText}
+          onAddText={addText}
+          onRemoveText={removeText}
+          onUpdateParam={updateParam}
           onReset={reset}
         />
         <StudioViewport

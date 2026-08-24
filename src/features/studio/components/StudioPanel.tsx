@@ -5,6 +5,7 @@ import {
   Heading,
   SelectField,
   SliderField,
+  SwitchField,
   Text,
   TextField,
   View,
@@ -13,9 +14,12 @@ import { type KeychainParams, type TextItem, PLA_COLORS } from '../keychain/sche
 
 interface StudioPanelProps {
   params: KeychainParams
-  onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
-  onUpdateName: (name: string) => void
+  selectedTextId: string
+  onSelectText: (id: string) => void
   onUpdateText: (id: string, patch: Partial<TextItem>) => void
+  onAddText: () => void
+  onRemoveText: (id: string) => void
+  onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
   onReset: () => void
 }
 
@@ -47,12 +51,17 @@ function ColorSwatches({
 
 export function StudioPanel({
   params,
-  onUpdateParam,
-  onUpdateName,
+  selectedTextId,
+  onSelectText,
   onUpdateText,
+  onAddText,
+  onRemoveText,
+  onUpdateParam,
   onReset,
 }: StudioPanelProps) {
-  const text0 = params.texts[0]
+  const selectedText = params.texts.find((t) => t.id === selectedTextId) ?? params.texts[0]
+  const canAddText = params.texts.length < 3
+
   return (
     <View
       as="aside"
@@ -78,61 +87,129 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <TextField
-                label="Nome"
-                descriptiveText="Até 12 caracteres. Acentos são removidos."
-                value={text0.content}
-                maxLength={12}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateName(e.target.value)}
-              />
+              <Flex direction="row" gap="xs" wrap="wrap">
+                {params.texts.map((text) => (
+                  <Button
+                    key={text.id}
+                    size="small"
+                    aria-pressed={text.id === selectedTextId}
+                    onClick={() => onSelectText(text.id)}
+                  >
+                    {text.content}
+                  </Button>
+                ))}
+                {selectedTextId && params.texts.length > 1 && (
+                  <Button
+                    size="small"
+                    variation="link"
+                    onClick={() => onRemoveText(selectedTextId)}
+                  >
+                    ×
+                  </Button>
+                )}
+              </Flex>
 
-              <SelectField
-                label="Estilo da letra"
-                value={text0.fontStyle}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateText(text0.id, { fontStyle: e.target.value as TextItem['fontStyle'] })
-                }
+              <Button
+                size="small"
+                isDisabled={!canAddText}
+                onClick={onAddText}
               >
-                <option value="bold">Negrito</option>
-                <option value="normal">Normal</option>
-                <option value="serif">Serifada</option>
-              </SelectField>
+                Adicionar texto
+              </Button>
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
-                <Text fontSize="xs" color="font.secondary">{text0.width} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Largura do texto"
-                min={8} max={60} step={1}
-                value={text0.width}
-                onChange={(value) => onUpdateText(text0.id, { width: value as number })}
-              />
+              {selectedText && (
+                <>
+                  <TextField
+                    label="Conteúdo"
+                    descriptiveText="Até 12 caracteres. Acentos são removidos."
+                    value={selectedText.content}
+                    maxLength={12}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      onUpdateText(selectedText.id, { content: e.target.value })
+                    }
+                  />
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
-                <Text fontSize="xs" color="font.secondary">{text0.height} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Altura do texto"
-                min={4} max={20} step={0.5}
-                value={text0.height}
-                onChange={(value) => onUpdateText(text0.id, { height: value as number })}
-              />
+                  <SelectField
+                    label="Estilo da letra"
+                    value={selectedText.fontStyle}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      onUpdateText(selectedText.id, { fontStyle: e.target.value as TextItem['fontStyle'] })
+                    }
+                  >
+                    <option value="bold">Negrito</option>
+                    <option value="normal">Normal</option>
+                    <option value="serif">Serifada</option>
+                  </SelectField>
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
-                <Text fontSize="xs" color="font.secondary">{text0.relief} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Altura do relevo"
-                min={0.4} max={2} step={0.1}
-                value={text0.relief}
-                onChange={(value) => onUpdateText(text0.id, { relief: value as number })}
-              />
+                  <SwitchField
+                    label="Proporcional à peça"
+                    isChecked={selectedText.proportional}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      onUpdateText(selectedText.id, { proportional: e.target.checked })
+                    }
+                  />
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
+                    <Text fontSize="xs" color="font.secondary">{selectedText.width} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Largura do texto"
+                    min={8} max={60} step={1}
+                    value={selectedText.width}
+                    onChange={(value) => onUpdateText(selectedText.id, { width: value as number })}
+                  />
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
+                    <Text fontSize="xs" color="font.secondary">{selectedText.height} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Altura do texto"
+                    min={4} max={20} step={0.5}
+                    value={selectedText.height}
+                    onChange={(value) => onUpdateText(selectedText.id, { height: value as number })}
+                  />
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
+                    <Text fontSize="xs" color="font.secondary">{selectedText.relief} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Altura do relevo"
+                    min={0.4} max={2} step={0.1}
+                    value={selectedText.relief}
+                    onChange={(value) => onUpdateText(selectedText.id, { relief: value as number })}
+                  />
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Posição X</Text>
+                    <Text fontSize="xs" color="font.secondary">{selectedText.offsetX} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Posição X"
+                    min={-20} max={20} step={0.5}
+                    value={selectedText.offsetX}
+                    onChange={(value) => onUpdateText(selectedText.id, { offsetX: value as number })}
+                  />
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Posição Y</Text>
+                    <Text fontSize="xs" color="font.secondary">{selectedText.offsetY} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Posição Y"
+                    min={-20} max={20} step={0.5}
+                    value={selectedText.offsetY}
+                    onChange={(value) => onUpdateText(selectedText.id, { offsetY: value as number })}
+                  />
+                </>
+              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
@@ -254,8 +331,6 @@ export function StudioPanel({
                 value={params.ringInnerDiameter}
                 onChange={(value) => onUpdateParam('ringInnerDiameter', value as number)}
               />
-
-
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">
