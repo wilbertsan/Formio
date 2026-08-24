@@ -3,7 +3,13 @@ import { MemoryRouter } from 'react-router-dom'
 import { StudioPage } from '@/features/studio/StudioPage'
 
 vi.mock('@/features/studio/keychain/buildKeychain', () => ({
-  buildKeychain: vi.fn(() => ({ base: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) }, text: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) } })),
+  buildKeychain: vi.fn(() => ({
+    base: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) },
+    text: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) },
+    textItems: [{ id: 'text-1', geometry: { dispose: () => {} }, x: 0, y: 0 }],
+    pieceBB: { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 },
+    hole: { x: 0, y: 10, radius: 4.5 },
+  })),
 }))
 
 vi.mock('@/features/studio/keychain/exportStl', () => ({
@@ -26,6 +32,7 @@ vi.mock('@react-three/fiber', () => ({
   Canvas: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="canvas-mock">{children}</div>
   ),
+  useThree: () => ({ camera: {}, gl: { domElement: document.createElement('canvas') } }),
 }))
 
 vi.mock('@react-three/drei', () => ({
@@ -53,11 +60,9 @@ describe('StudioPage', () => {
     expect(screen.getByRole('textbox', { name: /nome do projeto/i })).toBeInTheDocument()
   })
 
-  it('renderiza painel único à esquerda com blocos', () => {
+  it('renderiza painel com chip do primeiro texto selecionado', () => {
     renderStudioPage()
-    expect(screen.getByRole('heading', { name: /texto/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /base/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /argola/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /meu nome/i })).toBeInTheDocument()
   })
 
   it('renderiza viewport 3D', () => {
@@ -73,10 +78,5 @@ describe('StudioPage', () => {
   it('exportar stl começa desabilitado', () => {
     renderStudioPage()
     expect(screen.getByRole('button', { name: 'Exportar STL' })).toBeDisabled()
-  })
-
-  it('não renderiza toolbar antiga', () => {
-    renderStudioPage()
-    expect(screen.queryByRole('navigation', { name: /ferramentas do studio/i })).not.toBeInTheDocument()
   })
 })
