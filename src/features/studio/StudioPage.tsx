@@ -32,13 +32,6 @@ export function StudioPage() {
     }
   }, [geometry, projectName])
 
-  const handleMoveText = useCallback(
-    (id: string, x: number, y: number) => {
-      updateText(id, { offsetX: x, offsetY: y })
-    },
-    [updateText],
-  )
-
   const handleSelectText = useCallback((id: string) => {
     setSelectedTextId(id)
   }, [])
@@ -77,9 +70,6 @@ export function StudioPage() {
           onResetCamera={handleResetCamera}
           baseColor={params.baseColor}
           letterColor={params.letterColor}
-          selectedTextId={selectedTextId}
-          onSelectText={handleSelectText}
-          onMoveText={handleMoveText}
         />
       </div>
       <StudioStatusBar dimensions={dimensions} />

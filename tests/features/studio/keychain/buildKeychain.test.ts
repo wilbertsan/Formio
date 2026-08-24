@@ -235,6 +235,33 @@ describe('buildKeychain', () => {
     expect(shifted.text.boundingBox?.max.x).toBeGreaterThan(centered.text.boundingBox!.max.x)
   })
 
+  it('dois textos têm bboxes Y encostados (snap)', () => {
+    const result = buildKeychain(makeInput({
+      fonts: { bold: fontStub },
+      params: {
+        ...defaultKeychainParams,
+        texts: [
+          { ...defaultKeychainParams.texts[0], offsetY: 0 },
+          { ...defaultKeychainParams.texts[0], id: 'text-2', content: 'Outro', offsetY: 0 },
+        ],
+      },
+    }))
+    result.text.computeBoundingBox()
+    const bb = result.text.boundingBox!
+    const textHeight = bb.max.y - bb.min.y
+    expect(textHeight).toBeGreaterThan(0)
+
+    const item0 = result.textItems[0]
+    const item1 = result.textItems[1]
+    item0.geometry.computeBoundingBox()
+    item1.geometry.computeBoundingBox()
+    const bb0 = item0.geometry.boundingBox!
+    const bb1 = item1.geometry.boundingBox!
+    const gap = bb0.min.y - bb1.max.y
+    expect(gap).toBeLessThanOrEqual(2)
+    expect(gap).toBeGreaterThanOrEqual(-2)
+  })
+
   it('gravado subtrai todos os textos com um único CSG', () => {
     csgCalls.length = 0
     buildKeychain(makeInput({

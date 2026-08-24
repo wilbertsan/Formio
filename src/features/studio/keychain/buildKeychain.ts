@@ -4,7 +4,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
 import { createBaseShape, createReinforcementRing, getRingPosition, type RingParams } from './shapes'
 import { nameToGeometry } from './textToGeometry'
-import { defaultStackOffsets, type BoundingBox2D, type Circle2D } from './positioning'
+import { defaultStackOffsets, snapTextToSupport, type SnapContext, type BoundingBox2D, type Circle2D, type TextPosition } from './positioning'
 import type { KeychainParams, FontStyle, TextItem } from './schema'
 
 export interface BuildKeychainInput {
@@ -130,11 +130,38 @@ export function buildKeychain({
   const textGeometries: BufferGeometry[] = []
   const textItems: Array<{ id: string; geometry: BufferGeometry }> = []
 
+  const pieceBB: BoundingBox2D = {
+    minX: -params.width / 2,
+    maxX: params.width / 2,
+    minY: -params.width / 2,
+    maxY: params.width / 2,
+  }
+  const hole: Circle2D = { x: 0, y: params.width / 2, radius: params.ringInnerDiameter / 2 }
+  const snapSupports: TextPosition[] = []
+
   for (let i = 0; i < params.texts.length; i++) {
     const item = params.texts[i]
     const resolvedFont = resolveFont(fonts, font, item.fontStyle)
     const textGeometry = buildItemGeometry(item, resolvedFont, availableWidth)
-    textGeometry.translate(item.offsetX, baseYs[i] + item.offsetY, params.thickness - 0.01)
+
+    textGeometry.computeBoundingBox()
+    const bb = textGeometry.boundingBox!
+    const halfWidth = (bb.max.x - bb.min.x) / 2
+    const halfHeight = (bb.max.y - bb.min.y) / 2
+
+    const textPos: TextPosition = {
+      x: item.offsetX,
+      y: baseYs[i] + item.offsetY,
+      halfWidth,
+      halfHeight,
+    }
+
+    const snapCtx: SnapContext = { supports: snapSupports, pieceBB, hole }
+    const snapped = snapTextToSupport(textPos, snapCtx)
+
+    snapSupports.push({ x: snapped.x, y: snapped.y, halfWidth, halfHeight })
+
+    textGeometry.translate(snapped.x, snapped.y, params.thickness - 0.01)
     textGeometries.push(textGeometry)
     textItems.push({ id: item.id, geometry: textGeometry })
   }
