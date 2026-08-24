@@ -5,12 +5,10 @@
 O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. A primeira ferramenta
 real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
-- **Topbar** — marca, nome do projeto editável, Exportar STL (funcional) e
-  Salvar (disabled, disponível a partir do Sprint 2)
-- **Toolbar** — formas (Retângulo/Círculo/Coração) e modo do texto (Relevo/Gravado) como ferramentas na coluna esquerda, além de Resetar câmera (funcional)
-- **Viewport** — tema claro com chaveiro vertical; câmera frontal e grid distante como piso de fundo (nunca cruza a figura)
-- **Parâmetros** — nome (1–12 chars, acentos normalizados) e sliders condensados com Amplify UI (largura, altura, espessura, tamanho e profundidade do texto, diâmetro do furo)
-- **Status bar** — dimensões atuais em mm e dicas de navegação
+- **Topbar** — nome do projeto, Exportar STL (funcional), Salvar (disabled)
+- **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 4 blocos Accordion (Texto, Base, Argola, Relevo)
+- **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
+- **Status bar** — dimensões em mm + dicas
 
 Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 (rota pública; autenticação entra em ciclo futuro).
@@ -19,13 +17,15 @@ Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 
 | O que | Onde |
 |---|---|
-| Formas e modos de texto | `src/features/studio/components/StudioToolbar.tsx` |
-| Parâmetros/ranges/defaults | `src/features/studio/keychain/schema.ts` |
-| Shapes das bases | `src/features/studio/keychain/shapes.ts` |
-| Texto 3D | `src/features/studio/keychain/textToGeometry.ts` |
-| Composição (merge/CSG) | `src/features/studio/keychain/buildKeychain.ts` |
-| Exportação STL | `src/features/studio/keychain/exportStl.ts` |
-| Estado + debounce | `src/features/studio/hooks/useKeychain.ts` |
+| 17 parâmetros e defaults | `src/features/studio/keychain/schema.ts` |
+| Fontes typeface.json | `src/assets/fonts/` |
+| Mapa estilo→fonte | `src/features/studio/keychain/fonts.ts` |
+| Formas + furo parametrizável | `src/features/studio/keychain/shapes.ts` |
+| Texto 3D + fit-to-width | `src/features/studio/keychain/textToGeometry.ts` |
+| Composição {base, text} | `src/features/studio/keychain/buildKeychain.ts` |
+| Export STL (merge) | `src/features/studio/keychain/exportStl.ts` |
+| Estado + fontes lazy | `src/features/studio/hooks/useKeychain.ts` |
+| Painel de blocos | `src/features/studio/components/StudioPanel.tsx` |
 
 ## Gerador de chaveiros
 
@@ -54,6 +54,12 @@ Pipeline completo de geração do chaveiro 3D:
 - **Gravação rasa:** o texto gravado corta apenas `textDepth` a partir da face frontal (epsilon 0.2 anti-coplanar) — o verso fica sólido e o texto nunca aparece espelhado por trás.
 - **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
 - **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
+- **Regras de segurança:** texto sempre com borda ≥ 4mm (`TEXT_BORDER_MIN`); furo da argola sempre a ≥ 2mm da borda (`RING_EDGE_MARGIN`). Clamp automático.
+- **3 fontes carregadas sob demanda:** helvetiker_regular (normal), helvetiker_bold (bold), optimer_regular (serif). Cache no hook; troca rebuilda geometria.
+- **2 cores no preview:** `buildKeychain` retorna `{base, text}`; material base = `baseColor`, material texto = `letterColor`. Troca de cor NÃO rebuilda geometria (só material).
+- **Anel de reforço:** anel extrudado ao redor do furo, mergeado na base.
+- **Swatches PLA:** 10 cores fixas no schema; STL exportado não carrega cor.
+- **Painel Antigo removido:** `StudioToolbar` e `StudioParameters` mortos.
 
 ## Próximos passos (fora de escopo desta fase)
 
