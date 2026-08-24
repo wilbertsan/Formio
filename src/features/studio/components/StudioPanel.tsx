@@ -15,6 +15,7 @@ interface StudioPanelProps {
   params: KeychainParams
   onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
   onUpdateName: (name: string) => void
+  onUpdateText: (textKey: string, value: number | string) => void
   onReset: () => void
 }
 
@@ -48,8 +49,10 @@ export function StudioPanel({
   params,
   onUpdateParam,
   onUpdateName,
+  onUpdateText,
   onReset,
 }: StudioPanelProps) {
+  const text0 = params.texts[0]
   return (
     <View
       as="aside"
@@ -78,16 +81,16 @@ export function StudioPanel({
               <TextField
                 label="Nome"
                 descriptiveText="Até 12 caracteres. Acentos são removidos."
-                value={params.name}
+                value={text0.content}
                 maxLength={12}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateName(e.target.value)}
               />
 
               <SelectField
                 label="Estilo da letra"
-                value={params.fontStyle}
+                value={text0.fontStyle}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateParam('fontStyle', e.target.value)
+                  onUpdateText('fontStyle', e.target.value)
                 }
               >
                 <option value="bold">Negrito</option>
@@ -97,38 +100,38 @@ export function StudioPanel({
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
-                <Text fontSize="xs" color="font.secondary">{params.textWidth} mm</Text>
+                <Text fontSize="xs" color="font.secondary">{text0.width} mm</Text>
               </Flex>
               <SliderField
                 label=""
                 aria-label="Largura do texto"
                 min={8} max={60} step={1}
-                value={params.textWidth}
-                onChange={(value) => onUpdateParam('textWidth', value as number)}
+                value={text0.width}
+                onChange={(value) => onUpdateText('width', value as number)}
               />
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
-                <Text fontSize="xs" color="font.secondary">{params.textSize} mm</Text>
+                <Text fontSize="xs" color="font.secondary">{text0.height} mm</Text>
               </Flex>
               <SliderField
                 label=""
                 aria-label="Altura do texto"
                 min={4} max={20} step={0.5}
-                value={params.textSize}
-                onChange={(value) => onUpdateParam('textSize', value as number)}
+                value={text0.height}
+                onChange={(value) => onUpdateText('height', value as number)}
               />
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
-                <Text fontSize="xs" color="font.secondary">{params.letterHeight} mm</Text>
+                <Text fontSize="xs" color="font.secondary">{text0.relief} mm</Text>
               </Flex>
               <SliderField
                 label=""
                 aria-label="Altura do relevo"
                 min={0.4} max={2} step={0.1}
-                value={params.letterHeight}
-                onChange={(value) => onUpdateParam('letterHeight', value as number)}
+                value={text0.relief}
+                onChange={(value) => onUpdateText('relief', value as number)}
               />
             </Flex>
           </Accordion.Content>

@@ -7,6 +7,7 @@ import { buildKeychain, type BuildKeychainResult } from '../keychain/buildKeycha
 
 type KeychainAction =
   | { type: 'update'; key: keyof KeychainParams; value: number | string }
+  | { type: 'updateText'; textKey: string; value: number | string }
   | { type: 'reset' }
 
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
@@ -36,6 +37,16 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
       const parsed = keychainParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
+    case 'updateText': {
+      const clamped = typeof action.value === 'number'
+        ? clampValue(action.textKey, action.value)
+        : action.value
+      const nextTexts = [...state.texts]
+      nextTexts[0] = { ...nextTexts[0], [action.textKey]: clamped }
+      const next = { ...state, texts: nextTexts }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
     case 'reset':
       return defaultKeychainParams
   }
@@ -57,21 +68,22 @@ export function useKeychain() {
   const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
+  const fontStyle = params.texts[0]?.fontStyle ?? 'bold'
+
   useEffect(() => {
-    const style = params.fontStyle
-    if (fontCache.has(style)) return
+    if (fontCache.has(fontStyle)) return
     const loader = new FontLoader()
     loader.load(
-      fontUrls[style],
+      fontUrls[fontStyle],
       (font) => {
-        setFontCache((prev) => new Map(prev).set(style, font as unknown as Font))
+        setFontCache((prev) => new Map(prev).set(fontStyle, font as unknown as Font))
       },
       undefined,
       () => setFontError(true),
     )
-  }, [params.fontStyle, fontCache])
+  }, [fontStyle, fontCache])
 
-  const font = fontCache.get(params.fontStyle) ?? null
+  const font = fontCache.get(fontStyle) ?? null
 
   useEffect(() => {
     if (!font) return
@@ -90,8 +102,12 @@ export function useKeychain() {
     dispatch({ type: 'update', key, value })
   }, [])
 
-  const updateName = useCallback((name: string) => {
-    dispatch({ type: 'update', key: 'name', value: name })
+  const updateName = useCallback((content: string) => {
+    dispatch({ type: 'updateText', textKey: 'content', value: content })
+  }, [])
+
+  const updateText = useCallback((textKey: string, value: number | string) => {
+    dispatch({ type: 'updateText', textKey, value })
   }, [])
 
   const reset = useCallback(() => {
@@ -103,5 +119,5 @@ export function useKeychain() {
     return { width: params.width, height, thickness: params.thickness }
   }, [params.width, params.baseShape, params.thickness])
 
-  return { params, geometry, fontError, dimensions, updateParam, updateName, reset }
+  return { params, geometry, fontError, dimensions, updateParam, updateName, updateText, reset }
 }

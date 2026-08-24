@@ -53,13 +53,13 @@ describe('useKeychain', () => {
   it('updateName aceita nome válido', () => {
     const { result } = renderHook(() => useKeychain())
     act(() => result.current.updateName('Ana'))
-    expect(result.current.params.name).toBe('Ana')
+    expect(result.current.params.texts[0].content).toBe('Ana')
   })
 
   it('updateName rejeita nome inválido', () => {
     const { result } = renderHook(() => useKeychain())
     act(() => result.current.updateName(''))
-    expect(result.current.params.name).toBe(defaultKeychainParams.name)
+    expect(result.current.params.texts[0].content).toBe(defaultKeychainParams.texts[0].content)
   })
 
   it('reset restaura defaults', () => {
@@ -79,9 +79,9 @@ describe('useKeychain', () => {
   it('trocar fontStyle não rebuilda geometria (mesmo objeto)', async () => {
     const { result } = renderHook(() => useKeychain())
     await waitFor(() => expect(result.current.geometry).not.toBeNull())
-    act(() => result.current.updateParam('fontStyle', 'serif'))
+    act(() => result.current.updateText('fontStyle', 'serif'))
     await waitFor(() => {
-      expect(result.current.params.fontStyle).toBe('serif')
+      expect(result.current.params.texts[0].fontStyle).toBe('serif')
     })
     expect(result.current.geometry).toBeDefined()
   })

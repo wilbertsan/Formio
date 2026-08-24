@@ -89,7 +89,12 @@ describe('buildKeychain', () => {
 
   it('texto não excede largura disponível (width - 2 * borderWidth)', () => {
     const result = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, borderWidth: 10, width: 50 } as KeychainParams,
+      params: {
+        ...defaultKeychainParams,
+        borderWidth: 10,
+        width: 50,
+        texts: [{ ...defaultKeychainParams.texts[0], width: 50 }],
+      } as KeychainParams,
     }))
     result.text.computeBoundingBox()
     const textWidth = (result.text.boundingBox?.max.x ?? 0) - (result.text.boundingBox?.min.x ?? 0)
@@ -98,10 +103,16 @@ describe('buildKeychain', () => {
 
   it('textSize define a altura das letras', () => {
     const small = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, textSize: 8 } as never,
+      params: {
+        ...defaultKeychainParams,
+        texts: [{ ...defaultKeychainParams.texts[0], height: 8 }],
+      } as KeychainParams,
     }))
     const large = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, textSize: 16 } as never,
+      params: {
+        ...defaultKeychainParams,
+        texts: [{ ...defaultKeychainParams.texts[0], height: 16 }],
+      } as KeychainParams,
     }))
     small.text.computeBoundingBox()
     large.text.computeBoundingBox()
@@ -112,7 +123,12 @@ describe('buildKeychain', () => {
 
   it('textWidth limita a largura do texto sem exceder a área útil', () => {
     const result = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, textWidth: 60, width: 50, borderWidth: 4 } as never,
+      params: {
+        ...defaultKeychainParams,
+        width: 50,
+        borderWidth: 4,
+        texts: [{ ...defaultKeychainParams.texts[0], width: 60 }],
+      } as KeychainParams,
     }))
     result.text.computeBoundingBox()
     const w = (result.text.boundingBox?.max.x ?? 0) - (result.text.boundingBox?.min.x ?? 0)
@@ -121,10 +137,16 @@ describe('buildKeychain', () => {
 
   it('textWidth menor reduz a largura do texto', () => {
     const wide = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, textWidth: 40 } as never,
+      params: {
+        ...defaultKeychainParams,
+        texts: [{ ...defaultKeychainParams.texts[0], width: 40 }],
+      } as KeychainParams,
     }))
     const narrow = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, textWidth: 12 } as never,
+      params: {
+        ...defaultKeychainParams,
+        texts: [{ ...defaultKeychainParams.texts[0], width: 12 }],
+      } as KeychainParams,
     }))
     wide.text.computeBoundingBox()
     narrow.text.computeBoundingBox()
@@ -135,10 +157,20 @@ describe('buildKeychain', () => {
 
   it('usando borderWidth menor resulta em texto maior', () => {
     const result4 = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, borderWidth: 4, width: 28, letterHeight: 2 } as KeychainParams,
+      params: {
+        ...defaultKeychainParams,
+        borderWidth: 4,
+        width: 28,
+        texts: [{ ...defaultKeychainParams.texts[0], relief: 2 }],
+      } as KeychainParams,
     }))
     const result10 = buildKeychain(makeInput({
-      params: { ...defaultKeychainParams, borderWidth: 10, width: 28, letterHeight: 2 } as KeychainParams,
+      params: {
+        ...defaultKeychainParams,
+        borderWidth: 10,
+        width: 28,
+        texts: [{ ...defaultKeychainParams.texts[0], relief: 2 }],
+      } as KeychainParams,
     }))
     result4.text.computeBoundingBox()
     result10.text.computeBoundingBox()

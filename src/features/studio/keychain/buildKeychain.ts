@@ -57,6 +57,8 @@ function buildScaledText({
 }
 
 export function buildKeychain({ font, params, onError }: BuildKeychainInput): BuildKeychainResult {
+  const text0 = params.texts[0]
+
   const ring: RingParams = {
     position: params.ringPosition,
     innerDiameter: params.ringInnerDiameter,
@@ -88,15 +90,15 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   const mergedBase = mergeGeometries([baseGeometry, reinforcementGeometry]) ?? baseGeometry
 
   const availableWidth = params.width - 2 * params.borderWidth
-  const targetWidth = Math.min(params.textWidth, availableWidth)
+  const targetWidth = Math.min(text0.width, availableWidth)
 
   if (params.textMode === 'raised') {
     const textGeometry = buildScaledText({
       font,
-      name: params.name,
-      textSize: params.textSize,
+      name: text0.content,
+      textSize: text0.height,
       targetWidth,
-      depth: params.letterHeight,
+      depth: text0.relief,
     })
     textGeometry.translate(0, 0, params.thickness - 0.01)
     mergedBase.computeVertexNormals()
@@ -106,10 +108,10 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   try {
     const textGeometry = buildScaledText({
       font,
-      name: params.name,
-      textSize: params.textSize,
+      name: text0.content,
+      textSize: text0.height,
       targetWidth,
-      depth: params.letterHeight + ENGRAVE_EPSILON,
+      depth: text0.relief + ENGRAVE_EPSILON,
     })
     textGeometry.translate(0, 0, params.thickness)
     const evaluator = new Evaluator()
@@ -120,10 +122,10 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
     onError?.('Falha na gravação; usando relevo')
     const fallback = buildScaledText({
       font,
-      name: params.name,
-      textSize: params.textSize,
+      name: text0.content,
+      textSize: text0.height,
       targetWidth,
-      depth: params.letterHeight,
+      depth: text0.relief,
     })
     fallback.translate(0, 0, params.thickness - 0.01)
     mergedBase.computeVertexNormals()

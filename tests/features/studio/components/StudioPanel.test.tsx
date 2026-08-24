@@ -7,12 +7,14 @@ function renderPanel(
   onUpdate = () => undefined,
   onName = () => undefined,
   onReset = () => undefined,
+  onText = () => undefined,
 ) {
   return render(
     <StudioPanel
       params={defaultKeychainParams}
       onUpdateParam={onUpdate}
       onUpdateName={onName}
+      onUpdateText={onText}
       onReset={onReset}
     />,
   )
@@ -49,12 +51,12 @@ describe('StudioPanel', () => {
     expect(screen.getByLabelText(/diâmetro interno/i)).toBeInTheDocument()
   })
 
-  it('dispara onUpdateParam ao trocar estilo de letra', async () => {
+  it('dispara onUpdateText ao trocar estilo de letra', async () => {
     const user = userEvent.setup()
-    const onUpdate = vi.fn()
-    renderPanel(onUpdate)
+    const onText = vi.fn()
+    renderPanel(undefined, undefined, undefined, onText)
     await user.selectOptions(screen.getByRole('listbox', { name: /estilo da letra/i }), 'normal')
-    expect(onUpdate).toHaveBeenCalledWith('fontStyle', 'normal')
+    expect(onText).toHaveBeenCalledWith('fontStyle', 'normal')
   })
 
   it('renderiza sliders de largura do texto, altura do texto e altura do relevo no bloco Texto', () => {

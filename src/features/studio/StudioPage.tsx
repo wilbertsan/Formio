@@ -10,7 +10,7 @@ export function StudioPage() {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
 
-  const { params, geometry, dimensions, updateParam, updateName, reset } = useKeychain()
+  const { params, geometry, dimensions, updateParam, updateName, updateText, reset } = useKeychain()
 
   const handleResetCamera = useCallback(() => {
     setResetCameraSignal((signal) => signal + 1)
@@ -35,6 +35,7 @@ export function StudioPage() {
           params={params}
           onUpdateParam={updateParam}
           onUpdateName={updateName}
+          onUpdateText={updateText}
           onReset={reset}
         />
         <StudioViewport
