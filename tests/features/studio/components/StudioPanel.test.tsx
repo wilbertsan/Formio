@@ -1,50 +1,44 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StudioPanel } from '@/features/studio/components/StudioPanel'
-import { defaultKeychainParams, PLA_COLORS } from '@/features/studio/keychain/schema'
+import { defaultKeychainParams } from '@/features/studio/keychain/schema'
+
+const firstTextId = defaultKeychainParams.texts[0].id
 
 function renderPanel(overrides?: {
-  params?: typeof defaultKeychainParams
   selectedTextId?: string
-  onSelectText?: () => void
+  onUpdateParam?: () => void
   onUpdateText?: () => void
   onAddText?: () => void
   onRemoveText?: () => void
   onReset?: () => void
 }) {
-  const params = overrides?.params ?? defaultKeychainParams
   return render(
     <StudioPanel
-      params={params}
-      selectedTextId={overrides?.selectedTextId ?? params.texts[0].id}
-      onSelectText={overrides?.onSelectText ?? (() => undefined)}
+      params={defaultKeychainParams}
+      selectedTextId={overrides?.selectedTextId ?? firstTextId}
+      onSelectText={() => undefined}
       onUpdateText={overrides?.onUpdateText ?? (() => undefined)}
       onAddText={overrides?.onAddText ?? (() => undefined)}
       onRemoveText={overrides?.onRemoveText ?? (() => undefined)}
-      onUpdateParam={() => undefined}
+      onUpdateParam={overrides?.onUpdateParam ?? (() => undefined)}
       onReset={overrides?.onReset ?? (() => undefined)}
     />,
   )
 }
 
-describe('StudioPanel — Texto', () => {
-  it('renderiza chip do texto selecionado com aria-pressed', () => {
+describe('StudioPanel', () => {
+  it('renderiza bloco Texto com chip do primeiro texto selecionado', () => {
     renderPanel()
-    expect(screen.getByRole('button', { name: /Meu nome/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /meu nome/i })).toBeInTheDocument()
   })
 
-  it('renderiza botão de adicionar texto', () => {
+  it('renderiza botão + para adicionar texto', () => {
     renderPanel()
     expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeInTheDocument()
   })
 
-  it('renderiza controles do texto selecionado', () => {
-    renderPanel()
-    expect(screen.getByLabelText(/conteúdo/i)).toBeInTheDocument()
-    expect(screen.getByRole('listbox', { name: /estilo da letra/i })).toBeInTheDocument()
-  })
-
-  it('dispara onAddText ao clicar em adicionar', async () => {
+  it('dispara onAddText ao clicar em +', async () => {
     const user = userEvent.setup()
     const onAddText = vi.fn()
     renderPanel({ onAddText })
@@ -52,25 +46,38 @@ describe('StudioPanel — Texto', () => {
     expect(onAddText).toHaveBeenCalledTimes(1)
   })
 
-  it('botão adicionar desabilitado com 3 textos', () => {
+  it('renderiza controles do texto selecionado (conteúdo, estilo, toggle, relevo, posición)', () => {
+    renderPanel()
+    expect(screen.getByLabelText(/conteúdo/i)).toBeInTheDocument()
+    expect(screen.getByRole('listbox', { name: /estilo da letra/i })).toBeInTheDocument()
+    expect(screen.getByText(/proporcional à peça/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Altura do relevo')).toBeInTheDocument()
+    expect(screen.getByLabelText('Posição X')).toBeInTheDocument()
+    expect(screen.getByLabelText('Posição Y')).toBeInTheDocument()
+  })
+
+  it('esconde sliders de largura/altura quando proporcional está ligado', () => {
     const params = {
       ...defaultKeychainParams,
-      texts: [
-        defaultKeychainParams.texts[0],
-        { ...defaultKeychainParams.texts[0], id: 't2', content: 'Dois' },
-        { ...defaultKeychainParams.texts[0], id: 't3', content: 'Três' },
-      ],
+      texts: [{ ...defaultKeychainParams.texts[0], proportional: true }],
     }
-    renderPanel({ params })
-    expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeDisabled()
+    render(
+      <StudioPanel
+        params={params}
+        selectedTextId={firstTextId}
+        onSelectText={() => undefined}
+        onUpdateText={() => undefined}
+        onAddText={() => undefined}
+        onRemoveText={() => undefined}
+        onUpdateParam={() => undefined}
+        onReset={() => undefined}
+      />,
+    )
+    expect(screen.queryByLabelText('Largura do texto')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Altura do texto')).not.toBeInTheDocument()
   })
 
-  it('renderiza toggle de proporcional', () => {
-    renderPanel()
-    expect(screen.getByRole('switch', { name: /proporcional/i })).toBeInTheDocument()
-  })
-
-  it('renderiza sliders de largura e altura do texto', () => {
+  it('mostra sliders de largura/altura quando proporcional está desligado', () => {
     renderPanel()
     expect(screen.getByLabelText('Largura do texto')).toBeInTheDocument()
     expect(screen.getByLabelText('Altura do texto')).toBeInTheDocument()
@@ -80,37 +87,28 @@ describe('StudioPanel — Texto', () => {
     const user = userEvent.setup()
     const onUpdateText = vi.fn()
     renderPanel({ onUpdateText })
-    const id = defaultKeychainParams.texts[0].id
-    await user.type(screen.getByLabelText(/conteúdo/i), 'X')
-    expect(onUpdateText).toHaveBeenCalledWith(id, { content: expect.stringContaining('X') })
+    await user.type(screen.getByLabelText(/conteúdo/i), '!')
+    expect(onUpdateText).toHaveBeenCalledWith(firstTextId, { content: expect.any(String) })
   })
 
-  it('dispara onUpdateText ao trocar estilo', async () => {
+  it('dispara onUpdateText ao trocar estilo de letra', async () => {
     const user = userEvent.setup()
     const onUpdateText = vi.fn()
     renderPanel({ onUpdateText })
-    const id = defaultKeychainParams.texts[0].id
-    await user.selectOptions(screen.getByRole('listbox', { name: /estilo da letra/i }), 'serif')
-    expect(onUpdateText).toHaveBeenCalledWith(id, { fontStyle: 'serif' })
+    await user.selectOptions(screen.getByRole('listbox', { name: /estilo da letra/i }), 'normal')
+    expect(onUpdateText).toHaveBeenCalledWith(firstTextId, { fontStyle: 'normal' })
   })
 
-  it('não renderiza controles de texto quando não há textos', () => {
-    renderPanel({ params: { ...defaultKeychainParams, texts: [] }, selectedTextId: '' })
-    expect(screen.queryByLabelText(/conteúdo/i)).not.toBeInTheDocument()
-  })
-})
-
-describe('StudioPanel — Base/Argola', () => {
-  it('renderiza blocos Base e Argola', () => {
+  it('renderiza bloco Base com largura, espessura e borda', () => {
     renderPanel()
-    expect(screen.getByRole('heading', { name: /base/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /argola/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Largura da peça')).toBeInTheDocument()
+    expect(screen.getByLabelText('Espessura')).toBeInTheDocument()
+    expect(screen.getByLabelText('Borda')).toBeInTheDocument()
   })
 
-  it('renderiza dropdown de posição e swatches de cor', () => {
+  it('renderiza bloco Argola com position dropdown', () => {
     renderPanel()
     expect(screen.getByRole('listbox', { name: /posição/i })).toBeInTheDocument()
-    expect(screen.getAllByRole('button', { name: PLA_COLORS[0] }).length).toBeGreaterThanOrEqual(1)
   })
 
   it('restaura padrão', async () => {

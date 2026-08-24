@@ -149,29 +149,33 @@ export function StudioPanel({
                     }
                   />
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.width} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Largura do texto"
-                    min={8} max={60} step={1}
-                    value={selectedText.width}
-                    onChange={(value) => onUpdateText(selectedText.id, { width: value as number })}
-                  />
+                  {!selectedText.proportional && (
+                    <>
+                      <Flex direction="row" justifyContent="space-between">
+                        <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
+                        <Text fontSize="xs" color="font.secondary">{selectedText.width} mm</Text>
+                      </Flex>
+                      <SliderField
+                        label=""
+                        aria-label="Largura do texto"
+                        min={8} max={60} step={1}
+                        value={selectedText.width}
+                        onChange={(value) => onUpdateText(selectedText.id, { width: value as number })}
+                      />
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.height} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Altura do texto"
-                    min={4} max={20} step={0.5}
-                    value={selectedText.height}
-                    onChange={(value) => onUpdateText(selectedText.id, { height: value as number })}
-                  />
+                      <Flex direction="row" justifyContent="space-between">
+                        <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
+                        <Text fontSize="xs" color="font.secondary">{selectedText.height} mm</Text>
+                      </Flex>
+                      <SliderField
+                        label=""
+                        aria-label="Altura do texto"
+                        min={4} max={20} step={0.5}
+                        value={selectedText.height}
+                        onChange={(value) => onUpdateText(selectedText.id, { height: value as number })}
+                      />
+                    </>
+                  )}
 
                   <Flex direction="row" justifyContent="space-between">
                     <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
