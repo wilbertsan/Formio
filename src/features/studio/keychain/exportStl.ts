@@ -1,10 +1,13 @@
-import { BufferGeometry, Mesh, Scene } from 'three'
+import { Mesh, Scene } from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
 import { sanitizeFilename } from './schema'
+import type { BuildKeychainResult } from './buildKeychain'
 
-export function exportStl(geometry: BufferGeometry, projectName: string): void {
+export function exportStl(geometry: BuildKeychainResult, projectName: string): void {
+  const merged = mergeGeometries([geometry.base, geometry.text]) ?? geometry.base
   const scene = new Scene()
-  scene.add(new Mesh(geometry))
+  scene.add(new Mesh(merged))
   const exporter = new STLExporter()
   const result = exporter.parse(scene, { binary: true })
   const blob = new Blob([result as unknown as BlobPart], { type: 'model/stl' })

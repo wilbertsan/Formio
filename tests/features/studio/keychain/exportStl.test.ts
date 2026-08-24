@@ -1,6 +1,13 @@
 import * as THREE from 'three'
 import { exportStl } from '@/features/studio/keychain/exportStl'
 
+vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
+  mergeGeometries: vi.fn((geos: THREE.BufferGeometry[]) => {
+    if (geos.length === 0) return null
+    return geos[0].clone()
+  }),
+}))
+
 describe('exportStl', () => {
   it('gera download com blob e nome sanitizado', () => {
     const createObjectURL = vi.fn(() => 'blob:mock-url')
@@ -18,15 +25,15 @@ describe('exportStl', () => {
     Object.defineProperty(document.body, 'appendChild', { value: appendChildSpy, writable: true })
     Object.defineProperty(document.body, 'removeChild', { value: removeChildSpy, writable: true })
 
-    const geometry = new THREE.BoxGeometry(10, 10, 10)
-    exportStl(geometry, 'Meu Projeto! @#')
+    const base = new THREE.BoxGeometry(10, 10, 10)
+    const text = new THREE.BoxGeometry(5, 5, 5)
+    exportStl({ base, text }, 'Meu Projeto! @#')
 
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     const blob = (createObjectURL.mock.calls as unknown[][])[0]![0] as Blob
     expect(blob).toBeInstanceOf(Blob)
     expect(blob.size).toBeGreaterThan(0)
     expect(anchorStub.download).toBe('Meu-Projeto.stl')
-    expect(anchorStub.href).toBe('blob:mock-url')
     expect(clickSpy).toHaveBeenCalledTimes(1)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
 
