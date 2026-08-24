@@ -7,7 +7,7 @@ real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
 - **Topbar** — nome do projeto, Exportar STL (funcional), Salvar (disabled)
 - **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 3 blocos Accordion (Texto, Base, Argola):
-  - **Texto** — nome, estilo da letra (dropdown Negrito/Normal/Serifada), largura do texto (8–60mm), altura do texto (4–20mm), altura do relevo (0.4–2mm)
+  - **Texto** — Chips de seleção por texto (+ adicionar até 3, lixeira); controles do selecionado: conteúdo, estilo da letra (dropdown), toggle proporcional à peça, largura/altura do texto (quando proporcional desligado), altura do relevo, posição X/Y (−20–20mm); modo Relevo/Gravado
   - **Base** — largura da peça, forma, cores, espessura, borda
   - **Argola** — posição (SelectField com 4 opções), diâmetro interno (3–10mm), embutimento (0–3mm)
 - **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
@@ -29,6 +29,8 @@ Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 | Export STL (merge) | `src/features/studio/keychain/exportStl.ts` |
 | Estado + fontes lazy | `src/features/studio/hooks/useKeychain.ts` |
 | Painel de blocos | `src/features/studio/components/StudioPanel.tsx` |
+| Posicionamento/empilhamento | `src/features/studio/keychain/positioning.ts` |
+| Arraste no viewport | `src/features/studio/components/TextDraggable.tsx` |
 
 ## Gerador de chaveiros
 
@@ -66,6 +68,10 @@ Pipeline completo de geração do chaveiro 3D:
 - **Controle direto do texto:** `textWidth` (8–60mm) e `textSize` (4–20mm) no schema; escala uniforme no build limitada pela área útil (regra de 4mm preservada).
 - **Estilo em SelectField:** dropdown nativo no painel — elimina overflow do ButtonGroup anterior.
 - **Argola com SelectField:** posição da argola usa dropdown nativo (Cima/Baixo/Esquerda/Direita); embutimento e diâmetro interno mantidos como sliders.
+- **Textos múltiplos:** `texts: TextItem[]` (1–3) no schema; cada item com conteúdo, fonte, tamanho, largura, relevo, proporcional e posição X/Y próprios. Campos globais antigos (`name`, `fontStyle`, `letterHeight`, `textWidth`, `textSize`) removidos.
+- **Empilhamento automático:** textos empilhados verticalmente centrados; offsets X/Y são relativos à posição base.
+- **Drag 3D:** `TextDraggable` usa raycaster no plano da peça; `clampTextPosition` limita à borda (4mm) e afasta do furo (distância centro-a-centro). OrbitControls desabilitado durante o drag; commit do offset no pointerup.
+- **Toggle proporcional por texto:** ligado = escala automática; desligado = sliders manuais de largura/altura.
 
 ## Próximos passos (fora de escopo desta fase)
 
