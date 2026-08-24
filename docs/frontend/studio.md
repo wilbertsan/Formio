@@ -6,7 +6,10 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. A primeira ferramen
 real é o **gerador de chaveiros** (frontend puro, exportação STL):
 
 - **Topbar** — nome do projeto, Exportar STL (funcional), Salvar (disabled)
-- **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 4 blocos Accordion (Texto, Base, Argola, Relevo)
+- **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 3 blocos Accordion (Texto, Base, Argola):
+  - **Texto** — nome, estilo da letra (dropdown Negrito/Normal/Serifada), largura do texto (8–60mm), altura do texto (4–20mm), altura do relevo (0.4–2mm)
+  - **Base** — largura da peça, forma, cores, espessura, borda
+  - **Argola** — posição, diâmetro interno, espessura, encaixe, ajustes
 - **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
 - **Status bar** — dimensões em mm + dicas
 
@@ -17,7 +20,7 @@ Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
 
 | O que | Onde |
 |---|---|
-| 17 parâmetros e defaults | `src/features/studio/keychain/schema.ts` |
+| 17 parâmetros e defaults (`textWidth`, `textSize`, `letterHeight`, etc.) | `src/features/studio/keychain/schema.ts` |
 | Fontes typeface.json | `src/assets/fonts/` |
 | Mapa estilo→fonte | `src/features/studio/keychain/fonts.ts` |
 | Formas + furo parametrizável | `src/features/studio/keychain/shapes.ts` |
@@ -60,6 +63,8 @@ Pipeline completo de geração do chaveiro 3D:
 - **Anel de reforço:** anel extrudado ao redor do furo, mergeado na base.
 - **Swatches PLA:** 10 cores fixas no schema; STL exportado não carrega cor.
 - **Painel Antigo removido:** `StudioToolbar` e `StudioParameters` mortos.
+- **Controle direto do texto:** `textWidth` (8–60mm) e `textSize` (4–20mm) no schema; escala uniforme no build limitada pela área útil (regra de 4mm preservada).
+- **Estilo em SelectField:** dropdown nativo no painel — elimina overflow do ButtonGroup anterior.
 
 ## Próximos passos (fora de escopo desta fase)
 
