@@ -1,6 +1,7 @@
 import {
   clampTextPosition,
   defaultStackOffsets,
+  snapTextToSupport,
 } from '@/features/studio/keychain/positioning'
 
 describe('defaultStackOffsets', () => {
@@ -48,5 +49,44 @@ describe('clampTextPosition', () => {
     const result = clampTextPosition({ x: 0, y: 10, ...textHalf }, pieceBB, hole)
     const distance = Math.hypot(result.x - hole.x, result.y - hole.y)
     expect(distance).toBeGreaterThanOrEqual(hole.radius + 1)
+  })
+})
+
+describe('snapTextToSupport', () => {
+  const pieceBB = { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 }
+  const FUSION = 0.5
+
+  it('texto flutuante no meio snapa para o topo interno da peça', () => {
+    const result = snapTextToSupport(
+      { x: 0, y: 0, halfWidth: 10, halfHeight: 5 },
+      { supports: [], pieceBB },
+    )
+    expect(result.y + 5).toBeCloseTo(pieceBB.maxY - 4, 1)
+  })
+
+  it('texto snapa para a base do texto anterior com fusão', () => {
+    const previous = { x: 0, y: 5, halfWidth: 10, halfHeight: 5 }
+    const result = snapTextToSupport(
+      { x: 0, y: -3, halfWidth: 10, halfHeight: 5 },
+      { supports: [previous], pieceBB },
+    )
+    expect(result.y + 5).toBeCloseTo(previous.y - 5 - FUSION, 1)
+  })
+
+  it('texto snapa para a borda inferior do furo quando acima dele', () => {
+    const hole = { x: 0, y: 9, radius: 4.5 }
+    const result = snapTextToSupport(
+      { x: 0, y: 2, halfWidth: 10, halfHeight: 5 },
+      { supports: [], pieceBB, hole },
+    )
+    expect(result.y + 5).toBeCloseTo(hole.y - hole.radius - FUSION, 1)
+  })
+
+  it('preserva X quando há suporte vertical', () => {
+    const result = snapTextToSupport(
+      { x: 8, y: 0, halfWidth: 10, halfHeight: 5 },
+      { supports: [], pieceBB },
+    )
+    expect(result.x).toBe(8)
   })
 })
