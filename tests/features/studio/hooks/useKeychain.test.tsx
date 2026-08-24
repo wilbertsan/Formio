@@ -4,7 +4,7 @@ import { useKeychain } from '@/features/studio/hooks/useKeychain'
 import { defaultKeychainParams } from '@/features/studio/keychain/schema'
 
 vi.mock('@/features/studio/keychain/buildKeychain', () => ({
-  buildKeychain: vi.fn(() => new THREE.BufferGeometry()),
+  buildKeychain: vi.fn(() => ({ base: new THREE.BufferGeometry(), text: new THREE.BufferGeometry() })),
 }))
 
 vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({
@@ -58,7 +58,7 @@ describe('useKeychain', () => {
 
   it('carrega fonte e gera geometria', async () => {
     const { result } = renderHook(() => useKeychain())
-    await waitFor(() => expect(result.current.geometry).not.toBeNull())
+    await waitFor(() => expect(result.current.keychainResult).not.toBeNull())
     expect(result.current.fontError).toBe(false)
   })
 })

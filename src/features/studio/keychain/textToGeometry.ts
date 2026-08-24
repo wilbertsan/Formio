@@ -32,5 +32,5 @@ interface FitTextHeightInput {
 export function fitTextHeight({ name, requestedSize, maxWidth, factor }: FitTextHeightInput): number {
   const estimatedWidth = normalizeName(name).length * requestedSize * factor
   if (estimatedWidth <= maxWidth) return requestedSize
-  return Math.max(6, Math.floor((maxWidth / (normalizeName(name).length * factor)) * 10) / 10)
+  return Math.max(0.4, Math.floor((maxWidth / (normalizeName(name).length * factor)) * 10) / 10)
 }

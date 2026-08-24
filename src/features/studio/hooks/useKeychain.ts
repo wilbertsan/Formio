@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import type { BufferGeometry } from 'three'
 import { FontLoader, type Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import fontUrl from '@/assets/fonts/helvetiker_bold.typeface.json?url'
 import {
@@ -7,7 +6,7 @@ import {
   keychainParamsSchema,
   type KeychainParams,
 } from '../keychain/schema'
-import { buildKeychain } from '../keychain/buildKeychain'
+import { buildKeychain, type BuildKeychainResult } from '../keychain/buildKeychain'
 
 type KeychainAction =
   | { type: 'update'; key: keyof KeychainParams; value: number | string }
@@ -47,7 +46,7 @@ export function useKeychain() {
   const [params, dispatch] = useReducer(keychainReducer, defaultKeychainParams)
   const [font, setFont] = useState<Font | null>(null)
   const [fontError, setFontError] = useState(false)
-  const [geometry, setGeometry] = useState<BufferGeometry | null>(null)
+  const [keychainResult, setKeychainResult] = useState<BuildKeychainResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
@@ -63,10 +62,10 @@ export function useKeychain() {
     if (!font) return
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
-      setGeometry((prev) => {
-        const next = buildKeychain({ font, params, onError: () => undefined })
-        prev?.dispose()
-        return next
+      setKeychainResult((prev) => {
+        prev?.base.dispose()
+        prev?.text.dispose()
+        return buildKeychain({ font, params, onError: () => undefined })
       })
     }, 200)
     return () => clearTimeout(debounceRef.current)
@@ -89,5 +88,5 @@ export function useKeychain() {
     [params.width, params.height, params.thickness],
   )
 
-  return { params, geometry, fontError, dimensions, updateParam, updateName, reset }
+  return { params, keychainResult, fontError, dimensions, updateParam, updateName, reset }
 }

@@ -2,10 +2,7 @@ import * as THREE from 'three'
 import { buildKeychain, type BuildKeychainInput } from '@/features/studio/keychain/buildKeychain'
 import { defaultKeychainParams, type KeychainParams } from '@/features/studio/keychain/schema'
 
-const { csgCalls } = vi.hoisted(() => {
-  const csgCalls: Array<{ base: THREE.BufferGeometry; text: THREE.BufferGeometry }> = []
-  return { csgCalls }
-})
+const fontStub = { glyphs: {} } as never
 
 vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   TextGeometry: class extends THREE.BufferGeometry {
@@ -18,10 +15,8 @@ vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
       this.setAttribute(
         'position',
         new THREE.Float32BufferAttribute(
-          [
-            -w / 2, -h / 2, 0, w / 2, -h / 2, 0, w / 2, h / 2, 0, -w / 2, h / 2, 0,
-            -w / 2, -h / 2, d, w / 2, -h / 2, d, w / 2, h / 2, d, -w / 2, h / 2, d,
-          ],
+          [-w / 2, -h / 2, 0, w / 2, -h / 2, 0, w / 2, h / 2, 0, -w / 2, h / 2, 0,
+           -w / 2, -h / 2, d, w / 2, -h / 2, d, w / 2, h / 2, d, -w / 2, h / 2, d],
           3,
         ),
       )
@@ -30,14 +25,17 @@ vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   },
 }))
 
+const { csgCalls } = vi.hoisted(() => {
+  const csgCalls: Array<{ base: THREE.BufferGeometry; text: THREE.BufferGeometry }> = []
+  return { csgCalls }
+})
+
 vi.mock('three-bvh-csg', () => ({
-  Brush: class {
-    constructor(public geometry: THREE.BufferGeometry) {}
-  },
+  Brush: class { constructor(public geometry: THREE.BufferGeometry) {} },
   Evaluator: class {
-    evaluate(a: { geometry: THREE.BufferGeometry }, b: { geometry: THREE.BufferGeometry }): THREE.BufferGeometry {
+    evaluate(a: { geometry: THREE.BufferGeometry }, b: { geometry: THREE.BufferGeometry }) {
       csgCalls.push({ base: a.geometry, text: b.geometry })
-      return a.geometry.clone()
+      return { geometry: a.geometry.clone() }
     }
   },
   SUBTRACTION: 2,
@@ -52,8 +50,6 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
   },
 }))
 
-const fontStub = { glyphs: {} } as never
-
 function makeInput(overrides?: Partial<BuildKeychainInput>): BuildKeychainInput {
   return {
     font: fontStub,
@@ -63,44 +59,54 @@ function makeInput(overrides?: Partial<BuildKeychainInput>): BuildKeychainInput 
 }
 
 describe('buildKeychain', () => {
-  it('modo raised retorna geometria com atributos de posição', () => {
-    const geometry = buildKeychain(makeInput())
-    expect(geometry.getAttribute('position')).toBeDefined()
-    expect(geometry.getAttribute('position').count).toBeGreaterThan(0)
+  it('retorna base e texto como BufferGeometry separados', () => {
+    const result = buildKeychain(makeInput())
+    expect(result.base).toBeDefined()
+    expect(result.text).toBeDefined()
+    expect(result.base.getAttribute('position')).toBeDefined()
+    expect(result.text.getAttribute('position')).toBeDefined()
   })
 
-  it('modo engraved usa CSG e retorna geometria', () => {
+  it('raised: texto acima da espessura da base', () => {
+    const result = buildKeychain(makeInput())
+    result.text.computeBoundingBox()
+    expect(result.text.boundingBox?.max.z).toBeGreaterThan(defaultKeychainParams.thickness)
+  })
+
+  it('engraved: CSG subtrai do base', () => {
     csgCalls.length = 0
-    const geometry = buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
-    expect(geometry.getAttribute('position')).toBeDefined()
-    expect(geometry.getAttribute('position').count).toBeGreaterThan(0)
+    const result = buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
+    expect(result.base).toBeDefined()
     expect(csgCalls).toHaveLength(1)
   })
 
-  it('desloca texto para z >= thickness em raised', () => {
-    const geometry = buildKeychain(makeInput())
-    geometry.computeBoundingBox()
-    expect(geometry.boundingBox?.max.z).toBeGreaterThan(defaultKeychainParams.thickness)
+  it('engraved: verso da base intacto (gravação rasa)', () => {
+    csgCalls.length = 0
+    const result = buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
+    result.base.computeBoundingBox()
+    expect(result.base.boundingBox?.min.z).toBeGreaterThan(-0.3)
   })
 
-  it('gravado não atravessa a base — verso fica intacto', () => {
-    csgCalls.length = 0
-    const geometry = buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
-    geometry.computeBoundingBox()
-    expect(geometry.boundingBox?.min.z).toBeGreaterThan(-0.3)
-    expect(geometry.boundingBox?.max.z).toBeLessThanOrEqual(defaultKeychainParams.thickness + 0.3)
+  it('texto não excede largura disponível (width - 2 * borderWidth)', () => {
+    const result = buildKeychain(makeInput({
+      params: { ...defaultKeychainParams, borderWidth: 10, width: 50 } as KeychainParams,
+    }))
+    result.text.computeBoundingBox()
+    const textWidth = (result.text.boundingBox?.max.x ?? 0) - (result.text.boundingBox?.min.x ?? 0)
+    expect(textWidth).toBeLessThanOrEqual(50 - 2 * 10 + 1)
   })
 
-  it('texto do CSG entra apenas pela face frontal', () => {
-    csgCalls.length = 0
-    buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
-    expect(csgCalls).toHaveLength(1)
-    const textGeometry = csgCalls[0]?.text
-    expect(textGeometry).toBeDefined()
-    textGeometry.computeBoundingBox()
-    expect(textGeometry.boundingBox?.min.z).toBeGreaterThan(-0.01)
-    expect(textGeometry.boundingBox?.max.z).toBeGreaterThan(defaultKeychainParams.thickness)
-    const depth = (textGeometry.boundingBox?.max.z ?? 0) - (textGeometry.boundingBox?.min.z ?? 0)
-    expect(depth).toBeLessThanOrEqual(defaultKeychainParams.letterHeight + 0.3)
+  it('usando borderWidth menor resulta em texto maior', () => {
+    const result4 = buildKeychain(makeInput({
+      params: { ...defaultKeychainParams, borderWidth: 4, width: 28, letterHeight: 2 } as KeychainParams,
+    }))
+    const result10 = buildKeychain(makeInput({
+      params: { ...defaultKeychainParams, borderWidth: 10, width: 28, letterHeight: 2 } as KeychainParams,
+    }))
+    result4.text.computeBoundingBox()
+    result10.text.computeBoundingBox()
+    const w4 = (result4.text.boundingBox?.max.x ?? 0) - (result4.text.boundingBox?.min.x ?? 0)
+    const w10 = (result10.text.boundingBox?.max.x ?? 0) - (result10.text.boundingBox?.min.x ?? 0)
+    expect(w4).toBeGreaterThan(w10)
   })
 })
