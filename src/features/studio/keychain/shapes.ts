@@ -52,7 +52,7 @@ function clampToBoundingBox(
   center: Vector2,
   holeRadius: number,
 ): Vector2 {
-  const bb = new Box3().setFromPoints(shape.getPoints(64))
+  const bb = new Box3().setFromPoints(shape.getPoints(64).map(p => ({ x: p.x, y: p.y, z: 0 })))
   const minX = bb.min.x + RING_EDGE_MARGIN + holeRadius
   const maxX = bb.max.x - RING_EDGE_MARGIN - holeRadius
   const minY = bb.min.y + RING_EDGE_MARGIN + holeRadius

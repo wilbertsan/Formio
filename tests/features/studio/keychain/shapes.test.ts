@@ -4,6 +4,10 @@ import { defaultKeychainParams, RING_EDGE_MARGIN, type RingPosition } from '@/fe
 
 const baseParams = { ...defaultKeychainParams }
 
+function toVector3Like(points: THREE.Vector2[]): { x: number; y: number; z: number }[] {
+  return points.map(p => ({ x: p.x, y: p.y, z: 0 }))
+}
+
 function getRing(position: RingPosition) {
   return {
     position,
@@ -71,7 +75,7 @@ describe('createBaseShape', () => {
       const baseBB = boundingBox(shape)
       const hole = shape.holes[0]
       expect(hole).toBeDefined()
-      const holeBB = new THREE.Box3().setFromPoints(hole.getPoints(32))
+      const holeBB = new THREE.Box3().setFromPoints(toVector3Like(hole.getPoints(32)))
       const marginX = Math.min(
         holeBB.min.x - baseBB.min.x,
         baseBB.max.x - holeBB.max.x,
@@ -89,7 +93,7 @@ describe('createBaseShape', () => {
       const shape = createBaseShape('rect', 50, 50, getRing(position))
       const baseBB = boundingBox(shape)
       const hole = shape.holes[0]
-      const holeBB = new THREE.Box3().setFromPoints(hole.getPoints(32))
+      const holeBB = new THREE.Box3().setFromPoints(toVector3Like(hole.getPoints(32)))
       const marginX = Math.min(holeBB.min.x - baseBB.min.x, baseBB.max.x - holeBB.max.x)
       const marginY = Math.min(holeBB.min.y - baseBB.min.y, baseBB.max.y - holeBB.max.y)
       expect(Math.min(marginX, marginY)).toBeGreaterThanOrEqual(RING_EDGE_MARGIN - 0.5)
@@ -106,7 +110,7 @@ describe('createReinforcementRing', () => {
   it('anel externo maior que furo interno', () => {
     const ringShape = createReinforcementRing(getRing('top'))
     const outerBB = boundingBox(ringShape)
-    const holeBB = new THREE.Box3().setFromPoints(ringShape.holes[0].getPoints(32))
+    const holeBB = new THREE.Box3().setFromPoints(toVector3Like(ringShape.holes[0].getPoints(32)))
     const outerRadius = (outerBB.max.x - outerBB.min.x) / 2
     const holeRadius = (holeBB.max.x - holeBB.min.x) / 2
     expect(outerRadius).toBeGreaterThan(holeRadius)
