@@ -3,6 +3,7 @@ import { StudioTopbar } from './components/StudioTopbar'
 import { StudioPanel } from './components/StudioPanel'
 import { StudioViewport } from './components/StudioViewport'
 import { StudioStatusBar } from './components/StudioStatusBar'
+import { TextPositionEditor } from './components/TextPositionEditor'
 import { useKeychain } from './hooks/useKeychain'
 import { exportStl } from './keychain/exportStl'
 
@@ -10,6 +11,7 @@ export function StudioPage() {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
   const [selectedTextId, setSelectedTextId] = useState<string>('')
+  const [isEditorOpen, setEditorOpen] = useState(false)
 
   const {
     params,
@@ -44,6 +46,10 @@ export function StudioPage() {
     }
   }, [addText, params.texts])
 
+  const handleMoveText = useCallback((id: string, x: number, y: number) => {
+    updateText(id, { offsetX: x, offsetY: y })
+  }, [updateText])
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
       <StudioTopbar
@@ -62,7 +68,7 @@ export function StudioPage() {
           onRemoveText={removeText}
           onUpdateParam={updateParam}
           onReset={reset}
-          onOpenEditor={() => undefined}
+          onOpenEditor={() => setEditorOpen(true)}
         />
         <StudioViewport
           geometry={geometry}
@@ -73,6 +79,15 @@ export function StudioPage() {
         />
       </div>
       <StudioStatusBar dimensions={dimensions} />
+      {isEditorOpen && (
+        <TextPositionEditor
+          params={params}
+          selectedTextId={selectedTextId}
+          onSelectText={setSelectedTextId}
+          onMoveText={handleMoveText}
+          onClose={() => setEditorOpen(false)}
+        />
+      )}
     </div>
   )
 }

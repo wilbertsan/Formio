@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { StudioPage } from '@/features/studio/StudioPage'
 
@@ -45,6 +45,10 @@ vi.mock('@/features/studio/components/KeychainPreview', () => ({
   KeychainPreview: () => <div data-testid="keychain-preview" />,
 }))
 
+vi.mock('@/features/studio/components/TextPositionEditor', () => ({
+  TextPositionEditor: () => <div data-testid="text-editor" />,
+}))
+
 function renderStudioPage() {
   return render(
     <MemoryRouter>
@@ -78,5 +82,16 @@ describe('StudioPage', () => {
   it('exportar stl começa desabilitado', () => {
     renderStudioPage()
     expect(screen.getByRole('button', { name: 'Exportar STL' })).toBeDisabled()
+  })
+
+  it('editor de posicionamento não renderiza por padrão', () => {
+    renderStudioPage()
+    expect(screen.queryByTestId('text-editor')).not.toBeInTheDocument()
+  })
+
+  it('editor aparece ao clicar no botão de posicionar', () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /posicionar textos/i }))
+    expect(screen.getByTestId('text-editor')).toBeInTheDocument()
   })
 })
