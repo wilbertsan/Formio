@@ -15,6 +15,8 @@ interface StudioViewportProps {
   selectedTextId: string | null
   onSelectText: (id: string) => void
   onMoveText: (id: string, x: number, y: number) => void
+  onDragStart?: () => void
+  onDragEnd?: () => void
 }
 
 export function StudioViewport({
@@ -26,6 +28,8 @@ export function StudioViewport({
   selectedTextId,
   onSelectText,
   onMoveText,
+  onDragStart,
+  onDragEnd,
 }: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
 
@@ -78,6 +82,8 @@ export function StudioViewport({
             selectedTextId={selectedTextId}
             onSelectText={onSelectText}
             onMoveText={onMoveText}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
             pieceBB={geometry?.pieceBB ?? null}
             hole={geometry?.hole ?? null}
             pieceThickness={3}

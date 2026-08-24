@@ -17,6 +17,8 @@ interface KeychainPreviewProps {
   selectedTextId: string | null
   onSelectText: (id: string) => void
   onMoveText: (id: string, x: number, y: number) => void
+  onDragStart?: () => void
+  onDragEnd?: () => void
   pieceBB: BoundingBox2D | null
   hole: Circle2D | null
   pieceThickness: number
@@ -30,6 +32,8 @@ export function KeychainPreview({
   selectedTextId,
   onSelectText,
   onMoveText,
+  onDragStart,
+  onDragEnd,
   pieceBB,
   hole,
   pieceThickness,
@@ -53,6 +57,8 @@ export function KeychainPreview({
           selected={selectedTextId === tm.id}
           onSelect={onSelectText}
           onMove={onMoveText}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
           pieceBB={pieceBB}
           hole={hole}
           halfWidth={5}

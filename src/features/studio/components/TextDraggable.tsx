@@ -14,6 +14,8 @@ interface TextDraggableProps {
   selected: boolean
   onSelect: (id: string) => void
   onMove: (id: string, x: number, y: number) => void
+  onDragStart?: () => void
+  onDragEnd?: () => void
   pieceBB: BoundingBox2D | null
   hole: Circle2D | null
   halfWidth: number
@@ -30,6 +32,8 @@ export function TextDraggable({
   selected,
   onSelect,
   onMove,
+  onDragStart,
+  onDragEnd,
   pieceBB,
   hole,
   halfWidth,
@@ -47,6 +51,7 @@ export function TextDraggable({
       event.stopPropagation()
       onSelect(id)
       dragging.current = true
+      onDragStart?.()
       gl.domElement.style.cursor = 'grabbing'
       if (meshRef.current) {
         const intersection = new THREE.Vector3()
@@ -61,7 +66,7 @@ export function TextDraggable({
         offset.current.copy(intersection).sub(new THREE.Vector3(x, y, z))
       }
     },
-    [id, x, y, z, camera, gl, onSelect],
+    [id, x, y, z, camera, gl, onSelect, onDragStart],
   )
 
   const onPointerMove = useCallback(
@@ -100,12 +105,13 @@ export function TextDraggable({
       if (!dragging.current) return
       event.stopPropagation()
       dragging.current = false
+      onDragEnd?.()
       gl.domElement.style.cursor = 'auto'
       if (meshRef.current) {
         onMove(id, meshRef.current.position.x, meshRef.current.position.y)
       }
     },
-    [id, gl, onMove],
+    [id, gl, onMove, onDragEnd],
   )
 
   return (
