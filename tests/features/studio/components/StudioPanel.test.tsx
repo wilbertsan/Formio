@@ -56,7 +56,7 @@ describe('StudioPanel', () => {
     const onText = vi.fn()
     renderPanel(undefined, undefined, undefined, onText)
     await user.selectOptions(screen.getByRole('listbox', { name: /estilo da letra/i }), 'normal')
-    expect(onText).toHaveBeenCalledWith('fontStyle', 'normal')
+    expect(onText).toHaveBeenCalledWith(defaultKeychainParams.texts[0].id, { fontStyle: 'normal' })
   })
 
   it('renderiza sliders de largura do texto, altura do texto e altura do relevo no bloco Texto', () => {

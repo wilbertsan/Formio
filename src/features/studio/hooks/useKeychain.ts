@@ -2,12 +2,26 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import { fontUrls } from '../keychain/fonts'
-import { defaultKeychainParams, keychainParamsSchema, type KeychainParams, type FontStyle } from '../keychain/schema'
+import { defaultKeychainParams, keychainParamsSchema, textItemSchema, type KeychainParams, type FontStyle, type TextItem } from '../keychain/schema'
 import { buildKeychain, type BuildKeychainResult } from '../keychain/buildKeychain'
+
+const TEXT_ITEM_DEFAULTS = {
+  content: 'Novo texto',
+  fontStyle: 'bold' as const,
+  width: 30,
+  height: 8,
+  relief: 1,
+  proportional: false,
+  offsetX: 0,
+  offsetY: 0,
+}
 
 type KeychainAction =
   | { type: 'update'; key: keyof KeychainParams; value: number | string }
   | { type: 'updateText'; textKey: string; value: number | string }
+  | { type: 'addText' }
+  | { type: 'removeText'; id: string }
+  | { type: 'updateTextById'; id: string; patch: Partial<TextItem> }
   | { type: 'reset' }
 
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
@@ -47,6 +61,29 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
       const parsed = keychainParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
+    case 'addText': {
+      if (state.texts.length >= 3) return state
+      const newItem: TextItem = { id: crypto.randomUUID(), ...TEXT_ITEM_DEFAULTS }
+      const next = { ...state, texts: [...state.texts, newItem] }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
+    case 'removeText': {
+      if (state.texts.length <= 1) return state
+      const next = { ...state, texts: state.texts.filter((t) => t.id !== action.id) }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
+    case 'updateTextById': {
+      const patchResult = textItemSchema.partial().safeParse(action.patch)
+      if (!patchResult.success) return state
+      const nextTexts = state.texts.map((t) =>
+        t.id === action.id ? { ...t, ...action.patch } : t,
+      )
+      const next = { ...state, texts: nextTexts }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
     case 'reset':
       return defaultKeychainParams
   }
@@ -68,22 +105,27 @@ export function useKeychain() {
   const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  const fontStyle = params.texts[0]?.fontStyle ?? 'bold'
+  const uniqueStyles = useMemo(() => {
+    const styles = new Set(params.texts.map((t) => t.fontStyle))
+    return Array.from(styles)
+  }, [params.texts])
 
   useEffect(() => {
-    if (fontCache.has(fontStyle)) return
-    const loader = new FontLoader()
-    loader.load(
-      fontUrls[fontStyle],
-      (font) => {
-        setFontCache((prev) => new Map(prev).set(fontStyle, font as unknown as Font))
-      },
-      undefined,
-      () => setFontError(true),
-    )
-  }, [fontStyle, fontCache])
+    for (const style of uniqueStyles) {
+      if (fontCache.has(style)) continue
+      const loader = new FontLoader()
+      loader.load(
+        fontUrls[style],
+        (font) => {
+          setFontCache((prev) => new Map(prev).set(style, font as unknown as Font))
+        },
+        undefined,
+        () => setFontError(true),
+      )
+    }
+  }, [uniqueStyles, fontCache])
 
-  const font = fontCache.get(fontStyle) ?? null
+  const font = fontCache.get(params.texts[0]?.fontStyle ?? 'bold') ?? null
 
   useEffect(() => {
     if (!font) return
@@ -106,8 +148,16 @@ export function useKeychain() {
     dispatch({ type: 'updateText', textKey: 'content', value: content })
   }, [])
 
-  const updateText = useCallback((textKey: string, value: number | string) => {
-    dispatch({ type: 'updateText', textKey, value })
+  const addText = useCallback(() => {
+    dispatch({ type: 'addText' })
+  }, [])
+
+  const removeText = useCallback((id: string) => {
+    dispatch({ type: 'removeText', id })
+  }, [])
+
+  const updateText = useCallback((id: string, patch: Partial<TextItem>) => {
+    dispatch({ type: 'updateTextById', id, patch })
   }, [])
 
   const reset = useCallback(() => {
@@ -119,5 +169,5 @@ export function useKeychain() {
     return { width: params.width, height, thickness: params.thickness }
   }, [params.width, params.baseShape, params.thickness])
 
-  return { params, geometry, fontError, dimensions, updateParam, updateName, updateText, reset }
+  return { params, geometry, fontError, dimensions, updateParam, updateName, addText, removeText, updateText, reset }
 }

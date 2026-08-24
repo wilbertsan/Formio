@@ -9,13 +9,13 @@ import {
   TextField,
   View,
 } from '@aws-amplify/ui-react'
-import { type KeychainParams, PLA_COLORS } from '../keychain/schema'
+import { type KeychainParams, type TextItem, PLA_COLORS } from '../keychain/schema'
 
 interface StudioPanelProps {
   params: KeychainParams
   onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
   onUpdateName: (name: string) => void
-  onUpdateText: (textKey: string, value: number | string) => void
+  onUpdateText: (id: string, patch: Partial<TextItem>) => void
   onReset: () => void
 }
 
@@ -90,7 +90,7 @@ export function StudioPanel({
                 label="Estilo da letra"
                 value={text0.fontStyle}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateText('fontStyle', e.target.value)
+                  onUpdateText(text0.id, { fontStyle: e.target.value as TextItem['fontStyle'] })
                 }
               >
                 <option value="bold">Negrito</option>
@@ -107,7 +107,7 @@ export function StudioPanel({
                 aria-label="Largura do texto"
                 min={8} max={60} step={1}
                 value={text0.width}
-                onChange={(value) => onUpdateText('width', value as number)}
+                onChange={(value) => onUpdateText(text0.id, { width: value as number })}
               />
 
               <Flex direction="row" justifyContent="space-between">
@@ -119,7 +119,7 @@ export function StudioPanel({
                 aria-label="Altura do texto"
                 min={4} max={20} step={0.5}
                 value={text0.height}
-                onChange={(value) => onUpdateText('height', value as number)}
+                onChange={(value) => onUpdateText(text0.id, { height: value as number })}
               />
 
               <Flex direction="row" justifyContent="space-between">
@@ -131,7 +131,7 @@ export function StudioPanel({
                 aria-label="Altura do relevo"
                 min={0.4} max={2} step={0.1}
                 value={text0.relief}
-                onChange={(value) => onUpdateText('relief', value as number)}
+                onChange={(value) => onUpdateText(text0.id, { relief: value as number })}
               />
             </Flex>
           </Accordion.Content>

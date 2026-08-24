@@ -79,11 +79,59 @@ describe('useKeychain', () => {
   it('trocar fontStyle não rebuilda geometria (mesmo objeto)', async () => {
     const { result } = renderHook(() => useKeychain())
     await waitFor(() => expect(result.current.geometry).not.toBeNull())
-    act(() => result.current.updateText('fontStyle', 'serif'))
+    act(() => result.current.updateText(result.current.params.texts[0].id, { fontStyle: 'serif' }))
     await waitFor(() => {
       expect(result.current.params.texts[0].fontStyle).toBe('serif')
     })
     expect(result.current.geometry).toBeDefined()
+  })
+
+  it('addText adiciona um segundo texto', () => {
+    const { result } = renderHook(() => useKeychain())
+    expect(result.current.params.texts).toHaveLength(1)
+    act(() => result.current.addText())
+    expect(result.current.params.texts).toHaveLength(2)
+  })
+
+  it('addText não passa de 3 textos', () => {
+    const { result } = renderHook(() => useKeychain())
+    act(() => result.current.addText())
+    act(() => result.current.addText())
+    act(() => result.current.addText())
+    expect(result.current.params.texts).toHaveLength(3)
+    act(() => result.current.addText())
+    expect(result.current.params.texts).toHaveLength(3)
+  })
+
+  it('removeText remove um texto (mínimo 1)', () => {
+    const { result } = renderHook(() => useKeychain())
+    act(() => result.current.addText())
+    expect(result.current.params.texts).toHaveLength(2)
+    act(() => result.current.removeText(result.current.params.texts[0].id))
+    expect(result.current.params.texts).toHaveLength(1)
+    act(() => result.current.removeText(result.current.params.texts[0].id))
+    expect(result.current.params.texts).toHaveLength(1)
+  })
+
+  it('updateText patcha um campo específico de um texto', () => {
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.texts[0].id
+    act(() => result.current.updateText(id, { content: 'Ana' }))
+    expect(result.current.params.texts[0].content).toBe('Ana')
+  })
+
+  it('updateText rejeita conteúdo vazio', () => {
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.texts[0].id
+    act(() => result.current.updateText(id, { content: '' }))
+    expect(result.current.params.texts[0].content).toBe('Meu nome')
+  })
+
+  it('updateText aceita mudança de proportional', () => {
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.texts[0].id
+    act(() => result.current.updateText(id, { proportional: true }))
+    expect(result.current.params.texts[0].proportional).toBe(true)
   })
 
   it('trocar cor NÃO rebuilda geometria', async () => {
