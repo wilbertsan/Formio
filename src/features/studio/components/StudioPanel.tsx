@@ -1,7 +1,6 @@
 import {
   Accordion,
   Button,
-  ButtonGroup,
   Flex,
   Heading,
   SelectField,
@@ -18,13 +17,6 @@ interface StudioPanelProps {
   onUpdateName: (name: string) => void
   onReset: () => void
 }
-
-const RING_POSITIONS = [
-  { value: 'top', label: 'Cima' },
-  { value: 'bottom', label: 'Baixo' },
-  { value: 'left', label: 'Esquerda' },
-  { value: 'right', label: 'Direita' },
-] as const
 
 function ColorSwatches({
   colors,
@@ -229,21 +221,18 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <Text fontSize="xs" color="font.tertiary">
-                Posição
-              </Text>
-              <ButtonGroup size="small" variation="link">
-                {RING_POSITIONS.map((pos) => (
-                  <Button
-                    key={pos.value}
-                    isDisabled={params.ringPosition === pos.value}
-                    onClick={() => onUpdateParam('ringPosition', pos.value)}
-                    aria-label={pos.label}
-                  >
-                    {pos.label}
-                  </Button>
-                ))}
-              </ButtonGroup>
+              <SelectField
+                label="Posição"
+                value={params.ringPosition}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdateParam('ringPosition', e.target.value)
+                }
+              >
+                <option value="top">Cima</option>
+                <option value="bottom">Baixo</option>
+                <option value="left">Esquerda</option>
+                <option value="right">Direita</option>
+              </SelectField>
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">

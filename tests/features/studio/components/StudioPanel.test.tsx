@@ -43,8 +43,9 @@ describe('StudioPanel', () => {
 
   it('renderiza controles de argola (posição, sliders)', () => {
     renderPanel()
-    expect(screen.getByRole('button', { name: /cima/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /baixo/i })).toBeInTheDocument()
+    expect(screen.getByRole('listbox', { name: /posição/i })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Cima' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'Baixo' })).toBeInTheDocument()
     expect(screen.getByLabelText(/diâmetro interno/i)).toBeInTheDocument()
   })
 
