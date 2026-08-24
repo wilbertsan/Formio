@@ -2,14 +2,14 @@ import { View } from '@aws-amplify/ui-react'
 import type { KeychainParams } from '../keychain/schema'
 
 interface StudioToolbarProps {
-  activeShape: KeychainParams['shape']
+  activeShape: KeychainParams['baseShape']
   textMode: KeychainParams['textMode']
-  onSelectShape: (shape: KeychainParams['shape']) => void
+  onSelectShape: (shape: KeychainParams['baseShape']) => void
   onSelectTextMode: (mode: KeychainParams['textMode']) => void
   onResetCamera: () => void
 }
 
-const shapes: { id: KeychainParams['shape']; label: string; icon: string }[] = [
+const shapes: { id: KeychainParams['baseShape']; label: string; icon: string }[] = [
   { id: 'rect', label: 'Retângulo', icon: '▭' },
   { id: 'circle', label: 'Círculo', icon: '◯' },
   { id: 'heart', label: 'Coração', icon: '♥' },

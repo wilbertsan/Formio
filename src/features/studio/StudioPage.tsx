@@ -12,20 +12,20 @@ export function StudioPage() {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
 
-  const { params, keychainResult, dimensions, updateParam, updateName, reset } = useKeychain()
+  const { params, geometry, dimensions, updateParam, updateName, reset } = useKeychain()
 
   const handleResetCamera = useCallback(() => {
     setResetCameraSignal((signal) => signal + 1)
   }, [])
 
   const handleExport = useCallback(() => {
-    if (keychainResult) {
-      exportStl(keychainResult.base, projectName)
+    if (geometry) {
+      exportStl(geometry, projectName)
     }
-  }, [keychainResult, projectName])
+  }, [geometry, projectName])
 
   const handleSelectShape = useCallback(
-    (shape: KeychainParams['shape']) => updateParam('shape', shape),
+    (shape: KeychainParams['baseShape']) => updateParam('baseShape', shape),
     [updateParam],
   )
 
@@ -39,18 +39,24 @@ export function StudioPage() {
       <StudioTopbar
         projectName={projectName}
         onProjectNameChange={setProjectName}
-        canExport={keychainResult !== null}
+        canExport={geometry !== null}
         onExport={handleExport}
       />
       <div className="flex min-h-0 flex-1">
         <StudioToolbar
-          activeShape={params.shape}
+          activeShape={params.baseShape}
           textMode={params.textMode}
           onSelectShape={handleSelectShape}
           onSelectTextMode={handleSelectTextMode}
           onResetCamera={handleResetCamera}
         />
-        <StudioViewport geometry={keychainResult?.base ?? null} resetCameraSignal={resetCameraSignal} />
+        <StudioViewport
+          geometry={geometry}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+          baseColor={params.baseColor}
+          letterColor={params.letterColor}
+        />
         <StudioParameters
           params={params}
           onUpdateParam={updateParam}

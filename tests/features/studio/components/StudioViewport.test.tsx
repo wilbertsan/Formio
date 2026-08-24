@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { StudioViewport } from '@/features/studio/components/StudioViewport'
 
 vi.mock('@react-three/fiber', () => ({
@@ -22,18 +23,42 @@ vi.mock('@/features/studio/components/KeychainPreview', () => ({
 
 describe('StudioViewport', () => {
   it('renderiza o canvas com descrição acessível', () => {
-    render(<StudioViewport geometry={null} resetCameraSignal={0} />)
+    render(
+      <StudioViewport
+        geometry={null}
+        resetCameraSignal={0}
+        onResetCamera={() => undefined}
+        baseColor="#14b8a6"
+        letterColor="#f5f5f5"
+      />,
+    )
     expect(screen.getByTestId('canvas-mock')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
   })
 
   it('mostra loading quando geometria não está pronta', () => {
-    render(<StudioViewport geometry={null} resetCameraSignal={0} />)
+    render(
+      <StudioViewport
+        geometry={null}
+        resetCameraSignal={0}
+        onResetCamera={() => undefined}
+        baseColor="#14b8a6"
+        letterColor="#f5f5f5"
+      />,
+    )
     expect(screen.getByTestId('keychain-loading')).toBeInTheDocument()
   })
 
   it('renderiza controles, grid, ambiente e preview', () => {
-    render(<StudioViewport geometry={{} as never} resetCameraSignal={0} />)
+    render(
+      <StudioViewport
+        geometry={{} as never}
+        resetCameraSignal={0}
+        onResetCamera={() => undefined}
+        baseColor="#14b8a6"
+        letterColor="#f5f5f5"
+      />,
+    )
     expect(screen.getByTestId('orbit-controls')).toBeInTheDocument()
     expect(screen.getByTestId('grid')).toBeInTheDocument()
     expect(screen.getByTestId('environment')).toBeInTheDocument()
@@ -41,7 +66,44 @@ describe('StudioViewport', () => {
   })
 
   it('posiciona o grid como piso distante abaixo da figura', () => {
-    render(<StudioViewport geometry={{} as never} resetCameraSignal={0} />)
+    render(
+      <StudioViewport
+        geometry={{} as never}
+        resetCameraSignal={0}
+        onResetCamera={() => undefined}
+        baseColor="#14b8a6"
+        letterColor="#f5f5f5"
+      />,
+    )
     expect(screen.getByTestId('grid')).toHaveAttribute('data-position', '0,-25,0')
+  })
+
+  it('renderiza botão de reset flutuante', () => {
+    render(
+      <StudioViewport
+        geometry={{} as never}
+        resetCameraSignal={0}
+        onResetCamera={() => undefined}
+        baseColor="#14b8a6"
+        letterColor="#f5f5f5"
+      />,
+    )
+    expect(screen.getByRole('button', { name: /resetar câmera/i })).toBeInTheDocument()
+  })
+
+  it('dispara onResetCamera ao clicar no botão flutuante', async () => {
+    const user = userEvent.setup()
+    const onResetCamera = vi.fn()
+    render(
+      <StudioViewport
+        geometry={{} as never}
+        resetCameraSignal={0}
+        onResetCamera={onResetCamera}
+        baseColor="#14b8a6"
+        letterColor="#f5f5f5"
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: /resetar câmera/i }))
+    expect(onResetCamera).toHaveBeenCalledTimes(1)
   })
 })

@@ -4,7 +4,7 @@ import { StudioToolbar } from '@/features/studio/components/StudioToolbar'
 import type { KeychainParams } from '@/features/studio/keychain/schema'
 
 function renderToolbar(overrides?: {
-  activeShape?: KeychainParams['shape']
+  activeShape?: KeychainParams['baseShape']
   textMode?: KeychainParams['textMode']
 }) {
   return render(

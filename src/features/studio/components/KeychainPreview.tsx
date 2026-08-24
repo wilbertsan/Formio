@@ -1,14 +1,21 @@
-import type { BufferGeometry } from 'three'
+import type { BuildKeychainResult } from '../keychain/buildKeychain'
 
 interface KeychainPreviewProps {
-  geometry: BufferGeometry | null
+  geometry: BuildKeychainResult | null
+  baseColor: string
+  letterColor: string
 }
 
-export function KeychainPreview({ geometry }: KeychainPreviewProps) {
+export function KeychainPreview({ geometry, baseColor, letterColor }: KeychainPreviewProps) {
   if (!geometry) return null
   return (
-    <mesh geometry={geometry} castShadow receiveShadow>
-      <meshStandardMaterial color="#14b8a6" metalness={0.1} roughness={0.4} />
-    </mesh>
+    <group>
+      <mesh geometry={geometry.base} castShadow receiveShadow>
+        <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
+      </mesh>
+      <mesh geometry={geometry.text} castShadow>
+        <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
+      </mesh>
+    </group>
   )
 }

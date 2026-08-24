@@ -1,17 +1,26 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { Loader } from '@aws-amplify/ui-react'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import type { BufferGeometry } from 'three'
+import type { BuildKeychainResult } from '../keychain/buildKeychain'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Grid, OrbitControls } from '@react-three/drei'
 import { KeychainPreview } from './KeychainPreview'
 
 interface StudioViewportProps {
-  geometry: BufferGeometry | null
+  geometry: BuildKeychainResult | null
   resetCameraSignal: number
+  onResetCamera: () => void
+  baseColor: string
+  letterColor: string
 }
 
-export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportProps) {
+export function StudioViewport({
+  geometry,
+  resetCameraSignal,
+  onResetCamera,
+  baseColor,
+  letterColor,
+}: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
 
   useEffect(() => {
@@ -26,6 +35,17 @@ export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportPr
       aria-label="Visualização 3D do modelo"
       className="relative flex-1 bg-neutral-100"
     >
+      {geometry && (
+        <button
+          type="button"
+          title="Resetar câmera"
+          aria-label="Resetar câmera"
+          onClick={onResetCamera}
+          className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-md border border-neutral-200 bg-white/90 text-neutral-600 shadow-sm transition-colors hover:bg-neutral-100"
+        >
+          ⌂
+        </button>
+      )}
       {geometry ? null : (
         <div className="absolute inset-0 z-10 flex items-center justify-center">
           <Loader />
@@ -44,7 +64,7 @@ export function StudioViewport({ geometry, resetCameraSignal }: StudioViewportPr
             castShadow
             shadow-mapSize={[1024, 1024]}
           />
-          <KeychainPreview geometry={geometry} />
+          <KeychainPreview geometry={geometry} baseColor={baseColor} letterColor={letterColor} />
           <Grid
             position={[0, -25, 0]}
             args={[300, 300]}
