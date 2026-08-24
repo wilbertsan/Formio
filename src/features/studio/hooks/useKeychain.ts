@@ -15,7 +15,6 @@ const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   thickness: { min: 2, max: 6 },
   letterHeight: { min: 0.4, max: 2 },
   ringInnerDiameter: { min: 3, max: 10 },
-  ringThickness: { min: 1.5, max: 4 },
   ringEmbedding: { min: 0, max: 3 },
   ringLateralOffset: { min: -10, max: 10 },
   ringRadialOffset: { min: 0, max: 5 },

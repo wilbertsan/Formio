@@ -60,7 +60,6 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   const ring: RingParams = {
     position: params.ringPosition,
     innerDiameter: params.ringInnerDiameter,
-    thickness: params.ringThickness,
     embedding: params.ringEmbedding,
     lateralOffset: params.ringLateralOffset,
     radialOffset: params.ringRadialOffset,

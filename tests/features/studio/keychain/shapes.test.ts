@@ -12,7 +12,6 @@ function getRing(position: RingPosition) {
   return {
     position,
     innerDiameter: baseParams.ringInnerDiameter,
-    thickness: baseParams.ringThickness,
     embedding: baseParams.ringEmbedding,
     lateralOffset: baseParams.ringLateralOffset,
     radialOffset: baseParams.ringRadialOffset,
@@ -107,12 +106,12 @@ describe('createReinforcementRing', () => {
     expect(ringShape.holes).toHaveLength(1)
   })
 
-  it('anel externo maior que furo interno', () => {
+  it('anel externo maior que furo com parede de 2mm', () => {
     const ringShape = createReinforcementRing(getRing('top'))
     const outerBB = boundingBox(ringShape)
     const holeBB = new THREE.Box3().setFromPoints(toVector3Like(ringShape.holes[0].getPoints(32)))
     const outerRadius = (outerBB.max.x - outerBB.min.x) / 2
     const holeRadius = (holeBB.max.x - holeBB.min.x) / 2
-    expect(outerRadius).toBeGreaterThan(holeRadius)
+    expect(outerRadius - holeRadius).toBeCloseTo(2, 1)
   })
 })

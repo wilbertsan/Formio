@@ -263,23 +263,7 @@ export function StudioPanel({
                 onChange={(value) => onUpdateParam('ringInnerDiameter', value as number)}
               />
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Espessura do anel
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.ringThickness} mm
-                </Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Espessura do anel"
-                min={1.5}
-                max={4}
-                step={0.5}
-                value={params.ringThickness}
-                onChange={(value) => onUpdateParam('ringThickness', value as number)}
-              />
+
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">

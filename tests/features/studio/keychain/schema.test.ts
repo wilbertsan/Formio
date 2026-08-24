@@ -87,4 +87,8 @@ describe('keychain schema', () => {
     expect(defaultKeychainParams.textWidth).toBe(40)
     expect(defaultKeychainParams.textSize).toBe(10)
   })
+
+  it('schema não inclui ringThickness', () => {
+    expect('ringThickness' in keychainParamsSchema.shape).toBe(false)
+  })
 })

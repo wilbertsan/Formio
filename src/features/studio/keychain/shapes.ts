@@ -1,10 +1,11 @@
 import { Box3, Path, Shape, Vector2 } from 'three'
 import { RING_EDGE_MARGIN, type KeychainShape, type RingPosition } from './schema'
 
+export const RING_WALL = 2
+
 export interface RingParams {
   position: RingPosition
   innerDiameter: number
-  thickness: number
   embedding: number
   lateralOffset: number
   radialOffset: number
@@ -64,7 +65,7 @@ function clampToBoundingBox(
 }
 
 export function createReinforcementRing(ring: RingParams): Shape {
-  const outerRadius = ring.innerDiameter / 2 + ring.thickness
+  const outerRadius = ring.innerDiameter / 2 + RING_WALL
   const shape = new Shape()
   shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false)
   const hole = new Path()
