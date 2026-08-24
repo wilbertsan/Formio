@@ -1,43 +1,83 @@
-import { Path, Shape, Vector2 } from 'three'
-import type { KeychainShape } from './schema'
+import { Box3, Path, Shape, Vector2 } from 'three'
+import { RING_EDGE_MARGIN, type KeychainShape, type RingPosition } from './schema'
+
+export interface RingParams {
+  position: RingPosition
+  innerDiameter: number
+  thickness: number
+  embedding: number
+  lateralOffset: number
+  radialOffset: number
+}
 
 export function createBaseShape(
   shapeType: KeychainShape,
   width: number,
   height: number,
-  holeDiameter: number,
+  ring: RingParams,
 ): Shape {
   const shape = buildOutline(shapeType, width, height)
-  const holeCenter = getHolePosition(shapeType, width, height)
+  const center = getRingPosition(shapeType, width, height, ring)
+  const clamped = clampToBoundingBox(shape, center, ring.innerDiameter / 2)
   const hole = new Path()
-  hole.absarc(holeCenter.x, holeCenter.y, holeDiameter / 2, 0, Math.PI * 2, true)
+  hole.absarc(clamped.x, clamped.y, ring.innerDiameter / 2, 0, Math.PI * 2, true)
   shape.holes.push(hole)
   return shape
 }
 
-export function getHolePosition(
+export function getRingPosition(
   shapeType: KeychainShape,
   width: number,
   height: number,
+  ring: RingParams,
 ): Vector2 {
-  switch (shapeType) {
-    case 'rect':
-      return new Vector2(0, height / 2 - 6)
-    case 'circle':
-      return new Vector2(0, width / 2 - 6)
-    case 'heart':
-      return new Vector2(0, height * 0.38)
+  const half = { x: width / 2, y: height / 2 }
+  const radius = ring.innerDiameter / 2
+  const inset = RING_EDGE_MARGIN + radius + ring.radialOffset + ring.embedding
+
+  switch (ring.position) {
+    case 'top':
+      return new Vector2(ring.lateralOffset, half.y - inset)
+    case 'bottom':
+      return new Vector2(ring.lateralOffset, -half.y + inset)
+    case 'right':
+      return new Vector2(half.x - inset, ring.lateralOffset)
+    case 'left':
+      return new Vector2(-half.x + inset, ring.lateralOffset)
   }
+}
+
+function clampToBoundingBox(
+  shape: Shape,
+  center: Vector2,
+  holeRadius: number,
+): Vector2 {
+  const bb = new Box3().setFromPoints(shape.getPoints(64))
+  const minX = bb.min.x + RING_EDGE_MARGIN + holeRadius
+  const maxX = bb.max.x - RING_EDGE_MARGIN - holeRadius
+  const minY = bb.min.y + RING_EDGE_MARGIN + holeRadius
+  const maxY = bb.max.y - RING_EDGE_MARGIN - holeRadius
+  return new Vector2(
+    Math.max(minX, Math.min(maxX, center.x)),
+    Math.max(minY, Math.min(maxY, center.y)),
+  )
+}
+
+export function createReinforcementRing(ring: RingParams): Shape {
+  const outerRadius = ring.innerDiameter / 2 + ring.thickness
+  const shape = new Shape()
+  shape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false)
+  const hole = new Path()
+  hole.absarc(0, 0, ring.innerDiameter / 2, 0, Math.PI * 2, true)
+  shape.holes.push(hole)
+  return shape
 }
 
 function buildOutline(shapeType: KeychainShape, width: number, height: number): Shape {
   switch (shapeType) {
-    case 'rect':
-      return rectShape(width, height)
-    case 'circle':
-      return circleShape(width)
-    case 'heart':
-      return heartShape(width, height)
+    case 'rect': return rectShape(width, height)
+    case 'circle': return circleShape(width)
+    case 'heart': return heartShape(width, height)
   }
 }
 

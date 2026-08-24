@@ -18,11 +18,10 @@ interface StudioParametersProps {
 
 const SLIDERS = [
   { key: 'width' as const, label: 'Largura', min: 20, max: 80, step: 1, unit: 'mm' },
-  { key: 'height' as const, label: 'Altura', min: 20, max: 80, step: 1, unit: 'mm' },
   { key: 'thickness' as const, label: 'Espessura', min: 2, max: 6, step: 0.5, unit: 'mm' },
-  { key: 'textHeight' as const, label: 'Tamanho do texto', min: 10, max: 24, step: 1, unit: 'mm' },
-  { key: 'textDepth' as const, label: 'Profundidade do texto', min: 0.4, max: 2, step: 0.1, unit: 'mm' },
-  { key: 'holeDiameter' as const, label: 'Diâmetro do furo', min: 3, max: 8, step: 0.5, unit: 'mm' },
+  { key: 'letterHeight' as const, label: 'Altura da letra', min: 0.4, max: 2, step: 0.1, unit: 'mm' },
+  { key: 'ringInnerDiameter' as const, label: 'Diâmetro do furo', min: 3, max: 10, step: 0.5, unit: 'mm' },
+  { key: 'ringThickness' as const, label: 'Espessura do anel', min: 1.5, max: 4, step: 0.5, unit: 'mm' },
 ]
 
 export function StudioParameters({

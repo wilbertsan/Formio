@@ -2,7 +2,7 @@ import { type BufferGeometry, ExtrudeGeometry } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
-import { createBaseShape } from './shapes'
+import { createBaseShape, type RingParams } from './shapes'
 import { fitTextHeight, nameToGeometry } from './textToGeometry'
 import type { KeychainParams } from './schema'
 
@@ -16,7 +16,15 @@ const TEXT_WIDTH_FACTOR = 0.62
 const ENGRAVE_EPSILON = 0.2
 
 export function buildKeychain({ font, params, onError }: BuildKeychainInput): BufferGeometry {
-  const baseShape = createBaseShape(params.shape, params.width, params.height, params.holeDiameter)
+  const ring: RingParams = {
+    position: params.ringPosition,
+    innerDiameter: params.ringInnerDiameter,
+    thickness: params.ringThickness,
+    embedding: params.ringEmbedding,
+    lateralOffset: params.ringLateralOffset,
+    radialOffset: params.ringRadialOffset,
+  }
+  const baseShape = createBaseShape(params.baseShape, params.width, params.width, ring)
   const baseGeometry = new ExtrudeGeometry(baseShape, {
     depth: params.thickness,
     bevelEnabled: true,
@@ -28,7 +36,7 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
   const availableWidth = params.width - 8
   const textSize = fitTextHeight({
     name: params.name,
-    requestedSize: params.textHeight,
+    requestedSize: params.letterHeight,
     maxWidth: availableWidth,
     factor: TEXT_WIDTH_FACTOR,
   })
@@ -38,7 +46,7 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
       font,
       name: params.name,
       size: textSize,
-      depth: params.textDepth,
+      depth: params.letterHeight,
     })
     textGeometry.translate(0, 0, params.thickness - 0.01)
     const merged = mergeGeometries([baseGeometry, textGeometry])
@@ -55,7 +63,7 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
       font,
       name: params.name,
       size: textSize,
-      depth: params.textDepth + ENGRAVE_EPSILON,
+      depth: params.letterHeight + ENGRAVE_EPSILON,
     })
     textGeometry.translate(0, 0, params.thickness)
     const evaluator = new Evaluator()
@@ -68,7 +76,7 @@ export function buildKeychain({ font, params, onError }: BuildKeychainInput): Bu
       font,
       name: params.name,
       size: textSize,
-      depth: params.textDepth,
+      depth: params.letterHeight,
     })
     fallback.translate(0, 0, params.thickness - 0.01)
     const merged = mergeGeometries([baseGeometry, fallback])

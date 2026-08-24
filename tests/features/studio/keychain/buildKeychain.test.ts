@@ -101,6 +101,6 @@ describe('buildKeychain', () => {
     expect(textGeometry.boundingBox?.min.z).toBeGreaterThan(-0.01)
     expect(textGeometry.boundingBox?.max.z).toBeGreaterThan(defaultKeychainParams.thickness)
     const depth = (textGeometry.boundingBox?.max.z ?? 0) - (textGeometry.boundingBox?.min.z ?? 0)
-    expect(depth).toBeLessThanOrEqual(defaultKeychainParams.textDepth + 0.3)
+    expect(depth).toBeLessThanOrEqual(defaultKeychainParams.letterHeight + 0.3)
   })
 })

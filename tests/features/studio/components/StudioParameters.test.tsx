@@ -32,20 +32,18 @@ describe('StudioParameters', () => {
     expect(screen.queryByLabelText(/relevo/i)).not.toBeInTheDocument()
   })
 
-  it('renderiza os seis sliders', () => {
+  it('renderiza os cinco sliders', () => {
     renderParameters()
     expect(screen.getByLabelText('Largura')).toBeInTheDocument()
-    expect(screen.getByLabelText('Altura')).toBeInTheDocument()
     expect(screen.getByLabelText('Espessura')).toBeInTheDocument()
-    expect(screen.getByLabelText('Tamanho do texto')).toBeInTheDocument()
-    expect(screen.getByLabelText('Profundidade do texto')).toBeInTheDocument()
+    expect(screen.getByLabelText('Altura da letra')).toBeInTheDocument()
     expect(screen.getByLabelText('Diâmetro do furo')).toBeInTheDocument()
+    expect(screen.getByLabelText('Espessura do anel')).toBeInTheDocument()
   })
 
   it('exibe o valor em mm ao lado de cada slider', () => {
     renderParameters()
     expect(screen.getByText('50 mm')).toBeInTheDocument()
-    expect(screen.getByText('25 mm')).toBeInTheDocument()
     expect(screen.getByText('3 mm')).toBeInTheDocument()
   })
 
