@@ -58,7 +58,6 @@ describe('StudioPage', () => {
     expect(screen.getByRole('heading', { name: /texto/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /base/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /argola/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /relevo/i })).toBeInTheDocument()
   })
 
   it('renderiza viewport 3D', () => {

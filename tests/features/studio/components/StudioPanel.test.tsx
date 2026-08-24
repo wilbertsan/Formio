@@ -19,21 +19,18 @@ function renderPanel(
 }
 
 describe('StudioPanel', () => {
-  it('renderiza dropdown de produto e 4 blocos', () => {
+  it('renderiza dropdown de produto e 3 blocos', () => {
     renderPanel()
     expect(screen.getByRole('heading', { name: /produto/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /texto/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /base/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /argola/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /relevo/i })).toBeInTheDocument()
   })
 
-  it('renderiza campo de nome e estilo de letra', () => {
+  it('renderiza campo de nome e dropdown de estilo de letra', () => {
     renderPanel()
     expect(screen.getByLabelText(/nome/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /negrito/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /normal/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /serifada/i })).toBeInTheDocument()
+    expect(screen.getByRole('listbox', { name: /estilo da letra/i })).toBeInTheDocument()
   })
 
   it('renderiza swatches de cor de base e letras', () => {
@@ -55,8 +52,25 @@ describe('StudioPanel', () => {
     const user = userEvent.setup()
     const onUpdate = vi.fn()
     renderPanel(onUpdate)
-    await user.click(screen.getByRole('button', { name: /normal/i }))
+    await user.selectOptions(screen.getByRole('listbox', { name: /estilo da letra/i }), 'normal')
     expect(onUpdate).toHaveBeenCalledWith('fontStyle', 'normal')
+  })
+
+  it('renderiza sliders de largura do texto, altura do texto e altura do relevo no bloco Texto', () => {
+    renderPanel()
+    expect(screen.getByLabelText('Largura do texto')).toBeInTheDocument()
+    expect(screen.getByLabelText('Altura do texto')).toBeInTheDocument()
+    expect(screen.getByLabelText('Altura do relevo')).toBeInTheDocument()
+  })
+
+  it('renderiza slider de largura da peça no bloco Base', () => {
+    renderPanel()
+    expect(screen.getByLabelText('Largura da peça')).toBeInTheDocument()
+  })
+
+  it('não renderiza botões soltos de estilo', () => {
+    renderPanel()
+    expect(screen.queryByRole('button', { name: /^negrito$/i })).not.toBeInTheDocument()
   })
 
   it('dispara onUpdateName ao digitar nome', async () => {

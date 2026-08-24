@@ -4,6 +4,7 @@ import {
   ButtonGroup,
   Flex,
   Heading,
+  SelectField,
   SliderField,
   Text,
   TextField,
@@ -17,12 +18,6 @@ interface StudioPanelProps {
   onUpdateName: (name: string) => void
   onReset: () => void
 }
-
-const FONT_STYLES = [
-  { value: 'bold', label: 'Negrito' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'serif', label: 'Serifada' },
-] as const
 
 const RING_POSITIONS = [
   { value: 'top', label: 'Cima' },
@@ -96,54 +91,50 @@ export function StudioPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdateName(e.target.value)}
               />
 
-              <Text fontSize="xs" color="font.tertiary">
-                Estilo da letra
-              </Text>
-              <ButtonGroup size="small" variation="link">
-                {FONT_STYLES.map((style) => (
-                  <Button
-                    key={style.value}
-                    isDisabled={params.fontStyle === style.value}
-                    onClick={() => onUpdateParam('fontStyle', style.value)}
-                    aria-label={style.label}
-                  >
-                    {style.label}
-                  </Button>
-                ))}
-              </ButtonGroup>
+              <SelectField
+                label="Estilo da letra"
+                value={params.fontStyle}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdateParam('fontStyle', e.target.value)
+                }
+              >
+                <option value="bold">Negrito</option>
+                <option value="normal">Normal</option>
+                <option value="serif">Serifada</option>
+              </SelectField>
 
               <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Largura
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.width} mm
-                </Text>
+                <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
+                <Text fontSize="xs" color="font.secondary">{params.textWidth} mm</Text>
               </Flex>
               <SliderField
                 label=""
-                aria-label="Largura"
-                min={20}
-                max={80}
-                step={1}
-                value={params.width}
-                onChange={(value) => onUpdateParam('width', value as number)}
+                aria-label="Largura do texto"
+                min={8} max={60} step={1}
+                value={params.textWidth}
+                onChange={(value) => onUpdateParam('textWidth', value as number)}
               />
 
               <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Altura da letra
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.letterHeight} mm
-                </Text>
+                <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
+                <Text fontSize="xs" color="font.secondary">{params.textSize} mm</Text>
               </Flex>
               <SliderField
                 label=""
-                aria-label="Altura da letra"
-                min={0.4}
-                max={2}
-                step={0.1}
+                aria-label="Altura do texto"
+                min={4} max={20} step={0.5}
+                value={params.textSize}
+                onChange={(value) => onUpdateParam('textSize', value as number)}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
+                <Text fontSize="xs" color="font.secondary">{params.letterHeight} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Altura do relevo"
+                min={0.4} max={2} step={0.1}
                 value={params.letterHeight}
                 onChange={(value) => onUpdateParam('letterHeight', value as number)}
               />
@@ -176,6 +167,18 @@ export function StudioPanel({
                 colors={PLA_COLORS}
                 selected={params.letterColor}
                 onSelect={(color) => onUpdateParam('letterColor', color)}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Largura da peça</Text>
+                <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Largura da peça"
+                min={20} max={80} step={1}
+                value={params.width}
+                onChange={(value) => onUpdateParam('width', value as number)}
               />
 
               <Flex direction="row" justifyContent="space-between">
@@ -294,31 +297,6 @@ export function StudioPanel({
                 step={0.5}
                 value={params.ringEmbedding}
                 onChange={(value) => onUpdateParam('ringEmbedding', value as number)}
-              />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="relevo">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Relevo
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <Text fontSize="xs" color="font.tertiary">
-                Altura do relevo
-              </Text>
-              <SliderField
-                label=""
-                aria-label="Altura do relevo"
-                min={0.4}
-                max={2}
-                step={0.1}
-                value={params.letterHeight}
-                onChange={(value) => onUpdateParam('letterHeight', value as number)}
               />
             </Flex>
           </Accordion.Content>
