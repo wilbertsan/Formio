@@ -68,6 +68,26 @@ export function intersectShapes(shape1: Shape, shape2: Shape): Shape {
   return clipperPathsToShape(solution)
 }
 
+export function subtractShapes(block: Shape, hole: Shape): Shape {
+  const clipper = new ClipperLib.Clipper()
+
+  const paths1 = shapeToClipperPaths(block)
+  const paths2 = shapeToClipperPaths(hole)
+
+  clipper.AddPaths(paths1, ClipperLib.PolyType.ptSubject, true)
+  clipper.AddPaths(paths2, ClipperLib.PolyType.ptClip, true)
+
+  const solution = new ClipperLib.Paths()
+  clipper.Execute(
+    ClipperLib.ClipType.ctDifference,
+    solution,
+    ClipperLib.PolyFillType.pftNonZero,
+    ClipperLib.PolyFillType.pftNonZero,
+  )
+
+  return clipperPathsToShape(solution)
+}
+
 export function unionShapes(shapes: Shape[]): Shape {
   if (shapes.length === 0) return new Shape()
   if (shapes.length === 1) return shapes[0]
@@ -148,7 +168,7 @@ export function createNameOutline({
   // Unir todas as letras em um shape (coordenadas originais)
   const combinedTextShape = unionShapes(letterShapes)
 
-  // Criar retângulo com margem de borderWidth
+  // Criar bloco retangular que contenha o texto + margem
   const rectMinX = minX - borderWidth
   const rectMaxX = maxX + borderWidth
   const rectMinY = minY - borderWidth
@@ -161,11 +181,11 @@ export function createNameOutline({
     new Vector2(rectMinX, rectMaxY),
   ])
 
-  // Expandir nome em borderWidth
+  // Expandir nome em borderWidth (4mm)
   const expandedTextShape = expandShape(combinedTextShape, borderWidth)
 
-  // Interseção: nome expandido ∩ retângulo = base
-  const baseShape = intersectShapes(expandedTextShape, rectangle)
+  // Subtração: bloco - nome expandido = base com furo no formato do nome
+  const baseShape = subtractShapes(rectangle, expandedTextShape)
 
   // Gerar geometrias
   const relief = texts[0]?.relief ?? 1
@@ -176,7 +196,7 @@ export function createNameOutline({
     bevelEnabled: false,
   })
 
-  // Outline = base (interseção)
+  // Outline = base (subtração)
   const outline = new ExtrudeGeometry(baseShape, {
     depth: relief,
     bevelEnabled: false,
