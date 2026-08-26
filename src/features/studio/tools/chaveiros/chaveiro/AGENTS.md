@@ -13,8 +13,9 @@ Gera chaveiros 3D personalizados com texto elevado ou gravado, argola reforçada
 | Parâmetro | Tipo | Faixa | Default |
 |---|---|---|---|
 | textMode | enum | raised, engraved | raised |
-| baseShape | enum | rect, circle, heart | rect |
+| baseShape | enum | rect, circle, heart, name | rect |
 | width | number | 20–80mm | 50 |
+| height | number | 20–80mm | 25 |
 | borderWidth | number | 4–10mm | 4 |
 | thickness | number | 2–6mm | 3 |
 | ringPosition | enum | top, bottom, left, right | top |
@@ -25,6 +26,15 @@ Gera chaveiros 3D personalizados com texto elevado ou gravado, argola reforçada
 
 Cada TextItem: `id, content (1-12 chars), fontStyle (normal/bold/serif), width, height, relief, proportional, offsetX/Y`
 
+### Formato 'name' (Contorno do Nome)
+
+Quando `baseShape === 'name'`:
+- A base do chaveiro é o contorno das letras do texto
+- Sliders de Comprimento/Altura ocultos (tamanho controlado via TextItem)
+- `borderWidth` controla espessura do contorno das letras
+- `textMode` (raised/engraved) controla posicionamento do preenchimento
+- Argola posicionada fora da bounding box do texto
+
 ## Arquivos
 
 ```
@@ -32,6 +42,7 @@ tools/chaveiros/chaveiro/
   schema.ts             — validação Zod + defaults
   shapes.ts             — Three.js Shape + furo + argola
   textToGeometry.ts     — TextGeometry + fit-to-width
+  nameOutline.ts        — geração de contorno para formato 'name'
   buildKeychain.ts      — composição base + texto (merge/CSG)
   positioning.ts        — clamp de borda/furo, empilhamento
   exportStl.ts          — STL binário + download
