@@ -111,9 +111,37 @@ export function createNameOutline({
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
 
+  // Primeiro, calcular o bounding box global de todas as letras
   for (const text of texts) {
     const shapes = font.generateShapes(text.content, text.height)
+    
+    for (const shape of shapes) {
+      const points = shape.getPoints()
+      for (const p of points) {
+        minX = Math.min(minX, p.x + text.offsetX)
+        maxX = Math.max(maxX, p.x + text.offsetX)
+        minY = Math.min(minY, p.y + text.offsetY)
+        maxY = Math.max(maxY, p.y + text.offsetY)
+      }
+      for (const hole of shape.holes) {
+        for (const p of hole.getPoints()) {
+          minX = Math.min(minX, p.x + text.offsetX)
+          maxX = Math.max(maxX, p.x + text.offsetX)
+          minY = Math.min(minY, p.y + text.offsetY)
+          maxY = Math.max(maxY, p.y + text.offsetY)
+        }
+      }
+    }
+  }
 
+  // Centralizar todas as letras no meio do bounding box global
+  const globalCenterX = (minX + maxX) / 2
+  const globalCenterY = (minY + maxY) / 2
+
+  // Agora processar cada letra com offset relativo ao centro global
+  for (const text of texts) {
+    const shapes = font.generateShapes(text.content, text.height)
+    
     for (const shape of shapes) {
       const points = shape.getPoints()
       let shapeMinX = Infinity, shapeMaxX = -Infinity, shapeMinY = Infinity, shapeMaxY = -Infinity
@@ -123,47 +151,38 @@ export function createNameOutline({
         shapeMinY = Math.min(shapeMinY, p.y)
         shapeMaxY = Math.max(shapeMaxY, p.y)
       }
-      for (const hole of shape.holes) {
-        for (const p of hole.getPoints()) {
-          shapeMinX = Math.min(shapeMinX, p.x)
-          shapeMaxX = Math.max(shapeMaxX, p.x)
-          shapeMinY = Math.min(shapeMinY, p.y)
-          shapeMaxY = Math.max(shapeMaxY, p.y)
-        }
-      }
-
-      const centerX = (shapeMinX + shapeMaxX) / 2
-      const centerY = (shapeMinY + shapeMaxY) / 2
-
+      
+      // Offset da letra: posição original + offset do texto - centro global
+      const letterOffsetX = text.offsetX - globalCenterX
+      const letterOffsetY = text.offsetY - globalCenterY
+      
       const centeredPoints = shape.getPoints().map(p => new Vector2(
-        p.x - centerX + text.offsetX,
-        p.y - centerY + text.offsetY,
+        p.x + letterOffsetX,
+        p.y + letterOffsetY,
       ))
       const centeredShape = new Shape(centeredPoints)
-
+      
+      // Preservar furos
       for (const hole of shape.holes) {
         const centeredHolePoints = hole.getPoints().map(p => new Vector2(
-          p.x - centerX + text.offsetX,
-          p.y - centerY + text.offsetY,
+          p.x + letterOffsetX,
+          p.y + letterOffsetY,
         ))
         centeredShape.holes.push(new Path(centeredHolePoints))
       }
-
+      
       letterShapes.push(centeredShape)
-
-      minX = Math.min(minX, shapeMinX - centerX + text.offsetX)
-      maxX = Math.max(maxX, shapeMaxX - centerX + text.offsetX)
-      minY = Math.min(minY, shapeMinY - centerY + text.offsetY)
-      maxY = Math.max(maxY, shapeMaxY - centerY + text.offsetY)
     }
   }
 
+  // Unir todas as letras em um shape
   const combinedTextShape = unionShapes(letterShapes)
 
-  const rectMinX = minX - borderWidth
-  const rectMaxX = maxX + borderWidth
-  const rectMinY = minY - borderWidth
-  const rectMaxY = maxY + borderWidth
+  // Criar retângulo com margem de borderWidth
+  const rectMinX = minX - globalCenterX - borderWidth
+  const rectMaxX = maxX - globalCenterX + borderWidth
+  const rectMinY = minY - globalCenterY - borderWidth
+  const rectMaxY = maxY - globalCenterY + borderWidth
 
   const rectangle = new Shape([
     new Vector2(rectMinX, rectMinY),
@@ -172,9 +191,13 @@ export function createNameOutline({
     new Vector2(rectMinX, rectMaxY),
   ])
 
+  // Expandir nome em borderWidth
   const expandedTextShape = expandShape(combinedTextShape, borderWidth)
+
+  // Interseção: nome expandido ∩ retângulo
   const baseShape = intersectShapes(expandedTextShape, rectangle)
 
+  // Gerar geometrias
   const relief = texts[0]?.relief ?? 1
 
   const fill = new ExtrudeGeometry(combinedTextShape, {
