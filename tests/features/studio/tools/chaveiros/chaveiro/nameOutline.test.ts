@@ -1,6 +1,6 @@
 import { Box2, Shape, Path, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { createNameOutline, shapeToClipperPaths, unionShapes } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
+import { createNameOutline, expandShape, shapeToClipperPaths, unionShapes } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
 import { type TextItem } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const createMockFont = (): Font => ({
@@ -164,6 +164,41 @@ describe('createNameOutline', () => {
     // Should have one outer contour and one hole
     expect(union.getPoints().length).toBeGreaterThan(0)
     expect(union.holes).toHaveLength(1)
+  })
+
+  it('expande shape usando offset externo', () => {
+    const shape = new Shape([
+      new Vector2(0, 0),
+      new Vector2(10, 0),
+      new Vector2(10, 10),
+      new Vector2(0, 10),
+    ])
+    
+    const expanded = expandShape(shape, 2)
+    
+    const box = new Box2().setFromPoints(expanded.getPoints())
+    const expandedWidth = box.max.x - box.min.x
+    const originalWidth = 10
+    
+    expect(expandedWidth).toBeGreaterThan(originalWidth)
+  })
+
+  it('offset externo mantém forma aproximada', () => {
+    const shape = new Shape([
+      new Vector2(0, 0),
+      new Vector2(20, 0),
+      new Vector2(20, 10),
+      new Vector2(0, 10),
+    ])
+    
+    const expanded = expandShape(shape, 1)
+    
+    const box = new Box2().setFromPoints(expanded.getPoints())
+    const width = box.max.x - box.min.x
+    const height = box.max.y - box.min.y
+    
+    expect(width).toBeGreaterThan(20)
+    expect(height).toBeGreaterThan(10)
   })
 
 })

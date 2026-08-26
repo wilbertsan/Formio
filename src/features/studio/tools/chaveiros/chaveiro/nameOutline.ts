@@ -39,6 +39,17 @@ export function clipperPathsToShape(paths: ClipperPoint[][]): Shape {
   return shape
 }
 
+export function expandShape(shape: Shape, amount: number): Shape {
+  const paths = shapeToClipperPaths(shape)
+  const offset = new ClipperLib.ClipperOffset()
+  const solution = new ClipperLib.Paths()
+
+  offset.AddPaths(paths, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon)
+  offset.Execute(solution, amount)
+
+  return clipperPathsToShape(solution)
+}
+
 export function unionShapes(shapes: Shape[]): Shape {
   if (shapes.length === 0) return new Shape()
   if (shapes.length === 1) return shapes[0]
