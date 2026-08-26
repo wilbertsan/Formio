@@ -1,5 +1,6 @@
 import { BufferGeometry, ExtrudeGeometry, Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { TextItem } from './schema'
 
@@ -15,27 +16,27 @@ interface NameOutlineResult {
   boundingBox: { minX: number; maxX: number; minY: number; maxY: number }
 }
 
-function createTextShape(font: Font, text: TextItem): Shape | null {
+function createTextGeometry(font: Font, text: TextItem): { geometry: BufferGeometry; shape: Shape | null } {
+  const geom = new TextGeometry(text.content, {
+    font,
+    size: text.height,
+    depth: text.relief,
+    curveSegments: 8,
+    bevelEnabled: false,
+  })
+  geom.computeBoundingBox()
+
   const shapes = font.generateShapes(text.content, text.height)
-  if (shapes.length === 0) return null
+  const shape = shapes.length > 0 ? shapes[0] : null
 
-  const shape = shapes[0]
-  const points = shape.getPoints()
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-  for (const p of points) {
-    minX = Math.min(minX, p.x)
-    maxX = Math.max(maxX, p.x)
-    minY = Math.min(minY, p.y)
-    maxY = Math.max(maxY, p.y)
+  if (geom.boundingBox) {
+    const bb = geom.boundingBox
+    const offsetX = text.offsetX - (bb.max.x + bb.min.x) / 2
+    const offsetY = text.offsetY - (bb.max.y + bb.min.y) / 2
+    geom.translate(offsetX, offsetY, 0)
   }
-  const centerX = (minX + maxX) / 2
-  const centerY = (minY + maxY) / 2
 
-  const offsetX = text.offsetX - centerX
-  const offsetY = text.offsetY - centerY
-
-  const translated = new Shape(points.map(p => new Vector2(p.x + offsetX, p.y + offsetY)))
-  return translated
+  return { geometry: geom, shape }
 }
 
 function expandShape(shape: Shape, amount: number): Shape {
@@ -74,13 +75,9 @@ export function createNameOutline({
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
 
   for (const text of texts) {
-    const shape = createTextShape(font, text)
+    const { geometry: fillGeom, shape } = createTextGeometry(font, text)
     if (!shape) continue
 
-    const fillGeom = new ExtrudeGeometry(shape, {
-      depth: text.relief,
-      bevelEnabled: false,
-    })
     fillGeometries.push(fillGeom)
 
     const expandedShape = expandShape(shape, borderWidth)

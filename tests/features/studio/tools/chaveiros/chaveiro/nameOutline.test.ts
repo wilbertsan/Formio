@@ -56,4 +56,34 @@ describe('createNameOutline', () => {
     expect(width).toBeGreaterThan(0)
     expect(height).toBeGreaterThan(0)
   })
+
+  it('outline é maior que fill por borderWidth', () => {
+    const result = createNameOutline({
+      font: createMockFont(),
+      texts: [{ ...defaultText, content: 'Hello' }],
+      borderWidth: 2,
+    })
+
+    result.outline.computeBoundingBox()
+    result.fill.computeBoundingBox()
+
+    const outlineWidth = result.outline.boundingBox!.max.x - result.outline.boundingBox!.min.x
+    const fillWidth = result.fill.boundingBox!.max.x - result.fill.boundingBox!.min.x
+
+    expect(outlineWidth).toBeGreaterThan(fillWidth)
+  })
+
+  it('gera geometrias para múltiplos textos', () => {
+    const result = createNameOutline({
+      font: createMockFont(),
+      texts: [
+        { ...defaultText, id: 't1', content: 'A' },
+        { ...defaultText, id: 't2', content: 'B', offsetX: 20 },
+      ],
+      borderWidth: 1,
+    })
+
+    expect(result.outline).toBeDefined()
+    expect(result.fill).toBeDefined()
+  })
 })
