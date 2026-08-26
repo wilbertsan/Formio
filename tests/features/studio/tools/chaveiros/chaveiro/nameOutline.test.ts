@@ -183,6 +183,34 @@ describe('createNameOutline', () => {
     expect(expandedWidth).toBeGreaterThan(originalWidth)
   })
 
+  it('gera silhueta contínua ao redor de todo o texto', () => {
+    const result = createNameOutline({
+      font: createMockFont(),
+      texts: [{ ...defaultText, content: 'AB' }],
+      borderWidth: 2,
+    })
+
+    expect(result.outline).toBeDefined()
+    expect(result.fill).toBeDefined()
+    expect(result.boundingBox).toBeDefined()
+  })
+
+  it('silhueta contínua é maior que o texto original', () => {
+    const result = createNameOutline({
+      font: createMockFont(),
+      texts: [defaultText],
+      borderWidth: 2,
+    })
+
+    result.outline.computeBoundingBox()
+    result.fill.computeBoundingBox()
+
+    const outlineWidth = result.outline.boundingBox!.max.x - result.outline.boundingBox!.min.x
+    const fillWidth = result.fill.boundingBox!.max.x - result.fill.boundingBox!.min.x
+
+    expect(outlineWidth).toBeGreaterThan(fillWidth)
+  })
+
   it('offset externo mantém forma aproximada', () => {
     const shape = new Shape([
       new Vector2(0, 0),
