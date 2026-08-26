@@ -1,7 +1,6 @@
 import { BufferGeometry, ExtrudeGeometry, Shape, Path, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ClipperLib = require('js-clipper')
+import ClipperLib from 'js-clipper'
 import type { TextItem } from './schema'
 
 export interface ClipperPoint {

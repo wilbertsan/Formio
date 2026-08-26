@@ -79,6 +79,7 @@ function buildOutline(shapeType: KeychainShape, width: number, height: number): 
     case 'rect': return rectShape(width, height)
     case 'circle': return circleShape(width)
     case 'heart': return heartShape(width, height)
+    default: return rectShape(width, height)
   }
 }
 
