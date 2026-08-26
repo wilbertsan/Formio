@@ -4,8 +4,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
 import { createBaseShape, createReinforcementRing, getRingPosition, type RingParams } from './shapes'
 import { nameToGeometry } from './textToGeometry'
+import { createNameOutline } from './nameOutline'
 import type { BoundingBox2D, Circle2D } from './positioning'
-import { TEXT_BORDER_MIN } from './schema'
+import { TEXT_BORDER_MIN, RING_EDGE_MARGIN } from './schema'
 import type { KeychainParams, FontStyle, TextItem } from './schema'
 
 export interface BuildKeychainInput {
@@ -93,6 +94,10 @@ export function buildKeychain({
   params,
   onError,
 }: BuildKeychainInput): BuildKeychainResult {
+  if (params.baseShape === 'name') {
+    return buildNameKeychain({ font, fonts, params, onError })
+  }
+
   const ring: RingParams = {
     position: params.ringPosition,
     innerDiameter: params.ringInnerDiameter,
@@ -206,4 +211,58 @@ function computeBaseBB(geometry: BufferGeometry): {
   const cy = (bb.min.y + bb.max.y) / 2
   const hole: Circle2D = { x: cx, y: cy, radius: 0 }
   return { pieceBB, hole }
+}
+
+function buildNameKeychain({ font, fonts, params, onError: _onError }: BuildKeychainInput): BuildKeychainResult {
+  const resolvedFont = resolveFont(fonts, font, params.texts[0].fontStyle)
+
+  const { outline, fill, boundingBox } = createNameOutline({
+    font: resolvedFont,
+    texts: params.texts,
+    borderWidth: params.borderWidth,
+  })
+
+  // Add ring
+  const ring: RingParams = {
+    position: params.ringPosition,
+    innerDiameter: params.ringInnerDiameter,
+    embedding: params.ringEmbedding,
+    lateralOffset: params.ringLateralOffset,
+    radialOffset: params.ringRadialOffset,
+  }
+
+  // Calculate ring position relative to bounding box
+  const ringCenter = new Vector2(
+    ring.lateralOffset,
+    boundingBox.maxY + RING_EDGE_MARGIN + ring.innerDiameter / 2 + ring.radialOffset + ring.embedding,
+  )
+
+  const reinforcementShape = translatedShape(
+    createReinforcementRing(ring),
+    ringCenter.x,
+    ringCenter.y,
+  )
+  const reinforcementGeometry = new ExtrudeGeometry(reinforcementShape, {
+    depth: params.thickness,
+    bevelEnabled: false,
+  })
+
+  // Merge outline with ring
+  const mergedBase = mergeGeometries([outline, reinforcementGeometry]) ?? outline
+
+  // Position fill on top of base
+  fill.translate(0, 0, params.thickness - 0.01)
+
+  return {
+    base: mergedBase,
+    text: fill,
+    textItems: params.texts.map(t => ({ id: t.id, geometry: fill.clone() })),
+    pieceBB: {
+      minX: boundingBox.minX,
+      maxX: boundingBox.maxX,
+      minY: boundingBox.minY,
+      maxY: boundingBox.maxY + ring.innerDiameter + RING_EDGE_MARGIN * 2,
+    },
+    hole: { x: ringCenter.x, y: ringCenter.y, radius: ring.innerDiameter / 2 },
+  }
 }

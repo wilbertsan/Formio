@@ -2,7 +2,20 @@ import * as THREE from 'three'
 import { buildKeychain, type BuildKeychainInput } from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
 import { defaultKeychainParams, type KeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
-const fontStub = { glyphs: {} } as never
+const fontStub = {
+  glyphs: {},
+  generateShapes: (text: string, size: number) => {
+    const w = size * text.length * 0.6
+    const h = size
+    const shape = new THREE.Shape([
+      new THREE.Vector2(-w / 2, -h / 2),
+      new THREE.Vector2(w / 2, -h / 2),
+      new THREE.Vector2(w / 2, h / 2),
+      new THREE.Vector2(-w / 2, h / 2),
+    ])
+    return [shape]
+  },
+} as never
 
 vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   TextGeometry: class extends THREE.BufferGeometry {
@@ -277,5 +290,20 @@ describe('buildKeychain', () => {
       },
     }))
     expect(csgCalls).toHaveLength(1)
+  })
+
+  it('baseShape name gera contorno e preenchimento', () => {
+    const result = buildKeychain(makeInput({
+      params: {
+        ...defaultKeychainParams,
+        baseShape: 'name',
+        texts: [{ ...defaultKeychainParams.texts[0], content: 'A' }],
+      },
+    }))
+    
+    expect(result.base).toBeDefined()
+    expect(result.text).toBeDefined()
+    expect(result.pieceBB).toBeDefined()
+    expect(result.pieceBB.minX).toBeDefined()
   })
 })
