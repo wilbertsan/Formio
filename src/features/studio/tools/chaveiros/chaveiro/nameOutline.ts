@@ -16,6 +16,66 @@ interface NameOutlineResult {
   boundingBox: { minX: number; maxX: number; minY: number; maxY: number }
 }
 
+function orderVerticesClockwise(vertices: Vector2[]): Vector2[] {
+  if (vertices.length === 0) return []
+
+  let cx = 0, cy = 0
+  for (const v of vertices) {
+    cx += v.x
+    cy += v.y
+  }
+  cx /= vertices.length
+  cy /= vertices.length
+
+  return vertices.sort((a, b) => {
+    const angleA = Math.atan2(a.y - cy, a.x - cx)
+    const angleB = Math.atan2(b.y - cy, b.x - cx)
+    return angleA - angleB
+  })
+}
+
+export function extractShapeFromText(font: Font, text: TextItem): { shape: Shape; boundingBox: { minX: number; maxX: number; minY: number; maxY: number } } {
+  const geom = new TextGeometry(text.content, {
+    font,
+    size: text.height,
+    depth: 0,
+    curveSegments: 12,
+    bevelEnabled: false,
+  })
+
+  geom.computeBoundingBox()
+  const bb = geom.boundingBox!
+
+  const centerX = (bb.max.x + bb.min.x) / 2
+  const centerY = (bb.max.y + bb.min.y) / 2
+
+  const positions = geom.getAttribute('position')
+  const frontVertices: Vector2[] = []
+
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i) - centerX + text.offsetX
+    const y = positions.getY(i) - centerY + text.offsetY
+    const z = positions.getZ(i)
+
+    if (Math.abs(z) < 0.01) {
+      frontVertices.push(new Vector2(x, y))
+    }
+  }
+
+  const orderedVertices = orderVerticesClockwise(frontVertices)
+  const shape = new Shape(orderedVertices)
+
+  return {
+    shape,
+    boundingBox: {
+      minX: bb.min.x - centerX + text.offsetX,
+      maxX: bb.max.x - centerX + text.offsetX,
+      minY: bb.min.y - centerY + text.offsetY,
+      maxY: bb.max.y - centerY + text.offsetY,
+    },
+  }
+}
+
 function createTextShape(font: Font, text: TextItem): { shape: Shape | null; bb: { minX: number; maxX: number; minY: number; maxY: number } | null } {
   const geom = new TextGeometry(text.content, {
     font,

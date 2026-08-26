@@ -1,6 +1,6 @@
 import { Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { createNameOutline } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
+import { createNameOutline, extractShapeFromText } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
 import { type TextItem } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const createMockFont = (): Font => ({
@@ -85,5 +85,16 @@ describe('createNameOutline', () => {
 
     expect(result.outline).toBeDefined()
     expect(result.fill).toBeDefined()
+  })
+
+  it('extrai shape correto de TextGeometry', () => {
+    const font = createMockFont()
+    const text: TextItem = { ...defaultText, content: 'A', height: 10, offsetX: 0, offsetY: 0 }
+
+    const result = extractShapeFromText(font, text)
+
+    expect(result.shape).toBeDefined()
+    expect(result.boundingBox).toBeDefined()
+    expect(result.boundingBox.maxX - result.boundingBox.minX).toBeGreaterThan(0)
   })
 })
