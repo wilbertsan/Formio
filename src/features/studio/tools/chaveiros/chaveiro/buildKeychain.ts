@@ -213,7 +213,7 @@ function computeBaseBB(geometry: BufferGeometry): {
   return { pieceBB, hole }
 }
 
-function buildNameKeychain({ font, fonts, params, onError: _onError }: BuildKeychainInput): BuildKeychainResult {
+function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKeychainResult {
   const resolvedFont = resolveFont(fonts, font, params.texts[0].fontStyle)
 
   const { outline, fill, boundingBox } = createNameOutline({
