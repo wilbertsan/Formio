@@ -107,4 +107,17 @@ describe('useKeychain', () => {
     expect(result.current.dimensions.height).toBeDefined()
     expect(result.current.dimensions.thickness).toBe(defaultKeychainParams.thickness)
   })
+
+  it('height é independente do width', () => {
+    const { result } = renderHook(() => useKeychain())
+    act(() => result.current.updateParam('height', 40))
+    expect(result.current.params.height).toBe(40)
+    expect(result.current.dimensions.height).toBe(40)
+  })
+
+  it('updateParam clampa height', () => {
+    const { result } = renderHook(() => useKeychain())
+    act(() => result.current.updateParam('height', 10))
+    expect(result.current.params.height).toBe(20)
+  })
 })

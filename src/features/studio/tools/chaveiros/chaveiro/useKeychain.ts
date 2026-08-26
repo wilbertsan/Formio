@@ -26,6 +26,7 @@ type KeychainAction =
 
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   width: { min: 20, max: 80 },
+  height: { min: 20, max: 80 },
   borderWidth: { min: 4, max: 10 },
   thickness: { min: 2, max: 6 },
   letterHeight: { min: 0.4, max: 2 },
@@ -89,14 +90,6 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
   }
 }
 
-function deriveHeight(shape: string, width: number): number {
-  switch (shape) {
-    case 'circle': return width
-    case 'heart': return width * 14 / 16
-    case 'rect':
-    default: return width / 2
-  }
-}
 
 export function useKeychain() {
   const [params, dispatch] = useReducer(keychainReducer, defaultKeychainParams)
@@ -165,9 +158,8 @@ export function useKeychain() {
   }, [])
 
   const dimensions = useMemo(() => {
-    const height = deriveHeight(params.baseShape, params.width)
-    return { width: params.width, height, thickness: params.thickness }
-  }, [params.width, params.baseShape, params.thickness])
+    return { width: params.width, height: params.height, thickness: params.thickness }
+  }, [params.width, params.height, params.thickness])
 
   return { params, geometry, fontError, dimensions, updateParam, updateName, addText, removeText, updateText, reset }
 }
