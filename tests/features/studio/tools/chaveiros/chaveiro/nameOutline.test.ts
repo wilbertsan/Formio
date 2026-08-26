@@ -229,4 +229,40 @@ describe('createNameOutline', () => {
     expect(height).toBeGreaterThan(10)
   })
 
+  it('base é interseção entre nome expandido e retângulo', () => {
+    const result = createNameOutline({
+      font: createMockFont(),
+      texts: [defaultText],
+      borderWidth: 4,
+    })
+    
+    result.outline.computeBoundingBox()
+    result.fill.computeBoundingBox()
+    
+    const outlineWidth = result.outline.boundingBox!.max.x - result.outline.boundingBox!.min.x
+    const fillWidth = result.fill.boundingBox!.max.x - result.fill.boundingBox!.min.x
+    
+    // Base (outline) deve ser maior que o nome (fill)
+    expect(outlineWidth).toBeGreaterThan(fillWidth)
+    
+    // Base deve ter tamanho limitado pelo retângulo (nome + 8mm de margem total)
+    const expectedMaxWidth = fillWidth + 8 // 4mm de cada lado
+    expect(outlineWidth).toBeLessThanOrEqual(expectedMaxWidth + 0.1)
+  })
+
+  it('base contém o nome original', () => {
+    const result = createNameOutline({
+      font: createMockFont(),
+      texts: [defaultText],
+      borderWidth: 4,
+    })
+    
+    result.outline.computeBoundingBox()
+    result.fill.computeBoundingBox()
+    
+    // Nome (fill) deve caber dentro da base (outline)
+    expect(result.fill.boundingBox!.min.x).toBeGreaterThanOrEqual(result.outline.boundingBox!.min.x - 0.1)
+    expect(result.fill.boundingBox!.max.x).toBeLessThanOrEqual(result.outline.boundingBox!.max.x + 0.1)
+  })
+
 })

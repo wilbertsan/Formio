@@ -48,6 +48,26 @@ export function expandShape(shape: Shape, amount: number): Shape {
   return clipperPathsToShape(solution)
 }
 
+export function intersectShapes(shape1: Shape, shape2: Shape): Shape {
+  const clipper = new ClipperLib.Clipper()
+
+  const paths1 = shapeToClipperPaths(shape1)
+  const paths2 = shapeToClipperPaths(shape2)
+
+  clipper.AddPaths(paths1, ClipperLib.PolyType.ptSubject, true)
+  clipper.AddPaths(paths2, ClipperLib.PolyType.ptClip, true)
+
+  const solution = new ClipperLib.Paths()
+  clipper.Execute(
+    ClipperLib.ClipType.ctIntersection,
+    solution,
+    ClipperLib.PolyFillType.pftNonZero,
+    ClipperLib.PolyFillType.pftNonZero,
+  )
+
+  return clipperPathsToShape(solution)
+}
+
 export function unionShapes(shapes: Shape[]): Shape {
   if (shapes.length === 0) return new Shape()
   if (shapes.length === 1) return shapes[0]
@@ -139,7 +159,21 @@ export function createNameOutline({
   }
 
   const combinedTextShape = unionShapes(letterShapes)
-  const baseShape = expandShape(combinedTextShape, borderWidth)
+
+  const rectMinX = minX - borderWidth
+  const rectMaxX = maxX + borderWidth
+  const rectMinY = minY - borderWidth
+  const rectMaxY = maxY + borderWidth
+
+  const rectangle = new Shape([
+    new Vector2(rectMinX, rectMinY),
+    new Vector2(rectMaxX, rectMinY),
+    new Vector2(rectMaxX, rectMaxY),
+    new Vector2(rectMinX, rectMaxY),
+  ])
+
+  const expandedTextShape = expandShape(combinedTextShape, borderWidth)
+  const baseShape = intersectShapes(expandedTextShape, rectangle)
 
   const relief = texts[0]?.relief ?? 1
 
@@ -157,10 +191,10 @@ export function createNameOutline({
     outline,
     fill,
     boundingBox: {
-      minX: minX - borderWidth,
-      maxX: maxX + borderWidth,
-      minY: minY - borderWidth,
-      maxY: maxY + borderWidth,
+      minX: rectMinX,
+      maxX: rectMaxX,
+      minY: rectMinY,
+      maxY: rectMaxY,
     },
   }
 }
