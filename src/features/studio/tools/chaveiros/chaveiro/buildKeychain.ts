@@ -214,9 +214,10 @@ function computeBaseBB(geometry: BufferGeometry): {
 }
 
 function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKeychainResult {
+  // Gerar base usando createNameOutline
   const resolvedFont = resolveFont(fonts, font, params.texts[0].fontStyle)
-
-  const { outline, fill, boundingBox } = createNameOutline({
+  
+  const { outline: baseGeometry, boundingBox } = createNameOutline({
     font: resolvedFont,
     texts: params.texts,
     borderWidth: params.borderWidth,
@@ -232,7 +233,6 @@ function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKe
   }
 
   // Calculate ring position relative to bounding box
-  // Position ring so it connects to the top of the name contour
   const ringCenter = new Vector2(
     ring.lateralOffset,
     boundingBox.maxY - ring.innerDiameter / 2 - RING_EDGE_MARGIN + ring.radialOffset + ring.embedding,
@@ -248,16 +248,43 @@ function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKe
     bevelEnabled: false,
   })
 
-  // Merge outline with ring
-  const mergedBase = mergeGeometries([outline, reinforcementGeometry]) ?? outline
+  // Merge base with ring
+  const mergedBase = mergeGeometries([baseGeometry, reinforcementGeometry]) ?? baseGeometry
 
-  // Position fill on top of base
-  fill.translate(0, 0, params.thickness - 0.01)
+  // Gerar camada de letras usando a mesma lógica dos outros formatos
+  const textGeometries: BufferGeometry[] = []
+  const textItems: Array<{ id: string; geometry: BufferGeometry }> = []
+
+  for (let i = 0; i < params.texts.length; i++) {
+    const item = params.texts[i]
+    const itemFont = resolveFont(fonts, font, item.fontStyle)
+    
+    // Usar buildItemGeometry (mesma lógica dos outros formatos)
+    const textGeometry = buildItemGeometry(item, itemFont, params.width)
+    textGeometry.computeBoundingBox()
+    const bb = textGeometry.boundingBox!
+    const halfWidth = (bb.max.x - bb.min.x) / 2
+
+    // Posicionar texto
+    const textAvailableWidth = boundingBox.maxX - boundingBox.minX - 2 * TEXT_BORDER_MIN
+    const centerX = (boundingBox.minX + boundingBox.maxX) / 2
+    const clampedX = Math.max(
+      -textAvailableWidth / 2 + halfWidth,
+      Math.min(textAvailableWidth / 2 - halfWidth, item.offsetX)
+    )
+    const clampedY = item.offsetY
+
+    textGeometry.translate(centerX + clampedX, clampedY, params.thickness - 0.01)
+    textGeometries.push(textGeometry)
+    textItems.push({ id: item.id, geometry: textGeometry })
+  }
+
+  const mergedText = mergeGeometries(textGeometries) ?? textGeometries[0]
 
   return {
     base: mergedBase,
-    text: fill,
-    textItems: params.texts.map(t => ({ id: t.id, geometry: fill.clone() })),
+    text: mergedText,
+    textItems,
     pieceBB: {
       minX: boundingBox.minX,
       maxX: boundingBox.maxX,
