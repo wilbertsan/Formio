@@ -114,11 +114,85 @@ describe('StudioPanel', () => {
     expect(onUpdateText).toHaveBeenCalledWith(firstTextId, { fontStyle: 'normal' })
   })
 
-  it('renderiza bloco Base com largura, espessura e borda', () => {
+  it('renderiza bloco Base com comprimento, altura, espessura e borda', () => {
     renderPanel()
-    expect(screen.getByLabelText('Largura da peça')).toBeInTheDocument()
+    expect(screen.getByLabelText('Comprimento')).toBeInTheDocument()
+    expect(screen.getByLabelText('Altura da peça')).toBeInTheDocument()
     expect(screen.getByLabelText('Espessura')).toBeInTheDocument()
     expect(screen.getByLabelText('Borda')).toBeInTheDocument()
+  })
+
+  it('renderiza seletor de formato na aba Base', () => {
+    renderPanel()
+    expect(screen.getByRole('listbox', { name: /formato/i })).toBeInTheDocument()
+  })
+
+  it('renderiza sliders de comprimento e altura na aba Base', () => {
+    renderPanel()
+    expect(screen.getByLabelText('Comprimento')).toBeInTheDocument()
+    expect(screen.getByLabelText('Altura da peça')).toBeInTheDocument()
+  })
+
+  it('oculta slider de altura quando formato é circular', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'circle' as const }
+    render(
+      <StudioPanel
+        params={params}
+        selectedTextId={firstTextId}
+        onSelectText={() => undefined}
+        onUpdateText={() => undefined}
+        onAddText={() => undefined}
+        onRemoveText={() => undefined}
+        onUpdateParam={() => undefined}
+        onReset={() => undefined}
+        onOpenEditor={() => undefined}
+      />,
+    )
+    expect(screen.queryByLabelText('Altura da peça')).not.toBeInTheDocument()
+  })
+
+  it('mostra slider de altura quando formato é retangular', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'rect' as const }
+    render(
+      <StudioPanel
+        params={params}
+        selectedTextId={firstTextId}
+        onSelectText={() => undefined}
+        onUpdateText={() => undefined}
+        onAddText={() => undefined}
+        onRemoveText={() => undefined}
+        onUpdateParam={() => undefined}
+        onReset={() => undefined}
+        onOpenEditor={() => undefined}
+      />,
+    )
+    expect(screen.getByLabelText('Altura da peça')).toBeInTheDocument()
+  })
+
+  it('mostra slider de altura quando formato é coração', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'heart' as const }
+    render(
+      <StudioPanel
+        params={params}
+        selectedTextId={firstTextId}
+        onSelectText={() => undefined}
+        onUpdateText={() => undefined}
+        onAddText={() => undefined}
+        onRemoveText={() => undefined}
+        onUpdateParam={() => undefined}
+        onReset={() => undefined}
+        onOpenEditor={() => undefined}
+      />,
+    )
+    expect(screen.getByLabelText('Altura da peça')).toBeInTheDocument()
+  })
+
+  it('dispara onUpdateParam ao trocar formato', async () => {
+    const user = userEvent.setup()
+    const onUpdateParam = vi.fn()
+    renderPanel({ onUpdateParam })
+    await user.selectOptions(screen.getByRole('listbox', { name: /formato/i }), 'circle')
+    expect(onUpdateParam).toHaveBeenCalledWith('baseShape', 'circle')
   })
 
   it('renderiza bloco Argola com position dropdown', () => {

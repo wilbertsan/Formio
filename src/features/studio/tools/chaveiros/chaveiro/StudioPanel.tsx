@@ -215,6 +215,18 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
+              <SelectField
+                label="Formato"
+                value={params.baseShape}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdateParam('baseShape', e.target.value)
+                }
+              >
+                <option value="rect">Retangular</option>
+                <option value="circle">Circular</option>
+                <option value="heart">Coração</option>
+              </SelectField>
+
               <Text fontSize="xs" color="font.tertiary">
                 Cor da base
               </Text>
@@ -234,16 +246,32 @@ export function StudioPanel({
               />
 
               <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Largura da peça</Text>
+                <Text fontSize="xs" color="font.tertiary">Comprimento</Text>
                 <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
               </Flex>
               <SliderField
                 label=""
-                aria-label="Largura da peça"
+                aria-label="Comprimento"
                 min={20} max={80} step={1}
                 value={params.width}
                 onChange={(value) => onUpdateParam('width', value as number)}
               />
+
+              {params.baseShape !== 'circle' && (
+                <>
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Altura da peça</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.height} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Altura da peça"
+                    min={20} max={80} step={1}
+                    value={params.height}
+                    onChange={(value) => onUpdateParam('height', value as number)}
+                  />
+                </>
+              )}
 
               <Flex direction="row" justifyContent="space-between">
                 <Text fontSize="xs" color="font.tertiary">
