@@ -46,6 +46,13 @@ describe('keychain schema', () => {
     expect('textSize' in keychainParamsSchema.shape).toBe(false)
   })
 
+  it('schema inclui height com range 20-80', () => {
+    expect(keychainParamsSchema.shape.height).toBeDefined()
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, height: 19 }).success).toBe(false)
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, height: 81 }).success).toBe(false)
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, height: 50 }).success).toBe(true)
+  })
+
   it('exporta constantes de segurança', () => {
     expect(TEXT_BORDER_MIN).toBe(4)
     expect(RING_EDGE_MARGIN).toBe(2)
