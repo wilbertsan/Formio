@@ -69,6 +69,34 @@ describe('TextPositionEditor', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('usa params.height para calcular a base', () => {
+    const { container: tallContainer } = render(
+      <TextPositionEditor
+        params={{ ...defaultKeychainParams, width: 40, height: 60 }}
+        selectedTextId="text-1"
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+    const tallSvg = tallContainer.querySelector('svg')
+    const tallViewBox = tallSvg?.getAttribute('viewBox')
+
+    const { container: shortContainer } = render(
+      <TextPositionEditor
+        params={{ ...defaultKeychainParams, width: 40, height: 25 }}
+        selectedTextId="text-1"
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+    const shortSvg = shortContainer.querySelector('svg')
+    const shortViewBox = shortSvg?.getAttribute('viewBox')
+
+    expect(tallViewBox).not.toBe(shortViewBox)
+  })
+
   it('calcula viewBox dinamicamente a partir do bounding box da base', () => {
     const { container: rectContainer } = render(
       <TextPositionEditor

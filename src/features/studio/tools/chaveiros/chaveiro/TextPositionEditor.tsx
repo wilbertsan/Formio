@@ -36,10 +36,10 @@ export function TextPositionEditor({
     lateralOffset: params.ringLateralOffset,
     radialOffset: params.ringRadialOffset,
   }
-  const holeCenter = getRingPosition(params.baseShape, params.width, params.width, ring)
+  const holeCenter = getRingPosition(params.baseShape, params.width, params.height, ring)
   const hole = { x: holeCenter.x, y: holeCenter.y, radius: ring.innerDiameter / 2 }
 
-  const baseShape = createBaseShape(params.baseShape, params.width, params.width, ring)
+  const baseShape = createBaseShape(params.baseShape, params.width, params.height, ring)
 
   const { minX, maxX, minY, maxY, vbWidth, vbHeight, basePoints } = useMemo(() => {
     const points = baseShape.getPoints(64)
