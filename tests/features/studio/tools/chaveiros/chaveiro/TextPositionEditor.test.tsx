@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { vi } from 'vitest'
-import { TextPositionEditor } from '@/features/studio/components/TextPositionEditor'
-import { defaultKeychainParams } from '@/features/studio/keychain/schema'
+import { TextPositionEditor } from '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
+import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 function renderEditor(overrides?: {
   selectedTextId?: string

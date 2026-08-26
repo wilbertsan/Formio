@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { exportStl } from '@/features/studio/keychain/exportStl'
+import { exportStl } from '@/features/studio/tools/chaveiros/chaveiro/exportStl'
 
 vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
   mergeGeometries: vi.fn((geos: THREE.BufferGeometry[]) => {

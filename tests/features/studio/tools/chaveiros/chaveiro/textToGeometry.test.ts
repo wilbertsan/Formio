@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { fitTextHeight, nameToGeometry } from '@/features/studio/keychain/textToGeometry'
+import { fitTextHeight, nameToGeometry } from '@/features/studio/tools/chaveiros/chaveiro/textToGeometry'
 
 // Mock TextGeometry to return a predictable BufferGeometry
 vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { createBaseShape, createReinforcementRing, getRingPosition } from '@/features/studio/keychain/shapes'
-import { defaultKeychainParams, RING_EDGE_MARGIN, type RingPosition } from '@/features/studio/keychain/schema'
+import { createBaseShape, createReinforcementRing, getRingPosition } from '@/features/studio/tools/chaveiros/chaveiro/shapes'
+import { defaultKeychainParams, RING_EDGE_MARGIN, type RingPosition } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const baseParams = { ...defaultKeychainParams }
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
-import { buildKeychain, type BuildKeychainInput } from '@/features/studio/keychain/buildKeychain'
-import { defaultKeychainParams, type KeychainParams } from '@/features/studio/keychain/schema'
+import { buildKeychain, type BuildKeychainInput } from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
+import { defaultKeychainParams, type KeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const fontStub = { glyphs: {} } as never
 

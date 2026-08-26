@@ -1,4 +1,4 @@
-import type { BuildKeychainResult } from '../keychain/buildKeychain'
+import type { BuildKeychainResult } from './buildKeychain'
 
 interface KeychainPreviewProps {
   geometry: BuildKeychainResult | null

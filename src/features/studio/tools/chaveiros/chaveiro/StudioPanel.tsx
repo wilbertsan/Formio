@@ -10,7 +10,7 @@ import {
   TextField,
   View,
 } from '@aws-amplify/ui-react'
-import { type KeychainParams, type TextItem, PLA_COLORS } from '../keychain/schema'
+import { type KeychainParams, type TextItem, PLA_COLORS } from './schema'
 
 interface StudioPanelProps {
   params: KeychainParams

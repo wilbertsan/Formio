@@ -1,10 +1,10 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { Loader } from '@aws-amplify/ui-react'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import type { BuildKeychainResult } from '../keychain/buildKeychain'
+import type { BuildKeychainResult } from '../tools/chaveiros/chaveiro/buildKeychain'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Grid, OrbitControls } from '@react-three/drei'
-import { KeychainPreview } from './KeychainPreview'
+import { KeychainPreview } from '../tools/chaveiros/chaveiro/KeychainPreview'
 
 interface StudioViewportProps {
   geometry: BuildKeychainResult | null

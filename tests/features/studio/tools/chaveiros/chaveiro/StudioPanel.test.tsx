@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { StudioPanel } from '@/features/studio/components/StudioPanel'
-import { defaultKeychainParams } from '@/features/studio/keychain/schema'
+import { StudioPanel } from '@/features/studio/tools/chaveiros/chaveiro/StudioPanel'
+import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const firstTextId = defaultKeychainParams.texts[0].id
 

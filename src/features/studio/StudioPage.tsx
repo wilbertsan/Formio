@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react'
 import { StudioTopbar } from './components/StudioTopbar'
-import { StudioPanel } from './components/StudioPanel'
+import { StudioPanel } from './tools/chaveiros/chaveiro/StudioPanel'
 import { StudioViewport } from './components/StudioViewport'
 import { StudioStatusBar } from './components/StudioStatusBar'
-import { TextPositionEditor } from './components/TextPositionEditor'
-import { useKeychain } from './hooks/useKeychain'
-import { exportStl } from './keychain/exportStl'
+import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
+import { useKeychain } from './tools/chaveiros/chaveiro/useKeychain'
+import { exportStl } from './tools/chaveiros/chaveiro/exportStl'
 
 export function StudioPage() {
   const [projectName, setProjectName] = useState('Projeto sem título')

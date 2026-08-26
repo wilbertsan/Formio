@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { useKeychain } from '@/features/studio/hooks/useKeychain'
-import { defaultKeychainParams } from '@/features/studio/keychain/schema'
+import { useKeychain } from '@/features/studio/tools/chaveiros/chaveiro/useKeychain'
+import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
-vi.mock('@/features/studio/keychain/buildKeychain', () => ({
+vi.mock('@/features/studio/tools/chaveiros/chaveiro/buildKeychain', () => ({
   buildKeychain: vi.fn(() => ({
     base: new THREE.BufferGeometry(),
     text: new THREE.BufferGeometry(),
@@ -13,7 +13,7 @@ vi.mock('@/features/studio/keychain/buildKeychain', () => ({
   })),
 }))
 
-vi.mock('@/features/studio/keychain/fonts', () => ({
+vi.mock('@/features/studio/tools/chaveiros/chaveiro/fonts', () => ({
   fontUrls: { normal: '/font-normal.json', bold: '/font-bold.json', serif: '/font-serif.json' },
 }))
 

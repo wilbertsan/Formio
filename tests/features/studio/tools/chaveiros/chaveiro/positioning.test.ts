@@ -2,7 +2,7 @@ import {
   clampTextPosition,
   defaultStackOffsets,
   snapTextToSupport,
-} from '@/features/studio/keychain/positioning'
+} from '@/features/studio/tools/chaveiros/chaveiro/positioning'
 
 describe('defaultStackOffsets', () => {
   it('um texto fica centrado em 0', () => {

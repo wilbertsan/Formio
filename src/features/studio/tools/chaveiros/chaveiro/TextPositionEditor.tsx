@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Button, Flex, Heading } from '@aws-amplify/ui-react'
-import { createBaseShape, getRingPosition, RING_WALL } from '../keychain/shapes'
-import { TEXT_BORDER_MIN } from '../keychain/schema'
-import type { KeychainParams } from '../keychain/schema'
+import { createBaseShape, getRingPosition, RING_WALL } from './shapes'
+import { TEXT_BORDER_MIN } from './schema'
+import type { KeychainParams } from './schema'
 
 interface TextPositionEditorProps {
   params: KeychainParams

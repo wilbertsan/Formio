@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
-import { fontUrls } from '../keychain/fonts'
-import { defaultKeychainParams, keychainParamsSchema, textItemSchema, type KeychainParams, type FontStyle, type TextItem } from '../keychain/schema'
-import { buildKeychain, type BuildKeychainResult } from '../keychain/buildKeychain'
+import { fontUrls } from './fonts'
+import { defaultKeychainParams, keychainParamsSchema, textItemSchema, type KeychainParams, type FontStyle, type TextItem } from './schema'
+import { buildKeychain, type BuildKeychainResult } from './buildKeychain'
 
 const TEXT_ITEM_DEFAULTS = {
   content: 'Novo texto',

@@ -6,7 +6,7 @@ import {
   textItemSchema,
   TEXT_BORDER_MIN,
   RING_EDGE_MARGIN,
-} from '@/features/studio/keychain/schema'
+} from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 describe('keychain schema', () => {
   it('defaults são válidos', () => {
