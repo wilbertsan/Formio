@@ -1,4 +1,4 @@
-import { BufferGeometry, ExtrudeGeometry, Shape, Vector2 } from 'three'
+import { BufferGeometry, ExtrudeGeometry, Shape, Path, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -16,48 +16,85 @@ interface NameOutlineResult {
   boundingBox: { minX: number; maxX: number; minY: number; maxY: number }
 }
 
-function createTextGeometry(font: Font, text: TextItem): { geometry: BufferGeometry; shape: Shape | null } {
+function createTextShape(font: Font, text: TextItem): { shape: Shape | null; bb: { minX: number; maxX: number; minY: number; maxY: number } | null } {
   const geom = new TextGeometry(text.content, {
     font,
     size: text.height,
-    depth: text.relief,
+    depth: 0,
     curveSegments: 8,
     bevelEnabled: false,
   })
   geom.computeBoundingBox()
 
   const shapes = font.generateShapes(text.content, text.height)
-  const shape = shapes.length > 0 ? shapes[0] : null
+  if (shapes.length === 0) return { shape: null, bb: null }
 
-  if (geom.boundingBox) {
-    const bb = geom.boundingBox
-    const offsetX = text.offsetX - (bb.max.x + bb.min.x) / 2
-    const offsetY = text.offsetY - (bb.max.y + bb.min.y) / 2
-    geom.translate(offsetX, offsetY, 0)
+  const shape = shapes[0]
+  const bb = geom.boundingBox!
+
+  // Center the shape and apply offset
+  const centerX = (bb.max.x + bb.min.x) / 2
+  const centerY = (bb.max.y + bb.min.y) / 2
+
+  const points = shape.getPoints()
+  const centeredPoints = points.map(p => new Vector2(
+    p.x - centerX + text.offsetX,
+    p.y - centerY + text.offsetY,
+  ))
+  const centeredShape = new Shape(centeredPoints)
+
+  // Also center holes if any
+  for (const hole of shape.holes) {
+    const holePoints = hole.getPoints()
+    const centeredHolePoints = holePoints.map(p => new Vector2(
+      p.x - centerX + text.offsetX,
+      p.y - centerY + text.offsetY,
+    ))
+    centeredShape.holes.push(new Path(centeredHolePoints))
   }
 
-  return { geometry: geom, shape }
+  return {
+    shape: centeredShape,
+    bb: {
+      minX: bb.min.x - centerX + text.offsetX,
+      maxX: bb.max.x - centerX + text.offsetX,
+      minY: bb.min.y - centerY + text.offsetY,
+      maxY: bb.max.y - centerY + text.offsetY,
+    },
+  }
 }
 
-function expandShape(shape: Shape, amount: number): Shape {
+function offsetShape(shape: Shape, amount: number): Shape {
   const points = shape.getPoints()
-
-  let cx = 0, cy = 0
-  for (const p of points) {
-    cx += p.x
-    cy += p.y
-  }
-  cx /= points.length
-  cy /= points.length
-
   const expanded: Vector2[] = []
-  for (const p of points) {
-    const dx = p.x - cx
-    const dy = p.y - cy
-    const len = Math.sqrt(dx * dx + dy * dy) || 1
+
+  for (let i = 0; i < points.length; i++) {
+    const prev = points[(i - 1 + points.length) % points.length]
+    const curr = points[i]
+    const next = points[(i + 1) % points.length]
+
+    // Calculate normals (perpendicular to edge, pointing outward)
+    const dx1 = curr.x - prev.x
+    const dy1 = curr.y - prev.y
+    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1) || 1
+    // For outward normal in CCW winding: (dy, -dx)
+    const nx1 = dy1 / len1
+    const ny1 = -dx1 / len1
+
+    const dx2 = next.x - curr.x
+    const dy2 = next.y - curr.y
+    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2) || 1
+    const nx2 = dy2 / len2
+    const ny2 = -dx2 / len2
+
+    // Average normal
+    const nx = (nx1 + nx2) / 2
+    const ny = (ny1 + ny2) / 2
+    const nLen = Math.sqrt(nx * nx + ny * ny) || 1
+
     expanded.push(new Vector2(
-      p.x + (dx / len) * amount,
-      p.y + (dy / len) * amount,
+      curr.x + (nx / nLen) * amount,
+      curr.y + (ny / nLen) * amount,
     ))
   }
 
@@ -75,25 +112,34 @@ export function createNameOutline({
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
 
   for (const text of texts) {
-    const { geometry: fillGeom, shape } = createTextGeometry(font, text)
-    if (!shape) continue
+    const { shape, bb } = createTextShape(font, text)
+    if (!shape || !bb) continue
 
+    // Fill geometry (the text itself)
+    const fillGeom = new ExtrudeGeometry(shape, {
+      depth: text.relief,
+      bevelEnabled: false,
+    })
     fillGeometries.push(fillGeom)
 
-    const expandedShape = expandShape(shape, borderWidth)
-    const outlineGeom = new ExtrudeGeometry(expandedShape, {
+    // Outline geometry (offset shape with hole)
+    const outlineShape = offsetShape(shape, borderWidth)
+
+    // Create hole in outline using original shape
+    const holePath = new Path(shape.getPoints())
+    outlineShape.holes.push(holePath)
+
+    const outlineGeom = new ExtrudeGeometry(outlineShape, {
       depth: text.relief,
       bevelEnabled: false,
     })
     outlineGeometries.push(outlineGeom)
 
-    fillGeom.computeBoundingBox()
-    if (fillGeom.boundingBox) {
-      minX = Math.min(minX, fillGeom.boundingBox.min.x)
-      maxX = Math.max(maxX, fillGeom.boundingBox.max.x)
-      minY = Math.min(minY, fillGeom.boundingBox.min.y)
-      maxY = Math.max(maxY, fillGeom.boundingBox.max.y)
-    }
+    // Update bounding box
+    minX = Math.min(minX, bb.minX)
+    maxX = Math.max(maxX, bb.maxX)
+    minY = Math.min(minY, bb.minY)
+    maxY = Math.max(maxY, bb.maxY)
   }
 
   const outline = outlineGeometries.length > 0 ? mergeGeometries(outlineGeometries) : new BufferGeometry()
