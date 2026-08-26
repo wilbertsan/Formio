@@ -3,6 +3,40 @@ import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { TextItem } from './schema'
 
+export interface ClipperPoint {
+  X: number
+  Y: number
+}
+
+export function shapeToClipperPaths(shape: Shape): ClipperPoint[][] {
+  const paths: ClipperPoint[][] = []
+
+  const outerPoints = shape.getPoints().map(p => ({ X: Math.round(p.x * 1000), Y: Math.round(p.y * 1000) }))
+  paths.push(outerPoints)
+
+  for (const hole of shape.holes) {
+    const holePoints = hole.getPoints().map(p => ({ X: Math.round(p.x * 1000), Y: Math.round(p.y * 1000) }))
+    paths.push(holePoints)
+  }
+
+  return paths
+}
+
+export function clipperPathsToShape(paths: ClipperPoint[][]): Shape {
+  if (paths.length === 0) return new Shape()
+
+  const outer = paths[0]
+  const outerPoints = outer.map(p => new Vector2(p.X / 1000, p.Y / 1000))
+  const shape = new Shape(outerPoints)
+
+  for (let i = 1; i < paths.length; i++) {
+    const holePoints = paths[i].map(p => new Vector2(p.X / 1000, p.Y / 1000))
+    shape.holes.push(new Path(holePoints))
+  }
+
+  return shape
+}
+
 interface CreateNameOutlineInput {
   font: Font
   texts: TextItem[]

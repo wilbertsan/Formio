@@ -1,6 +1,6 @@
-import { Shape, Vector2 } from 'three'
+import { Shape, Path, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { createNameOutline } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
+import { createNameOutline, shapeToClipperPaths } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
 import { type TextItem } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const createMockFont = (): Font => ({
@@ -85,6 +85,41 @@ describe('createNameOutline', () => {
 
     expect(result.outline).toBeDefined()
     expect(result.fill).toBeDefined()
+  })
+
+  it('converte Shape do Three.js para paths do Clipper', () => {
+    const shape = new Shape([
+      new Vector2(0, 0),
+      new Vector2(10, 0),
+      new Vector2(10, 10),
+      new Vector2(0, 10),
+    ])
+    
+    const paths = shapeToClipperPaths(shape)
+    
+    expect(paths).toHaveLength(1)
+    expect(paths[0]).toHaveLength(4)
+    expect(paths[0][0]).toEqual({ X: 0, Y: 0 })
+  })
+
+  it('preserva furos na conversão', () => {
+    const outer = new Shape([
+      new Vector2(0, 0),
+      new Vector2(20, 0),
+      new Vector2(20, 20),
+      new Vector2(0, 20),
+    ])
+    const hole = new Path([
+      new Vector2(5, 5),
+      new Vector2(15, 5),
+      new Vector2(15, 15),
+      new Vector2(5, 15),
+    ])
+    outer.holes.push(hole)
+    
+    const paths = shapeToClipperPaths(outer)
+    
+    expect(paths).toHaveLength(2) // outer + 1 hole
   })
 
 })
