@@ -232,9 +232,10 @@ function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKe
   }
 
   // Calculate ring position relative to bounding box
+  // Position ring so it connects to the top of the name contour
   const ringCenter = new Vector2(
     ring.lateralOffset,
-    boundingBox.maxY + RING_EDGE_MARGIN + ring.innerDiameter / 2 + ring.radialOffset + ring.embedding,
+    boundingBox.maxY - ring.innerDiameter / 2 - RING_EDGE_MARGIN + ring.radialOffset + ring.embedding,
   )
 
   const reinforcementShape = translatedShape(
