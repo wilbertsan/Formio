@@ -225,6 +225,7 @@ export function StudioPanel({
                 <option value="rect">Retangular</option>
                 <option value="circle">Circular</option>
                 <option value="heart">Coração</option>
+                <option value="name">Contorno do Nome</option>
               </SelectField>
 
               <Text fontSize="xs" color="font.tertiary">
@@ -245,19 +246,23 @@ export function StudioPanel({
                 onSelect={(color) => onUpdateParam('letterColor', color)}
               />
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Comprimento</Text>
-                <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Comprimento"
-                min={20} max={80} step={1}
-                value={params.width}
-                onChange={(value) => onUpdateParam('width', value as number)}
-              />
+              {params.baseShape !== 'name' && (
+                <>
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Comprimento</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Comprimento"
+                    min={20} max={80} step={1}
+                    value={params.width}
+                    onChange={(value) => onUpdateParam('width', value as number)}
+                  />
+                </>
+              )}
 
-              {params.baseShape !== 'circle' && (
+              {params.baseShape !== 'circle' && params.baseShape !== 'name' && (
                 <>
                   <Flex direction="row" justifyContent="space-between">
                     <Text fontSize="xs" color="font.tertiary">Altura da peça</Text>
@@ -271,6 +276,12 @@ export function StudioPanel({
                     onChange={(value) => onUpdateParam('height', value as number)}
                   />
                 </>
+              )}
+
+              {params.baseShape === 'name' && (
+                <Text fontSize="xs" color="font.tertiary">
+                  Tamanho controlado nos sliders de Texto
+                </Text>
               )}
 
               <Flex direction="row" justifyContent="space-between">

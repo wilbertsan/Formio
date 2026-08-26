@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { StudioPanel } from '@/features/studio/tools/chaveiros/chaveiro/StudioPanel'
 import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
@@ -206,5 +206,48 @@ describe('StudioPanel', () => {
     renderPanel({ onReset })
     await user.click(screen.getByRole('button', { name: /restaurar/i }))
     expect(onReset).toHaveBeenCalledTimes(1)
+  })
+
+  it('SelectField tem opção Contorno do Nome', () => {
+    renderPanel()
+    const select = screen.getByRole('listbox', { name: /formato/i })
+    expect(within(select).getByRole('option', { name: /contorno do nome/i })).toBeInTheDocument()
+  })
+
+  it('oculta sliders de dimensão quando baseShape é name', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'name' as const }
+    render(
+      <StudioPanel
+        params={params}
+        selectedTextId={firstTextId}
+        onSelectText={() => undefined}
+        onUpdateText={() => undefined}
+        onAddText={() => undefined}
+        onRemoveText={() => undefined}
+        onUpdateParam={() => undefined}
+        onReset={() => undefined}
+        onOpenEditor={() => undefined}
+      />,
+    )
+    expect(screen.queryByLabelText('Comprimento')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Altura da peça')).not.toBeInTheDocument()
+  })
+
+  it('mostra hint quando baseShape é name', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'name' as const }
+    render(
+      <StudioPanel
+        params={params}
+        selectedTextId={firstTextId}
+        onSelectText={() => undefined}
+        onUpdateText={() => undefined}
+        onAddText={() => undefined}
+        onRemoveText={() => undefined}
+        onUpdateParam={() => undefined}
+        onReset={() => undefined}
+        onOpenEditor={() => undefined}
+      />,
+    )
+    expect(screen.getByText(/tamanho controlado/i)).toBeInTheDocument()
   })
 })
