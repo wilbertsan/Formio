@@ -120,4 +120,12 @@ describe('useKeychain', () => {
     act(() => result.current.updateParam('height', 10))
     expect(result.current.params.height).toBe(20)
   })
+
+  it('dimensions para name usa bounding box do texto', () => {
+    const { result } = renderHook(() => useKeychain())
+    act(() => result.current.updateParam('baseShape', 'name'))
+    
+    expect(result.current.dimensions.width).toBe(result.current.params.texts[0].width)
+    expect(result.current.dimensions.height).toBe(result.current.params.texts[0].height)
+  })
 })

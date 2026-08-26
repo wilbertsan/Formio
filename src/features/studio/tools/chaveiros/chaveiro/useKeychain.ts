@@ -158,8 +158,16 @@ export function useKeychain() {
   }, [])
 
   const dimensions = useMemo(() => {
+    if (params.baseShape === 'name') {
+      const text = params.texts[0]
+      return {
+        width: text.width,
+        height: text.height,
+        thickness: params.thickness,
+      }
+    }
     return { width: params.width, height: params.height, thickness: params.thickness }
-  }, [params.width, params.height, params.thickness])
+  }, [params.width, params.height, params.thickness, params.baseShape, params.texts])
 
   return { params, geometry, fontError, dimensions, updateParam, updateName, addText, removeText, updateText, reset }
 }
