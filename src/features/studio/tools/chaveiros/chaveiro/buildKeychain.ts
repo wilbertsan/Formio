@@ -100,7 +100,7 @@ export function buildKeychain({
     lateralOffset: params.ringLateralOffset,
     radialOffset: params.ringRadialOffset,
   }
-  const baseShape = createBaseShape(params.baseShape, params.width, params.width, ring)
+  const baseShape = createBaseShape(params.baseShape, params.width, params.height, ring)
 
   const baseGeometry = new ExtrudeGeometry(baseShape, {
     depth: params.thickness,
@@ -110,7 +110,7 @@ export function buildKeychain({
     bevelSegments: 1,
   })
 
-  const ringCenter = getRingPosition(params.baseShape, params.width, params.width, ring)
+  const ringCenter = getRingPosition(params.baseShape, params.width, params.height, ring)
   const reinforcementShape = translatedShape(
     createReinforcementRing(ring),
     ringCenter.x,

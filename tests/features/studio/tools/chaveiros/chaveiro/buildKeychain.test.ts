@@ -247,6 +247,22 @@ describe('buildKeychain', () => {
     expect(result.text.boundingBox?.max.x).toBeGreaterThan(5)
   })
 
+  it('height independente de width define dimensões da base', () => {
+    const result = buildKeychain(makeInput({
+      params: {
+        ...defaultKeychainParams,
+        width: 60,
+        height: 30,
+      },
+    }))
+    result.base.computeBoundingBox()
+    const bb = result.base.boundingBox!
+    const w = bb.max.x - bb.min.x
+    const h = bb.max.y - bb.min.y
+    expect(w).toBeCloseTo(60, 0)
+    expect(h).toBeCloseTo(30, 0)
+  })
+
   it('gravado subtrai todos os textos com um único CSG', () => {
     csgCalls.length = 0
     buildKeychain(makeInput({
