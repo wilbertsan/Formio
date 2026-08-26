@@ -27,7 +27,7 @@ export type TextItem = z.infer<typeof textItemSchema>
 export const keychainParamsSchema = z.object({
   productType: z.literal('keychain'),
   textMode: z.enum(['raised', 'engraved']),
-  baseShape: z.enum(['rect', 'circle', 'heart']),
+  baseShape: z.enum(['rect', 'circle', 'heart', 'name']),
   width: z.number().min(20).max(80),
   height: z.number().min(20).max(80),
   borderWidth: z.number().min(4).max(10),

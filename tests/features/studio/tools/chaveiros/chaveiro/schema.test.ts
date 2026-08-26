@@ -66,4 +66,8 @@ describe('keychain schema', () => {
     expect(sanitizeFilename('Meu Projeto! @#')).toBe('Meu-Projeto')
     expect(sanitizeFilename('///')).toBe('chaveiro')
   })
+
+  it('baseShape aceita formato name', () => {
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, baseShape: 'name' }).success).toBe(true)
+  })
 })
