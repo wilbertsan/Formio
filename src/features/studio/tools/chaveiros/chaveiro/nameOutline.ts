@@ -184,8 +184,8 @@ export function createNameOutline({
   // Expandir nome em borderWidth (4mm)
   const expandedTextShape = expandShape(combinedTextShape, borderWidth)
 
-  // Subtração: bloco - nome expandido = base com furo no formato do nome
-  const baseShape = subtractShapes(rectangle, expandedTextShape)
+  // Interseção: nome expandido ∩ retângulo = base
+  const baseShape = intersectShapes(expandedTextShape, rectangle)
 
   // Gerar geometrias
   const relief = texts[0]?.relief ?? 1
