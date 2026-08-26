@@ -1,6 +1,8 @@
 import { BufferGeometry, ExtrudeGeometry, Shape, Path, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const ClipperLib = require('js-clipper')
 import type { TextItem } from './schema'
 
 export interface ClipperPoint {
@@ -35,6 +37,28 @@ export function clipperPathsToShape(paths: ClipperPoint[][]): Shape {
   }
 
   return shape
+}
+
+export function unionShapes(shapes: Shape[]): Shape {
+  if (shapes.length === 0) return new Shape()
+  if (shapes.length === 1) return shapes[0]
+
+  const clipper = new ClipperLib.Clipper()
+
+  for (const shape of shapes) {
+    const paths = shapeToClipperPaths(shape)
+    clipper.AddPaths(paths, ClipperLib.PolyType.ptSubject, true)
+  }
+
+  const solution = new ClipperLib.Paths()
+  clipper.Execute(
+    ClipperLib.ClipType.ctUnion,
+    solution,
+    ClipperLib.PolyFillType.pftNonZero,
+    ClipperLib.PolyFillType.pftNonZero,
+  )
+
+  return clipperPathsToShape(solution)
 }
 
 interface CreateNameOutlineInput {

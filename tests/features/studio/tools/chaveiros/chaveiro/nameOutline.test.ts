@@ -1,6 +1,6 @@
-import { Shape, Path, Vector2 } from 'three'
+import { Box2, Shape, Path, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { createNameOutline, shapeToClipperPaths } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
+import { createNameOutline, shapeToClipperPaths, unionShapes } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
 import { type TextItem } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const createMockFont = (): Font => ({
@@ -120,6 +120,50 @@ describe('createNameOutline', () => {
     const paths = shapeToClipperPaths(outer)
     
     expect(paths).toHaveLength(2) // outer + 1 hole
+  })
+
+  it('une dois shapes em um só', () => {
+    const shape1 = new Shape([
+      new Vector2(0, 0),
+      new Vector2(10, 0),
+      new Vector2(10, 10),
+      new Vector2(0, 10),
+    ])
+    const shape2 = new Shape([
+      new Vector2(8, 0),
+      new Vector2(18, 0),
+      new Vector2(18, 10),
+      new Vector2(8, 10),
+    ])
+    
+    const union = unionShapes([shape1, shape2])
+    
+    const box = new Box2().setFromPoints(union.getPoints())
+    const width = box.max.x - box.min.x
+    
+    // Union of overlapping shapes should span from 0 to 18
+    expect(width).toBeCloseTo(18, 0)
+  })
+
+  it('une shapes com furos corretamente', () => {
+    const shape1 = new Shape([
+      new Vector2(0, 0),
+      new Vector2(20, 0),
+      new Vector2(20, 20),
+      new Vector2(0, 20),
+    ])
+    shape1.holes.push(new Path([
+      new Vector2(5, 5),
+      new Vector2(15, 5),
+      new Vector2(15, 15),
+      new Vector2(5, 15),
+    ]))
+    
+    const union = unionShapes([shape1])
+    
+    // Should have one outer contour and one hole
+    expect(union.getPoints().length).toBeGreaterThan(0)
+    expect(union.holes).toHaveLength(1)
   })
 
 })
