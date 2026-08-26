@@ -1,9 +1,32 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Button, Flex, Heading } from '@aws-amplify/ui-react'
+import { Shape, Vector2 } from 'three'
 import { createBaseShape, getRingPosition, RING_WALL } from './shapes'
 import { TEXT_BORDER_MIN } from './schema'
-import type { KeychainParams } from './schema'
+import type { KeychainParams, TextItem } from './schema'
+
+function createNameBaseShape(texts: TextItem[]): Shape {
+  const points: Vector2[] = []
+  for (const text of texts) {
+    points.push(new Vector2(text.offsetX - text.width / 2, text.offsetY - text.height / 2))
+    points.push(new Vector2(text.offsetX + text.width / 2, text.offsetY + text.height / 2))
+  }
+
+  const xs = points.map((p) => p.x)
+  const ys = points.map((p) => p.y)
+  const minX = Math.min(...xs) - 5
+  const maxX = Math.max(...xs) + 5
+  const minY = Math.min(...ys) - 5
+  const maxY = Math.max(...ys) + 5
+
+  return new Shape([
+    new Vector2(minX, minY),
+    new Vector2(maxX, minY),
+    new Vector2(maxX, maxY),
+    new Vector2(minX, maxY),
+  ])
+}
 
 interface TextPositionEditorProps {
   params: KeychainParams
@@ -39,7 +62,9 @@ export function TextPositionEditor({
   const holeCenter = getRingPosition(params.baseShape, params.width, params.height, ring)
   const hole = { x: holeCenter.x, y: holeCenter.y, radius: ring.innerDiameter / 2 }
 
-  const baseShape = createBaseShape(params.baseShape, params.width, params.height, ring)
+  const baseShape = params.baseShape === 'name'
+    ? createNameBaseShape(params.texts)
+    : createBaseShape(params.baseShape, params.width, params.height, ring)
 
   const { minX, maxX, minY, maxY, vbWidth, vbHeight, basePoints } = useMemo(() => {
     const points = baseShape.getPoints(64)

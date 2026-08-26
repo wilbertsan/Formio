@@ -97,6 +97,22 @@ describe('TextPositionEditor', () => {
     expect(tallViewBox).not.toBe(shortViewBox)
   })
 
+  it('editor funciona com baseShape name', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'name' as const }
+    render(
+      <TextPositionEditor
+        params={params}
+        selectedTextId="text-1"
+        onSelectText={() => undefined}
+        onMoveText={() => undefined}
+        onClose={() => undefined}
+      />,
+    )
+
+    expect(screen.getByTestId('editor-base')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-text-text-1')).toBeInTheDocument()
+  })
+
   it('calcula viewBox dinamicamente a partir do bounding box da base', () => {
     const { container: rectContainer } = render(
       <TextPositionEditor
