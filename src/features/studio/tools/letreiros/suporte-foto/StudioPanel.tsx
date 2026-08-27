@@ -9,7 +9,7 @@ import {
   TextField,
   View,
 } from '@aws-amplify/ui-react'
-import { type PhotoStandParams, PLA_COLORS, PHOTO_SIZES, SLOT_WIDTH, SLOT_DEPTH } from './schema'
+import { type PhotoStandParams, PLA_COLORS, PHOTO_SIZES, SLOT_DEPTH } from './schema'
 
 interface StudioPanelProps {
   params: PhotoStandParams
@@ -35,8 +35,8 @@ function ColorSwatches({
           aria-label={color}
           aria-pressed={color === selected}
           onClick={() => onSelect(color)}
-          className="h-7 w-7 rounded-full p-0"
-          style={{ backgroundColor: color, border: color === selected ? '2px solid #000' : '2px solid transparent' }}
+          className={`h-7 w-7 rounded-full p-0 ${color === selected ? 'ring-2 ring-black ring-offset-2' : 'border-2 border-transparent'}`}
+          style={{ backgroundColor: color }}
         />
       ))}
     </Flex>
@@ -44,7 +44,9 @@ function ColorSwatches({
 }
 
 function slotLabel(photoSize: string): string {
-  const size = PHOTO_SIZES[photoSize as keyof typeof PHOTO_SIZES]
+  const key = photoSize as keyof typeof PHOTO_SIZES
+  const size = PHOTO_SIZES[key]
+  if (!size) return 'Slot: —'
   return `Slot: ${size.width}mm × ${SLOT_DEPTH}mm`
 }
 
