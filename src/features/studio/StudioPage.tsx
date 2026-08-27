@@ -316,7 +316,6 @@ function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
           hasGeometry={geometry !== null}
           resetCameraSignal={resetCameraSignal}
           onResetCamera={handleResetCamera}
-          cameraPosition={[60, 40, 120]}
         >
           <Suspense fallback={null}>
             <SuporteFotoPreview
