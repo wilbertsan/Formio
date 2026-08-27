@@ -37,10 +37,14 @@ function photoStandReducer(state: PhotoStandParams, action: PhotoStandAction): P
   }
 }
 
+const DEBOUNCE_MS = 200
+
 export function usePhotoStand() {
   const [params, dispatch] = useReducer(photoStandReducer, defaultPhotoStandParams)
   const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
+  const [fontError, setFontError] = useState(false)
   const [geometry, setGeometry] = useState<BuildPhotoStandResult | null>(null)
+  const geometryRef = useRef<BuildPhotoStandResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const fontStyle = params.fontStyle
@@ -51,8 +55,10 @@ export function usePhotoStand() {
     loader.load(
       fontUrls[fontStyle],
       (font) => {
-        setFontCache((prev) => new Map(prev).set(fontStyle, font as unknown as Font))
+        setFontCache((prev) => new Map(prev).set(fontStyle, font as Font))
       },
+      undefined,
+      () => setFontError(true),
     )
   }, [fontStyle, fontCache])
 
@@ -68,9 +74,21 @@ export function usePhotoStand() {
         prev?.base.dispose()
         return buildPhotoStand({ params, font })
       })
-    }, 200)
+    }, DEBOUNCE_MS)
     return () => clearTimeout(debounceRef.current)
   }, [font, params])
+
+  useEffect(() => {
+    geometryRef.current = geometry
+  }, [geometry])
+
+  useEffect(() => {
+    return () => {
+      geometryRef.current?.leftText.dispose()
+      geometryRef.current?.rightText.dispose()
+      geometryRef.current?.base.dispose()
+    }
+  }, [])
 
   const updateParam = useCallback((key: keyof PhotoStandParams, value: number | string) => {
     dispatch({ type: 'update', key, value })
@@ -86,5 +104,5 @@ export function usePhotoStand() {
     depth: params.baseDepth,
   }), [params.baseMinWidth, params.baseHeight, params.baseDepth])
 
-  return { params, geometry, dimensions, updateParam, reset }
+  return { params, geometry, fontError, dimensions, updateParam, reset }
 }
