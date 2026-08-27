@@ -104,5 +104,13 @@ export function usePhotoStand() {
     thickness: params.baseDepth,
   }), [params.baseMinWidth, params.baseHeight, params.baseDepth])
 
-  return { params, geometry, fontError, dimensions, updateParam, reset }
+  const cameraPosition = useMemo((): [number, number, number] => {
+    if (!geometry) return [100, 60, 250]
+    const { width, height, depth } = geometry.boundingBox
+    const maxDim = Math.max(width, height, depth)
+    const distance = maxDim * 1.8
+    return [distance * 0.4, distance * 0.25, distance]
+  }, [geometry])
+
+  return { params, geometry, fontError, dimensions, cameraPosition, updateParam, reset }
 }

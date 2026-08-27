@@ -283,6 +283,7 @@ function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
     params,
     geometry,
     dimensions,
+    cameraPosition,
     updateParam,
     reset,
   } = usePhotoStand()
@@ -316,7 +317,7 @@ function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
           hasGeometry={geometry !== null}
           resetCameraSignal={resetCameraSignal}
           onResetCamera={handleResetCamera}
-          cameraPosition={[100, 60, 250]}
+          cameraPosition={cameraPosition}
         >
           <Suspense fallback={null}>
             <SuporteFotoPreview
