@@ -9,6 +9,7 @@ import { exportStl } from './tools/chaveiros/chaveiro/exportStl'
 import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
 import { useCard } from './tools/letreiros/cartao-visita/useCard'
 import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
+import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -43,6 +44,18 @@ const CartaoVisitaPreview = lazy(() =>
 const SuporteBoloPreview = lazy(() =>
   import('./tools/confeitaria/suporte-bolo/CakeStandPreview').then((m) => ({
     default: m.CakeStandPreview,
+  })),
+)
+
+const SuporteFotoTool = lazy(() =>
+  import('./tools/letreiros/suporte-foto/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const SuporteFotoPreview = lazy(() =>
+  import('./tools/letreiros/suporte-foto/PhotoStandPreview').then((m) => ({
+    default: m.PhotoStandPreview,
   })),
 )
 
@@ -262,6 +275,68 @@ function SuporteBoloToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+
+  const {
+    params,
+    geometry,
+    dimensions: rawDimensions,
+    updateParam,
+    reset,
+  } = usePhotoStand()
+
+  const dimensions = {
+    width: rawDimensions.width,
+    height: rawDimensions.height,
+    thickness: rawDimensions.depth,
+  }
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    // TODO: implement photo stand STL export
+  }, [])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <SuporteFotoTool
+            params={params}
+            onUpdateParam={updateParam}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+        >
+          <Suspense fallback={null}>
+            <SuporteFotoPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              letterColor={params.letterColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -293,6 +368,9 @@ export function StudioPage() {
       )}
       {activeTool === 'suporte-bolo' && (
         <SuporteBoloToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'suporte-foto' && (
+        <SuporteFotoToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )

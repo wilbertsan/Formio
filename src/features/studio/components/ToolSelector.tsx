@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto'
 
 interface ToolCard {
   id: ToolId
@@ -31,6 +31,13 @@ const TOOLS: ToolCard[] = [
     description: 'Suportes para exibir bolo com decoração personalizada',
     icon: '🎂',
     category: 'Confeitaria',
+  },
+  {
+    id: 'suporte-foto',
+    name: 'Suporte para Foto',
+    description: 'Suportes personalizados com texto 3D e slot para fotos',
+    icon: '🖼️',
+    category: 'Letreiros',
   },
 ]
 
