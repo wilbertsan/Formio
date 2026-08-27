@@ -40,7 +40,7 @@ export type FontStyle = PhotoStandParams['fontStyle']
 
 export const defaultPhotoStandParams = {
   productType: 'photo-stand' as const,
-  text: 'Família',
+  text: 'Meu Nome',
   photoSize: '10x15',
   baseHeight: 80,
   baseThickness: 3,
