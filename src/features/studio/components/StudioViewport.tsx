@@ -8,6 +8,7 @@ interface StudioViewportProps {
   hasGeometry: boolean
   resetCameraSignal: number
   onResetCamera: () => void
+  cameraPosition?: [number, number, number]
   children: ReactNode
 }
 
@@ -15,6 +16,7 @@ export function StudioViewport({
   hasGeometry,
   resetCameraSignal,
   onResetCamera,
+  cameraPosition = [40, 30, 80],
   children,
 }: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -49,7 +51,7 @@ export function StudioViewport({
       )}
       <Canvas
         shadows
-        camera={{ position: [40, 30, 80], fov: 45 }}
+        camera={{ position: cameraPosition, fov: 45 }}
         className="absolute inset-0"
       >
         <Suspense fallback={null}>
