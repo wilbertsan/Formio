@@ -7,6 +7,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Gerador de Chaveiros** — Chaveiros 3D personalizados com texto em relevo
 - **Cartão de Visita** — Cartões de visita 3D com texto em relevo e layout personalizado
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
+- **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
 
 ### Componentes Genéricos
 
@@ -41,6 +42,12 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Hook de estado | `src/features/studio/tools/confeitaria/suporte-bolo/useCakeStand.ts` |
 | Painel de parâmetros | `src/features/studio/tools/confeitaria/suporte-bolo/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/confeitaria/suporte-bolo/CakeStandPreview.tsx` |
+| **Suporte para Foto** | |
+| Schema + tipos | `src/features/studio/tools/letreiros/suporte-foto/schema.ts` |
+| Geometria com divisão de texto | `src/features/studio/tools/letreiros/suporte-foto/buildPhotoStand.ts` |
+| Hook de estado | `src/features/studio/tools/letreiros/suporte-foto/usePhotoStand.ts` |
+| Painel de parâmetros | `src/features/studio/tools/letreiros/suporte-foto/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/letreiros/suporte-foto/PhotoStandPreview.tsx` |
 
 ## Gerador de chaveiros
 
@@ -84,6 +91,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Snap de contato:** todo texto encosta no topo interno, no furo/anel ou na base do texto anterior (fusão de 0.5mm). Aplicado no editor (pointerUp) e no build — fonte única de verdade.
 - **Sliders Posição X/Y removidos** e drag 3D removidos — posicionamento exclusivamente pelo editor 2D.
 - **Suporte de Bolo:** Base circular com decoração geométrica (hexágonos, linhas, ondas) via ExtrudeGeometry; coluna cônica via CylinderGeometry; prato com borda opcional. 3 alturas predefinidas (40/60/80mm). Schema sem fontes (não precisa de TextGeometry).
+- **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
 
 ## Próximos passos (fora de escopo desta fase)
 
