@@ -40,7 +40,6 @@ function photoStandReducer(state: PhotoStandParams, action: PhotoStandAction): P
 export function usePhotoStand() {
   const [params, dispatch] = useReducer(photoStandReducer, defaultPhotoStandParams)
   const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
-  const [fontError, setFontError] = useState(false)
   const [geometry, setGeometry] = useState<BuildPhotoStandResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -54,8 +53,6 @@ export function usePhotoStand() {
       (font) => {
         setFontCache((prev) => new Map(prev).set(fontStyle, font as unknown as Font))
       },
-      undefined,
-      () => setFontError(true),
     )
   }, [fontStyle, fontCache])
 
@@ -89,5 +86,5 @@ export function usePhotoStand() {
     depth: params.baseDepth,
   }), [params.baseMinWidth, params.baseHeight, params.baseDepth])
 
-  return { params, geometry, dimensions, fontError, updateParam, reset }
+  return { params, geometry, dimensions, updateParam, reset }
 }
