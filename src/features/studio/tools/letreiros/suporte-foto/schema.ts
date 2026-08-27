@@ -15,14 +15,17 @@ export const PHOTO_SIZES = {
 
 export type PhotoSizeKey = keyof typeof PHOTO_SIZES
 
+/** Default angle (degrees) for the photo slot tilt */
 export const SLOT_ANGLE = 75
+/** Default width (mm) for the photo slot groove */
 export const SLOT_WIDTH = 2
+/** Default depth (mm) for the photo slot groove */
 export const SLOT_DEPTH = 10
 
 export const photoStandParamsSchema = z.object({
   productType: z.literal('photo-stand'),
   text: z.string().trim().min(1).max(30),
-  photoSize: z.enum(['10x15', '13x18', '15x20']),
+  photoSize: z.enum(Object.keys(PHOTO_SIZES) as [string, ...string[]]),
   baseHeight: z.number().min(50).max(120),
   baseThickness: z.number().min(2).max(4),
   baseMinWidth: z.number().min(40).max(100),
@@ -35,15 +38,15 @@ export const photoStandParamsSchema = z.object({
 export type PhotoStandParams = z.infer<typeof photoStandParamsSchema>
 export type FontStyle = PhotoStandParams['fontStyle']
 
-export const defaultPhotoStandParams: PhotoStandParams = {
-  productType: 'photo-stand',
+export const defaultPhotoStandParams = {
+  productType: 'photo-stand' as const,
   text: 'Família',
   photoSize: '10x15',
   baseHeight: 80,
   baseThickness: 3,
   baseMinWidth: 60,
   baseDepth: 40,
-  fontStyle: 'bold',
+  fontStyle: 'bold' as const,
   baseColor: '#14b8a6',
   letterColor: '#f5f5f5',
-}
+} satisfies PhotoStandParams
