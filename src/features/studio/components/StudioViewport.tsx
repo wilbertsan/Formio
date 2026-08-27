@@ -1,25 +1,21 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef, type ReactNode } from 'react'
 import { Loader } from '@aws-amplify/ui-react'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
-import type { BuildKeychainResult } from '../tools/chaveiros/chaveiro/buildKeychain'
 import { Canvas } from '@react-three/fiber'
 import { Environment, Grid, OrbitControls } from '@react-three/drei'
-import { KeychainPreview } from '../tools/chaveiros/chaveiro/KeychainPreview'
 
 interface StudioViewportProps {
-  geometry: BuildKeychainResult | null
+  hasGeometry: boolean
   resetCameraSignal: number
   onResetCamera: () => void
-  baseColor: string
-  letterColor: string
+  children: ReactNode
 }
 
 export function StudioViewport({
-  geometry,
+  hasGeometry,
   resetCameraSignal,
   onResetCamera,
-  baseColor,
-  letterColor,
+  children,
 }: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
 
@@ -35,7 +31,7 @@ export function StudioViewport({
       aria-label="Visualização 3D do modelo"
       className="relative flex-1 bg-neutral-100"
     >
-      {geometry && (
+      {hasGeometry && (
         <button
           type="button"
           title="Resetar câmera"
@@ -46,7 +42,7 @@ export function StudioViewport({
           ⌂
         </button>
       )}
-      {geometry ? null : (
+      {!hasGeometry && (
         <div className="absolute inset-0 z-10 flex items-center justify-center">
           <Loader />
         </div>
@@ -64,11 +60,7 @@ export function StudioViewport({
             castShadow
             shadow-mapSize={[1024, 1024]}
           />
-          <KeychainPreview
-            geometry={geometry}
-            baseColor={baseColor}
-            letterColor={letterColor}
-          />
+          {children}
           <Grid
             position={[0, -25, 0]}
             args={[300, 300]}

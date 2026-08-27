@@ -5,15 +5,25 @@ interface StudioTopbarProps {
   onProjectNameChange: (name: string) => void
   canExport: boolean
   onExport: () => void
+  onBack?: () => void
 }
 
-export function StudioTopbar({ projectName, onProjectNameChange, canExport, onExport }: StudioTopbarProps) {
+export function StudioTopbar({ projectName, onProjectNameChange, canExport, onExport, onBack }: StudioTopbarProps) {
   return (
     <View
       as="header"
       className="flex h-12 items-center justify-between border-b border-neutral-200 bg-white px-4"
     >
       <Flex direction="row" alignItems="center" gap="medium">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-7 items-center gap-1 rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-600 transition-colors hover:bg-neutral-50"
+          >
+            ← Voltar
+          </button>
+        )}
         <span className="text-sm font-bold tracking-tight text-neutral-900">3DFormio</span>
         <View
           as="input"

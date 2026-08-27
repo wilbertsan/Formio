@@ -20,77 +20,72 @@ vi.mock('@react-three/drei', () => ({
   Environment: () => <div data-testid="environment" />,
 }))
 
-vi.mock('@/features/studio/components/KeychainPreview', () => ({
-  KeychainPreview: ({ geometry }: { geometry: unknown }) =>
-    geometry ? <div data-testid="keychain-preview" /> : <div data-testid="keychain-loading" />,
-}))
-
 describe('StudioViewport', () => {
   it('renderiza o canvas com descrição acessível', () => {
     render(
       <StudioViewport
-        geometry={null}
+        hasGeometry={false}
         resetCameraSignal={0}
         onResetCamera={() => undefined}
-        baseColor="#14b8a6"
-        letterColor="#f5f5f5"
-      />,
+      >
+        <div data-testid="child-content" />
+      </StudioViewport>,
     )
     expect(screen.getByTestId('canvas-mock')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
   })
 
-  it('mostra loading quando geometria não está pronta', () => {
+  it('mostra loading quando não há geometria', () => {
     render(
       <StudioViewport
-        geometry={null}
+        hasGeometry={false}
         resetCameraSignal={0}
         onResetCamera={() => undefined}
-        baseColor="#14b8a6"
-        letterColor="#f5f5f5"
-      />,
+      >
+        <div />
+      </StudioViewport>,
     )
-    expect(screen.getByTestId('keychain-loading')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /resetar câmera/i })).not.toBeInTheDocument()
   })
 
-  it('renderiza controles, grid, ambiente e preview', () => {
+  it('renderiza controles, grid, ambiente e conteúdo filho', () => {
     render(
       <StudioViewport
-        geometry={{ base: {}, text: {}, textItems: [], pieceBB: { minX: 0, maxX: 0, minY: 0, maxY: 0 }, hole: { x: 0, y: 0, radius: 0 } } as never}
+        hasGeometry={true}
         resetCameraSignal={0}
         onResetCamera={() => undefined}
-        baseColor="#14b8a6"
-        letterColor="#f5f5f5"
-      />,
+      >
+        <div data-testid="preview-content" />
+      </StudioViewport>,
     )
     expect(screen.getByTestId('orbit-controls')).toBeInTheDocument()
     expect(screen.getByTestId('grid')).toBeInTheDocument()
     expect(screen.getByTestId('environment')).toBeInTheDocument()
-    expect(screen.getByTestId('keychain-preview')).toBeInTheDocument()
+    expect(screen.getByTestId('preview-content')).toBeInTheDocument()
   })
 
   it('posiciona o grid como piso distante abaixo da figura', () => {
     render(
       <StudioViewport
-        geometry={{} as never}
+        hasGeometry={true}
         resetCameraSignal={0}
         onResetCamera={() => undefined}
-        baseColor="#14b8a6"
-        letterColor="#f5f5f5"
-      />,
+      >
+        <div />
+      </StudioViewport>,
     )
     expect(screen.getByTestId('grid')).toHaveAttribute('data-position', '0,-25,0')
   })
 
-  it('renderiza botão de reset flutuante', () => {
+  it('renderiza botão de reset flutuante quando há geometria', () => {
     render(
       <StudioViewport
-        geometry={{} as never}
+        hasGeometry={true}
         resetCameraSignal={0}
         onResetCamera={() => undefined}
-        baseColor="#14b8a6"
-        letterColor="#f5f5f5"
-      />,
+      >
+        <div />
+      </StudioViewport>,
     )
     expect(screen.getByRole('button', { name: /resetar câmera/i })).toBeInTheDocument()
   })
@@ -100,12 +95,12 @@ describe('StudioViewport', () => {
     const onResetCamera = vi.fn()
     render(
       <StudioViewport
-        geometry={{} as never}
+        hasGeometry={true}
         resetCameraSignal={0}
         onResetCamera={onResetCamera}
-        baseColor="#14b8a6"
-        letterColor="#f5f5f5"
-      />,
+      >
+        <div />
+      </StudioViewport>,
     )
     await user.click(screen.getByRole('button', { name: /resetar câmera/i }))
     expect(onResetCamera).toHaveBeenCalledTimes(1)

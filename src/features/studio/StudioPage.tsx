@@ -1,13 +1,39 @@
-import { useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useState } from 'react'
+import { Loader } from '@aws-amplify/ui-react'
 import { StudioTopbar } from './components/StudioTopbar'
-import { StudioPanel } from './tools/chaveiros/chaveiro/StudioPanel'
 import { StudioViewport } from './components/StudioViewport'
 import { StudioStatusBar } from './components/StudioStatusBar'
-import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
+import { ToolSelector, type ToolId } from './components/ToolSelector'
 import { useKeychain } from './tools/chaveiros/chaveiro/useKeychain'
 import { exportStl } from './tools/chaveiros/chaveiro/exportStl'
+import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
+import { useCard } from './tools/letreiros/cartao-visita/useCard'
 
-export function StudioPage() {
+const ChaveiroTool = lazy(() =>
+  import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const CartaoVisitaTool = lazy(() =>
+  import('./tools/letreiros/cartao-visita/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const ChaveiroPreview = lazy(() =>
+  import('./tools/chaveiros/chaveiro/KeychainPreview').then((m) => ({
+    default: m.KeychainPreview,
+  })),
+)
+
+const CartaoVisitaPreview = lazy(() =>
+  import('./tools/letreiros/cartao-visita/CardPreview').then((m) => ({
+    default: m.CardPreview,
+  })),
+)
+
+function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
   const [selectedTextId, setSelectedTextId] = useState<string>('')
@@ -57,37 +83,146 @@ export function StudioPage() {
         onProjectNameChange={setProjectName}
         canExport={geometry !== null}
         onExport={handleExport}
+        onBack={onBack}
       />
       <div className="flex min-h-0 flex-1">
-        <StudioPanel
-          params={params}
-          selectedTextId={selectedTextId}
-          onSelectText={handleSelectText}
-          onUpdateText={updateText}
-          onAddText={handleAddText}
-          onRemoveText={removeText}
-          onUpdateParam={updateParam}
-          onReset={reset}
-          onOpenEditor={() => setEditorOpen(true)}
-        />
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <ChaveiroTool
+            params={params}
+            selectedTextId={selectedTextId}
+            onSelectText={handleSelectText}
+            onUpdateText={updateText}
+            onAddText={handleAddText}
+            onRemoveText={removeText}
+            onUpdateParam={updateParam}
+            onReset={reset}
+            onOpenEditor={() => setEditorOpen(true)}
+          />
+        </Suspense>
         <StudioViewport
-          geometry={geometry}
+          hasGeometry={geometry !== null}
           resetCameraSignal={resetCameraSignal}
           onResetCamera={handleResetCamera}
-          baseColor={params.baseColor}
-          letterColor={params.letterColor}
-        />
+        >
+          <Suspense fallback={null}>
+            <ChaveiroPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              letterColor={params.letterColor}
+            />
+          </Suspense>
+        </StudioViewport>
       </div>
       <StudioStatusBar dimensions={dimensions} />
       {isEditorOpen && (
-        <TextPositionEditor
-          params={params}
-          selectedTextId={selectedTextId}
-          onSelectText={setSelectedTextId}
-          onMoveText={handleMoveText}
-          onClose={() => setEditorOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <TextPositionEditor
+            params={params}
+            selectedTextId={selectedTextId}
+            onSelectText={setSelectedTextId}
+            onMoveText={handleMoveText}
+            onClose={() => setEditorOpen(false)}
+          />
+        </Suspense>
       )}
     </div>
+  )
+}
+
+function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+  const [selectedBlockId, setSelectedBlockId] = useState<string>('name')
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    updateParam,
+    updateBlock,
+    addBlock,
+    removeBlock,
+    reset,
+  } = useCard()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    // TODO: implement card STL export
+  }, [])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <CartaoVisitaTool
+            params={params}
+            selectedBlockId={selectedBlockId}
+            onSelectBlock={setSelectedBlockId}
+            onUpdateBlock={updateBlock}
+            onAddBlock={addBlock}
+            onRemoveBlock={removeBlock}
+            onUpdateParam={updateParam}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+        >
+          <Suspense fallback={null}>
+            <CartaoVisitaPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              letterColor={params.letterColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
+export function StudioPage() {
+  const [activeTool, setActiveTool] = useState<ToolId | null>(null)
+
+  if (activeTool === null) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+        <StudioTopbar
+          projectName="Projeto sem título"
+          onProjectNameChange={() => {}}
+          canExport={false}
+          onExport={() => {}}
+        />
+        <ToolSelector onSelect={setActiveTool} />
+      </div>
+    )
+  }
+
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-neutral-50">
+        <Loader />
+      </div>
+    }>
+      {activeTool === 'chaveiro' && (
+        <ChaveiroToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'cartao-visita' && (
+        <CartaoVisitaToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+    </Suspense>
   )
 }
