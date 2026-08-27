@@ -282,16 +282,10 @@ function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
   const {
     params,
     geometry,
-    dimensions: rawDimensions,
+    dimensions,
     updateParam,
     reset,
   } = usePhotoStand()
-
-  const dimensions = {
-    width: rawDimensions.width,
-    height: rawDimensions.height,
-    thickness: rawDimensions.depth,
-  }
 
   const handleResetCamera = useCallback(() => {
     setResetCameraSignal((signal) => signal + 1)

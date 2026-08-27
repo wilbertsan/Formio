@@ -101,7 +101,7 @@ export function usePhotoStand() {
   const dimensions = useMemo(() => ({
     width: params.baseMinWidth,
     height: params.baseHeight,
-    depth: params.baseDepth,
+    thickness: params.baseDepth,
   }), [params.baseMinWidth, params.baseHeight, params.baseDepth])
 
   return { params, geometry, fontError, dimensions, updateParam, reset }
