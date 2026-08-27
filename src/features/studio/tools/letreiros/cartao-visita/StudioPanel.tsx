@@ -83,107 +83,6 @@ export function StudioPanel({
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="layout">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Layout
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <SelectField
-                label="Alinhamento"
-                value={params.layout}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateParam('layout', e.target.value)
-                }
-              >
-                <option value="centered">Centralizado</option>
-                <option value="left">Esquerda</option>
-              </SelectField>
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="base">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Base
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Largura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Largura"
-                min={50} max={90} step={1}
-                value={params.width}
-                onChange={(value) => onUpdateParam('width', value as number)}
-              />
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Altura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.height} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Altura"
-                min={30} max={60} step={1}
-                value={params.height}
-                onChange={(value) => onUpdateParam('height', value as number)}
-              />
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Espessura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.thickness} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Espessura"
-                min={1} max={3} step={0.5}
-                value={params.thickness}
-                onChange={(value) => onUpdateParam('thickness', value as number)}
-              />
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Cantos arredondados</Text>
-                <Text fontSize="xs" color="font.secondary">{params.cornerRadius} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Cantos arredondados"
-                min={0} max={10} step={0.5}
-                value={params.cornerRadius}
-                onChange={(value) => onUpdateParam('cornerRadius', value as number)}
-              />
-
-              <Text fontSize="xs" color="font.tertiary">
-                Cor da base
-              </Text>
-              <ColorSwatches
-                colors={PLA_COLORS}
-                selected={params.baseColor}
-                onSelect={(color) => onUpdateParam('baseColor', color)}
-              />
-
-              <Text fontSize="xs" color="font.tertiary">
-                Cor do texto
-              </Text>
-              <ColorSwatches
-                colors={PLA_COLORS}
-                selected={params.letterColor}
-                onSelect={(color) => onUpdateParam('letterColor', color)}
-              />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
         <Accordion.Item value="texto">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
@@ -295,6 +194,107 @@ export function StudioPanel({
                   />
                 </>
               )}
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="base">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">
+              Base
+            </Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Largura</Text>
+                <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Largura"
+                min={50} max={90} step={1}
+                value={params.width}
+                onChange={(value) => onUpdateParam('width', value as number)}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Altura</Text>
+                <Text fontSize="xs" color="font.secondary">{params.height} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Altura"
+                min={30} max={60} step={1}
+                value={params.height}
+                onChange={(value) => onUpdateParam('height', value as number)}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Espessura</Text>
+                <Text fontSize="xs" color="font.secondary">{params.thickness} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Espessura"
+                min={1} max={3} step={0.5}
+                value={params.thickness}
+                onChange={(value) => onUpdateParam('thickness', value as number)}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Cantos arredondados</Text>
+                <Text fontSize="xs" color="font.secondary">{params.cornerRadius} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Cantos arredondados"
+                min={0} max={10} step={0.5}
+                value={params.cornerRadius}
+                onChange={(value) => onUpdateParam('cornerRadius', value as number)}
+              />
+
+              <Text fontSize="xs" color="font.tertiary">
+                Cor da base
+              </Text>
+              <ColorSwatches
+                colors={PLA_COLORS}
+                selected={params.baseColor}
+                onSelect={(color) => onUpdateParam('baseColor', color)}
+              />
+
+              <Text fontSize="xs" color="font.tertiary">
+                Cor do texto
+              </Text>
+              <ColorSwatches
+                colors={PLA_COLORS}
+                selected={params.letterColor}
+                onSelect={(color) => onUpdateParam('letterColor', color)}
+              />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="layout">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">
+              Layout
+            </Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <SelectField
+                label="Alinhamento"
+                value={params.layout}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdateParam('layout', e.target.value)
+                }
+              >
+                <option value="centered">Centralizado</option>
+                <option value="left">Esquerda</option>
+              </SelectField>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
