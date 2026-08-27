@@ -8,6 +8,7 @@ import { useKeychain } from './tools/chaveiros/chaveiro/useKeychain'
 import { exportStl } from './tools/chaveiros/chaveiro/exportStl'
 import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
 import { useCard } from './tools/letreiros/cartao-visita/useCard'
+import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -21,6 +22,12 @@ const CartaoVisitaTool = lazy(() =>
   })),
 )
 
+const SuporteBoloTool = lazy(() =>
+  import('./tools/confeitaria/suporte-bolo/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
 const ChaveiroPreview = lazy(() =>
   import('./tools/chaveiros/chaveiro/KeychainPreview').then((m) => ({
     default: m.KeychainPreview,
@@ -30,6 +37,12 @@ const ChaveiroPreview = lazy(() =>
 const CartaoVisitaPreview = lazy(() =>
   import('./tools/letreiros/cartao-visita/CardPreview').then((m) => ({
     default: m.CardPreview,
+  })),
+)
+
+const SuporteBoloPreview = lazy(() =>
+  import('./tools/confeitaria/suporte-bolo/CakeStandPreview').then((m) => ({
+    default: m.CakeStandPreview,
   })),
 )
 
@@ -194,6 +207,61 @@ function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function SuporteBoloToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    updateParam,
+    reset,
+  } = useCakeStand()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    // TODO: implement cake stand STL export
+  }, [])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <SuporteBoloTool
+            params={params}
+            onUpdateParam={updateParam}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+        >
+          <Suspense fallback={null}>
+            <SuporteBoloPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -222,6 +290,9 @@ export function StudioPage() {
       )}
       {activeTool === 'cartao-visita' && (
         <CartaoVisitaToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'suporte-bolo' && (
+        <SuporteBoloToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )

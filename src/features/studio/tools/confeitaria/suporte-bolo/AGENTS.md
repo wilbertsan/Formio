@@ -1,28 +1,37 @@
-# Ferramenta: Suporte para Bolo
+# Ferramenta: Suporte de Bolo
 
 ## Status
 
-Planejada.
+Implementada.
 
 ## Objetivo
 
-Gerar suportes/stands para exibir bolo com altura e decoração personalizada.
+Gerar suportes/stands para exibir bolo com decoração personalizada.
 
-## Parâmetros previstos
+## Parâmetros
 
-- Formato da base: circular, retangular
-- Diâmetro/largura da base: 80–200mm
-- Altura do suporte: 30–100mm
-- Número de andares: 1–3
-- Espessura: 3–6mm
-- Diâmetro do furo central: 0–30mm (paraFixação)
+- Diâmetro da base: 80–200mm (padrão: 150mm)
+- Altura predefinida: baixo (40mm), médio (60mm), alto (80mm)
+- Espessura: 3–6mm (padrão: 4mm)
+- Prato com borda: true/false (padrão: true)
+- Altura da borda: 5–15mm (padrão: 8mm)
+- Decoração da base: nenhuma, hexágonos, linhas, ondas (padrão: hexágonos)
+- Cor do PLA: 10 cores disponíveis
+
+## Estrutura
+
+- `schema.ts` - Validação Zod e tipos
+- `buildCakeStand.ts` - Geração de geometria
+- `useCakeStand.ts` - Hook de estado
+- `StudioPanel.tsx` - Painel de parâmetros
+- `CakeStandPreview.tsx` - Preview 3D
 
 ## Regras do domínio
 
 - Estabilidade: base larga e centro de gravidade baixo
-- Carga: suportar peso de bolo (até 2kg estimado)
+- Coluna cônica para suporte estrutural
 - Superfície plana para apoio do bolo
-- Junções: encaixe ou rosca para montagem
+- 1 unidade Three.js = 1 mm
 
 ## Fora de escopo
 

@@ -2,37 +2,45 @@
 
 ## Visão geral
 
-O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. A primeira ferramenta
-real é o **gerador de chaveiros** (frontend puro, exportação STL):
+O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas disponíveis:
 
-- **Topbar** — nome do projeto, Exportar STL (funcional), Salvar (disabled)
-- **Painel único** — coluna à esquerda (~300px) com dropdown "Produto" e 3 blocos Accordion (Texto, Base, Argola):
-  - **Texto** — chips de seleção (até 3 textos), adicionar/remover, conteúdo, estilo da letra (dropdown), toggle proporcional à peça, largura/altura do texto (quando proporcional off), altura do relevo
-  - **Posicionamento 2D** — botão ✥ no bloco Texto abre editor SVG com o desenho da base, furo e textos arrastáveis; snapping de contato garante que todo texto fique conectado (topo, furo ou texto anterior) — nunca flutua
-  - **Base** — largura da peça, forma, cores, espessura, borda
-  - **Argola** — posição (SelectField com 4 opções), diâmetro interno (3–10mm), embutimento (0–3mm)
-- **Viewport** — ocupa todo o espaço restante; tema claro com chaveiro vertical, câmera frontal e grid distante como piso de fundo
+- **Gerador de Chaveiros** — Chaveiros 3D personalizados com texto em relevo
+- **Cartão de Visita** — Cartões de visita 3D com texto em relevo e layout personalizado
+- **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
+
+### Componentes Genéricos
+
+- **Topbar** — nome do projeto, Exportar STL, Salvar (disabled)
+- **Viewport** — Canvas R3F + OrbitControls + Grid + Environment
 - **Status bar** — dimensões em mm + dicas
-
-Acesso: botão "Studio 3D" na navbar e "Abrir o Studio" no hero da landing
-(rota pública; autenticação entra em ciclo futuro).
+- **Tool Selector** — Seleção de ferramenta
 
 ## Como editar
 
 | O que | Onde |
 |---|---|
-| 17 parâmetros e defaults (`textWidth`, `textSize`, `letterHeight`, etc.) | `src/features/studio/keychain/schema.ts` |
+| **Chaveiros** | |
+| 17 parâmetros e defaults | `src/features/studio/tools/chaveiros/chaveiro/schema.ts` |
 | Fontes typeface.json | `src/assets/fonts/` |
-| Mapa estilo→fonte | `src/features/studio/keychain/fonts.ts` |
-| Formas + furo parametrizável | `src/features/studio/keychain/shapes.ts` |
-| Texto 3D + fit-to-width | `src/features/studio/keychain/textToGeometry.ts` |
-| Composição {base, text} | `src/features/studio/keychain/buildKeychain.ts` |
-| Export STL (merge) | `src/features/studio/keychain/exportStl.ts` |
-| Estado + fontes lazy | `src/features/studio/hooks/useKeychain.ts` |
-| Painel de blocos | `src/features/studio/components/StudioPanel.tsx` |
-| Posicionamento/empilhamento | `src/features/studio/keychain/positioning.ts` |
-| Editor 2D de textos | `src/features/studio/components/TextPositionEditor.tsx` |
-| Snapping de contato | `src/features/studio/keychain/positioning.ts` |
+| Mapa estilo→fonte | `src/features/studio/tools/chaveiros/chaveiro/fonts.ts` |
+| Formas + furo parametrizável | `src/features/studio/tools/chaveiros/chaveiro/shapes.ts` |
+| Texto 3D + fit-to-width | `src/features/studio/tools/chaveiros/chaveiro/textToGeometry.ts` |
+| Composição {base, text} | `src/features/studio/tools/chaveiros/chaveiro/buildKeychain.ts` |
+| Export STL (merge) | `src/features/studio/tools/chaveiros/chaveiro/exportStl.ts` |
+| Estado + fontes lazy | `src/features/studio/tools/chaveiros/chaveiro/useKeychain.ts` |
+| Painel de blocos | `src/features/studio/tools/chaveiros/chaveiro/StudioPanel.tsx` |
+| **Cartão de Visita** | |
+| Schema + tipos | `src/features/studio/tools/letreiros/cartao-visita/schema.ts` |
+| Geometria base + texto | `src/features/studio/tools/letreiros/cartao-visita/buildCard.ts` |
+| Hook de estado | `src/features/studio/tools/letreiros/cartao-visita/useCard.ts` |
+| Painel de parâmetros | `src/features/studio/tools/letreiros/cartao-visita/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/letreiros/cartao-visita/CardPreview.tsx` |
+| **Suporte de Bolo** | |
+| Schema + tipos | `src/features/studio/tools/confeitaria/suporte-bolo/schema.ts` |
+| Geometria (base, coluna, prato) | `src/features/studio/tools/confeitaria/suporte-bolo/buildCakeStand.ts` |
+| Hook de estado | `src/features/studio/tools/confeitaria/suporte-bolo/useCakeStand.ts` |
+| Painel de parâmetros | `src/features/studio/tools/confeitaria/suporte-bolo/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/confeitaria/suporte-bolo/CakeStandPreview.tsx` |
 
 ## Gerador de chaveiros
 
@@ -75,6 +83,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Toggle proporcional por texto:** ligado = escala automática; desligado = sliders manuais de largura/altura.
 - **Snap de contato:** todo texto encosta no topo interno, no furo/anel ou na base do texto anterior (fusão de 0.5mm). Aplicado no editor (pointerUp) e no build — fonte única de verdade.
 - **Sliders Posição X/Y removidos** e drag 3D removidos — posicionamento exclusivamente pelo editor 2D.
+- **Suporte de Bolo:** Base circular com decoração geométrica (hexágonos, linhas, ondas) via ExtrudeGeometry; coluna cônica via CylinderGeometry; prato com borda opcional. 3 alturas predefinidas (40/60/80mm). Schema sem fontes (não precisa de TextGeometry).
 
 ## Próximos passos (fora de escopo desta fase)
 

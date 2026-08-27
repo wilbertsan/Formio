@@ -2,7 +2,7 @@ import { type BufferGeometry, BoxGeometry, ExtrudeGeometry, Shape } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import type { PhotoStandParams } from './schema'
-import { PHOTO_SIZES, SLOT_ANGLE, SLOT_WIDTH, SLOT_DEPTH } from './schema'
+import { PHOTO_SIZES, SLOT_ANGLE } from './schema'
 
 export interface BuildPhotoStandInput {
   params: PhotoStandParams
@@ -14,6 +14,9 @@ export interface BuildPhotoStandResult {
   rightText: BufferGeometry
   base: BufferGeometry
 }
+
+const FONT_SIZE_RATIO = 0.6
+const EMPTY_GEOMETRY_SIZE = 0.01
 
 function createTextGeometry(text: string, font: Font, size: number, depth: number): BufferGeometry {
   const geometry = new TextGeometry(text, {
@@ -36,7 +39,8 @@ function measureTextWidth(text: string, font: Font, fontSize: number): number {
     bevelEnabled: false,
   })
   geometry.computeBoundingBox()
-  const bb = geometry.boundingBox!
+  const bb = geometry.boundingBox
+  if (!bb) throw new Error('Failed to compute text bounding box')
   const width = bb.max.x - bb.min.x
   geometry.dispose()
   return width
@@ -100,7 +104,7 @@ function buildBaseShape(width: number, height: number): Shape {
 }
 
 export function buildPhotoStand({ params, font }: BuildPhotoStandInput): BuildPhotoStandResult {
-  const fontSize = params.baseHeight * 0.6
+  const fontSize = params.baseHeight * FONT_SIZE_RATIO
   const photoWidth = PHOTO_SIZES[params.photoSize as keyof typeof PHOTO_SIZES].width
 
   const { left: leftTextStr, right: rightTextStr } = splitText(params.text, font, fontSize)
@@ -120,11 +124,11 @@ export function buildPhotoStand({ params, font }: BuildPhotoStandInput): BuildPh
 
   const leftGeometry = leftTextStr
     ? createTextGeometry(leftTextStr, font, fontSize, params.baseThickness)
-    : new BoxGeometry(0.01, 0.01, 0.01)
+    : new BoxGeometry(EMPTY_GEOMETRY_SIZE, EMPTY_GEOMETRY_SIZE, EMPTY_GEOMETRY_SIZE)
 
   const rightGeometry = rightTextStr
     ? createTextGeometry(rightTextStr, font, fontSize, params.baseThickness)
-    : new BoxGeometry(0.01, 0.01, 0.01)
+    : new BoxGeometry(EMPTY_GEOMETRY_SIZE, EMPTY_GEOMETRY_SIZE, EMPTY_GEOMETRY_SIZE)
 
   leftGeometry.translate(leftX, 0, 0)
   rightGeometry.translate(rightX, 0, 0)
@@ -140,7 +144,8 @@ export function buildPhotoStand({ params, font }: BuildPhotoStandInput): BuildPh
   })
 
   base.computeBoundingBox()
-  const bb = base.boundingBox!
+  const bb = base.boundingBox
+  if (!bb) throw new Error('Failed to compute base bounding box')
   const cx = (bb.min.x + bb.max.x) / 2
   const cy = (bb.min.y + bb.max.y) / 2
   base.translate(-cx, -cy, 0)
