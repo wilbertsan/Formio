@@ -57,6 +57,6 @@ describe('useCakeTopper', () => {
     const { result } = renderHook(() => useCakeTopper())
     expect(result.current.dimensions).toHaveProperty('width')
     expect(result.current.dimensions).toHaveProperty('height')
-    expect(result.current.dimensions).toHaveProperty('depth')
+    expect(result.current.dimensions).toHaveProperty('thickness')
   })
 })
