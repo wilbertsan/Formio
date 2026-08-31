@@ -9,6 +9,7 @@ import { exportStl } from './tools/chaveiros/chaveiro/exportStl'
 import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
 import { useCard } from './tools/letreiros/cartao-visita/useCard'
 import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
+import { useCakeTopper } from './tools/confeitaria/topo-bolo/useCakeTopper'
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 
 const ChaveiroTool = lazy(() =>
@@ -56,6 +57,18 @@ const SuporteFotoTool = lazy(() =>
 const SuporteFotoPreview = lazy(() =>
   import('./tools/letreiros/suporte-foto/PhotoStandPreview').then((m) => ({
     default: m.PhotoStandPreview,
+  })),
+)
+
+const TopoBoloTool = lazy(() =>
+  import('./tools/confeitaria/topo-bolo/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const TopoBoloPreview = lazy(() =>
+  import('./tools/confeitaria/topo-bolo/CakeTopperPreview').then((m) => ({
+    default: m.CakeTopperPreview,
   })),
 )
 
@@ -333,6 +346,66 @@ function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    cameraPosition,
+    updateParam,
+    setSvgIcon,
+    reset,
+  } = useCakeTopper()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    // TODO: implement cake topper STL export
+  }, [])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <TopoBoloTool
+            params={params}
+            onUpdateParam={updateParam}
+            onSetSvgIcon={setSvgIcon}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+          cameraPosition={cameraPosition}
+        >
+          <Suspense fallback={null}>
+            <TopoBoloPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              textColor={params.textColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -367,6 +440,9 @@ export function StudioPage() {
       )}
       {activeTool === 'suporte-foto' && (
         <SuporteFotoToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'topo-bolo' && (
+        <TopoBoloToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )

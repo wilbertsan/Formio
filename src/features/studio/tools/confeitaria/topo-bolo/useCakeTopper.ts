@@ -90,7 +90,7 @@ export function useCakeTopper() {
   const dimensions = useMemo(() => ({
     width: params.width,
     height: params.height + params.legHeight,
-    depth: params.thickness,
+    thickness: params.thickness,
   }), [params.width, params.height, params.legHeight, params.thickness])
 
   const cameraPosition = useMemo((): [number, number, number] => {
