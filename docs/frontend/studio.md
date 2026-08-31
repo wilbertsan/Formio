@@ -8,6 +8,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Cartão de Visita** — Cartões de visita 3D com texto em relevo e layout personalizado
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
+- **Topo de Bolo** — Toppers decorativos com texto personalizado e ícones SVG
 
 ### Componentes Genéricos
 
@@ -48,6 +49,12 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Hook de estado | `src/features/studio/tools/letreiros/suporte-foto/usePhotoStand.ts` |
 | Painel de parâmetros | `src/features/studio/tools/letreiros/suporte-foto/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/letreiros/suporte-foto/PhotoStandPreview.tsx` |
+| **Topo de Bolo** | |
+| Schema + tipos | `src/features/studio/tools/confeitaria/topo-bolo/schema.ts` |
+| Geometria (placa, texto, ícone, pé) | `src/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper.ts` |
+| Hook de estado | `src/features/studio/tools/confeitaria/topo-bolo/useCakeTopper.ts` |
+| Painel de parâmetros | `src/features/studio/tools/confeitaria/topo-bolo/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/confeitaria/topo-bolo/CakeTopperPreview.tsx` |
 
 ## Gerador de chaveiros
 
@@ -92,6 +99,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Sliders Posição X/Y removidos** e drag 3D removidos — posicionamento exclusivamente pelo editor 2D.
 - **Suporte de Bolo:** Base circular com decoração geométrica (hexágonos, linhas, ondas) via ExtrudeGeometry; coluna cônica via CylinderGeometry; prato com borda opcional. 3 alturas predefinidas (40/60/80mm). Schema sem fontes (não precisa de TextGeometry).
 - **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
+- **Topo de Bolo:** Toppers decorativos para bolo com texto personalizado e upload de ícone SVG. Placa com formato (circular, retangular, oval) via ExtrudeGeometry. Texto em relevo via TextGeometry. Ícone SVG parseado via SVGLoader e convertido em geometria. Pé integrado trapezoidal para fixação no bolo. Upload de SVG permite personalização total de ícones.
 
 ## Próximos passos (fora de escopo desta fase)
 
