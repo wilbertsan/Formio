@@ -1,6 +1,6 @@
 import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
 import type { CakeTopperParams } from './schema'
-import { BORDER_RADIUS } from './schema'
+import { BORDER_RADIUS, LEG_BOTTOM_WIDTH, LEG_DEPTH } from './schema'
 
 export interface BuildCakeTopperInput {
   params: CakeTopperParams
@@ -80,12 +80,36 @@ function buildPlate(params: CakeTopperParams): BufferGeometry {
   return geometry
 }
 
+function buildLeg(params: CakeTopperParams): BufferGeometry {
+  const shape = new Shape()
+  const topWidth = params.legWidth
+  const bottomWidth = LEG_BOTTOM_WIDTH
+
+  shape.moveTo(-bottomWidth / 2, 0)
+  shape.lineTo(bottomWidth / 2, 0)
+  shape.lineTo(topWidth / 2, LEG_DEPTH)
+  shape.lineTo(-topWidth / 2, LEG_DEPTH)
+  shape.closePath()
+
+  const geometry = new ExtrudeGeometry(shape, {
+    depth: params.legHeight,
+    bevelEnabled: false,
+  })
+
+  geometry.computeBoundingBox()
+  const bb = geometry.boundingBox!
+  const cx = (bb.min.x + bb.max.x) / 2
+  geometry.translate(-cx, 0, -bb.max.z)
+
+  return geometry
+}
+
 export function buildCakeTopper({ params }: BuildCakeTopperInput): BuildCakeTopperResult {
   const plate = buildPlate(params)
+  const leg = buildLeg(params)
 
   const text = null
   const icon = null
-  const leg = null
 
   return { plate, text, icon, leg }
 }
