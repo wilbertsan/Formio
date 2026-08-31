@@ -70,3 +70,19 @@ describe('buildCakeTopper - text', () => {
     expect(result.text).toBeNull()
   })
 })
+
+describe('buildCakeTopper - icon', () => {
+  it('builds icon from SVG when provided', () => {
+    const svgString = '<svg><path d="M0,0 L10,0 L10,10 L0,10 Z"/></svg>'
+    const params = { ...defaultCakeTopperParams, svgIcon: svgString }
+    const result = buildCakeTopper({ params, font: null })
+    expect(result.icon).toBeDefined()
+    expect(result.icon).not.toBeNull()
+  })
+
+  it('returns null icon when svgIcon is null', () => {
+    const params = { ...defaultCakeTopperParams, svgIcon: null }
+    const result = buildCakeTopper({ params, font: null })
+    expect(result.icon).toBeNull()
+  })
+})

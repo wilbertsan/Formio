@@ -1,6 +1,8 @@
 import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { CakeTopperParams } from './schema'
 import { BORDER_RADIUS, LEG_BOTTOM_WIDTH, LEG_DEPTH } from './schema'
 
@@ -130,12 +132,76 @@ function buildText(params: CakeTopperParams, font: Font | null): BufferGeometry 
   return textGeometry
 }
 
+function buildIcon(params: CakeTopperParams): BufferGeometry | null {
+  if (!params.svgIcon) return null
+
+  const loader = new SVGLoader()
+  const svgData = loader.parse(params.svgIcon)
+
+  const shapes: Shape[] = []
+
+  for (const path of svgData.paths) {
+    const pathShapes = path.toShapes()
+    shapes.push(...pathShapes)
+  }
+
+  if (shapes.length === 0) return null
+
+  const geometries: BufferGeometry[] = []
+  for (const shape of shapes) {
+    const geometry = new ExtrudeGeometry(shape, {
+      depth: params.thickness,
+      bevelEnabled: true,
+      bevelThickness: 0.1,
+      bevelSize: 0.1,
+      bevelSegments: 1,
+    })
+    geometries.push(geometry)
+  }
+
+  const iconGeometry = mergeGeometries(geometries)
+  if (!iconGeometry) return null
+
+  geometries.forEach(g => g.dispose())
+
+  iconGeometry.computeBoundingBox()
+  const bb = iconGeometry.boundingBox!
+  const sizeX = bb.max.x - bb.min.x
+  const sizeY = bb.max.y - bb.min.y
+  const maxSize = Math.max(sizeX, sizeY)
+  const scale = (params.fontSize * 2 * params.iconScale) / maxSize
+
+  iconGeometry.scale(scale, scale, 1)
+
+  iconGeometry.computeBoundingBox()
+  const bb2 = iconGeometry.boundingBox!
+  const cx = (bb2.min.x + bb2.max.x) / 2
+  const cy = (bb2.min.y + bb2.max.y) / 2
+  iconGeometry.translate(-cx, -cy, 0)
+
+  const textHeight = params.fontSize
+  const iconHeight = bb2.max.y - bb2.min.y
+
+  switch (params.iconPosition) {
+    case 'above':
+      iconGeometry.translate(0, textHeight / 2 + iconHeight / 2 + 2, params.thickness)
+      break
+    case 'left':
+      iconGeometry.translate(-params.width / 2 - iconHeight / 2 - 2, 0, params.thickness)
+      break
+    case 'right':
+      iconGeometry.translate(params.width / 2 + iconHeight / 2 + 2, 0, params.thickness)
+      break
+  }
+
+  return iconGeometry
+}
+
 export function buildCakeTopper({ params, font }: BuildCakeTopperInput): BuildCakeTopperResult {
   const plate = buildPlate(params)
   const leg = buildLeg(params)
   const text = buildText(params, font)
-
-  const icon = null
+  const icon = buildIcon(params)
 
   return { plate, text, icon, leg }
 }
