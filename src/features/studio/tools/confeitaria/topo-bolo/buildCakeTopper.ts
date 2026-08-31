@@ -1,4 +1,6 @@
 import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
+import { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import type { CakeTopperParams } from './schema'
 import { BORDER_RADIUS, LEG_BOTTOM_WIDTH, LEG_DEPTH } from './schema'
 
@@ -104,11 +106,35 @@ function buildLeg(params: CakeTopperParams): BufferGeometry {
   return geometry
 }
 
-export function buildCakeTopper({ params }: BuildCakeTopperInput): BuildCakeTopperResult {
+function buildText(params: CakeTopperParams, font: Font | null): BufferGeometry | null {
+  if (!font) return null
+
+  const textGeometry = new TextGeometry(params.text, {
+    font: font,
+    size: params.fontSize,
+    depth: 1, // Relevo de 1mm
+    curveSegments: 8,
+    bevelEnabled: true,
+    bevelThickness: 0.1,
+    bevelSize: 0.1,
+    bevelSegments: 2,
+  })
+
+  // Centralizar texto
+  textGeometry.computeBoundingBox()
+  const bb = textGeometry.boundingBox!
+  const cx = (bb.min.x + bb.max.x) / 2
+  const cy = (bb.min.y + bb.max.y) / 2
+  textGeometry.translate(-cx, -cy, params.thickness) // Posicionar sobre a placa
+
+  return textGeometry
+}
+
+export function buildCakeTopper({ params, font }: BuildCakeTopperInput): BuildCakeTopperResult {
   const plate = buildPlate(params)
   const leg = buildLeg(params)
+  const text = buildText(params, font)
 
-  const text = null
   const icon = null
 
   return { plate, text, icon, leg }
