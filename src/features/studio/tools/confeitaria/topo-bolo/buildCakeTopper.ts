@@ -6,7 +6,7 @@ import { BORDER_RADIUS, LEG_BOTTOM_WIDTH, LEG_DEPTH } from './schema'
 
 export interface BuildCakeTopperInput {
   params: CakeTopperParams
-  font: any | null
+  font: Font | null
 }
 
 export interface BuildCakeTopperResult {
