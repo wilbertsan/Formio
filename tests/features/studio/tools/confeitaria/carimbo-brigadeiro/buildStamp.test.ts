@@ -99,3 +99,38 @@ describe('buildStamp - text', () => {
     }
   })
 })
+
+describe('buildStamp - icon', () => {
+  it('builds icon geometry when svgIcon is provided', () => {
+    const svgString = '<svg><circle cx="10" cy="10" r="5"/></svg>'
+    const params = { ...defaultStampParams, svgIcon: svgString }
+    const result = buildStamp({ params, font: null })
+    
+    expect(result.icon).toBeDefined()
+    expect(result.icon).not.toBeNull()
+  })
+
+  it('returns null for icon when svgIcon is null', () => {
+    const result = buildStamp({ params: defaultStampParams, font: null })
+    expect(result.icon).toBeNull()
+  })
+
+  it('icon is scaled by iconScale parameter', () => {
+    const svgString = '<svg><circle cx="10" cy="10" r="5"/></svg>'
+    const params1 = { ...defaultStampParams, svgIcon: svgString, iconScale: 1.0 }
+    const params2 = { ...defaultStampParams, svgIcon: svgString, iconScale: 2.0 }
+    
+    const result1 = buildStamp({ params: params1, font: null })
+    const result2 = buildStamp({ params: params2, font: null })
+    
+    if (result1.icon && result2.icon) {
+      result1.icon.computeBoundingBox()
+      result2.icon.computeBoundingBox()
+      
+      const size1 = result1.icon.boundingBox!.max.x - result1.icon.boundingBox!.min.x
+      const size2 = result2.icon.boundingBox!.max.x - result2.icon.boundingBox!.min.x
+      
+      expect(size2).toBeGreaterThan(size1)
+    }
+  })
+})

@@ -1,6 +1,8 @@
 import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { StampParams } from './schema'
 import { HANDLE_HEIGHT_RATIO, RELIEF_DEPTH } from './schema'
 
@@ -92,10 +94,63 @@ function buildText(params: StampParams, font: Font | null): BufferGeometry | nul
   return textGeometry
 }
 
+function buildIcon(params: StampParams): BufferGeometry | null {
+  if (!params.svgIcon) return null
+
+  const loader = new SVGLoader()
+  const svgData = loader.parse(params.svgIcon)
+
+  const shapes: Shape[] = []
+
+  for (const path of svgData.paths) {
+    const pathShapes = path.toShapes()
+    shapes.push(...pathShapes)
+  }
+
+  if (shapes.length === 0) return null
+
+  const geometries: BufferGeometry[] = []
+  for (const shape of shapes) {
+    const geometry = new ExtrudeGeometry(shape, {
+      depth: RELIEF_DEPTH,
+      bevelEnabled: true,
+      bevelThickness: 0.1,
+      bevelSize: 0.1,
+      bevelSegments: 1,
+    })
+    geometries.push(geometry)
+  }
+
+  const iconGeometry = mergeGeometries(geometries)
+  if (!iconGeometry) return null
+
+  geometries.forEach(g => g.dispose())
+
+  iconGeometry.computeBoundingBox()
+  const bb = iconGeometry.boundingBox!
+  const sizeX = bb.max.x - bb.min.x
+  const sizeY = bb.max.y - bb.min.y
+  const maxSize = Math.max(sizeX, sizeY)
+  const scale = (params.fontSize * 2 * params.iconScale) / maxSize
+
+  iconGeometry.scale(scale, scale, 1)
+
+  iconGeometry.computeBoundingBox()
+  const bb2 = iconGeometry.boundingBox!
+  const cx = (bb2.min.x + bb2.max.x) / 2
+  const cy = (bb2.min.y + bb2.max.y) / 2
+
+  const zOffset = params.reliefType === 'negative' ? -RELIEF_DEPTH : 0
+  iconGeometry.translate(-cx, -cy, zOffset)
+
+  return iconGeometry
+}
+
 export function buildStamp({ params, font }: BuildStampInput): BuildStampResult {
   const base = buildBase(params)
   const handle = buildHandle(params)
   const text = buildText(params, font)
+  const icon = buildIcon(params)
 
-  return { base, handle, text, icon: null }
+  return { base, handle, text, icon }
 }
