@@ -61,4 +61,52 @@ describe('stampParamsSchema', () => {
     const result = stampParamsSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })
+
+  it('rejects empty text', () => {
+    const invalid = { ...defaultStampParams, text: '' }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid fontStyle', () => {
+    const invalid = { ...defaultStampParams, fontStyle: 'italic' }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects iconScale below 0.5', () => {
+    const invalid = { ...defaultStampParams, iconScale: 0.3 }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects iconScale above 2.0', () => {
+    const invalid = { ...defaultStampParams, iconScale: 2.5 }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid baseColor', () => {
+    const invalid = { ...defaultStampParams, baseColor: '#ff0000' }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid reliefColor', () => {
+    const invalid = { ...defaultStampParams, reliefColor: '#000000' }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts null svgIcon', () => {
+    const valid = { ...defaultStampParams, svgIcon: null }
+    const result = stampParamsSchema.safeParse(valid)
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects non-literal productType', () => {
+    const invalid = { ...defaultStampParams, productType: 'other' }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
 })
