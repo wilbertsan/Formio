@@ -1,7 +1,8 @@
 import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import type { StampParams } from './schema'
-import { HANDLE_HEIGHT_RATIO } from './schema'
+import { HANDLE_HEIGHT_RATIO, RELIEF_DEPTH } from './schema'
 
 export interface BuildStampInput {
   params: StampParams
@@ -66,9 +67,35 @@ function buildHandle(params: StampParams): BufferGeometry {
   return geometry
 }
 
+function buildText(params: StampParams, font: Font | null): BufferGeometry | null {
+  if (!font) return null
+
+  const textGeometry = new TextGeometry(params.text, {
+    font: font,
+    size: params.fontSize,
+    depth: RELIEF_DEPTH,
+    curveSegments: 8,
+    bevelEnabled: true,
+    bevelThickness: 0.1,
+    bevelSize: 0.1,
+    bevelSegments: 2,
+  })
+
+  textGeometry.computeBoundingBox()
+  const bb = textGeometry.boundingBox!
+  const cx = (bb.min.x + bb.max.x) / 2
+  const cy = (bb.min.y + bb.max.y) / 2
+
+  const zOffset = params.reliefType === 'negative' ? -RELIEF_DEPTH : 0
+  textGeometry.translate(-cx, -cy, zOffset)
+
+  return textGeometry
+}
+
 export function buildStamp({ params, font }: BuildStampInput): BuildStampResult {
   const base = buildBase(params)
   const handle = buildHandle(params)
+  const text = buildText(params, font)
 
-  return { base, handle, text: null, icon: null }
+  return { base, handle, text, icon: null }
 }
