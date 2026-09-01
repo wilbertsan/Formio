@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro'
 
 interface ToolCard {
   id: ToolId
@@ -44,6 +44,13 @@ const TOOLS: ToolCard[] = [
     name: 'Topo de Bolo',
     description: 'Toppers decorativos com texto e ícones SVG',
     icon: '🎂',
+    category: 'Confeitaria',
+  },
+  {
+    id: 'carimbo-brigadeiro',
+    name: 'Carimbo Brigadeiro',
+    description: 'Carimbos para marcar brigadeiros com texto e formatos',
+    icon: '🍪',
     category: 'Confeitaria',
   },
 ]

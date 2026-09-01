@@ -30,6 +30,10 @@ export const stampParamsSchema = z.object({
 export type StampParams = z.infer<typeof stampParamsSchema>
 export type ReliefType = StampParams['reliefType']
 
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50) || 'carimbo'
+}
+
 // Valores padrão
 export const defaultStampParams: StampParams = {
   productType: 'stamp',

@@ -85,8 +85,9 @@ export function useStamp() {
   }, [])
 
   const dimensions = useMemo(() => ({
-    diameter: params.diameter,
+    width: params.diameter,
     height: params.height,
+    thickness: params.diameter,
   }), [params.diameter, params.height])
 
   const cameraPosition = useMemo((): [number, number, number] => {

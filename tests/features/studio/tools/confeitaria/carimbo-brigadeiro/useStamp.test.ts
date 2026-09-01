@@ -78,8 +78,9 @@ describe('useStamp', () => {
     const { result } = renderHook(() => useStamp())
 
     expect(result.current.dimensions).toEqual({
-      diameter: 20,
+      width: 20,
       height: 20,
+      thickness: 20,
     })
   })
 

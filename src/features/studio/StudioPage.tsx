@@ -10,6 +10,7 @@ import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEdito
 import { useCard } from './tools/letreiros/cartao-visita/useCard'
 import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
 import { useCakeTopper } from './tools/confeitaria/topo-bolo/useCakeTopper'
+import { useStamp } from './tools/confeitaria/carimbo-brigadeiro/useStamp'
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 
 const ChaveiroTool = lazy(() =>
@@ -69,6 +70,18 @@ const TopoBoloTool = lazy(() =>
 const TopoBoloPreview = lazy(() =>
   import('./tools/confeitaria/topo-bolo/CakeTopperPreview').then((m) => ({
     default: m.CakeTopperPreview,
+  })),
+)
+
+const CarimboBrigadeiroTool = lazy(() =>
+  import('./tools/confeitaria/carimbo-brigadeiro/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const CarimboBrigadeiroPreview = lazy(() =>
+  import('./tools/confeitaria/carimbo-brigadeiro/StampPreview').then((m) => ({
+    default: m.StampPreview,
   })),
 )
 
@@ -406,6 +419,66 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function CarimboBrigadeiroToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    cameraPosition,
+    updateParam,
+    setSvgIcon,
+    reset,
+  } = useStamp()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    // TODO: implement stamp STL export
+  }, [])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <CarimboBrigadeiroTool
+            params={params}
+            onUpdateParam={updateParam}
+            onSetSvgIcon={setSvgIcon}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+          cameraPosition={cameraPosition}
+        >
+          <Suspense fallback={null}>
+            <CarimboBrigadeiroPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              reliefColor={params.reliefColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -443,6 +516,9 @@ export function StudioPage() {
       )}
       {activeTool === 'topo-bolo' && (
         <TopoBoloToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'carimbo-brigadeiro' && (
+        <CarimboBrigadeiroToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )
