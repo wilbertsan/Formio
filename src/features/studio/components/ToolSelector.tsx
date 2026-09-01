@@ -50,7 +50,7 @@ const TOOLS: ToolCard[] = [
     id: 'carimbo-brigadeiro',
     name: 'Carimbo Brigadeiro',
     description: 'Carimbos para marcar brigadeiros com texto e formatos',
-    icon: '🍪',
+    icon: '🔖',
     category: 'Confeitaria',
   },
 ]
