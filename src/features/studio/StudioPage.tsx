@@ -11,6 +11,7 @@ import { useCard } from './tools/letreiros/cartao-visita/useCard'
 import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
 import { useCakeTopper } from './tools/confeitaria/topo-bolo/useCakeTopper'
 import { useStamp } from './tools/confeitaria/carimbo-brigadeiro/useStamp'
+import { exportStampStl } from './tools/confeitaria/carimbo-brigadeiro/exportStampStl'
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 
 const ChaveiroTool = lazy(() =>
@@ -438,8 +439,10 @@ function CarimboBrigadeiroToolWrapper({ onBack }: { onBack: () => void }) {
   }, [])
 
   const handleExport = useCallback(() => {
-    // TODO: implement stamp STL export
-  }, [])
+    if (geometry) {
+      exportStampStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
