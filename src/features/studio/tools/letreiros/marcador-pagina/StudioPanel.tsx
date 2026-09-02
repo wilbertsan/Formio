@@ -11,6 +11,16 @@ import {
 } from '@aws-amplify/ui-react'
 import { type BookmarkParams, type TextItem, PLA_COLORS } from './schema'
 
+const SLIDER_LIMITS = {
+  textWidth: { min: 8, max: 60, step: 1 },
+  textHeight: { min: 4, max: 20, step: 0.5 },
+  relief: { min: 0.4, max: 2, step: 0.1 },
+  length: { min: 50, max: 150, step: 1 },
+  width: { min: 30, max: 50, step: 1 },
+  holeDiameter: { min: 3, max: 8, step: 0.5 },
+  holeMargin: { min: 5, max: 15, step: 1 },
+} as const
+
 interface StudioPanelProps {
   params: BookmarkParams
   selectedTextId: string
@@ -104,6 +114,7 @@ export function StudioPanel({
                     size="small"
                     variation="link"
                     onClick={() => onRemoveText(selectedTextId)}
+                    aria-label="Remover texto"
                   >
                     ×
                   </Button>
@@ -156,9 +167,12 @@ export function StudioPanel({
                     <Text fontSize="xs" color="font.secondary">{selectedText.width} mm</Text>
                   </Flex>
                   <SliderField
-                    label=""
+                    label="Largura do texto"
+                    labelHidden
                     aria-label="Largura do texto"
-                    min={8} max={60} step={1}
+                    min={SLIDER_LIMITS.textWidth.min}
+                    max={SLIDER_LIMITS.textWidth.max}
+                    step={SLIDER_LIMITS.textWidth.step}
                     value={selectedText.width}
                     onChange={(value) => onUpdateText(selectedText.id, { width: value as number })}
                   />
@@ -168,9 +182,12 @@ export function StudioPanel({
                     <Text fontSize="xs" color="font.secondary">{selectedText.height} mm</Text>
                   </Flex>
                   <SliderField
-                    label=""
+                    label="Altura do texto"
+                    labelHidden
                     aria-label="Altura do texto"
-                    min={4} max={20} step={0.5}
+                    min={SLIDER_LIMITS.textHeight.min}
+                    max={SLIDER_LIMITS.textHeight.max}
+                    step={SLIDER_LIMITS.textHeight.step}
                     value={selectedText.height}
                     onChange={(value) => onUpdateText(selectedText.id, { height: value as number })}
                   />
@@ -180,9 +197,12 @@ export function StudioPanel({
                     <Text fontSize="xs" color="font.secondary">{selectedText.relief} mm</Text>
                   </Flex>
                   <SliderField
-                    label=""
+                    label="Altura do relevo"
+                    labelHidden
                     aria-label="Altura do relevo"
-                    min={0.4} max={2} step={0.1}
+                    min={SLIDER_LIMITS.relief.min}
+                    max={SLIDER_LIMITS.relief.max}
+                    step={SLIDER_LIMITS.relief.step}
                     value={selectedText.relief}
                     onChange={(value) => onUpdateText(selectedText.id, { relief: value as number })}
                   />
@@ -235,9 +255,12 @@ export function StudioPanel({
                 <Text fontSize="xs" color="font.secondary">{params.length} mm</Text>
               </Flex>
               <SliderField
-                label=""
+                label="Comprimento"
+                labelHidden
                 aria-label="Comprimento"
-                min={50} max={150} step={1}
+                min={SLIDER_LIMITS.length.min}
+                max={SLIDER_LIMITS.length.max}
+                step={SLIDER_LIMITS.length.step}
                 value={params.length}
                 onChange={(value) => onUpdateParam('length', value as number)}
               />
@@ -247,9 +270,12 @@ export function StudioPanel({
                 <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
               </Flex>
               <SliderField
-                label=""
+                label="Largura"
+                labelHidden
                 aria-label="Largura"
-                min={30} max={50} step={1}
+                min={SLIDER_LIMITS.width.min}
+                max={SLIDER_LIMITS.width.max}
+                step={SLIDER_LIMITS.width.step}
                 value={params.width}
                 onChange={(value) => onUpdateParam('width', value as number)}
               />
@@ -271,9 +297,12 @@ export function StudioPanel({
                 <Text fontSize="xs" color="font.secondary">{params.holeDiameter} mm</Text>
               </Flex>
               <SliderField
-                label=""
+                label="Diâmetro"
+                labelHidden
                 aria-label="Diâmetro"
-                min={3} max={8} step={0.5}
+                min={SLIDER_LIMITS.holeDiameter.min}
+                max={SLIDER_LIMITS.holeDiameter.max}
+                step={SLIDER_LIMITS.holeDiameter.step}
                 value={params.holeDiameter}
                 onChange={(value) => onUpdateParam('holeDiameter', value as number)}
               />
@@ -283,9 +312,12 @@ export function StudioPanel({
                 <Text fontSize="xs" color="font.secondary">{params.holeMargin} mm</Text>
               </Flex>
               <SliderField
-                label=""
+                label="Margem do topo"
+                labelHidden
                 aria-label="Margem do topo"
-                min={5} max={15} step={1}
+                min={SLIDER_LIMITS.holeMargin.min}
+                max={SLIDER_LIMITS.holeMargin.max}
+                step={SLIDER_LIMITS.holeMargin.step}
                 value={params.holeMargin}
                 onChange={(value) => onUpdateParam('holeMargin', value as number)}
               />

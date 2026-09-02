@@ -3,7 +3,7 @@ import { StudioPanel } from '@/features/studio/tools/letreiros/marcador-pagina/S
 import { defaultBookmarkParams } from '@/features/studio/tools/letreiros/marcador-pagina/schema'
 
 describe('StudioPanel', () => {
-  const mockProps = {
+  const createMockProps = () => ({
     params: defaultBookmarkParams,
     selectedTextId: defaultBookmarkParams.texts[0].id,
     onSelectText: vi.fn(),
@@ -13,45 +13,52 @@ describe('StudioPanel', () => {
     onUpdateParam: vi.fn(),
     onReset: vi.fn(),
     onOpenEditor: vi.fn(),
-  }
+  })
 
   it('renderiza sliders e selects', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
-    expect(screen.getByLabelText(/comprimento/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/^Largura$/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/diâmetro/i)).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: /comprimento/i })).toBeInTheDocument()
+    expect(screen.getAllByRole('slider', { name: /largura/i })).toHaveLength(2)
+    expect(screen.getByRole('slider', { name: /diâmetro/i })).toBeInTheDocument()
   })
 
   it('mostra botão adicionar texto', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     expect(screen.getByText(/adicionar texto/i)).toBeInTheDocument()
   })
 
   it('dispara onAddText ao clicar', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     fireEvent.click(screen.getByText(/adicionar texto/i))
     expect(mockProps.onAddText).toHaveBeenCalled()
   })
 
   it('dispara onReset ao clicar em Restaurar', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     fireEvent.click(screen.getByText(/restaurar/i))
     expect(mockProps.onReset).toHaveBeenCalled()
   })
 
   it('dispara onSelectText ao clicar em um texto', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     fireEvent.click(screen.getByText(mockProps.params.texts[0].content))
     expect(mockProps.onSelectText).toHaveBeenCalledWith(mockProps.params.texts[0].id)
   })
 
   it('dispara onOpenEditor ao clicar em Posicionar textos', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     fireEvent.click(screen.getByText(/posicionar textos/i))
     expect(mockProps.onOpenEditor).toHaveBeenCalled()
   })
 
   it('dispara onRemoveText ao clicar em ×', () => {
+    const mockProps = createMockProps()
     const propsWithTwoTexts = {
       ...mockProps,
       params: {
@@ -63,12 +70,13 @@ describe('StudioPanel', () => {
       },
     }
     render(<StudioPanel {...propsWithTwoTexts} />)
-    const removeButton = screen.getByText('×')
+    const removeButton = screen.getByLabelText('Remover texto')
     fireEvent.click(removeButton)
     expect(mockProps.onRemoveText).toHaveBeenCalledWith(mockProps.params.texts[0].id)
   })
 
   it('botão adicionar texto desabilitado quando 3 textos', () => {
+    const mockProps = createMockProps()
     const propsWithThreeTexts = {
       ...mockProps,
       params: {
@@ -86,6 +94,7 @@ describe('StudioPanel', () => {
   })
 
   it('renderiza seções do accordion', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     expect(screen.getByRole('heading', { name: 'Texto' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Base' })).toBeInTheDocument()
@@ -93,12 +102,14 @@ describe('StudioPanel', () => {
   })
 
   it('renderiza selects corretos', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     expect(screen.getByDisplayValue(/negrito/i)).toBeInTheDocument()
     expect(screen.getByDisplayValue(/relevo/i)).toBeInTheDocument()
   })
 
   it('renderiza botão posicionar textos', () => {
+    const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     expect(screen.getByText(/posicionar textos/i)).toBeInTheDocument()
   })
