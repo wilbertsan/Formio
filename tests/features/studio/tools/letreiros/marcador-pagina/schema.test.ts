@@ -36,6 +36,30 @@ describe('bookmark schema', () => {
     expect(textItemSchema.safeParse({ ...valid, offsetX: 25 }).success).toBe(false)
   })
 
+  it('height tem range 4-20', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, height: 3 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, height: 21 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, height: 4 }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, height: 20 }).success).toBe(true)
+  })
+
+  it('width tem range 8-60', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, width: 7 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, width: 61 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, width: 8 }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, width: 60 }).success).toBe(true)
+  })
+
+  it('offsetX tem range -20 a 20', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, offsetX: -21 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, offsetX: 21 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, offsetX: -20 }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, offsetX: 20 }).success).toBe(true)
+  })
+
   it('length tem range 50-150', () => {
     expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, length: 49 }).success).toBe(false)
     expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, length: 151 }).success).toBe(false)
