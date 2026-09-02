@@ -18,7 +18,6 @@ export interface BuildBookmarkResult {
   textItems: Array<{ id: string; geometry: BufferGeometry }>
 }
 
-const ENGRAVE_EPSILON = 0.2
 const TEXT_MARGIN = 3
 const TEXT_Z_OFFSET = 0.01
 
@@ -58,6 +57,8 @@ function buildScaledText({
   return geometry
 }
 
+// Note: proportional scaling is handled in the UI/panel, not here
+// The build function uses the width/height values directly
 function buildItemGeometry(
   item: TextItem,
   resolvedFont: Font,
