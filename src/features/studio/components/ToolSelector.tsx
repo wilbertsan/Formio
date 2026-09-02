@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'marcador-pagina'
 
 interface ToolCard {
   id: ToolId
@@ -52,6 +52,13 @@ const TOOLS: ToolCard[] = [
     description: 'Carimbos para marcar brigadeiros com texto e formatos',
     icon: '🔖',
     category: 'Confeitaria',
+  },
+  {
+    id: 'marcador-pagina',
+    name: 'Marcador de Página',
+    description: 'Marcadores 3D personalizados com texto em relevo e furo para fita',
+    icon: '📖',
+    category: 'Letreiros',
   },
 ]
 

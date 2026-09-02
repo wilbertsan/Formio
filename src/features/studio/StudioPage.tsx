@@ -13,6 +13,9 @@ import { useCakeTopper } from './tools/confeitaria/topo-bolo/useCakeTopper'
 import { useStamp } from './tools/confeitaria/carimbo-brigadeiro/useStamp'
 import { exportStampStl } from './tools/confeitaria/carimbo-brigadeiro/exportStampStl'
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
+import { useBookmark } from './tools/letreiros/marcador-pagina/useBookmark'
+import { exportStl as exportBookmarkStl } from './tools/letreiros/marcador-pagina/exportStl'
+import { TextPositionEditor as BookmarkTextPositionEditor } from './tools/letreiros/marcador-pagina/TextPositionEditor'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -83,6 +86,18 @@ const CarimboBrigadeiroTool = lazy(() =>
 const CarimboBrigadeiroPreview = lazy(() =>
   import('./tools/confeitaria/carimbo-brigadeiro/StampPreview').then((m) => ({
     default: m.StampPreview,
+  })),
+)
+
+const MarcadorPaginaTool = lazy(() =>
+  import('./tools/letreiros/marcador-pagina/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const MarcadorPaginaPreview = lazy(() =>
+  import('./tools/letreiros/marcador-pagina/BookmarkPreview').then((m) => ({
+    default: m.BookmarkPreview,
   })),
 )
 
@@ -482,6 +497,102 @@ function CarimboBrigadeiroToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+  const [selectedTextId, setSelectedTextId] = useState<string>('')
+  const [isEditorOpen, setEditorOpen] = useState(false)
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    updateParam,
+    updateTextById,
+    addText,
+    removeText,
+    reset,
+  } = useBookmark()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (geometry) {
+      exportBookmarkStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
+
+  const handleSelectText = useCallback((id: string) => {
+    setSelectedTextId(id)
+  }, [])
+
+  const handleAddText = useCallback(() => {
+    addText()
+    if (params.texts.length < 3) {
+      const next = params.texts[params.texts.length]
+      if (next) setSelectedTextId(next.id)
+    }
+  }, [addText, params.texts])
+
+  const handleMoveText = useCallback((id: string, x: number, y: number) => {
+    updateTextById(id, { offsetX: x, offsetY: y })
+  }, [updateTextById])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <MarcadorPaginaTool
+            params={params}
+            selectedTextId={selectedTextId}
+            onSelectText={handleSelectText}
+            onUpdateText={updateTextById}
+            onAddText={handleAddText}
+            onRemoveText={removeText}
+            onUpdateParam={updateParam}
+            onReset={reset}
+            onOpenEditor={() => setEditorOpen(true)}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+        >
+          <Suspense fallback={null}>
+            <MarcadorPaginaPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              letterColor={params.letterColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={{ width: dimensions.length, height: dimensions.width, thickness: dimensions.thickness }} />
+      {isEditorOpen && (
+        <Suspense fallback={null}>
+          <BookmarkTextPositionEditor
+            params={params}
+            selectedTextId={selectedTextId}
+            onSelectText={setSelectedTextId}
+            onMoveText={handleMoveText}
+            onClose={() => setEditorOpen(false)}
+          />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -522,6 +633,9 @@ export function StudioPage() {
       )}
       {activeTool === 'carimbo-brigadeiro' && (
         <CarimboBrigadeiroToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'marcador-pagina' && (
+        <MarcadorPaginaToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )
