@@ -79,6 +79,7 @@ export function buildBookmark({
   onError,
 }: BuildBookmarkInput): BuildBookmarkResult {
   // Criar base retangular
+  // TODO: Add rounded tip for easier book insertion (domain requirement from AGENTS.md)
   const baseShape = new Shape()
   const halfLength = params.length / 2
   const halfWidth = params.width / 2
@@ -97,10 +98,7 @@ export function buildBookmark({
 
   const baseGeometry = new ExtrudeGeometry(baseShape, {
     depth: params.thickness,
-    bevelEnabled: true,
-    bevelThickness: 0.2,
-    bevelSize: 0.2,
-    bevelSegments: 1,
+    bevelEnabled: false,
   })
 
   // Gerar textos

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { buildBookmark } from '@/features/studio/tools/letreiros/marcador-pagina/buildBookmark'
 import { defaultBookmarkParams } from '@/features/studio/tools/letreiros/marcador-pagina/schema'
 
@@ -27,7 +28,7 @@ vi.mock('three-bvh-csg', () => ({
 }))
 
 describe('buildBookmark', () => {
-  const mockFont = { glyphs: {} } as any
+  const mockFont = { glyphs: {} } as unknown as Font
 
   it('gera base com furo circular', () => {
     const result = buildBookmark({ font: mockFont, params: defaultBookmarkParams })
