@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useBookmark } from '@/features/studio/tools/letreiros/marcador-pagina/useBookmark'
-import { defaultBookmarkParams } from '@/features/studio/tools/letreiros/marcador-pagina/schema'
+import { defaultBookmarkParams, defaultText } from '@/features/studio/tools/letreiros/marcador-pagina/schema'
 
 vi.mock('@/features/studio/tools/letreiros/marcador-pagina/buildBookmark', () => ({
   buildBookmark: vi.fn(() => ({
@@ -33,7 +33,7 @@ describe('useBookmark', () => {
   it('inicia com 1 texto no default', () => {
     const { result } = renderHook(() => useBookmark())
     expect(result.current.params.texts).toHaveLength(1)
-    expect(result.current.params.texts[0].content).toBe('Meu nome')
+    expect(result.current.params.texts[0].content).toBe(defaultText.content)
   })
 
   it('updateParam clampa valores da peça', () => {
@@ -50,11 +50,11 @@ describe('useBookmark', () => {
     expect(result.current.params.texts).toHaveLength(1)
   })
 
-  it('addText adiciona um segundo texto', () => {
+  it('addText adiciona um segundo texto com defaultText', () => {
     const { result } = renderHook(() => useBookmark())
     act(() => result.current.addText())
     expect(result.current.params.texts).toHaveLength(2)
-    expect(result.current.params.texts[1].content).toBe('Novo texto')
+    expect(result.current.params.texts[1].content).toBe(defaultText.content)
   })
 
   it('addText não adiciona além de 3', () => {
@@ -78,12 +78,6 @@ describe('useBookmark', () => {
     const id = result.current.params.texts[0].id
     act(() => result.current.removeText(id))
     expect(result.current.params.texts).toHaveLength(1)
-  })
-
-  it('updateText atualiza primeiro texto por chave', () => {
-    const { result } = renderHook(() => useBookmark())
-    act(() => result.current.updateText('content', 'Teste'))
-    expect(result.current.params.texts[0].content).toBe('Teste')
   })
 
   it('updateTextById patcha o texto correto', () => {

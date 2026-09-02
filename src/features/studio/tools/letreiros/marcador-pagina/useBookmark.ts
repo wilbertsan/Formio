@@ -2,23 +2,13 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'r
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import { fontUrls } from './fonts'
-import { defaultBookmarkParams, bookmarkParamsSchema, textItemSchema, type BookmarkParams, type FontStyle, type TextItem } from './schema'
+import { defaultBookmarkParams, defaultText, bookmarkParamsSchema, textItemSchema, type BookmarkParams, type FontStyle, type TextItem } from './schema'
 import { buildBookmark, type BuildBookmarkResult } from './buildBookmark'
 
-const TEXT_ITEM_DEFAULTS = {
-  content: 'Novo texto',
-  fontStyle: 'bold' as const,
-  width: 30,
-  height: 8,
-  relief: 1,
-  proportional: false,
-  offsetX: 0,
-  offsetY: 0,
-}
+const DEBOUNCE_MS = 200
 
 type BookmarkAction =
   | { type: 'update'; key: keyof BookmarkParams; value: number | string }
-  | { type: 'updateText'; textKey: string; value: number | string }
   | { type: 'addText' }
   | { type: 'removeText'; id: string }
   | { type: 'updateTextById'; id: string; patch: Partial<TextItem> }
@@ -47,19 +37,9 @@ function bookmarkReducer(state: BookmarkParams, action: BookmarkAction): Bookmar
       const parsed = bookmarkParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
-    case 'updateText': {
-      const clamped = typeof action.value === 'number'
-        ? clampValue(action.textKey, action.value)
-        : action.value
-      const nextTexts = [...state.texts]
-      nextTexts[0] = { ...nextTexts[0], [action.textKey]: clamped }
-      const next = { ...state, texts: nextTexts }
-      const parsed = bookmarkParamsSchema.safeParse(next)
-      return parsed.success ? next : state
-    }
     case 'addText': {
       if (state.texts.length >= 3) return state
-      const newItem: TextItem = { id: crypto.randomUUID(), ...TEXT_ITEM_DEFAULTS }
+      const newItem: TextItem = { ...defaultText, id: crypto.randomUUID() }
       const next = { ...state, texts: [...state.texts, newItem] }
       const parsed = bookmarkParamsSchema.safeParse(next)
       return parsed.success ? next : state
@@ -87,10 +67,11 @@ function bookmarkReducer(state: BookmarkParams, action: BookmarkAction): Bookmar
 
 export function useBookmark() {
   const [params, dispatch] = useReducer(bookmarkReducer, defaultBookmarkParams)
-  const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
   const [fontError, setFontError] = useState(false)
   const [geometry, setGeometry] = useState<BuildBookmarkResult | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const fontCacheRef = useRef<Map<FontStyle, Font>>(new Map())
+  const [, setFontCacheVersion] = useState(0)
 
   const uniqueStyles = useMemo(() => {
     const styles = new Set(params.texts.map((t) => t.fontStyle))
@@ -99,33 +80,47 @@ export function useBookmark() {
 
   useEffect(() => {
     for (const style of uniqueStyles) {
-      if (fontCache.has(style)) continue
+      if (fontCacheRef.current.has(style)) continue
       const loader = new FontLoader()
       loader.load(
         fontUrls[style],
         (font) => {
-          setFontCache((prev) => new Map(prev).set(style, font as unknown as Font))
+          fontCacheRef.current.set(style, font as unknown as Font)
+          setFontCacheVersion((v) => v + 1)
         },
         undefined,
         () => setFontError(true),
       )
     }
-  }, [uniqueStyles, fontCache])
+  }, [uniqueStyles])
 
-  const font = fontCache.get(params.texts[0]?.fontStyle ?? 'bold') ?? null
+  const font = fontCacheRef.current.get(params.texts[0]?.fontStyle ?? 'bold') ?? null
 
   useEffect(() => {
     if (!font) return
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setGeometry((prev) => {
+        prev?.textItems.forEach((ti) => ti.geometry.dispose())
         prev?.base.dispose()
         prev?.text.dispose()
         return buildBookmark({ font, params, onError: () => undefined })
       })
-    }, 200)
+    }, DEBOUNCE_MS)
     return () => clearTimeout(debounceRef.current)
   }, [font, params])
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(debounceRef.current)
+      setGeometry((prev) => {
+        prev?.textItems.forEach((ti) => ti.geometry.dispose())
+        prev?.base.dispose()
+        prev?.text.dispose()
+        return null
+      })
+    }
+  }, [])
 
   const updateParam = useCallback((key: keyof BookmarkParams, value: number | string) => {
     dispatch({ type: 'update', key, value })
@@ -137,10 +132,6 @@ export function useBookmark() {
 
   const removeText = useCallback((id: string) => {
     dispatch({ type: 'removeText', id })
-  }, [])
-
-  const updateText = useCallback((key: string, value: number | string) => {
-    dispatch({ type: 'updateText', textKey: key, value })
   }, [])
 
   const updateTextById = useCallback((id: string, patch: Partial<TextItem>) => {
@@ -159,5 +150,5 @@ export function useBookmark() {
     }
   }, [params.length, params.width, params.thickness])
 
-  return { params, geometry, fontError, dimensions, updateParam, addText, removeText, updateText, updateTextById, reset }
+  return { params, geometry, fontError, dimensions, updateParam, addText, removeText, updateTextById, reset }
 }

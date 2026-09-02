@@ -38,7 +38,7 @@ export type BookmarkParams = z.infer<typeof bookmarkParamsSchema>
 export type BookmarkTextMode = BookmarkParams['textMode']
 export type FontStyle = TextItem['fontStyle']
 
-const defaultText: TextItem = {
+export const defaultText: TextItem = {
   id: 'text-1',
   content: 'Meu nome',
   fontStyle: 'bold',
