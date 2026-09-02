@@ -13,7 +13,7 @@ export function BookmarkPreview({ geometry, baseColor, letterColor }: BookmarkPr
       <mesh geometry={geometry.base} castShadow receiveShadow>
         <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
       </mesh>
-      <mesh geometry={geometry.text} castShadow>
+      <mesh geometry={geometry.text} castShadow receiveShadow>
         <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
       </mesh>
     </group>
