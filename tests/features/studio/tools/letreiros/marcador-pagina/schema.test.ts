@@ -2,6 +2,8 @@ import {
   defaultBookmarkParams,
   bookmarkParamsSchema,
   textItemSchema,
+  sanitizeFilename,
+  PLA_COLORS,
 } from '@/features/studio/tools/letreiros/marcador-pagina/schema'
 
 describe('bookmark schema', () => {
@@ -61,5 +63,78 @@ describe('bookmark schema', () => {
     expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, holeMargin: 4 }).success).toBe(false)
     expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, holeMargin: 16 }).success).toBe(false)
     expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, holeMargin: 10 }).success).toBe(true)
+  })
+
+  it('sanitizeFilename gera nome seguro', () => {
+    expect(sanitizeFilename('Meu Marcador! @#')).toBe('Meu-Marcador')
+    expect(sanitizeFilename('///')).toBe('marcador')
+    expect(sanitizeFilename('  spaces  ')).toBe('spaces')
+    expect(sanitizeFilename('áéíóú')).toBe('marcador')
+  })
+
+  it('baseColor aceita cores PLA válidas', () => {
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, baseColor: '#14b8a6' }).success).toBe(true)
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, baseColor: '#invalid' }).success).toBe(false)
+  })
+
+  it('letterColor aceita cores PLA válidas', () => {
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, letterColor: '#f5f5f5' }).success).toBe(true)
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, letterColor: '#invalid' }).success).toBe(false)
+  })
+
+  it('textMode aceita raised e engraved', () => {
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, textMode: 'raised' }).success).toBe(true)
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, textMode: 'engraved' }).success).toBe(true)
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, textMode: 'invalid' }).success).toBe(false)
+  })
+
+  it('fontStyle aceita normal, bold e serif', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, fontStyle: 'normal' }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, fontStyle: 'bold' }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, fontStyle: 'serif' }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, fontStyle: 'italic' }).success).toBe(false)
+  })
+
+  it('relief tem range 0.4-2', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, relief: 0.3 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, relief: 2.1 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, relief: 0.4 }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, relief: 2 }).success).toBe(true)
+  })
+
+  it('offsetY tem range -20 a 20', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, offsetY: -21 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, offsetY: 21 }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, offsetY: -20 }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, offsetY: 20 }).success).toBe(true)
+  })
+
+  it('content tem max 12 caracteres', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, content: 'a'.repeat(13) }).success).toBe(false)
+    expect(textItemSchema.safeParse({ ...text, content: 'a'.repeat(12) }).success).toBe(true)
+  })
+
+  it('content faz trim', () => {
+    const text = defaultBookmarkParams.texts[0]
+    const result = textItemSchema.safeParse({ ...text, content: '  test  ' })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.content).toBe('test')
+    }
+  })
+
+  it('proportional é boolean', () => {
+    const text = defaultBookmarkParams.texts[0]
+    expect(textItemSchema.safeParse({ ...text, proportional: true }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, proportional: false }).success).toBe(true)
+    expect(textItemSchema.safeParse({ ...text, proportional: 'true' }).success).toBe(false)
+  })
+
+  it('PLA_COLORS tem 10 cores', () => {
+    expect(PLA_COLORS).toHaveLength(10)
   })
 })
