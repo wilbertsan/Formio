@@ -9,6 +9,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
 - **Topo de Bolo** — Toppers decorativos com texto personalizado e ícones SVG
+- **Marcador de Página** — Marcadores 3D personalizados com texto em relevo e furo para fita
 
 ### Componentes Genéricos
 
@@ -55,6 +56,14 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Hook de estado | `src/features/studio/tools/confeitaria/topo-bolo/useCakeTopper.ts` |
 | Painel de parâmetros | `src/features/studio/tools/confeitaria/topo-bolo/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/confeitaria/topo-bolo/CakeTopperPreview.tsx` |
+| **Marcador de Página** | |
+| Schema + tipos | `src/features/studio/tools/letreiros/marcador-pagina/schema.ts` |
+| Geometria (base retangular + furo) | `src/features/studio/tools/letreiros/marcador-pagina/buildBookmark.ts` |
+| Hook de estado | `src/features/studio/tools/letreiros/marcador-pagina/useBookmark.ts` |
+| Painel de parâmetros | `src/features/studio/tools/letreiros/marcador-pagina/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/letreiros/marcador-pagina/BookmarkPreview.tsx` |
+| Editor de posição | `src/features/studio/tools/letreiros/marcador-pagina/TextPositionEditor.tsx` |
+| Export STL | `src/features/studio/tools/letreiros/marcador-pagina/exportStl.ts` |
 
 ## Gerador de chaveiros
 
@@ -100,6 +109,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Suporte de Bolo:** Base circular com decoração geométrica (hexágonos, linhas, ondas) via ExtrudeGeometry; coluna cônica via CylinderGeometry; prato com borda opcional. 3 alturas predefinidas (40/60/80mm). Schema sem fontes (não precisa de TextGeometry).
 - **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
 - **Topo de Bolo:** Toppers decorativos para bolo com texto personalizado e upload de ícone SVG. Placa com formato (circular, retangular, oval) via ExtrudeGeometry. Texto em relevo via TextGeometry. Ícone SVG parseado via SVGLoader e convertido em geometria. Pé integrado trapezoidal para fixação no bolo. Upload de SVG permite personalização total de ícones.
+- **Marcador de Página:** Marcadores retangulares finos (2mm) para livros com furo circular para fita/laço. 1-3 textos independentes com posicionamento livre via editor visual. Modos relevo (texto saliente) e gravado (texto afundado via CSG). Dimensões ajustáveis (50-150mm x 30-50mm). Exportação STL binário.
 
 ## Próximos passos (fora de escopo desta fase)
 
