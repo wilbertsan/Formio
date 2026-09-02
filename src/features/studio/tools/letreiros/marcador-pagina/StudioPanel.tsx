@@ -100,25 +100,25 @@ export function StudioPanel({
             <Flex direction="column" gap="xs">
               <Flex direction="row" gap="xs" wrap="wrap">
                 {params.texts.map((text) => (
-                  <Button
-                    key={text.id}
-                    size="small"
-                    aria-pressed={text.id === selectedTextId}
-                    onClick={() => onSelectText(text.id)}
-                  >
-                    {text.content}
-                  </Button>
+                  <Flex key={text.id} direction="row" gap="xs" alignItems="center">
+                    <Button
+                      size="small"
+                      aria-pressed={text.id === selectedTextId}
+                      onClick={() => onSelectText(text.id)}
+                    >
+                      {text.content}
+                    </Button>
+                    <Button
+                      size="small"
+                      variation="link"
+                      onClick={() => onRemoveText(text.id)}
+                      aria-label={`Remover texto ${text.content}`}
+                      isDisabled={params.texts.length <= 1}
+                    >
+                      ×
+                    </Button>
+                  </Flex>
                 ))}
-                {selectedTextId && params.texts.length > 1 && (
-                  <Button
-                    size="small"
-                    variation="link"
-                    onClick={() => onRemoveText(selectedTextId)}
-                    aria-label="Remover texto"
-                  >
-                    ×
-                  </Button>
-                )}
               </Flex>
 
               <Button

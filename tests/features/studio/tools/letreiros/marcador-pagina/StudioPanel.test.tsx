@@ -70,9 +70,9 @@ describe('StudioPanel', () => {
       },
     }
     render(<StudioPanel {...propsWithTwoTexts} />)
-    const removeButton = screen.getByLabelText('Remover texto')
+    const removeButton = screen.getByLabelText('Remover texto Texto 2')
     fireEvent.click(removeButton)
-    expect(mockProps.onRemoveText).toHaveBeenCalledWith(mockProps.params.texts[0].id)
+    expect(mockProps.onRemoveText).toHaveBeenCalledWith('text-2')
   })
 
   it('botão adicionar texto desabilitado quando 3 textos', () => {
@@ -112,5 +112,45 @@ describe('StudioPanel', () => {
     const mockProps = createMockProps()
     render(<StudioPanel {...mockProps} />)
     expect(screen.getByText(/posicionar textos/i)).toBeInTheDocument()
+  })
+
+  it('dispara onUpdateText ao mudar conteúdo', () => {
+    const mockProps = createMockProps()
+    render(<StudioPanel {...mockProps} />)
+    const input = screen.getByLabelText(/conteúdo/i)
+    fireEvent.change(input, { target: { value: 'Novo texto' } })
+    expect(mockProps.onUpdateText).toHaveBeenCalledWith(mockProps.params.texts[0].id, { content: 'Novo texto' })
+  })
+
+  it('dispara onUpdateText ao mudar estilo da letra', () => {
+    const mockProps = createMockProps()
+    render(<StudioPanel {...mockProps} />)
+    const select = screen.getByLabelText(/estilo da letra/i)
+    fireEvent.change(select, { target: { value: 'normal' } })
+    expect(mockProps.onUpdateText).toHaveBeenCalledWith(mockProps.params.texts[0].id, { fontStyle: 'normal' })
+  })
+
+  it('dispara onUpdateParam ao mudar modo de texto', () => {
+    const mockProps = createMockProps()
+    render(<StudioPanel {...mockProps} />)
+    const select = screen.getByLabelText(/modo de texto/i)
+    fireEvent.change(select, { target: { value: 'engraved' } })
+    expect(mockProps.onUpdateParam).toHaveBeenCalledWith('textMode', 'engraved')
+  })
+
+  it('dispara onUpdateParam ao clicar em cor da base', () => {
+    const mockProps = createMockProps()
+    render(<StudioPanel {...mockProps} />)
+    const colorButtons = screen.getAllByLabelText('#ef4444')
+    fireEvent.click(colorButtons[0])
+    expect(mockProps.onUpdateParam).toHaveBeenCalledWith('baseColor', '#ef4444')
+  })
+
+  it('dispara onUpdateParam ao clicar em cor das letras', () => {
+    const mockProps = createMockProps()
+    render(<StudioPanel {...mockProps} />)
+    const colorButtons = screen.getAllByLabelText('#14b8a6')
+    fireEvent.click(colorButtons[1])
+    expect(mockProps.onUpdateParam).toHaveBeenCalledWith('letterColor', '#14b8a6')
   })
 })
