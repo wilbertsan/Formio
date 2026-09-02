@@ -139,7 +139,11 @@ export function useBookmark() {
     dispatch({ type: 'removeText', id })
   }, [])
 
-  const updateText = useCallback((id: string, patch: Partial<TextItem>) => {
+  const updateText = useCallback((key: string, value: number | string) => {
+    dispatch({ type: 'updateText', textKey: key, value })
+  }, [])
+
+  const updateTextById = useCallback((id: string, patch: Partial<TextItem>) => {
     dispatch({ type: 'updateTextById', id, patch })
   }, [])
 
@@ -155,5 +159,5 @@ export function useBookmark() {
     }
   }, [params.length, params.width, params.thickness])
 
-  return { params, geometry, fontError, dimensions, updateParam, addText, removeText, updateText, reset }
+  return { params, geometry, fontError, dimensions, updateParam, addText, removeText, updateText, updateTextById, reset }
 }

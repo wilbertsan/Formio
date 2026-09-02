@@ -80,10 +80,16 @@ describe('useBookmark', () => {
     expect(result.current.params.texts).toHaveLength(1)
   })
 
-  it('updateText patcha o texto correto', () => {
+  it('updateText atualiza primeiro texto por chave', () => {
+    const { result } = renderHook(() => useBookmark())
+    act(() => result.current.updateText('content', 'Teste'))
+    expect(result.current.params.texts[0].content).toBe('Teste')
+  })
+
+  it('updateTextById patcha o texto correto', () => {
     const { result } = renderHook(() => useBookmark())
     const id = result.current.params.texts[0].id
-    act(() => result.current.updateText(id, { content: 'Novo nome', offsetX: 10 }))
+    act(() => result.current.updateTextById(id, { content: 'Novo nome', offsetX: 10 }))
     expect(result.current.params.texts[0].content).toBe('Novo nome')
     expect(result.current.params.texts[0].offsetX).toBe(10)
   })
