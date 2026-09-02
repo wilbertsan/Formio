@@ -1,4 +1,4 @@
-import { type BufferGeometry, ExtrudeGeometry, Path, Shape } from 'three'
+import { BufferGeometry, ExtrudeGeometry, Path, Shape } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
@@ -20,6 +20,7 @@ export interface BuildBookmarkResult {
 
 const ENGRAVE_EPSILON = 0.2
 const TEXT_MARGIN = 3
+const TEXT_Z_OFFSET = 0.01
 
 function resolveFont(
   fonts: Partial<Record<FontStyle, Font>> | undefined,
@@ -79,7 +80,6 @@ export function buildBookmark({
   onError,
 }: BuildBookmarkInput): BuildBookmarkResult {
   // Criar base retangular
-  // TODO: Add rounded tip for easier book insertion (domain requirement from AGENTS.md)
   const baseShape = new Shape()
   const halfLength = params.length / 2
   const halfWidth = params.width / 2
@@ -124,9 +124,17 @@ export function buildBookmark({
     const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, item.offsetX))
     const clampedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, item.offsetY))
 
-    textGeometry.translate(clampedX, clampedY, params.thickness - 0.01)
+    textGeometry.translate(clampedX, clampedY, params.thickness - TEXT_Z_OFFSET)
     textGeometries.push(textGeometry)
     textItems.push({ id: item.id, geometry: textGeometry })
+  }
+
+  if (textGeometries.length === 0) {
+    return {
+      base: baseGeometry,
+      text: new BufferGeometry(),
+      textItems: [],
+    }
   }
 
   if (params.textMode === 'raised') {
@@ -143,13 +151,14 @@ export function buildBookmark({
   // Modo engraved - usar CSG
   try {
     const mergedText = mergeGeometries(textGeometries) ?? textGeometries[0]
-    mergedText.translate(0, 0, ENGRAVE_EPSILON)
+    const displayText = mergedText.clone()
+    displayText.translate(0, 0, params.thickness - TEXT_Z_OFFSET)
     const evaluator = new Evaluator()
     const result = evaluator.evaluate(new Brush(baseGeometry), new Brush(mergedText), SUBTRACTION)
     result.geometry.computeVertexNormals()
     return {
       base: result.geometry,
-      text: mergedText,
+      text: displayText,
       textItems,
     }
   } catch {
@@ -163,4 +172,10 @@ export function buildBookmark({
       textItems,
     }
   }
+}
+
+export function disposeBookmarkResult(result: BuildBookmarkResult): void {
+  result.base.dispose()
+  result.text.dispose()
+  result.textItems.forEach((item) => item.geometry.dispose())
 }
