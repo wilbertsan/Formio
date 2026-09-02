@@ -161,4 +161,17 @@ describe('bookmark schema', () => {
   it('PLA_COLORS tem 10 cores', () => {
     expect(PLA_COLORS).toHaveLength(10)
   })
+
+  it('productType deve ser bookmark', () => {
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, productType: 'bookmark' }).success).toBe(true)
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, productType: 'keychain' }).success).toBe(false)
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, productType: 'card' }).success).toBe(false)
+  })
+
+  it('rejeita texts com itens inválidos', () => {
+    const invalidTexts = [
+      { ...defaultBookmarkParams.texts[0], width: 0 },
+    ]
+    expect(bookmarkParamsSchema.safeParse({ ...defaultBookmarkParams, texts: invalidTexts }).success).toBe(false)
+  })
 })
