@@ -2,7 +2,7 @@
 
 ## Status
 
-Planejada.
+Implementada.
 
 ## Objetivo
 
