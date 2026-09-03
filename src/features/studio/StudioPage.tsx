@@ -16,6 +16,9 @@ import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 import { useBookmark } from './tools/letreiros/marcador-pagina/useBookmark'
 import { exportStl as exportBookmarkStl } from './tools/letreiros/marcador-pagina/exportStl'
 import { TextPositionEditor as BookmarkTextPositionEditor } from './tools/letreiros/marcador-pagina/TextPositionEditor'
+import { usePlacaLoja } from './tools/letreiros/placa-loja/usePlacaLoja'
+import { exportStl as exportPlacaLojaStl } from './tools/letreiros/placa-loja/exportStl'
+import { TextPositionEditor as PlacaLojaTextPositionEditor } from './tools/letreiros/placa-loja/TextPositionEditor'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -98,6 +101,18 @@ const MarcadorPaginaTool = lazy(() =>
 const MarcadorPaginaPreview = lazy(() =>
   import('./tools/letreiros/marcador-pagina/BookmarkPreview').then((m) => ({
     default: m.BookmarkPreview,
+  })),
+)
+
+const PlacaLojaTool = lazy(() =>
+  import('./tools/letreiros/placa-loja/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const PlacaLojaPreview = lazy(() =>
+  import('./tools/letreiros/placa-loja/PlacaLojaPreview').then((m) => ({
+    default: m.PlacaLojaPreview,
   })),
 )
 
@@ -593,6 +608,102 @@ function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function PlacaLojaToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+  const [selectedTextId, setSelectedTextId] = useState<string>('')
+  const [isEditorOpen, setEditorOpen] = useState(false)
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    updateParam,
+    updateTextById,
+    addText,
+    removeText,
+    reset,
+  } = usePlacaLoja()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (geometry) {
+      exportPlacaLojaStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
+
+  const handleSelectText = useCallback((id: string) => {
+    setSelectedTextId(id)
+  }, [])
+
+  const handleAddText = useCallback(() => {
+    addText()
+    if (params.texts.length < 5) {
+      const next = params.texts[params.texts.length]
+      if (next) setSelectedTextId(next.id)
+    }
+  }, [addText, params.texts])
+
+  const handleMoveText = useCallback((id: string, x: number, y: number) => {
+    updateTextById(id, { offsetX: x, offsetY: y })
+  }, [updateTextById])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <PlacaLojaTool
+            params={params}
+            selectedTextId={selectedTextId}
+            onSelectText={handleSelectText}
+            onUpdateText={updateTextById}
+            onAddText={handleAddText}
+            onRemoveText={removeText}
+            onUpdateParam={updateParam}
+            onReset={reset}
+            onOpenEditor={() => setEditorOpen(true)}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+        >
+          <Suspense fallback={null}>
+            <PlacaLojaPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              letterColor={params.letterColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+      {isEditorOpen && (
+        <Suspense fallback={null}>
+          <PlacaLojaTextPositionEditor
+            params={params}
+            selectedTextId={selectedTextId}
+            onSelectText={setSelectedTextId}
+            onMoveText={handleMoveText}
+            onClose={() => setEditorOpen(false)}
+          />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -636,6 +747,9 @@ export function StudioPage() {
       )}
       {activeTool === 'marcador-pagina' && (
         <MarcadorPaginaToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'placa-loja' && (
+        <PlacaLojaToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )

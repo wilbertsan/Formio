@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'marcador-pagina'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'marcador-pagina' | 'placa-loja'
 
 interface ToolCard {
   id: ToolId
@@ -58,6 +58,13 @@ const TOOLS: ToolCard[] = [
     name: 'Marcador de Página',
     description: 'Marcadores 3D personalizados com texto em relevo e furo para fita',
     icon: '📖',
+    category: 'Letreiros',
+  },
+  {
+    id: 'placa-loja',
+    name: 'Placa de Loja',
+    description: 'Placas de identificação 3D com texto personalizável e furos para parafuso',
+    icon: '🏪',
     category: 'Letreiros',
   },
 ]
