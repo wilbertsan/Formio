@@ -9,6 +9,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
 - **Topo de Bolo** — Toppers decorativos com texto personalizado e ícones SVG
+- **Cortador + Carimbo** — Cortador de contorno com carimbo central em peça única
 - **Marcador de Página** — Marcadores 3D personalizados com texto em relevo e furo para fita
 
 ### Componentes Genéricos
@@ -56,6 +57,13 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Hook de estado | `src/features/studio/tools/confeitaria/topo-bolo/useCakeTopper.ts` |
 | Painel de parâmetros | `src/features/studio/tools/confeitaria/topo-bolo/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/confeitaria/topo-bolo/CakeTopperPreview.tsx` |
+| **Cortador + Carimbo** | |
+| Schema + tipos | `src/features/studio/tools/confeitaria/cortador-carimbo/schema.ts` |
+| Geometria (parede, ponte, carimbo) | `src/features/studio/tools/confeitaria/cortador-carimbo/buildCutterStamp.ts` |
+| Hook de estado | `src/features/studio/tools/confeitaria/cortador-carimbo/useCutterStamp.ts` |
+| Painel de parâmetros | `src/features/studio/tools/confeitaria/cortador-carimbo/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/confeitaria/cortador-carimbo/CutterStampPreview.tsx` |
+| Export STL | `src/features/studio/tools/confeitaria/cortador-carimbo/exportStl.ts` |
 | **Marcador de Página** | |
 | Schema + tipos | `src/features/studio/tools/letreiros/marcador-pagina/schema.ts` |
 | Geometria (base retangular + furo) | `src/features/studio/tools/letreiros/marcador-pagina/buildBookmark.ts` |
@@ -110,6 +118,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
 - **Topo de Bolo:** Toppers decorativos para bolo com texto personalizado e upload de ícone SVG. Placa com formato (circular, retangular, oval) via ExtrudeGeometry. Texto em relevo via TextGeometry. Ícone SVG parseado via SVGLoader e convertido em geometria. Pé integrado trapezoidal para fixação no bolo. Upload de SVG permite personalização total de ícones.
 - **Marcador de Página:** Marcadores retangulares finos (2mm) para livros com furo circular para fita/laço. 1-3 textos independentes com posicionamento livre via editor visual. Modos relevo (texto saliente) e gravado (texto afundado via CSG). Dimensões ajustáveis (50-150mm x 30-50mm). Exportação STL binário.
+- **Cortador + Carimbo:** Peça única que combina parede cortadora externa com carimbo central. Formatos: círculo, retângulo ou estrela. Parede com ponta de corte fina, sem boolean para criar o canal. Ponte superior contínua conecta parede e carimbo. Conteúdo central combinável (texto + forma predefinida). Folga mínima de 3mm entre parede e carimbo. Exportação STL da peça unida.
 
 ## Próximos passos (fora de escopo desta fase)
 

@@ -19,6 +19,8 @@ import { TextPositionEditor as BookmarkTextPositionEditor } from './tools/letrei
 import { usePlacaLoja } from './tools/letreiros/placa-loja/usePlacaLoja'
 import { exportStl as exportPlacaLojaStl } from './tools/letreiros/placa-loja/exportStl'
 import { TextPositionEditor as PlacaLojaTextPositionEditor } from './tools/letreiros/placa-loja/TextPositionEditor'
+import { useCutterStamp } from './tools/confeitaria/cortador-carimbo/useCutterStamp'
+import { exportCutterStampStl } from './tools/confeitaria/cortador-carimbo/exportStl'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -113,6 +115,18 @@ const PlacaLojaTool = lazy(() =>
 const PlacaLojaPreview = lazy(() =>
   import('./tools/letreiros/placa-loja/PlacaLojaPreview').then((m) => ({
     default: m.PlacaLojaPreview,
+  })),
+)
+
+const CortadorCarimboTool = lazy(() =>
+  import('./tools/confeitaria/cortador-carimbo/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const CortadorCarimboPreview = lazy(() =>
+  import('./tools/confeitaria/cortador-carimbo/CutterStampPreview').then((m) => ({
+    default: m.CutterStampPreview,
   })),
 )
 
@@ -512,6 +526,66 @@ function CarimboBrigadeiroToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+
+  const {
+    params,
+    geometry,
+    dimensions,
+    cameraPosition,
+    updateParam,
+    reset,
+  } = useCutterStamp()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (geometry) {
+      exportCutterStampStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="flex min-h-0 flex-1">
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <CortadorCarimboTool
+            params={params}
+            onUpdateParam={updateParam}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+          cameraPosition={cameraPosition}
+        >
+          <Suspense fallback={null}>
+            <CortadorCarimboPreview
+              geometry={geometry}
+              baseColor={params.baseColor}
+              stampColor={params.stampColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
@@ -744,6 +818,9 @@ export function StudioPage() {
       )}
       {activeTool === 'carimbo-brigadeiro' && (
         <CarimboBrigadeiroToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'cortador-carimbo' && (
+        <CortadorCarimboToolWrapper onBack={() => setActiveTool(null)} />
       )}
       {activeTool === 'marcador-pagina' && (
         <MarcadorPaginaToolWrapper onBack={() => setActiveTool(null)} />

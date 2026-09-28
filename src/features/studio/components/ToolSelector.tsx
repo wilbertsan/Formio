@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'marcador-pagina' | 'placa-loja'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'marcador-pagina' | 'placa-loja'
 
 interface ToolCard {
   id: ToolId
@@ -51,6 +51,13 @@ const TOOLS: ToolCard[] = [
     name: 'Carimbo Brigadeiro',
     description: 'Carimbos para marcar brigadeiros com texto e formatos',
     icon: '🔖',
+    category: 'Confeitaria',
+  },
+  {
+    id: 'cortador-carimbo',
+    name: 'Cortador + Carimbo',
+    description: 'Cortador de contorno com carimbo central em uma peça única',
+    icon: '🍪',
     category: 'Confeitaria',
   },
   {
