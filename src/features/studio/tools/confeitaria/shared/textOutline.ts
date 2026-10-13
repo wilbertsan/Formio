@@ -23,19 +23,28 @@ function normalizeText(text: string): string {
     .replace(/ç/gi, 'c')
 }
 
+// O FontLoader do Three.js descarta silenciosamente caracteres sem glifo, então
+// verificamos antes: se faltar algum, caímos para o texto sem acentos.
+function hasAllGlyphs(font: Font, text: string): boolean {
+  const glyphs = (font.data as { glyphs?: Record<string, unknown> } | undefined)?.glyphs
+  if (!glyphs) return true
+  return Array.from(text).every(ch => ch === ' ' || glyphs[ch] !== undefined)
+}
+
 /**
  * Contornos da fonte para o texto, em Shape[] (cada letra pode ter furos/counters).
- * Se `generateShapes` falhar para algum glifo (ex.: acentuado), tenta sem acentos.
+ * Se a fonte não tiver algum glifo (ex.: acentuado), cai para o texto sem acentos.
  */
 export function textToShapes(font: Font, text: string, size: number): Shape[] {
   const trimmed = text.trim()
   if (!trimmed) return []
 
+  const source = hasAllGlyphs(font, trimmed) ? trimmed : normalizeText(trimmed)
   try {
-    return font.generateShapes(trimmed, size)
+    return font.generateShapes(source, size)
   } catch {
     try {
-      return font.generateShapes(normalizeText(trimmed), size)
+      return font.generateShapes(normalizeText(source), size)
     } catch {
       return []
     }

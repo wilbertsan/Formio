@@ -142,4 +142,32 @@ describe('textToShapes', () => {
     const font = { generateShapes } as unknown as Font
     expect(textToShapes(font, 'Parabéns', 10)).toHaveLength(1)
   })
+
+  it('remove acentos antes de gerar quando a fonte não tem os glifos', () => {
+    const calls: string[] = []
+    const font = {
+      data: { glyphs: { P: {}, a: {}, r: {}, b: {}, e: {}, n: {}, s: {} } },
+      generateShapes: (text: string) => {
+        calls.push(text)
+        return [rect(0, 0, 10, 10)]
+      },
+    } as unknown as Font
+    textToShapes(font, 'Parabéns', 10)
+    expect(calls).toEqual(['Parabens'])
+  })
+
+  it('preserva acentos quando a fonte tem todos os glifos', () => {
+    const calls: string[] = []
+    const chars = Array.from('Parabéns')
+    const glyphs = Object.fromEntries(chars.map(c => [c, {}]))
+    const font = {
+      data: { glyphs },
+      generateShapes: (text: string) => {
+        calls.push(text)
+        return [rect(0, 0, 10, 10)]
+      },
+    } as unknown as Font
+    textToShapes(font, 'Parabéns', 10)
+    expect(calls).toEqual(['Parabéns'])
+  })
 })
