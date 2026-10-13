@@ -3,6 +3,7 @@ import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
   type ClipperPoint,
   offsetPaths,
+  outerPaths,
   pathsBoundingBox,
   pathsToShapes,
   scalePaths,
@@ -86,9 +87,11 @@ export function buildCutterStamp({ params, font }: BuildCutterStampInput): Build
   const bounds = pathsBoundingBox(text)
 
   // Abertura do cortador: contorno da palavra com margem (une as letras).
-  const opening = offsetPaths(text, params.baseMargin)
+  // Sem furos internos (counters): o cortador é uma peça única, sem paredes
+  // separadas em volta dos furos das letras.
+  const opening = outerPaths(offsetPaths(text, params.baseMargin))
 
-  // Cortador: parede (stroke) em volta da abertura (externo + furos internos).
+  // Cortador: parede (stroke) em volta da abertura (só o contorno externo).
   const ring = subtractPaths(offsetPaths(opening, params.wallThickness), opening)
   const cutter = shapesToGeometry(pathsToShapes(ring), params.wallHeight, false)
 

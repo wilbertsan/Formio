@@ -12,6 +12,7 @@ import {
   pathsToShapes,
   shapesToGeometry,
   textToShapes,
+  outerPaths,
 } from '@/features/studio/tools/confeitaria/shared/textOutline'
 
 function rect(x: number, y: number, w: number, h: number): Shape {
@@ -68,6 +69,20 @@ describe('offsetPaths', () => {
     const shrunk = offsetPaths(base, -2)
     const bb = pathsBoundingBox(shrunk)
     expect(bb.width).toBeLessThan(17)
+  })
+})
+
+describe('outerPaths', () => {
+  it('remove furos internos (preenche counters)', () => {
+    const paths = toClipperPaths([rectWithHole()])
+    const outers = outerPaths(paths)
+    expect(outers).toHaveLength(1)
+    expect(pathsToShapes(outers)[0].holes).toHaveLength(0)
+  })
+
+  it('mantém componentes externos desconexos', () => {
+    const outers = outerPaths(unionPaths(toClipperPaths([rect(0, 0, 10, 10), rect(30, 0, 10, 10)])))
+    expect(outers).toHaveLength(2)
   })
 })
 

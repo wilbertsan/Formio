@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Shape, Vector2 } from 'three'
+import { type BufferGeometry, Path, Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { buildCutterStamp } from '@/features/studio/tools/confeitaria/cortador-carimbo/buildCutterStamp'
 import {
@@ -31,6 +31,63 @@ function bbox(geometry: ReturnType<typeof buildCutterStamp>['cutter']) {
   return geometry.boundingBox!
 }
 
+// Fonte mock com furo interno (como a letra 'd'/'o').
+function mockFontHoled(): Font {
+  return {
+    generateShapes: (text: string, size: number) => {
+      const width = text.trim().length * size * FONT_WIDTH_FACTOR
+      const height = size
+      const shape = new Shape([
+        new Vector2(-width / 2, -height / 2),
+        new Vector2(width / 2, -height / 2),
+        new Vector2(width / 2, height / 2),
+        new Vector2(-width / 2, height / 2),
+      ])
+      const hw = width / 4
+      const hh = height / 4
+      shape.holes.push(new Path([
+        new Vector2(-hw, -hh),
+        new Vector2(-hw, hh),
+        new Vector2(hw, hh),
+        new Vector2(hw, -hh),
+      ]))
+      return [shape]
+    },
+  } as unknown as Font
+}
+
+// Conta componentes conexos pela malha (vértices compartilhados por triângulos).
+function componentCount(geometry: BufferGeometry): number {
+  const position = geometry.attributes.position
+  const index = geometry.index
+  const key = (i: number) => `${position.getX(i).toFixed(4)},${position.getY(i).toFixed(4)},${position.getZ(i).toFixed(4)}`
+  const parent = new Map<string, string>()
+  const find = (x: string): string => {
+    let root = x
+    while (parent.get(root) !== root) root = parent.get(root)!
+    return root
+  }
+  const union = (a: string, b: string) => {
+    const ra = find(a)
+    const rb = find(b)
+    if (ra !== rb) parent.set(ra, rb)
+  }
+
+  const count = index ? index.count : position.count
+  for (let i = 0; i < count; i += 3) {
+    const a = key(index ? index.getX(i) : i)
+    const b = key(index ? index.getX(i + 1) : i + 1)
+    const c = key(index ? index.getX(i + 2) : i + 2)
+    for (const v of [a, b, c]) if (!parent.has(v)) parent.set(v, v)
+    union(a, b)
+    union(b, c)
+  }
+
+  const roots = new Set<string>()
+  for (const k of parent.keys()) roots.add(find(k))
+  return roots.size
+}
+
 const params = { ...defaultCutterStampParams, text: 'AB', textHeight: 25 }
 const textWidth = 'AB'.length * params.textHeight * FONT_WIDTH_FACTOR
 
@@ -54,6 +111,11 @@ describe('buildCutterStamp - cortador', () => {
     const cutter = bbox(buildCutterStamp({ params, font: mockFont() }).cutter)
     const openingWidth = textWidth + 2 * params.baseMargin
     expect(cutter.max.x - cutter.min.x).toBeCloseTo(openingWidth + 2 * params.wallThickness, 0)
+  })
+
+  it('é uma peça única, sem parede interna separada do furo da letra', () => {
+    const cutter = buildCutterStamp({ params, font: mockFontHoled() }).cutter
+    expect(componentCount(cutter)).toBe(1)
   })
 })
 

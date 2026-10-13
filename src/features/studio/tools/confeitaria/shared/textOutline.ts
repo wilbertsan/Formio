@@ -133,15 +133,9 @@ export function pathsBoundingBox(paths: ClipperPoint[][]): PathsBounds {
   }
 }
 
-/**
- * Converte paths do Clipper (possivelmente desconexos, com furos) em Shape[].
- * Classifica externos/furos por profundidade de containment, então cada furo vai
- * para o menor contorno externo que o contém. Resolve letras desconexas e counters.
- */
-export function pathsToShapes(paths: ClipperPoint[][]): Shape[] {
-  if (paths.length === 0) return []
-
-  const depth = paths.map((path, i) => {
+// Profundidade de containment de cada path (par = externo, ímpar = furo).
+function computeDepths(paths: ClipperPoint[][]): number[] {
+  return paths.map((path, i) => {
     const probe = path[0]
     let count = 0
     for (let j = 0; j < paths.length; j++) {
@@ -150,6 +144,23 @@ export function pathsToShapes(paths: ClipperPoint[][]): Shape[] {
     }
     return count
   })
+}
+
+/** Mantém apenas os contornos externos, descartando furos internos (counters). */
+export function outerPaths(paths: ClipperPoint[][]): ClipperPoint[][] {
+  const depths = computeDepths(paths)
+  return paths.filter((_, i) => depths[i] % 2 === 0)
+}
+
+/**
+ * Converte paths do Clipper (possivelmente desconexos, com furos) em Shape[].
+ * Classifica externos/furos por profundidade de containment, então cada furo vai
+ * para o menor contorno externo que o contém. Resolve letras desconexas e counters.
+ */
+export function pathsToShapes(paths: ClipperPoint[][]): Shape[] {
+  if (paths.length === 0) return []
+
+  const depth = computeDepths(paths)
 
   const outers: ClipperPoint[][] = []
   const holes: ClipperPoint[][] = []

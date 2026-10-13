@@ -30,7 +30,9 @@ da marca.
 - Contornos obtidos de `font.generateShapes` e processados via Clipper
   (`../shared/textOutline.ts`), com suporte a letras desconexas e counters
 - **Cortador**: parede (stroke) de espessura `wallThickness` que contorna a
-  abertura `expand(texto, +margem)` — `expand(abertura, +t) − abertura`; extrudada em `wallHeight`
+  abertura `expand(texto, +margem)` — `expand(abertura, +t) − abertura`; extrudada em `wallHeight`.
+  A abertura usa apenas o contorno externo (furos das letras preenchidos), então o
+  cortador é **uma peça única** (sem paredes internas separadas) e o corte sai sólido
 - **Base única do carimbo**: `expand(texto, +margem − folga)` (une as letras),
   extrudada em `(stampHeight − reliefHeight) × (1 − HANDLE_HEIGHT_RATIO)`
 - **Relevo (alto relevo)**: `texto` preenchido, extrudado em `reliefHeight`, na face
