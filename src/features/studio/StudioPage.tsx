@@ -575,7 +575,7 @@ function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
           <Suspense fallback={null}>
             <CortadorCarimboPreview
               geometry={geometry}
-              baseColor={params.baseColor}
+              cutterColor={params.cutterColor}
               stampColor={params.stampColor}
             />
           </Suspense>

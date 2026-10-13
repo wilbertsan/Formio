@@ -1,198 +1,88 @@
 import { describe, it, expect } from 'vitest'
-import { cutterStampParamsSchema, defaultCutterStampParams, PLA_COLORS } from '@/features/studio/tools/confeitaria/cortador-carimbo/schema'
+import {
+  cutterStampParamsSchema,
+  defaultCutterStampParams,
+  sanitizeFilename,
+  PLA_COLORS,
+} from '@/features/studio/tools/confeitaria/cortador-carimbo/schema'
 
 describe('cutterStampParamsSchema', () => {
   it('validates default params', () => {
-    const result = cutterStampParamsSchema.safeParse(defaultCutterStampParams)
-    expect(result.success).toBe(true)
+    expect(cutterStampParamsSchema.safeParse(defaultCutterStampParams).success).toBe(true)
   })
 
-  // --- Outer shape ---
+  // --- Texto ---
 
-  it('accepts circle shape', () => {
-    const params = { ...defaultCutterStampParams, outerShape: 'circle' as const }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
+  it('exige texto não-vazio', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, text: '' }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, text: '   ' }).success).toBe(false)
   })
 
-  it('accepts rectangle shape', () => {
-    const params = { ...defaultCutterStampParams, outerShape: 'rectangle' as const }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
+  it('rejeita texto com mais de 30 caracteres', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, text: 'a'.repeat(31) }).success).toBe(false)
   })
 
-  it('accepts star shape', () => {
-    const params = { ...defaultCutterStampParams, outerShape: 'star' as const }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
+  it('rejeita fontStyle inválido', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, fontStyle: 'italic' }).success).toBe(false)
   })
 
-  it('rejects invalid outerShape', () => {
-    const params = { ...defaultCutterStampParams, outerShape: 'triangle' }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita textHeight fora de 10–60mm', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, textHeight: 5 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, textHeight: 80 }).success).toBe(false)
   })
 
-  // --- Dimensions ---
+  // --- Cortador ---
 
-  it('rejects diameter below 30mm', () => {
-    const params = { ...defaultCutterStampParams, diameter: 20 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita wallHeight fora de 15–40mm', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, wallHeight: 10 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, wallHeight: 45 }).success).toBe(false)
   })
 
-  it('rejects diameter above 80mm', () => {
-    const params = { ...defaultCutterStampParams, diameter: 90 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita wallThickness fora de 0.8–2mm', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, wallThickness: 0.5 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, wallThickness: 3 }).success).toBe(false)
   })
 
-  it('rejects rectWidth below 30mm', () => {
-    const params = { ...defaultCutterStampParams, rectWidth: 20 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  // --- Carimbo ---
+
+  it('rejeita stampHeight fora de 15–25mm', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, stampHeight: 10 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, stampHeight: 30 }).success).toBe(false)
   })
 
-  it('rejects rectWidth above 80mm', () => {
-    const params = { ...defaultCutterStampParams, rectWidth: 90 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita baseMargin fora de 2–10mm', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, baseMargin: 1 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, baseMargin: 12 }).success).toBe(false)
   })
 
-  it('rejects rectHeight below 30mm', () => {
-    const params = { ...defaultCutterStampParams, rectHeight: 20 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita reliefHeight fora de 1–3mm', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, reliefHeight: 0.5 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, reliefHeight: 4 }).success).toBe(false)
   })
 
-  it('rejects rectHeight above 80mm', () => {
-    const params = { ...defaultCutterStampParams, rectHeight: 90 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
+  // --- Cores ---
 
-  // --- Wall ---
-
-  it('rejects wallHeight below 15mm', () => {
-    const params = { ...defaultCutterStampParams, wallHeight: 10 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects wallHeight above 40mm', () => {
-    const params = { ...defaultCutterStampParams, wallHeight: 45 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects wallThickness below 0.8mm', () => {
-    const params = { ...defaultCutterStampParams, wallThickness: 0.5 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects wallThickness above 2mm', () => {
-    const params = { ...defaultCutterStampParams, wallThickness: 3 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  // --- Stamp ---
-
-  it('rejects stampHeight below 5mm', () => {
-    const params = { ...defaultCutterStampParams, stampHeight: 3 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects stampHeight above 20mm', () => {
-    const params = { ...defaultCutterStampParams, stampHeight: 25 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects stampHeight >= wallHeight', () => {
-    const params = { ...defaultCutterStampParams, wallHeight: 15, stampHeight: 15 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  // --- Central content ---
-
-  it('accepts text-only content', () => {
-    const params = {
-      ...defaultCutterStampParams,
-      centralShape: null,
-      text: 'Ola',
-    }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
-  })
-
-  it('accepts shape-only content', () => {
-    const params = {
-      ...defaultCutterStampParams,
-      text: '',
-      centralShape: 'circle' as const,
-    }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
-  })
-
-  it('rejects empty text with no central shape', () => {
-    const params = {
-      ...defaultCutterStampParams,
-      text: '',
-      centralShape: null,
-    }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects text longer than 30 chars', () => {
-    const params = { ...defaultCutterStampParams, text: 'a'.repeat(31) }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('accepts centralShape circle', () => {
-    const params = { ...defaultCutterStampParams, centralShape: 'circle' as const }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
-  })
-
-  it('accepts centralShape star', () => {
-    const params = { ...defaultCutterStampParams, centralShape: 'star' as const }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
-  })
-
-  it('accepts centralShape heart', () => {
-    const params = { ...defaultCutterStampParams, centralShape: 'heart' as const }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(true)
-  })
-
-  it('rejects invalid centralShape', () => {
-    const params = { ...defaultCutterStampParams, centralShape: 'diamond' }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  // --- Font ---
-
-  it('rejects invalid fontStyle', () => {
-    const params = { ...defaultCutterStampParams, fontStyle: 'italic' }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects fontSize below 5mm', () => {
-    const params = { ...defaultCutterStampParams, fontSize: 3 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects fontSize above 15mm', () => {
-    const params = { ...defaultCutterStampParams, fontSize: 20 }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  // --- Colors ---
-
-  it('rejects invalid baseColor', () => {
-    const params = { ...defaultCutterStampParams, baseColor: '#ff0000' }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
-  })
-
-  it('rejects invalid stampColor', () => {
-    const params = { ...defaultCutterStampParams, stampColor: '#000000' }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita cores fora da paleta PLA', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, cutterColor: '#ff0000' }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, stampColor: '#000000' }).success).toBe(false)
   })
 
   // --- productType ---
 
-  it('rejects non-literal productType', () => {
-    const params = { ...defaultCutterStampParams, productType: 'other' }
-    expect(cutterStampParamsSchema.safeParse(params).success).toBe(false)
+  it('rejeita productType diferente do literal', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, productType: 'other' }).success).toBe(false)
+  })
+})
+
+describe('sanitizeFilename', () => {
+  it('substitui caracteres inseguros e tem fallback', () => {
+    expect(sanitizeFilename('Meu Cortador! @#')).toBe('Meu_Cortador____')
+    expect(sanitizeFilename('')).toBe('cortador-carimbo')
   })
 })
 
 describe('PLA_COLORS', () => {
-  it('has at least 10 colors', () => {
+  it('tem pelo menos 10 cores', () => {
     expect(PLA_COLORS.length).toBeGreaterThanOrEqual(10)
   })
 })

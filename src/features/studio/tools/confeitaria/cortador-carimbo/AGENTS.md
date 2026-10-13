@@ -6,41 +6,59 @@ Implementada.
 
 ## Objetivo
 
-Combinar cortador de contorno com carimbo central — uma única peça que corta e estampa.
+Gerar, em um único STL, duas peças separadas lado a lado com a **forma do
+texto**: um cortador que recorta o **contorno da palavra com margem** (silhueta
+única que une as letras) e um carimbo com essa base única e o **texto em alto
+relevo**. Usa-se em duas etapas: corta com o cortador, pressiona o carimbo dentro
+da marca.
 
 ## Parâmetros
 
-- Formato externo: circular, retangular, estrela
-- Diâmetro (círculo/estrela): 30–80mm
-- Largura/altura (retângulo): 30–80mm cada
-- Altura da parede: 15–40mm
-- Espessura da parede: 0.8–2mm
-- Altura do carimbo: 5–20mm (sempre menor que a parede)
-- Texto central: até 30 caracteres, estilo normal/bold/serif, 5–15mm
-- Forma central: círculo, estrela ou coração (opcional)
-- Escala da forma: 0.5–2.0x
-- Cores de preview: base e carimbo (10 cores PLA)
+- Texto: 1–30 caracteres
+- Estilo da fonte: normal, bold ou serif
+- Altura da letra: 10–60mm (a largura decorre do texto)
+- Altura da parede do cortador: 15–40mm
+- Espessura da parede do cortador: 0.8–2mm
+- Altura total do carimbo (relevo + base + cabo): 15–25mm
+- Margem da base: 2–10mm (une as letras)
+- Altura do relevo (alto relevo): 1–3mm
+- Cores de preview: cor do cortador e cor do carimbo (10 cores PLA)
 
 ## Regras do domínio
 
-- Contorno afiado para corte, relevo central para marcação
-- Altura diferenciada: parede de corte mais alta que o carimbo
-- Espaçamento mínimo entre parede e carimbo: 3mm
-- Duas operações em uma peça: eficiência de impressão
-- Texto e forma combináveis no centro
+- **Duas peças com a forma do texto** (a palavra substitui círculo/retângulo/estrela)
+- Contornos obtidos de `font.generateShapes` e processados via Clipper
+  (`../shared/textOutline.ts`), com suporte a letras desconexas e counters
+- **Cortador**: parede (stroke) de espessura `wallThickness` que contorna a
+  abertura `expand(texto, +margem)` — `expand(abertura, +t) − abertura`; extrudada em `wallHeight`
+- **Base única do carimbo**: `expand(texto, +margem − folga)` (une as letras),
+  extrudada em `(stampHeight − reliefHeight) × (1 − HANDLE_HEIGHT_RATIO)`
+- **Relevo (alto relevo)**: `texto` preenchido, extrudado em `reliefHeight`, na face
+  de contato (z = 0), sobre a base
+- **Cabo** cilíndrico central: raio `HANDLE_RADIUS_RATIO = 0.35` da altura do texto;
+  altura `(stampHeight − reliefHeight) × HANDLE_HEIGHT_RATIO`
+- Folga por lado entre cortador e base: `CLEARANCE_MM = 0.4mm` (fixa)
+- Se a largura do texto exceder `MAX_TEXT_WIDTH_MM = 150mm`, o texto é reduzido
+  proporcionalmente para caber
+- Peças posicionadas lado a lado com `PIECE_GAP_MM = 10mm` de espaço, ambas em z ≥ 0
+- Acentos são preservados; se a fonte não tiver o glifo, cai para texto sem acentos
+- 1 unidade Three.js = 1mm
 
 ## Estrutura de arquivos
 
 ```
 src/features/studio/tools/confeitaria/cortador-carimbo/
 ├── AGENTS.md
-├── schema.ts              # Schema Zod e tipos
-├── buildCutterStamp.ts    # Função de build (geometria)
-├── useCutterStamp.ts      # Hook de estado
-├── StudioPanel.tsx        # Painel de parâmetros
+├── schema.ts              # Schema Zod, constantes e tipos
+├── buildCutterStamp.ts    # Geometria: cortador (stroke) e carimbo (base + relevo + cabo)
+├── useCutterStamp.ts      # Hook de estado (reducer + Zod + debounce)
+├── StudioPanel.tsx        # Painel (Texto / Cortador / Carimbo / Aparência)
 ├── CutterStampPreview.tsx # Preview R3F
-└── exportStl.ts           # Exportação STL
+└── exportStl.ts           # Exportação STL binário (peças mescladas)
 ```
+
+Helper compartilhado: `../shared/textOutline.ts` (texto → contornos → geometria,
+multi-componente).
 
 ## Fora de escopo
 

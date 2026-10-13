@@ -5,11 +5,12 @@ import { sanitizeFilename } from './schema'
 import type { BuildCutterStampResult } from './buildCutterStamp'
 
 export function exportCutterStampStl(geometry: BuildCutterStampResult, projectName: string): void {
-  const geometries = [geometry.wall]
-  if (geometry.text) geometries.push(geometry.text)
-  if (geometry.centralShape) geometries.push(geometry.centralShape)
-
-  const merged = mergeGeometries(geometries) ?? geometry.wall
+  const merged = mergeGeometries([
+    geometry.cutter,
+    geometry.stampBase,
+    geometry.stampRelief,
+    geometry.stampHandle,
+  ]) ?? geometry.cutter
   const scene = new Scene()
   scene.add(new Mesh(merged))
   const exporter = new STLExporter()

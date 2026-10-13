@@ -17,6 +17,17 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
   }),
 }))
 
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+
+function makeGeometry(): BuildCutterStampResult {
+  return {
+    cutter: { dispose: vi.fn() },
+    stampBase: { dispose: vi.fn() },
+    stampRelief: { dispose: vi.fn() },
+    stampHandle: { dispose: vi.fn() },
+  } as unknown as BuildCutterStampResult
+}
+
 describe('exportCutterStampStl', () => {
   it('gera download com blob e nome sanitizado', () => {
     const createObjectURL = vi.fn(() => 'blob:mock-url')
@@ -34,12 +45,7 @@ describe('exportCutterStampStl', () => {
     Object.defineProperty(document.body, 'appendChild', { value: appendChildSpy, writable: true })
     Object.defineProperty(document.body, 'removeChild', { value: removeChildSpy, writable: true })
 
-    const geometry: BuildCutterStampResult = {
-      wall: { dispose: vi.fn(), clone: vi.fn() } as never,
-      text: null,
-      centralShape: null,
-    }
-    exportCutterStampStl(geometry, 'Meu Cortador! @#')
+    exportCutterStampStl(makeGeometry(), 'Meu Cortador! @#')
 
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     const blob = (createObjectURL.mock.calls as unknown[][])[0]![0] as Blob
@@ -52,5 +58,11 @@ describe('exportCutterStampStl', () => {
     createElementSpy.mockRestore()
     Object.defineProperty(document.body, 'appendChild', { value: appendChildOrig, writable: true })
     Object.defineProperty(document.body, 'removeChild', { value: removeChildOrig, writable: true })
+  })
+
+  it('mescla as quatro peças', () => {
+    vi.mocked(mergeGeometries).mockClear()
+    exportCutterStampStl(makeGeometry(), 'Projeto')
+    expect(vi.mocked(mergeGeometries).mock.calls[0]![0]).toHaveLength(4)
   })
 })

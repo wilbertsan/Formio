@@ -4,9 +4,12 @@ declare module 'js-clipper' {
       AddPaths: (paths: Array<{ X: number; Y: number }[]>, joinType: number, endType: number) => void
       Execute: (solution: Array<{ X: number; Y: number }[]>, delta: number) => void
     }
-    Clipper: new () => {
+    Clipper: (new () => {
       AddPaths: (paths: Array<{ X: number; Y: number }[]>, polyType: number, closed: boolean) => void
       Execute: (clipType: number, solution: Array<{ X: number; Y: number }[]>, fillType1: number, fillType2: number) => boolean
+    }) & {
+      PointInPolygon: (pt: { X: number; Y: number }, path: Array<{ X: number; Y: number }>) => number
+      Area: (path: Array<{ X: number; Y: number }>) => number
     }
     PolyType: {
       ptSubject: number

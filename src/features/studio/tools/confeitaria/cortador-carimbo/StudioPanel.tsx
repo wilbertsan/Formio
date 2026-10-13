@@ -13,7 +13,7 @@ import { type CutterStampParams, PLA_COLORS } from './schema'
 
 interface StudioPanelProps {
   params: CutterStampParams
-  onUpdateParam: (key: keyof CutterStampParams, value: number | string | boolean | null) => void
+  onUpdateParam: (key: keyof CutterStampParams, value: number | string | null) => void
   onReset: () => void
 }
 
@@ -43,11 +43,44 @@ function ColorSwatches({
   )
 }
 
-export function StudioPanel({
-  params,
-  onUpdateParam,
-  onReset,
-}: StudioPanelProps) {
+function LabeledSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix = 'mm',
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step: number
+  suffix?: string
+  onChange: (value: number) => void
+}) {
+  const display = step < 1 ? value.toFixed(step < 0.1 ? 2 : 1) : value
+  return (
+    <>
+      <Flex direction="row" justifyContent="space-between">
+        <Text fontSize="xs" color="font.tertiary">{label}</Text>
+        <Text fontSize="xs" color="font.secondary">{display} {suffix}</Text>
+      </Flex>
+      <SliderField
+        label=""
+        aria-label={label}
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(next) => onChange(next as number)}
+      />
+    </>
+  )
+}
+
+export function StudioPanel({ params, onUpdateParam, onReset }: StudioPanelProps) {
   return (
     <View
       as="aside"
@@ -64,99 +97,60 @@ export function StudioPanel({
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="formato">
+        <Accordion.Item value="texto">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Formato
+              Texto
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
+              <TextField
+                label="Conteúdo"
+                value={params.text}
+                maxLength={30}
+                onChange={(e) => onUpdateParam('text', e.target.value)}
+              />
               <SelectField
-                label="Formato externo"
-                value={params.outerShape}
-                onChange={(e) => onUpdateParam('outerShape', e.target.value)}
+                label="Estilo da fonte"
+                value={params.fontStyle}
+                onChange={(e) => onUpdateParam('fontStyle', e.target.value)}
               >
-                <option value="circle">Círculo</option>
-                <option value="rectangle">Retângulo</option>
-                <option value="star">Estrela</option>
+                <option value="normal">Normal</option>
+                <option value="bold">Negrito</option>
+                <option value="serif">Serif</option>
               </SelectField>
-
-              {params.outerShape === 'rectangle' ? (
-                <>
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Largura</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.rectWidth} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Largura"
-                    min={30} max={80} step={1}
-                    value={params.rectWidth}
-                    onChange={(value) => onUpdateParam('rectWidth', value as number)}
-                  />
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.rectHeight} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Altura"
-                    min={30} max={80} step={1}
-                    value={params.rectHeight}
-                    onChange={(value) => onUpdateParam('rectHeight', value as number)}
-                  />
-                </>
-              ) : (
-                <>
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Diâmetro</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.diameter} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Diâmetro"
-                    min={30} max={80} step={1}
-                    value={params.diameter}
-                    onChange={(value) => onUpdateParam('diameter', value as number)}
-                  />
-                </>
-              )}
+              <LabeledSlider
+                label="Altura da letra"
+                value={params.textHeight}
+                min={10} max={60} step={1}
+                onChange={(value) => onUpdateParam('textHeight', value)}
+              />
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
 
-        <Accordion.Item value="parede">
+        <Accordion.Item value="cortador">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Parede
+              Cortador
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Altura da parede</Text>
-                <Text fontSize="xs" color="font.secondary">{params.wallHeight} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Altura da parede"
-                min={15} max={40} step={1}
+              <LabeledSlider
+                label="Altura da parede"
                 value={params.wallHeight}
-                onChange={(value) => onUpdateParam('wallHeight', value as number)}
+                min={15} max={40} step={1}
+                onChange={(value) => onUpdateParam('wallHeight', value)}
               />
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Espessura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.wallThickness.toFixed(1)} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Espessura da parede"
-                min={0.8} max={2} step={0.1}
+              <LabeledSlider
+                label="Espessura da parede"
                 value={params.wallThickness}
-                onChange={(value) => onUpdateParam('wallThickness', value as number)}
+                min={0.8} max={2} step={0.1}
+                onChange={(value) => onUpdateParam('wallThickness', value)}
               />
             </Flex>
           </Accordion.Content>
@@ -171,85 +165,24 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Altura do carimbo</Text>
-                <Text fontSize="xs" color="font.secondary">{params.stampHeight} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Altura do carimbo"
-                min={5} max={Math.max(5, params.wallHeight - 1)} step={1}
+              <LabeledSlider
+                label="Altura do carimbo"
                 value={params.stampHeight}
-                onChange={(value) => onUpdateParam('stampHeight', value as number)}
+                min={15} max={25} step={1}
+                onChange={(value) => onUpdateParam('stampHeight', value)}
               />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="conteudo">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Conteúdo Central
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <TextField
-                label="Conteúdo"
-                value={params.text}
-                maxLength={30}
-                onChange={(e) => onUpdateParam('text', e.target.value)}
+              <LabeledSlider
+                label="Margem da base"
+                value={params.baseMargin}
+                min={2} max={10} step={0.5}
+                onChange={(value) => onUpdateParam('baseMargin', value)}
               />
-
-              <SelectField
-                label="Estilo da fonte"
-                value={params.fontStyle}
-                onChange={(e) => onUpdateParam('fontStyle', e.target.value)}
-              >
-                <option value="normal">Normal</option>
-                <option value="bold">Negrito</option>
-                <option value="serif">Serif</option>
-              </SelectField>
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Tamanho da fonte</Text>
-                <Text fontSize="xs" color="font.secondary">{params.fontSize} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Tamanho da fonte"
-                min={5} max={15} step={1}
-                value={params.fontSize}
-                onChange={(value) => onUpdateParam('fontSize', value as number)}
+              <LabeledSlider
+                label="Altura do relevo"
+                value={params.reliefHeight}
+                min={1} max={3} step={0.5}
+                onChange={(value) => onUpdateParam('reliefHeight', value)}
               />
-
-              <SelectField
-                label="Forma central"
-                value={params.centralShape ?? ''}
-                onChange={(e) => onUpdateParam('centralShape', e.target.value || null)}
-              >
-                <option value="">Nenhuma</option>
-                <option value="circle">Círculo</option>
-                <option value="star">Estrela</option>
-                <option value="heart">Coração</option>
-              </SelectField>
-
-              {params.centralShape && (
-                <>
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Escala da forma</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.shapeScale.toFixed(1)}x</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Escala da forma"
-                    min={0.5} max={2.0} step={0.1}
-                    value={params.shapeScale}
-                    onChange={(value) => onUpdateParam('shapeScale', value as number)}
-                  />
-                </>
-              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
@@ -264,12 +197,12 @@ export function StudioPanel({
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <Text fontSize="xs" color="font.tertiary">
-                Cor da base
+                Cor do cortador
               </Text>
               <ColorSwatches
                 colors={PLA_COLORS}
-                selected={params.baseColor}
-                onSelect={(color) => onUpdateParam('baseColor', color)}
+                selected={params.cutterColor}
+                onSelect={(color) => onUpdateParam('cutterColor', color)}
               />
 
               <Text fontSize="xs" color="font.tertiary">

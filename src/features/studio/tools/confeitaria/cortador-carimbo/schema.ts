@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// Cores PLA disponíveis (reutilizando do topo-bolo)
+// Cores PLA disponíveis
 export const PLA_COLORS = [
   '#14b8a6', '#ef4444', '#3b82f6', '#eab308', '#22c55e',
   '#f97316', '#ec4899', '#8b5cf6', '#171717', '#f5f5f5',
@@ -9,56 +9,47 @@ export const PLA_COLORS = [
 export type PlaColor = (typeof PLA_COLORS)[number]
 
 // Constantes fixas
-export const MIN_GAP_BETWEEN_WALL_AND_STAMP = 3
+// Folga por lado entre a abertura do cortador e a silhueta do carimbo (mm)
+export const CLEARANCE_MM = 0.4
+// Proporção da altura total do carimbo reservada ao cabo
+export const HANDLE_HEIGHT_RATIO = 0.6
+// Espaço entre as duas peças no leito de impressão (mm)
+export const PIECE_GAP_MM = 10
+// Largura máxima do texto (mm) — mesa de impressão típica ~220mm
+export const MAX_TEXT_WIDTH_MM = 150
+// Raio do cabo como fração da altura do texto
+export const HANDLE_RADIUS_RATIO = 0.35
 
-// Schema do cortador + carimbo
 export const cutterStampParamsSchema = z.object({
   productType: z.literal('cutter-stamp'),
-  outerShape: z.enum(['circle', 'rectangle', 'star']),
-  diameter: z.number().min(30).max(80),
-  rectWidth: z.number().min(30).max(80),
-  rectHeight: z.number().min(30).max(80),
+  text: z.string().trim().min(1).max(30),
+  fontStyle: z.enum(['normal', 'bold', 'serif']),
+  textHeight: z.number().min(10).max(60),
   wallHeight: z.number().min(15).max(40),
   wallThickness: z.number().min(0.8).max(2),
-  stampHeight: z.number().min(5).max(20),
-  text: z.string().max(30),
-  fontStyle: z.enum(['normal', 'bold', 'serif']),
-  fontSize: z.number().min(5).max(15),
-  centralShape: z.enum(['circle', 'star', 'heart']).nullable(),
-  shapeScale: z.number().min(0.5).max(2.0),
-  baseColor: z.enum(PLA_COLORS),
+  stampHeight: z.number().min(15).max(25),
+  baseMargin: z.number().min(2).max(10),
+  reliefHeight: z.number().min(1).max(3),
+  cutterColor: z.enum(PLA_COLORS),
   stampColor: z.enum(PLA_COLORS),
-}).refine(
-  (data) => data.stampHeight < data.wallHeight,
-  { message: 'Altura do carimbo deve ser menor que a altura da parede', path: ['stampHeight'] },
-).refine(
-  (data) => data.text.length > 0 || data.centralShape !== null,
-  { message: 'Forneça um texto ou selecione uma forma central', path: ['text'] },
-)
+})
 
 export type CutterStampParams = z.infer<typeof cutterStampParamsSchema>
-export type OuterShape = CutterStampParams['outerShape']
-export type CentralShape = NonNullable<CutterStampParams['centralShape']>
 
 export function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50) || 'cortador-carimbo'
 }
 
-// Valores padrão
 export const defaultCutterStampParams: CutterStampParams = {
   productType: 'cutter-stamp',
-  outerShape: 'circle',
-  diameter: 50,
-  rectWidth: 60,
-  rectHeight: 45,
-  wallHeight: 25,
-  wallThickness: 1.2,
-  stampHeight: 10,
   text: 'Parabéns',
   fontStyle: 'bold',
-  fontSize: 10,
-  centralShape: null,
-  shapeScale: 1.0,
-  baseColor: '#14b8a6',
+  textHeight: 25,
+  wallHeight: 25,
+  wallThickness: 1.2,
+  stampHeight: 20,
+  baseMargin: 4,
+  reliefHeight: 2,
+  cutterColor: '#14b8a6',
   stampColor: '#f5f5f5',
 }
