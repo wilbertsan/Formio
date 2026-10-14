@@ -204,12 +204,28 @@ describe('useCutterStamp', () => {
     expect(result.current.dimensions.thickness).toBe(defaultCutterStampParams.wallThickness)
   })
 
-  it('posiciona a câmera para a largura combinada', () => {
+  it('posiciona a câmera girada 180° no eixo Y', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useCutterStamp({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    const [x, y, z] = result.current.cameraPosition
+    expect(x).toBeCloseTo(0, 1)
+    expect(y).toBeGreaterThan(0)
+    expect(z).toBeLessThan(0)
+  })
+
+  it('a câmera é proporcional ao tamanho do objeto', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCutterStamp({ workerFactory: factory }))
-    const [x, y, z] = result.current.cameraPosition
-    expect(x).toBe(0)
-    expect(y).toBeGreaterThan(0)
-    expect(z).toBeGreaterThan(0)
+    const initial = result.current.cameraPosition[1]
+    act(() => {
+      result.current.updateParam('textHeight', 60)
+    })
+    expect(result.current.cameraPosition[1]).toBeGreaterThan(initial)
   })
 })

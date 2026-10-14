@@ -155,10 +155,49 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
     }
   }, [geometry, params.wallHeight, params.stampHeight, params.wallThickness])
 
-  const cameraPosition = useMemo((): [number, number, number] => {
-    const span = Math.max(dimensions.width, dimensions.height, params.textHeight)
-    return [0, span * 0.6, span * 1.6]
-  }, [dimensions.width, dimensions.height, params.textHeight])
+  // Caixa do conjunto (todas as peças), para enquadrar a câmera.
+  const objectBounds = useMemo(() => {
+    if (!geometry) {
+      const fallback = Math.max(params.textHeight, params.wallHeight, params.stampHeight, 1)
+      return { width: fallback, height: fallback, depth: fallback }
+    }
 
-  return { params, geometry, isBuilding, error, dimensions, cameraPosition, updateParam, setSvgIcon, reset }
+    let minX = Infinity
+    let maxX = -Infinity
+    let minY = Infinity
+    let maxY = -Infinity
+    let minZ = Infinity
+    let maxZ = -Infinity
+    for (const piece of [geometry.cutter, geometry.stampBase, geometry.stampRelief, geometry.stampHandle]) {
+      piece.computeBoundingBox()
+      const bb = piece.boundingBox!
+      minX = Math.min(minX, bb.min.x)
+      maxX = Math.max(maxX, bb.max.x)
+      minY = Math.min(minY, bb.min.y)
+      maxY = Math.max(maxY, bb.max.y)
+      minZ = Math.min(minZ, bb.min.z)
+      maxZ = Math.max(maxZ, bb.max.z)
+    }
+
+    return { width: maxX - minX, height: maxY - minY, depth: maxZ - minZ }
+  }, [geometry, params.textHeight, params.wallHeight, params.stampHeight])
+
+  // Raio da esfera envolvente do objeto (usado para enquadrar na tela).
+  const fitRadius = useMemo(
+    () => Math.max(1, 0.5 * Math.hypot(objectBounds.width, objectBounds.height, objectBounds.depth)),
+    [objectBounds],
+  )
+
+  // Posição inicial aproximada; o reset reenquadra com o aspect real do viewport.
+  const cameraPosition = useMemo((): [number, number, number] => {
+    const distance = fitRadius * 2.2
+    const elevation = (25 * Math.PI) / 180
+    const azimuth = Math.PI // 180° no eixo Y
+    const x = distance * Math.sin(azimuth) * Math.cos(elevation)
+    const z = distance * Math.cos(azimuth) * Math.cos(elevation)
+    const y = distance * Math.sin(elevation)
+    return [Number(x.toFixed(1)), Number(y.toFixed(1)), Number(z.toFixed(1))]
+  }, [fitRadius])
+
+  return { params, geometry, isBuilding, error, dimensions, cameraPosition, fitRadius, updateParam, setSvgIcon, reset }
 }

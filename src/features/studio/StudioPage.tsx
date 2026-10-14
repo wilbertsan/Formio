@@ -537,6 +537,7 @@ function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
     error,
     dimensions,
     cameraPosition,
+    fitRadius,
     updateParam,
     setSvgIcon,
     reset,
@@ -592,6 +593,7 @@ function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
           resetCameraSignal={resetCameraSignal}
           onResetCamera={handleResetCamera}
           cameraPosition={cameraPosition}
+          fitRadius={fitRadius}
         >
           <Suspense fallback={null}>
             <CortadorCarimboPreview
