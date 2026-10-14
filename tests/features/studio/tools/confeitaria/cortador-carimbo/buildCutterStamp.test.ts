@@ -6,7 +6,7 @@ import {
   defaultCutterStampParams,
   CLEARANCE_MM,
   HANDLE_HEIGHT_RATIO,
-  MAX_TEXT_WIDTH_MM,
+  MAX_SHAPE_WIDTH_MM,
 } from '@/features/studio/tools/confeitaria/cortador-carimbo/schema'
 
 const FONT_WIDTH_FACTOR = 0.6
@@ -189,6 +189,34 @@ describe('buildCutterStamp - layout', () => {
   it('reduz o texto quando excede a largura máxima', () => {
     const longParams = { ...defaultCutterStampParams, text: 'a'.repeat(30), textHeight: 60 }
     const cutter = bbox(buildCutterStamp({ params: longParams, font: mockFont() }).cutter)
-    expect(cutter.max.x - cutter.min.x).toBeLessThan(MAX_TEXT_WIDTH_MM + 30)
+    expect(cutter.max.x - cutter.min.x).toBeLessThan(MAX_SHAPE_WIDTH_MM + 30)
+  })
+})
+
+describe('buildCutterStamp - svg', () => {
+  const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect x="0" y="0" width="40" height="20" fill="#000"/></svg>'
+  const svgParams = { ...defaultCutterStampParams, contentType: 'svg' as const, svgIcon: SVG, textHeight: 20, iconScale: 1 }
+
+  it('gera as quatro peças a partir de um svg', () => {
+    const result = buildCutterStamp({ params: svgParams, font: mockFont() })
+    expect(result.cutter).toBeDefined()
+    expect(result.stampBase).toBeDefined()
+    expect(result.stampRelief).toBeDefined()
+    expect(result.stampHandle).toBeDefined()
+  })
+
+  it('dimensiona o relevo pela altura-alvo (textHeight × iconScale)', () => {
+    const relief = bbox(buildCutterStamp({ params: svgParams, font: mockFont() }).stampRelief)
+    expect(relief.max.y - relief.min.y).toBeCloseTo(20, 0)
+  })
+
+  it('o cortador é uma peça única (sem paredes internas)', () => {
+    const cutter = buildCutterStamp({ params: svgParams, font: mockFont() }).cutter
+    expect(componentCount(cutter)).toBe(1)
+  })
+
+  it('não lança quando o svg está ausente', () => {
+    const empty = { ...defaultCutterStampParams, contentType: 'svg' as const, svgIcon: null }
+    expect(() => buildCutterStamp({ params: empty, font: mockFont() })).not.toThrow()
   })
 })

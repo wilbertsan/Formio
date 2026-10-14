@@ -1,8 +1,11 @@
+import { useRef } from 'react'
 import {
   Accordion,
   Button,
   Flex,
   Heading,
+  Radio,
+  RadioGroupField,
   SelectField,
   SliderField,
   Text,
@@ -14,6 +17,7 @@ import { type CutterStampParams, PLA_COLORS } from './schema'
 interface StudioPanelProps {
   params: CutterStampParams
   onUpdateParam: (key: keyof CutterStampParams, value: number | string | null) => void
+  onSetSvgIcon: (svg: string | null) => void
   onReset: () => void
 }
 
@@ -80,7 +84,20 @@ function LabeledSlider({
   )
 }
 
-export function StudioPanel({ params, onUpdateParam, onReset }: StudioPanelProps) {
+export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: StudioPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      onSetSvgIcon(e.target?.result as string)
+    }
+    reader.readAsText(file)
+  }
+
   return (
     <View
       as="aside"
@@ -97,36 +114,95 @@ export function StudioPanel({ params, onUpdateParam, onReset }: StudioPanelProps
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="texto">
+        <Accordion.Item value="forma">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Texto
+              Forma
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <TextField
-                label="Conteúdo"
-                value={params.text}
-                maxLength={30}
-                onChange={(e) => onUpdateParam('text', e.target.value)}
-              />
-              <SelectField
-                label="Estilo da fonte"
-                value={params.fontStyle}
-                onChange={(e) => onUpdateParam('fontStyle', e.target.value)}
+              <RadioGroupField
+                legend="Tipo de forma"
+                name="contentType"
+                value={params.contentType}
+                onChange={(e) => onUpdateParam('contentType', e.target.value)}
               >
-                <option value="normal">Normal</option>
-                <option value="bold">Negrito</option>
-                <option value="serif">Serif</option>
-              </SelectField>
-              <LabeledSlider
-                label="Altura da letra"
-                value={params.textHeight}
-                min={10} max={60} step={1}
-                onChange={(value) => onUpdateParam('textHeight', value)}
-              />
+                <Radio value="text">Texto</Radio>
+                <Radio value="svg">Ícone SVG</Radio>
+              </RadioGroupField>
+
+              {params.contentType === 'text' ? (
+                <>
+                  <TextField
+                    label="Conteúdo"
+                    value={params.text}
+                    maxLength={30}
+                    onChange={(e) => onUpdateParam('text', e.target.value)}
+                  />
+                  <SelectField
+                    label="Estilo da fonte"
+                    value={params.fontStyle}
+                    onChange={(e) => onUpdateParam('fontStyle', e.target.value)}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="bold">Negrito</option>
+                    <option value="serif">Serif</option>
+                  </SelectField>
+                  <LabeledSlider
+                    label="Altura da letra"
+                    value={params.textHeight}
+                    min={10} max={60} step={1}
+                    onChange={(value) => onUpdateParam('textHeight', value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".svg"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+
+                  {!params.svgIcon ? (
+                    <Button size="small" onClick={() => fileInputRef.current?.click()}>
+                      Upload SVG
+                    </Button>
+                  ) : (
+                    <>
+                      <Text fontSize="xs" color="font.secondary">
+                        Ícone carregado
+                      </Text>
+                      <Button size="small" variation="link" onClick={() => onSetSvgIcon(null)}>
+                        Remover ícone
+                      </Button>
+                    </>
+                  )}
+
+                  <LabeledSlider
+                    label="Altura"
+                    value={params.textHeight}
+                    min={10} max={60} step={1}
+                    onChange={(value) => onUpdateParam('textHeight', value)}
+                  />
+                  <LabeledSlider
+                    label="Escala do ícone"
+                    value={params.iconScale}
+                    min={0.5} max={1.0} step={0.1}
+                    suffix="x"
+                    onChange={(value) => onUpdateParam('iconScale', value)}
+                  />
+                  <LabeledSlider
+                    label="Espessura da linha"
+                    value={params.iconLineWidth}
+                    min={0.1} max={1.5} step={0.05}
+                    onChange={(value) => onUpdateParam('iconLineWidth', value)}
+                  />
+                </>
+              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>

@@ -31,6 +31,35 @@ describe('cutterStampParamsSchema', () => {
     expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, textHeight: 80 }).success).toBe(false)
   })
 
+  // --- Conteúdo (texto ou svg) ---
+
+  it('aceita texto quando contentType é text', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, contentType: 'text', text: 'Olá' }).success).toBe(true)
+  })
+
+  it('rejeita text vazio quando contentType é text', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, contentType: 'text', text: '   ' }).success).toBe(false)
+  })
+
+  it('aceita svg quando há ícone', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, contentType: 'svg', svgIcon: '<svg/>' }).success).toBe(true)
+  })
+
+  it('rejeita svg sem ícone', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, contentType: 'svg', svgIcon: null }).success).toBe(false)
+  })
+
+  it('rejeita contentType inválido', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, contentType: 'image' }).success).toBe(false)
+  })
+
+  it('rejeita iconScale e iconLineWidth fora do range', () => {
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, iconScale: 0.2 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, iconScale: 1.5 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, iconLineWidth: 0.05 }).success).toBe(false)
+    expect(cutterStampParamsSchema.safeParse({ ...defaultCutterStampParams, iconLineWidth: 2 }).success).toBe(false)
+  })
+
   // --- Cortador ---
 
   it('rejeita wallHeight fora de 15–40mm', () => {

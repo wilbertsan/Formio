@@ -14,18 +14,19 @@ import {
   translatePaths,
   unionPaths,
 } from '../shared/textOutline'
+import { svgBounds, svgToShapes } from '../shared/svgToIconShape'
 import {
   type CutterStampParams,
   CLEARANCE_MM,
   HANDLE_HEIGHT_RATIO,
   HANDLE_RADIUS_RATIO,
-  MAX_TEXT_WIDTH_MM,
+  MAX_SHAPE_WIDTH_MM,
   PIECE_GAP_MM,
 } from './schema'
 
 export interface BuildCutterStampInput {
   params: CutterStampParams
-  font: Font
+  font: Font | null
 }
 
 export interface BuildCutterStampResult {
@@ -35,16 +36,42 @@ export interface BuildCutterStampResult {
   stampHandle: BufferGeometry
 }
 
-// Contornos do texto já unidos, reduzidos para caber na largura máxima e
-// centralizados na origem.
-function buildTextPaths(params: CutterStampParams, font: Font): ClipperPoint[][] {
+// Contornos da forma (texto ou ícone SVG) unidos, reduzidos para caber na
+// largura máxima e centralizados na origem.
+function buildShapePaths(params: CutterStampParams, font: Font | null): ClipperPoint[][] {
+  if (params.contentType === 'svg') {
+    if (!params.svgIcon) return []
+    const bounds = svgBounds(params.svgIcon)
+    if (!bounds || bounds.height <= 0) return []
+
+    const scale = (params.textHeight * params.iconScale) / bounds.height
+    if (scale <= 0) return []
+
+    let paths = unionPaths(toClipperPaths(svgToShapes(params.svgIcon, params.iconLineWidth / scale)))
+    if (paths.length === 0) return []
+
+    paths = scalePaths(paths, scale)
+    // O SVGLoader entrega Y para baixo; 180° em Z corrige a orientação.
+    paths = scalePaths(paths, -1)
+
+    const wide = pathsBoundingBox(paths)
+    if (wide.width > MAX_SHAPE_WIDTH_MM) {
+      paths = scalePaths(paths, MAX_SHAPE_WIDTH_MM / wide.width)
+    }
+
+    const fitted = pathsBoundingBox(paths)
+    return translatePaths(paths, -(fitted.minX + fitted.maxX) / 2, -(fitted.minY + fitted.maxY) / 2)
+  }
+
+  if (!font) return []
+
   const shapes = textToShapes(font, params.text, params.textHeight)
   let paths = unionPaths(toClipperPaths(shapes))
   if (paths.length === 0) return paths
 
   const bounds = pathsBoundingBox(paths)
-  if (bounds.width > MAX_TEXT_WIDTH_MM) {
-    paths = scalePaths(paths, MAX_TEXT_WIDTH_MM / bounds.width)
+  if (bounds.width > MAX_SHAPE_WIDTH_MM) {
+    paths = scalePaths(paths, MAX_SHAPE_WIDTH_MM / bounds.width)
   }
 
   const fitted = pathsBoundingBox(paths)
@@ -83,26 +110,26 @@ function centerPiece(geometries: BufferGeometry[]): { halfWidth: number } {
 }
 
 export function buildCutterStamp({ params, font }: BuildCutterStampInput): BuildCutterStampResult {
-  const text = buildTextPaths(params, font)
-  const bounds = pathsBoundingBox(text)
+  const shape = buildShapePaths(params, font)
+  const bounds = pathsBoundingBox(shape)
 
-  // Abertura do cortador: contorno da palavra com margem (une as letras).
-  // Sem furos internos (counters): o cortador é uma peça única, sem paredes
-  // separadas em volta dos furos das letras.
-  const opening = outerPaths(offsetPaths(text, params.baseMargin))
+  // Abertura única (mantém furos), reaproveitada pela base do carimbo.
+  const fullOpening = offsetPaths(shape, params.baseMargin)
+  // Para o cortador, só o contorno externo: peça única, sem paredes internas.
+  const opening = outerPaths(fullOpening)
 
-  // Cortador: parede (stroke) em volta da abertura (só o contorno externo).
+  // Cortador: parede (stroke) em volta da abertura.
   const ring = subtractPaths(offsetPaths(opening, params.wallThickness), opening)
   const cutter = shapesToGeometry(pathsToShapes(ring), params.wallHeight, false)
 
   // Base única do carimbo: abertura com folga, para encaixar no corte.
-  const basePaths = offsetPaths(text, params.baseMargin - CLEARANCE_MM)
+  const basePaths = offsetPaths(fullOpening, -CLEARANCE_MM)
   const baseThickness = (params.stampHeight - params.reliefHeight) * (1 - HANDLE_HEIGHT_RATIO)
   const stampBase = shapesToGeometry(pathsToShapes(basePaths), baseThickness, false)
   stampBase.translate(0, 0, params.reliefHeight)
 
-  // Relevo: texto preenchido em alto relevo na face de contato.
-  const stampRelief = shapesToGeometry(pathsToShapes(text), params.reliefHeight, false)
+  // Relevo: forma preenchida em alto relevo na face de contato.
+  const stampRelief = shapesToGeometry(pathsToShapes(shape), params.reliefHeight, false)
 
   // Cabo: cilindro central sobre a base.
   const handleRadius = Math.max(1, bounds.height * HANDLE_RADIUS_RATIO)

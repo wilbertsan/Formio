@@ -533,9 +533,11 @@ function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
   const {
     params,
     geometry,
+    isBuilding,
     dimensions,
     cameraPosition,
     updateParam,
+    setSvgIcon,
     reset,
   } = useCutterStamp()
 
@@ -558,11 +560,21 @@ function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
+        {isBuilding && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+          >
+            Gerando…
+          </div>
+        )}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <CortadorCarimboTool
             params={params}
             onUpdateParam={updateParam}
+            onSetSvgIcon={setSvgIcon}
             onReset={reset}
           />
         </Suspense>
