@@ -5,6 +5,9 @@ import { useCutterStamp } from '@/features/studio/tools/confeitaria/cortador-car
 import { defaultCutterStampParams } from '@/features/studio/tools/confeitaria/cortador-carimbo/schema'
 import { serializeBuildResult, type SerializedBuildResult } from '@/features/studio/tools/confeitaria/cortador-carimbo/workerGeometry'
 import type { GeometryWorker } from '@/features/studio/tools/confeitaria/cortador-carimbo/workerClient'
+import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
+
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
 
 function rect(minX: number, maxX: number, depth: number): ExtrudeGeometry {
   const shape = new Shape([
@@ -29,15 +32,23 @@ function serializedResult(): SerializedBuildResult {
 function makeWorkerFixture() {
   let pending: ((data: SerializedBuildResult) => void) | null = null
   let fail: (() => void) | null = null
+  let lastParsed: ParsedSvg | null | undefined
   const terminate = vi.fn()
   const factory = (): GeometryWorker => ({
-    build: (_params, _fontUrl, onResult, onError) => {
+    build: (_params, _fontUrl, parsedSvg, onResult, onError) => {
+      lastParsed = parsedSvg
       pending = onResult
       fail = onError ?? null
     },
     terminate,
   })
-  return { factory, terminate, respond: () => pending?.(serializedResult()), fail: () => fail?.() }
+  return {
+    factory,
+    terminate,
+    respond: () => pending?.(serializedResult()),
+    fail: () => fail?.(),
+    getParsed: () => lastParsed,
+  }
 }
 
 beforeEach(() => {
@@ -96,6 +107,55 @@ describe('useCutterStamp', () => {
       result.current.setSvgIcon('<svg/>')
     })
     expect(result.current.params.svgIcon).toBe('<svg/>')
+  })
+
+  it('remove o ícone SVG mesmo com contentType svg', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useCutterStamp({ workerFactory: factory }))
+    act(() => {
+      result.current.updateParam('contentType', 'svg')
+    })
+    act(() => {
+      result.current.setSvgIcon(SVG)
+    })
+    expect(result.current.params.svgIcon).toBe(SVG)
+
+    act(() => {
+      result.current.setSvgIcon(null)
+    })
+    expect(result.current.params.svgIcon).toBeNull()
+  })
+
+  it('parseia o SVG na main thread e envia ao worker', () => {
+    const { factory, getParsed } = makeWorkerFixture()
+    const { result } = renderHook(() => useCutterStamp({ workerFactory: factory }))
+    act(() => {
+      result.current.updateParam('contentType', 'svg')
+    })
+    act(() => {
+      result.current.setSvgIcon(SVG)
+    })
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(getParsed()).not.toBeNull()
+    expect(getParsed()!.fills.length).toBeGreaterThan(0)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('expõe erro quando o SVG não tem formas', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useCutterStamp({ workerFactory: factory }))
+    act(() => {
+      result.current.updateParam('contentType', 'svg')
+    })
+    act(() => {
+      result.current.setSvgIcon('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>')
+    })
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.error).toBe('Não foi possível ler o SVG')
   })
 
   it('marca isBuilding e define a geometria quando o worker responde', () => {

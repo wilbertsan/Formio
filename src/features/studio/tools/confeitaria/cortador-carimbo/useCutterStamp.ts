@@ -3,6 +3,7 @@ import { cutterStampParamsSchema, defaultCutterStampParams, type CutterStampPara
 import type { BuildCutterStampResult } from './buildCutterStamp'
 import { deserializeBuildResult } from './workerGeometry'
 import { createGeometryWorker, type GeometryWorker } from './workerClient'
+import { parseSvg, type ParsedSvg } from '../shared/svgToIconShape'
 import { fontUrls } from '../../chaveiros/chaveiro/fonts'
 
 type CutterStampAction =
@@ -39,6 +40,8 @@ function cutterStampReducer(state: CutterStampParams, action: CutterStampAction)
     }
     case 'setSvg': {
       const next = { ...state, svgIcon: action.svg }
+      // Remover o ícone (null) é permitido mesmo com contentType 'svg' (estado transitório).
+      if (action.svg === null) return next
       const parsed = cutterStampParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
@@ -54,6 +57,12 @@ function disposeResult(result: BuildCutterStampResult | null): void {
   result?.stampHandle.dispose()
 }
 
+// O parse do SVG usa DOMParser (só na main thread) e é cacheado por conteúdo.
+function parseSvgCached(cache: Map<string, ParsedSvg | null>, svg: string): ParsedSvg | null {
+  if (!cache.has(svg)) cache.set(svg, parseSvg(svg))
+  return cache.get(svg) ?? null
+}
+
 export interface UseCutterStampOptions {
   workerFactory?: () => GeometryWorker
 }
@@ -63,12 +72,29 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
   const [params, dispatch] = useReducer(cutterStampReducer, defaultCutterStampParams)
   const [geometry, setGeometry] = useState<BuildCutterStampResult | null>(null)
   const [isBuilding, setIsBuilding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const workerRef = useRef<GeometryWorker | null>(null)
+  const parseCacheRef = useRef<Map<string, ParsedSvg | null>>(new Map())
 
   useEffect(() => {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
+      // SVG precisa ser achatado na main thread (o worker não tem DOMParser).
+      let parsedSvg: ParsedSvg | null = null
+      if (params.contentType === 'svg') {
+        if (!params.svgIcon) {
+          setError(null)
+          return
+        }
+        parsedSvg = parseSvgCached(parseCacheRef.current, params.svgIcon)
+        if (!parsedSvg) {
+          setError('Não foi possível ler o SVG')
+          return
+        }
+      }
+      setError(null)
+
       // Cancela o build anterior (termina o worker) e inicia um novo.
       workerRef.current?.terminate()
       const worker = workerFactory()
@@ -76,7 +102,7 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
       setIsBuilding(true)
 
       const fontUrl = fontUrls[params.fontStyle] ?? fontUrls.bold
-      worker.build(params, fontUrl, (data) => {
+      worker.build(params, fontUrl, parsedSvg, (data) => {
         const next = deserializeBuildResult(data)
         setGeometry((prev) => {
           disposeResult(prev)
@@ -134,5 +160,5 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
     return [0, span * 0.6, span * 1.6]
   }, [dimensions.width, dimensions.height, params.textHeight])
 
-  return { params, geometry, isBuilding, dimensions, cameraPosition, updateParam, setSvgIcon, reset }
+  return { params, geometry, isBuilding, error, dimensions, cameraPosition, updateParam, setSvgIcon, reset }
 }

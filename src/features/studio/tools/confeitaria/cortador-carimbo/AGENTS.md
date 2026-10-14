@@ -55,7 +55,12 @@ da marca.
   complexas. O hook expõe `isBuilding` (indicador "Gerando…") e termina o worker
   anterior a cada novo build (cancelamento). Em testes, a fábrica do worker é
   injetável (`useCutterStamp({ workerFactory })`).
-- `buildCutterStamp` é puro e recebe `font: Font | null` (não usado no modo SVG).
+- **SVG**: o `SVGLoader` depende de `DOMParser`, que **não existe em Web Workers**.
+  Por isso o parse (`parseSvg` → `ParsedSvg`) roda na **main thread** (cacheado por
+  conteúdo) e só o Clipper/extrusão roda no worker (`svgBoundsFromParsed`/
+  `svgShapesFromParsed`). Falha de leitura vira mensagem na UI (`error`).
+- `buildCutterStamp` é puro, recebe `font: Font | null` (não usado no modo SVG) e
+  `parsedSvg` (dados do SVG já achatados).
 
 ## Estrutura de arquivos
 

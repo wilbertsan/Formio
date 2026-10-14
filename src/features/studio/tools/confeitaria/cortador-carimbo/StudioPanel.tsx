@@ -88,7 +88,8 @@ export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: St
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const input = event.target
+    const file = input.files?.[0]
     if (!file) return
 
     const reader = new FileReader()
@@ -96,6 +97,8 @@ export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: St
       onSetSvgIcon(e.target?.result as string)
     }
     reader.readAsText(file)
+    // Permite reenviar o mesmo arquivo depois de remover.
+    input.value = ''
   }
 
   return (

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { type BufferGeometry, Path, Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { buildCutterStamp } from '@/features/studio/tools/confeitaria/cortador-carimbo/buildCutterStamp'
+import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import {
   defaultCutterStampParams,
   CLEARANCE_MM,
@@ -218,5 +219,12 @@ describe('buildCutterStamp - svg', () => {
   it('não lança quando o svg está ausente', () => {
     const empty = { ...defaultCutterStampParams, contentType: 'svg' as const, svgIcon: null }
     expect(() => buildCutterStamp({ params: empty, font: mockFont() })).not.toThrow()
+  })
+
+  it('aceita SVG já achatado (caminho do Web Worker, sem DOM)', () => {
+    const parsed = parseSvg(SVG)!
+    expect(parsed).not.toBeNull()
+    const result = buildCutterStamp({ params: svgParams, font: null, parsedSvg: parsed })
+    expect(result.cutter.attributes.position.count).toBeGreaterThan(0)
   })
 })

@@ -2,11 +2,14 @@ import { FontLoader, type Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { buildCutterStamp } from './buildCutterStamp'
 import { serializeBuildResult } from './workerGeometry'
 import type { CutterStampParams } from './schema'
+import type { ParsedSvg } from '../shared/svgToIconShape'
 
 interface BuildRequest {
   id: number
   params: CutterStampParams
   fontUrl: string | null
+  /** SVG achatado na main thread (o worker não tem DOMParser). */
+  parsedSvg: ParsedSvg | null
 }
 
 const scope = self as unknown as {
@@ -15,10 +18,10 @@ const scope = self as unknown as {
 }
 
 scope.onmessage = (event) => {
-  const { id, params, fontUrl } = event.data
+  const { id, params, fontUrl, parsedSvg } = event.data
 
   const finish = (font: Font | null) => {
-    const { data, transfer } = serializeBuildResult(buildCutterStamp({ params, font }))
+    const { data, transfer } = serializeBuildResult(buildCutterStamp({ params, font, parsedSvg }))
     scope.postMessage({ id, data }, transfer)
   }
 

@@ -214,6 +214,11 @@ export function shapesToGeometry(shapes: Shape[], depth: number, bevel: boolean)
 
   const geometries = shapes.map(shape => new ExtrudeGeometry(shape, { depth, bevelEnabled: bevel }))
   const merged = mergeGeometries(geometries)
-  geometries.forEach(geometry => geometry.dispose())
-  return merged ?? geometries[0]
+  if (merged) {
+    geometries.forEach(geometry => geometry.dispose())
+    return merged
+  }
+  // Merge falhou: mantém a primeira geometria válida (não descartada).
+  geometries.slice(1).forEach(geometry => geometry.dispose())
+  return geometries[0]
 }

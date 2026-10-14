@@ -14,7 +14,7 @@ import {
   translatePaths,
   unionPaths,
 } from '../shared/textOutline'
-import { svgBounds, svgToShapes } from '../shared/svgToIconShape'
+import { parseSvg, svgBoundsFromParsed, svgShapesFromParsed, type ParsedSvg } from '../shared/svgToIconShape'
 import {
   type CutterStampParams,
   CLEARANCE_MM,
@@ -27,6 +27,8 @@ import {
 export interface BuildCutterStampInput {
   params: CutterStampParams
   font: Font | null
+  /** SVG já achatado (main thread). No worker é obrigatório no modo SVG. */
+  parsedSvg?: ParsedSvg | null
 }
 
 export interface BuildCutterStampResult {
@@ -38,16 +40,18 @@ export interface BuildCutterStampResult {
 
 // Contornos da forma (texto ou ícone SVG) unidos, reduzidos para caber na
 // largura máxima e centralizados na origem.
-function buildShapePaths(params: CutterStampParams, font: Font | null): ClipperPoint[][] {
+function buildShapePaths(params: CutterStampParams, font: Font | null, parsedSvg?: ParsedSvg | null): ClipperPoint[][] {
   if (params.contentType === 'svg') {
-    if (!params.svgIcon) return []
-    const bounds = svgBounds(params.svgIcon)
+    // `parseSvg` usa DOMParser (só na main thread). No worker, `parsedSvg` já vem pronto.
+    const parsed = parsedSvg ?? (params.svgIcon ? parseSvg(params.svgIcon) : null)
+    if (!parsed) return []
+    const bounds = svgBoundsFromParsed(parsed)
     if (!bounds || bounds.height <= 0) return []
 
     const scale = (params.textHeight * params.iconScale) / bounds.height
     if (scale <= 0) return []
 
-    let paths = unionPaths(toClipperPaths(svgToShapes(params.svgIcon, params.iconLineWidth / scale)))
+    let paths = unionPaths(toClipperPaths(svgShapesFromParsed(parsed, params.iconLineWidth / scale)))
     if (paths.length === 0) return []
 
     paths = scalePaths(paths, scale)
@@ -109,8 +113,8 @@ function centerPiece(geometries: BufferGeometry[]): { halfWidth: number } {
   return { halfWidth: (maxX - minX) / 2 }
 }
 
-export function buildCutterStamp({ params, font }: BuildCutterStampInput): BuildCutterStampResult {
-  const shape = buildShapePaths(params, font)
+export function buildCutterStamp({ params, font, parsedSvg }: BuildCutterStampInput): BuildCutterStampResult {
+  const shape = buildShapePaths(params, font, parsedSvg)
   const bounds = pathsBoundingBox(shape)
 
   // Abertura única (mantém furos), reaproveitada pela base do carimbo.
