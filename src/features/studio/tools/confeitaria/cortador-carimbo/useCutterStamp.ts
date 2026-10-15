@@ -192,7 +192,7 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2
     const elevation = (25 * Math.PI) / 180
-    const azimuth = Math.PI // 180° no eixo Y
+    const azimuth = (210 * Math.PI) / 180 // giro de 210° no eixo Y
     const x = distance * Math.sin(azimuth) * Math.cos(elevation)
     const z = distance * Math.cos(azimuth) * Math.cos(elevation)
     const y = distance * Math.sin(elevation)

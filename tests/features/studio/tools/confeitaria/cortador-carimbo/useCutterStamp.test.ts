@@ -204,7 +204,7 @@ describe('useCutterStamp', () => {
     expect(result.current.dimensions.thickness).toBe(defaultCutterStampParams.wallThickness)
   })
 
-  it('posiciona a câmera girada 180° no eixo Y', () => {
+  it('posiciona a câmera girada 210° no eixo Y', () => {
     const { factory, respond } = makeWorkerFixture()
     const { result } = renderHook(() => useCutterStamp({ workerFactory: factory }))
     act(() => {
@@ -214,7 +214,7 @@ describe('useCutterStamp', () => {
       respond()
     })
     const [x, y, z] = result.current.cameraPosition
-    expect(x).toBeCloseTo(0, 1)
+    expect(x).toBeLessThan(0)
     expect(y).toBeGreaterThan(0)
     expect(z).toBeLessThan(0)
   })

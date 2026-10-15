@@ -19,7 +19,7 @@ interface StudioViewportProps {
 const FIT_FILL = 0.8
 // Inclinação (graus) e giro (graus) em torno do eixo Y do reset.
 const RESET_ELEVATION_DEGREES = 25
-const RESET_AZIMUTH_DEGREES = 180
+const RESET_AZIMUTH_DEGREES = 210
 
 function CameraController({
   controlsRef,
@@ -34,11 +34,14 @@ function CameraController({
 }) {
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
-  const handledRef = useRef<number | null>(null)
+  const appliedRef = useRef<{ signal: number; radius?: number } | null>(null)
 
   useEffect(() => {
-    if (handledRef.current === resetSignal) return
-    handledRef.current = resetSignal
+    const applied = appliedRef.current
+    // Reenquadra quando o reset é acionado OU quando o tamanho do objeto muda
+    // (ex.: a geometria fica pronta logo após abrir a ferramenta).
+    if (applied && applied.signal === resetSignal && applied.radius === fitRadius) return
+    appliedRef.current = { signal: resetSignal, radius: fitRadius }
 
     const perspective = camera as PerspectiveCamera
     if (!perspective || typeof perspective.position?.set !== 'function') return

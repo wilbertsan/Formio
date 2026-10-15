@@ -58,7 +58,7 @@ export function sanitizeFilename(name: string): string {
 export const defaultCutterStampParams: CutterStampParams = {
   productType: 'cutter-stamp',
   contentType: 'text',
-  text: 'Parabéns',
+  text: 'Texto',
   fontStyle: 'bold',
   textHeight: 25,
   svgIcon: null,
