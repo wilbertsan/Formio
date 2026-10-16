@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
 import { StudioPanel } from '@/features/studio/tools/confeitaria/topo-bolo/StudioPanel'
 import { defaultCakeTopperParams } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
@@ -111,5 +111,77 @@ describe('StudioPanel', () => {
     render(<StudioPanel {...props} />)
     fireEvent.click(screen.getByText(/restaurar/i))
     expect(props.onReset).toHaveBeenCalled()
+  })
+
+  it('remove desabilitado quando há apenas 1 texto', () => {
+    render(<StudioPanel {...createMockProps()} />)
+    expect(screen.getByLabelText('Remover texto Feliz Aniversário')).toBeDisabled()
+  })
+
+  it('seleciona automaticamente o texto recém-adicionado', () => {
+    const props = createMockProps()
+    const { rerender } = render(<StudioPanel {...props} />)
+    expect(screen.getByText('Feliz Aniversário')).toHaveAttribute('aria-pressed', 'true')
+
+    const params = {
+      ...defaultCakeTopperParams,
+      texts: [
+        ...defaultCakeTopperParams.texts,
+        { ...defaultCakeTopperParams.texts[0], id: 'text-2', content: 'Texto 2' },
+      ],
+    }
+    rerender(<StudioPanel {...props} params={params} />)
+    expect(screen.getByText('Texto 2')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Feliz Aniversário')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('dispara onUpdateTextById ao mover o slider de largura', () => {
+    const props = createMockProps()
+    render(<StudioPanel {...props} />)
+    const slider = screen.getByRole('slider', { name: /largura do texto/i })
+    fireEvent.keyDown(slider, { key: 'ArrowRight' })
+    expect(props.onUpdateTextById).toHaveBeenCalledWith('text-1', { width: 91 })
+  })
+
+  it('dispara onUpdateParam ao clicar em uma cor das letras', () => {
+    const props = createMockProps()
+    render(<StudioPanel {...props} />)
+    fireEvent.click(screen.getAllByLabelText('#3b82f6')[1])
+    expect(props.onUpdateParam).toHaveBeenCalledWith('letterColor', '#3b82f6')
+  })
+
+  it('mostra sliders de base quando supportType é base', () => {
+    const props = createMockProps()
+    render(
+      <StudioPanel {...props} params={{ ...defaultCakeTopperParams, supportType: 'base' }} />,
+    )
+    expect(screen.getByRole('slider', { name: /largura da base/i })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: /profundidade do encaixe/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Tipo de fixação'), { target: { value: 'base' } })
+    expect(props.onUpdateParam).toHaveBeenCalledWith('supportType', 'base')
+  })
+
+  it('carrega ícone SVG e chama onSetSvgIcon', async () => {
+    const props = createMockProps()
+    render(<StudioPanel {...props} />)
+    const file = new File(['<svg></svg>'], 'icon.svg', { type: 'image/svg+xml' })
+    fireEvent.change(screen.getByLabelText('Carregar ícone SVG'), { target: { files: [file] } })
+    await waitFor(() => expect(props.onSetSvgIcon).toHaveBeenCalledWith('<svg></svg>'))
+  })
+
+  it('carrega contorno SVG no formato personalizado', async () => {
+    const props = createMockProps()
+    render(<StudioPanel {...props} params={{ ...defaultCakeTopperParams, shape: 'custom' }} />)
+    const file = new File(['<svg id="c"></svg>'], 'contour.svg', { type: 'image/svg+xml' })
+    fireEvent.change(screen.getByLabelText('Carregar contorno SVG'), { target: { files: [file] } })
+    await waitFor(() => expect(props.onSetContourSvg).toHaveBeenCalledWith('<svg id="c"></svg>'))
+  })
+
+  it('fecha o editor ao pressionar Escape', () => {
+    render(<StudioPanel {...createMockProps()} />)
+    fireEvent.click(screen.getByText(/posicionar textos/i))
+    expect(screen.getByTestId('text-editor')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('text-editor')).not.toBeInTheDocument()
   })
 })

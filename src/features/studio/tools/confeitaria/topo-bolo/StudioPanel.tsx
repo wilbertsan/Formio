@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Accordion,
   Button,
@@ -67,12 +67,18 @@ function ColorSwatches({
   )
 }
 
-function readSvgFile(file: File, onLoad: (svg: string) => void): void {
+function readSvgFile(
+  file: File,
+  onLoad: (svg: string) => void,
+  onError: () => void,
+): void {
   const reader = new FileReader()
   reader.onload = (event) => {
     const content = event.target?.result
     if (typeof content === 'string') onLoad(content)
+    else onError()
   }
+  reader.onerror = () => onError()
   reader.readAsText(file)
 }
 
@@ -88,8 +94,37 @@ export function StudioPanel({
 }: StudioPanelProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedTextId, setSelectedTextId] = useState(params.texts[0]?.id ?? '')
+  const [iconUploadError, setIconUploadError] = useState(false)
+  const [contourUploadError, setContourUploadError] = useState(false)
   const contourInputRef = useRef<HTMLInputElement>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
+  const textCountRef = useRef(params.texts.length)
+
+  useEffect(() => {
+    if (params.texts.length > textCountRef.current) {
+      const last = params.texts[params.texts.length - 1]
+      if (last) setSelectedTextId(last.id)
+    }
+    textCountRef.current = params.texts.length
+  }, [params.texts])
+
+  const handleContourUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+    setContourUploadError(false)
+    readSvgFile(file, onSetContourSvg, () => setContourUploadError(true))
+    input.value = ''
+  }
+
+  const handleIconUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+    setIconUploadError(false)
+    readSvgFile(file, onSetSvgIcon, () => setIconUploadError(true))
+    input.value = ''
+  }
 
   const selectedText = params.texts.find((text) => text.id === selectedTextId) ?? params.texts[0]
   const canAddText = params.texts.length < 3
@@ -266,15 +301,17 @@ export function StudioPanel({
                     type="file"
                     accept=".svg"
                     aria-label="Carregar contorno SVG"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0]
-                      if (file) readSvgFile(file, onSetContourSvg)
-                    }}
+                    onChange={handleContourUpload}
                     style={{ display: 'none' }}
                   />
                   <Button size="small" onClick={() => contourInputRef.current?.click()}>
                     Carregar contorno SVG
                   </Button>
+                  {contourUploadError && (
+                    <Text fontSize="xs" className="text-red-600">
+                      Falha ao ler o arquivo SVG
+                    </Text>
+                  )}
                   {params.contourSvg && (
                     <>
                       <Text fontSize="xs" color="font.secondary">Contorno carregado</Text>
@@ -367,15 +404,17 @@ export function StudioPanel({
                 type="file"
                 accept=".svg"
                 aria-label="Carregar ícone SVG"
-                onChange={(event) => {
-                  const file = event.target.files?.[0]
-                  if (file) readSvgFile(file, onSetSvgIcon)
-                }}
+                onChange={handleIconUpload}
                 style={{ display: 'none' }}
               />
               <Button size="small" onClick={() => iconInputRef.current?.click()}>
                 Carregar ícone SVG
               </Button>
+              {iconUploadError && (
+                <Text fontSize="xs" className="text-red-600">
+                  Falha ao ler o arquivo SVG
+                </Text>
+              )}
               {params.svgIcon && (
                 <>
                   <Text fontSize="xs" color="font.secondary">Ícone carregado</Text>
