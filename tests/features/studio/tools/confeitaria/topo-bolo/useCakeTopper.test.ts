@@ -1,7 +1,16 @@
 import * as THREE from 'three'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { useCakeTopper } from '@/features/studio/tools/confeitaria/topo-bolo/useCakeTopper'
+import {
+  buildCakeTopper,
+  disposeCakeTopperResult,
+} from '@/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper'
 import { defaultCakeTopperParams, defaultText } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
+
+const fontLoaderMock = vi.hoisted(() => ({
+  failingUrls: new Set<string>(),
+}))
 
 vi.mock('@/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper', () => ({
   buildCakeTopper: vi.fn(() => ({
@@ -22,13 +31,29 @@ vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/
 
 vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
   FontLoader: class {
-    load(_url: string, onLoad: (font: unknown) => void): void {
+    load(
+      url: string,
+      onLoad: (font: unknown) => void,
+      _onProgress?: unknown,
+      onError?: (error: unknown) => void,
+    ): void {
+      if (fontLoaderMock.failingUrls.has(url)) {
+        onError?.(new Error('font load failed'))
+        return
+      }
       onLoad({ glyphs: {} })
     }
   },
 }))
 
 describe('useCakeTopper', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    fontLoaderMock.failingUrls.clear()
+    vi.mocked(buildCakeTopper).mockClear()
+    vi.mocked(disposeCakeTopperResult).mockClear()
+  })
+
   it('inicia com os parâmetros default', () => {
     const { result } = renderHook(() => useCakeTopper())
     expect(result.current.params).toEqual(defaultCakeTopperParams)
@@ -98,6 +123,20 @@ describe('useCakeTopper', () => {
     expect(result.current.params.texts[0].content).toBe('Parabéns')
   })
 
+  it('updateTextById clampa width ao máximo permitido', () => {
+    const { result } = renderHook(() => useCakeTopper())
+    const id = result.current.params.texts[0].id
+    act(() => result.current.updateTextById(id, { width: 999 }))
+    expect(result.current.params.texts[0].width).toBe(110)
+  })
+
+  it('updateTextById rejeita content vazio', () => {
+    const { result } = renderHook(() => useCakeTopper())
+    const id = result.current.params.texts[0].id
+    act(() => result.current.updateTextById(id, { content: '' }))
+    expect(result.current.params.texts[0].content).toBe(defaultText.content)
+  })
+
   it('setSvgIcon define o ícone SVG', () => {
     const { result } = renderHook(() => useCakeTopper())
     const svg = '<svg><path d="M0,0"/></svg>'
@@ -139,6 +178,47 @@ describe('useCakeTopper', () => {
     const { result } = renderHook(() => useCakeTopper())
     await waitFor(() => expect(result.current.geometry).not.toBeNull())
     expect(result.current.geometry?.plate).toBeDefined()
+  })
+
+  it('constrói geometria mesmo com um estilo de fonte indisponível', async () => {
+    fontLoaderMock.failingUrls.add('/font-serif.json')
+    const { result } = renderHook(() => useCakeTopper())
+    act(() => result.current.addText())
+    const id = result.current.params.texts[1].id
+    act(() => result.current.updateTextById(id, { fontStyle: 'serif' }))
+
+    await waitFor(() => expect(result.current.geometry).not.toBeNull())
+    expect(vi.mocked(buildCakeTopper)).toHaveBeenCalled()
+    await waitFor(() => expect(result.current.fontError).toBe(true))
+  })
+
+  it('descarta a geometria anterior ao reconstruir', () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useCakeTopper())
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(result.current.geometry).not.toBeNull()
+
+    vi.mocked(disposeCakeTopperResult).mockClear()
+    act(() => result.current.updateParam('width', 90))
+    act(() => { vi.advanceTimersByTime(200) })
+
+    expect(vi.mocked(disposeCakeTopperResult)).toHaveBeenCalledTimes(1)
+  })
+
+  it('agrupa mudanças rápidas num único build (debounce)', () => {
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useCakeTopper())
+    act(() => { vi.advanceTimersByTime(200) })
+    vi.mocked(buildCakeTopper).mockClear()
+
+    act(() => {
+      result.current.updateParam('width', 60)
+      result.current.updateParam('width', 70)
+      result.current.updateParam('width', 80)
+    })
+    act(() => { vi.advanceTimersByTime(200) })
+
+    expect(vi.mocked(buildCakeTopper)).toHaveBeenCalledTimes(1)
   })
 
   it('expõe cameraPosition como [0, 0, distance]', () => {

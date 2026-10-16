@@ -110,14 +110,20 @@ export function useCakeTopper() {
   const [params, dispatch] = useReducer(cakeTopperReducer, defaultCakeTopperParams)
   const [geometry, setGeometry] = useState<BuildCakeTopperResult | null>(null)
   const [fontError, setFontError] = useState(false)
+  const [fontCacheVersion, setFontCacheVersion] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const fontCacheRef = useRef<Map<FontStyle, Font>>(new Map())
-  const [, setFontCacheVersion] = useState(0)
+  const geometryRef = useRef<BuildCakeTopperResult | null>(null)
 
   const uniqueStyles = useMemo(() => {
     const styles = new Set(params.texts.map((t) => t.fontStyle))
     return Array.from(styles)
   }, [params.texts])
+
+  // A geometria só depende da fonte primária; estilos ausentes são ignorados
+  // pelo próprio builder, que reporta o erro via `onError`.
+  const primaryStyle = params.texts[0]?.fontStyle ?? 'bold'
+  const primaryFont = fontCacheRef.current.get(primaryStyle) ?? null
 
   useEffect(() => {
     for (const style of uniqueStyles) {
@@ -127,6 +133,7 @@ export function useCakeTopper() {
         fontUrls[style],
         (loaded) => {
           fontCacheRef.current.set(style, loaded as unknown as Font)
+          setFontError(false)
           setFontCacheVersion((v) => v + 1)
         },
         undefined,
@@ -135,10 +142,14 @@ export function useCakeTopper() {
     }
   }, [uniqueStyles])
 
-  const fontsReady = uniqueStyles.every((style) => fontCacheRef.current.has(style))
+  const handleBuildError = useCallback((message: string) => {
+    if (message.startsWith('Fonte indisponível')) setFontError(true)
+  }, [])
 
   useEffect(() => {
-    if (!fontsReady) return
+    if (!primaryFont) return
+    // `fontCacheVersion` invalida o cache em ref quando uma fonte tardia chega.
+    void fontCacheVersion
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       const fonts: Partial<Record<FontStyle, Font>> = {}
@@ -146,21 +157,24 @@ export function useCakeTopper() {
         const cached = fontCacheRef.current.get(style)
         if (cached) fonts[style] = cached
       }
-      setGeometry((prev) => {
-        if (prev) disposeCakeTopperResult(prev)
-        return buildCakeTopper({ params, fonts, onError: () => undefined })
-      })
+      if (geometryRef.current) {
+        disposeCakeTopperResult(geometryRef.current)
+        geometryRef.current = null
+      }
+      const result = buildCakeTopper({ params, fonts, onError: handleBuildError })
+      geometryRef.current = result
+      setGeometry(result)
     }, DEBOUNCE_MS)
     return () => clearTimeout(debounceRef.current)
-  }, [fontsReady, uniqueStyles, params])
+  }, [primaryFont, uniqueStyles, params, fontCacheVersion, handleBuildError])
 
   useEffect(() => {
     return () => {
       clearTimeout(debounceRef.current)
-      setGeometry((prev) => {
-        if (prev) disposeCakeTopperResult(prev)
-        return null
-      })
+      if (geometryRef.current) {
+        disposeCakeTopperResult(geometryRef.current)
+        geometryRef.current = null
+      }
     }
   }, [])
 
@@ -192,19 +206,23 @@ export function useCakeTopper() {
     dispatch({ type: 'reset' })
   }, [])
 
+  const totalHeight = useMemo(
+    () => params.height + (params.supportType === 'haste' ? params.stemLength : 0),
+    [params.height, params.supportType, params.stemLength],
+  )
+
   const dimensions = useMemo(() => {
     return {
       width: params.width,
-      height: params.height + (params.supportType === 'haste' ? params.stemLength : 0),
+      height: totalHeight,
       thickness: params.thickness,
     }
-  }, [params.width, params.height, params.thickness, params.supportType, params.stemLength])
+  }, [params.width, totalHeight, params.thickness])
 
   const cameraPosition = useMemo((): [number, number, number] => {
-    const totalHeight = params.height + (params.supportType === 'haste' ? params.stemLength : 0)
     const distance = Math.max(params.width, totalHeight) * 2
     return [0, 0, distance]
-  }, [params.width, params.height, params.supportType, params.stemLength])
+  }, [params.width, totalHeight])
 
   return {
     params,
