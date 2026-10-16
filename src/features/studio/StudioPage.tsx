@@ -10,6 +10,7 @@ import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEdito
 import { useCard } from './tools/letreiros/cartao-visita/useCard'
 import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
 import { useCakeTopper } from './tools/confeitaria/topo-bolo/useCakeTopper'
+import { exportCakeTopperStl } from './tools/confeitaria/topo-bolo/exportStl'
 import { useStamp } from './tools/confeitaria/carimbo-brigadeiro/useStamp'
 import { exportStampStl } from './tools/confeitaria/carimbo-brigadeiro/exportStampStl'
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
@@ -414,7 +415,11 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
     dimensions,
     cameraPosition,
     updateParam,
+    addText,
+    removeText,
+    updateTextById,
     setSvgIcon,
+    setContourSvg,
     reset,
   } = useCakeTopper()
 
@@ -423,8 +428,10 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
   }, [])
 
   const handleExport = useCallback(() => {
-    // TODO: implement cake topper STL export
-  }, [])
+    if (geometry) {
+      exportCakeTopperStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
@@ -440,7 +447,11 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
           <TopoBoloTool
             params={params}
             onUpdateParam={updateParam}
+            onAddText={addText}
+            onRemoveText={removeText}
+            onUpdateTextById={updateTextById}
             onSetSvgIcon={setSvgIcon}
+            onSetContourSvg={setContourSvg}
             onReset={reset}
           />
         </Suspense>
@@ -454,7 +465,7 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
             <TopoBoloPreview
               geometry={geometry}
               baseColor={params.baseColor}
-              textColor={params.textColor}
+              letterColor={params.letterColor}
             />
           </Suspense>
         </StudioViewport>

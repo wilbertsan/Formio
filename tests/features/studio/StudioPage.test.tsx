@@ -1,52 +1,40 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { StudioPage } from '@/features/studio/StudioPage'
+// Importa o painel eagerly para que o chunk lazy do StudioPage já esteja
+// transformado e resolva de imediato mesmo sob carga da suíte completa.
+import '@/features/studio/tools/confeitaria/topo-bolo/StudioPanel'
 
-vi.mock('@/features/studio/keychain/buildKeychain', () => ({
-  buildKeychain: vi.fn(() => ({
-    base: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) },
-    text: { dispose: vi.fn(), getAttribute: () => ({ count: 0 }) },
-    textItems: [{ id: 'text-1', geometry: { dispose: () => {} }, x: 0, y: 0 }],
-    pieceBB: { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 },
-    hole: { x: 0, y: 10, radius: 4.5 },
-  })),
-}))
-
-vi.mock('@/features/studio/keychain/exportStl', () => ({
-  exportStl: vi.fn(),
-}))
+const LAZY_TIMEOUT = { timeout: 5000 }
 
 vi.mock('@/assets/fonts/helvetiker_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
 vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({ default: '/mock-font.json' }))
 vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
 
+// As fontes nunca resolvem, mantendo a geometria nula e os testes determinísticos.
 vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
   FontLoader: class {
-    load(_url: string, onLoad: (font: unknown) => void): void {
-      onLoad({ glyphs: {} })
-    }
+    load(): void {}
   },
 }))
 
-vi.mock('@react-three/fiber', () => ({
-  Canvas: ({ children }: { children?: React.ReactNode }) => (
-    <div data-testid="canvas-mock">{children}</div>
-  ),
-  useThree: () => ({ camera: {}, gl: { domElement: document.createElement('canvas') } }),
-}))
+vi.mock('@react-three/fiber', () => {
+  const camera = { position: { set: vi.fn() }, lookAt: vi.fn(), fov: 45 }
+  const state = {
+    camera,
+    gl: { domElement: document.createElement('canvas') },
+    size: { width: 800, height: 600 },
+  }
+  return {
+    Canvas: () => <div data-testid="canvas-mock" />,
+    useThree: (selector?: (s: typeof state) => unknown) => (selector ? selector(state) : state),
+  }
+})
 
 vi.mock('@react-three/drei', () => ({
   OrbitControls: () => <div data-testid="orbit-controls" />,
   Grid: () => <div data-testid="grid" />,
   Environment: () => <div data-testid="environment" />,
-}))
-
-vi.mock('@/features/studio/components/KeychainPreview', () => ({
-  KeychainPreview: () => <div data-testid="keychain-preview" />,
-}))
-
-vi.mock('@/features/studio/components/TextPositionEditor', () => ({
-  TextPositionEditor: () => <div data-testid="text-editor" />,
 }))
 
 function renderStudioPage() {
@@ -58,40 +46,50 @@ function renderStudioPage() {
 }
 
 describe('StudioPage', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renderiza topbar com nome do projeto', () => {
     renderStudioPage()
     expect(screen.getByText('3DFormio')).toBeInTheDocument()
     expect(screen.getByRole('textbox', { name: /nome do projeto/i })).toBeInTheDocument()
   })
 
-  it('renderiza painel com chip do primeiro texto selecionado', () => {
+  it('mostra o seletor de ferramentas por padrão', () => {
     renderStudioPage()
-    expect(screen.getByRole('button', { name: /meu nome/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /escolha uma ferramenta/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /topo de bolo/i })).toBeInTheDocument()
   })
 
-  it('renderiza viewport 3D', () => {
-    renderStudioPage()
-    expect(screen.getByTestId('canvas-mock')).toBeInTheDocument()
-  })
-
-  it('renderiza barra de status', () => {
-    renderStudioPage()
-    expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
-  })
-
-  it('exportar stl começa desabilitado', () => {
+  it('exportar STL começa desabilitado', () => {
     renderStudioPage()
     expect(screen.getByRole('button', { name: 'Exportar STL' })).toBeDisabled()
   })
 
-  it('editor de posicionamento não renderiza por padrão', () => {
+  it('não renderiza o editor de textos por padrão', () => {
     renderStudioPage()
     expect(screen.queryByTestId('text-editor')).not.toBeInTheDocument()
   })
 
-  it('editor aparece ao clicar no botão de posicionar', () => {
+  it('abre a ferramenta Topo de Bolo ao selecioná-la', async () => {
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /posicionar textos/i }))
+    fireEvent.click(screen.getByRole('button', { name: /topo de bolo/i }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Topo de Bolo' }, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
+    expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
+  })
+
+  it('abre o editor ao clicar em Posicionar textos na ferramenta Topo de Bolo', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /topo de bolo/i }))
+
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar textos/i }, LAZY_TIMEOUT))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
   })
 })
