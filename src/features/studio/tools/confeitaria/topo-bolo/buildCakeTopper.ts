@@ -30,7 +30,21 @@ export interface BuildCakeTopperResult {
 const TEXT_MARGIN = 4
 const TEXT_Z_OFFSET = 0.01
 const CUT_BORDER = 4
+const CUT_Z_OFFSET = -0.5
 const ICON_GAP = 2
+const ICON_MARGIN = 1
+const ICON_DEPTH = 1
+const CUSTOM_MIN_FEATURE = 0.5
+const STEM_EMBED = 2
+const STEM_SEGMENTS = 24
+const BASE_FLOOR = 3
+const SLOT_CLEARANCE = 2
+const BASE_GAP = 10
+
+interface PlateBounds {
+  halfWidth: number
+  halfHeight: number
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -44,13 +58,14 @@ function centerXY(geometry: BufferGeometry): void {
   geometry.translate(-(box.min.x + box.max.x) / 2, -(box.min.y + box.max.y) / 2, 0)
 }
 
-function mergeAll(geometries: BufferGeometry[]): BufferGeometry {
+function mergeAll(geometries: BufferGeometry[], onError?: (message: string) => void): BufferGeometry {
   if (geometries.length === 1) return geometries[0]
   const merged = mergeGeometries(geometries)
   if (merged) {
     geometries.forEach((geometry) => geometry.dispose())
     return merged
   }
+  onError?.('Falha ao unir geometrias; mantendo apenas a primeira')
   const [first, ...rest] = geometries
   rest.forEach((geometry) => geometry.dispose())
   return first
@@ -128,7 +143,7 @@ function customPlateShapes(params: CakeTopperParams): Shape[] {
   if (!params.contourSvg) return []
   const parsed = parseSvg(params.contourSvg)
   if (!parsed) return []
-  const shapes = svgShapesFromParsed(parsed, 0.5)
+  const shapes = svgShapesFromParsed(parsed, CUSTOM_MIN_FEATURE)
   if (shapes.length === 0) return []
   return fitShapesToBox(shapes, params.width, params.height)
 }
@@ -152,26 +167,85 @@ function plateShapes(params: CakeTopperParams, onError?: (message: string) => vo
   }
 }
 
-function extrudePlate(shapes: Shape[], thickness: number): BufferGeometry {
+function extrudePlate(
+  shapes: Shape[],
+  thickness: number,
+  onError?: (message: string) => void,
+): BufferGeometry {
   const geometries = shapes.map(
     (shape) => new ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false }),
   )
-  const plate = mergeAll(geometries)
+  const plate = mergeAll(geometries, onError)
   centerXY(plate)
   return plate
+}
+
+function plateBoundsOf(plate: BufferGeometry, params: CakeTopperParams): PlateBounds {
+  plate.computeBoundingBox()
+  const box = plate.boundingBox
+  if (!box) return { halfWidth: params.width / 2, halfHeight: params.height / 2 }
+  return {
+    halfWidth: (box.max.x - box.min.x) / 2,
+    halfHeight: (box.max.y - box.min.y) / 2,
+  }
+}
+
+/**
+ * Deslocamento máximo do centro de um retângulo `halfWidth × halfHeight` para
+ * que ele permaneça inscrito no contorno da placa recuado de `margin`.
+ * Valores negativos significam que o retângulo não cabe no contorno.
+ */
+function outlineLimits(
+  params: CakeTopperParams,
+  plate: PlateBounds,
+  halfWidth: number,
+  halfHeight: number,
+  margin: number,
+): { x: number; y: number } {
+  switch (params.shape) {
+    case 'circle': {
+      const r = Math.min(params.width, params.height) / 2 - margin
+      return {
+        x: Math.sqrt(Math.max(0, r * r - halfHeight * halfHeight)) - halfWidth,
+        y: Math.sqrt(Math.max(0, r * r - halfWidth * halfWidth)) - halfHeight,
+      }
+    }
+    case 'oval': {
+      const rx = Math.max(0, params.width / 2 - margin)
+      const ry = Math.max(0, params.height / 2 - margin)
+      return {
+        x: rx * Math.sqrt(Math.max(0, 1 - (halfHeight * halfHeight) / (ry * ry || 1))) - halfWidth,
+        y: ry * Math.sqrt(Math.max(0, 1 - (halfWidth * halfWidth) / (rx * rx || 1))) - halfHeight,
+      }
+    }
+    case 'rounded-rect':
+      return {
+        x: params.width / 2 - halfWidth - margin,
+        y: params.height / 2 - halfHeight - margin,
+      }
+    case 'custom':
+      return {
+        x: plate.halfWidth - halfWidth - margin,
+        y: plate.halfHeight - halfHeight - margin,
+      }
+  }
 }
 
 function buildTextGeometries(
   input: BuildCakeTopperInput,
   mode: TextMode,
+  plate: PlateBounds,
 ): { geometries: BufferGeometry[]; maxY: number | null } {
-  const { params, fonts, font } = input
+  const { params, fonts, font, onError } = input
   const geometries: BufferGeometry[] = []
   let maxY: number | null = null
 
   for (const item of params.texts) {
     const resolved = fonts?.[item.fontStyle] ?? font
-    if (!resolved) continue
+    if (!resolved) {
+      onError?.(`Fonte indisponível para o estilo "${item.fontStyle}"`)
+      continue
+    }
     const shapes = textToShapes(resolved, item.content, item.height)
     if (shapes.length === 0) continue
 
@@ -192,11 +266,12 @@ function buildTextGeometries(
     const box = geometry.boundingBox
     const halfWidth = box ? (box.max.x - box.min.x) / 2 : 0
     const halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
-    const limitX = Math.max(0, params.width / 2 - halfWidth - TEXT_MARGIN)
-    const limitY = Math.max(0, params.height / 2 - halfHeight - TEXT_MARGIN)
+    const limits = outlineLimits(params, plate, halfWidth, halfHeight, TEXT_MARGIN)
+    const limitX = Math.max(0, limits.x)
+    const limitY = Math.max(0, limits.y)
     const x = clamp(item.offsetX, -limitX, limitX)
     const y = clamp(item.offsetY, -limitY, limitY)
-    const z = mode === 'cut' ? -0.5 : params.thickness - TEXT_Z_OFFSET
+    const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
     geometry.translate(x, y, z)
 
     geometry.computeBoundingBox()
@@ -214,6 +289,7 @@ function buildIconGeometry(
   params: CakeTopperParams,
   mode: TextMode,
   textMaxY: number | null,
+  plate: PlateBounds,
 ): BufferGeometry | null {
   if (!params.svgIcon) return null
 
@@ -224,44 +300,53 @@ function buildIconGeometry(
     maxRadius,
     lineWidth: 1,
     iconScale: 1,
-    depth: mode === 'cut' ? params.thickness + 1 : 1,
+    depth: mode === 'cut' ? params.thickness + 1 : ICON_DEPTH,
   })
   if (!geometry) return null
 
   geometry.computeBoundingBox()
   const box = geometry.boundingBox
+  const halfWidth = box ? (box.max.x - box.min.x) / 2 : 0
   const halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
+
   let y = 0
   if (params.iconPosition === 'above') {
     const anchor = textMaxY ?? params.height / 4
     y = anchor + ICON_GAP + halfHeight
   }
-  const z = mode === 'cut' ? -0.5 : params.thickness - TEXT_Z_OFFSET
+
+  // Mantém o ícone dentro do contorno, deslocando (ou centrando) se necessário.
+  const limits = outlineLimits(params, plate, halfWidth, halfHeight, ICON_MARGIN)
+  y = clamp(y, -Math.max(0, limits.y), Math.max(0, limits.y))
+
+  const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
   geometry.translate(0, y, z)
   return geometry
 }
 
-function buildRelief(input: BuildCakeTopperInput, mode: TextMode): BufferGeometry | null {
-  const textBuild = buildTextGeometries(input, mode)
-  const icon = buildIconGeometry(input.params, mode, textBuild.maxY)
+function buildRelief(
+  input: BuildCakeTopperInput,
+  mode: TextMode,
+  plate: PlateBounds,
+): BufferGeometry | null {
+  const textBuild = buildTextGeometries(input, mode, plate)
+  const icon = buildIconGeometry(input.params, mode, textBuild.maxY, plate)
   const parts = icon ? [...textBuild.geometries, icon] : textBuild.geometries
   if (parts.length === 0) return null
-  return mergeAll(parts)
+  return mergeAll(parts, input.onError)
 }
 
-function cutFits(plate: BufferGeometry, cuts: BufferGeometry[]): boolean {
-  const plateBox = plate.boundingBox
-  if (!plateBox) return false
+function cutFits(params: CakeTopperParams, plate: PlateBounds, cuts: BufferGeometry[]): boolean {
   return cuts.every((geometry) => {
     geometry.computeBoundingBox()
     const box = geometry.boundingBox
     if (!box) return false
-    return (
-      box.min.x >= plateBox.min.x + CUT_BORDER &&
-      box.max.x <= plateBox.max.x - CUT_BORDER &&
-      box.min.y >= plateBox.min.y + CUT_BORDER &&
-      box.max.y <= plateBox.max.y - CUT_BORDER
-    )
+    const halfWidth = (box.max.x - box.min.x) / 2
+    const halfHeight = (box.max.y - box.min.y) / 2
+    const centerX = (box.min.x + box.max.x) / 2
+    const centerY = (box.min.y + box.max.y) / 2
+    const limits = outlineLimits(params, plate, halfWidth, halfHeight, CUT_BORDER)
+    return Math.abs(centerX) <= limits.x && Math.abs(centerY) <= limits.y
   })
 }
 
@@ -270,13 +355,15 @@ function buildBase(
   plateMinY: number,
   onError?: (message: string) => void,
 ): BufferGeometry {
-  // Bloco ocupa y ∈ [plateMinY - slotDepth, plateMinY]; a ranhura abre no topo (Y).
-  const block = new BoxGeometry(params.baseWidth, params.slotDepth, params.baseDepth)
-  block.translate(0, plateMinY - params.slotDepth / 2, params.thickness / 2)
+  // Bloco tem piso: y ∈ [plateMinY - (slotDepth + BASE_FLOOR), plateMinY].
+  const blockHeight = params.slotDepth + BASE_FLOOR
+  const block = new BoxGeometry(params.baseWidth, blockHeight, params.baseDepth)
+  block.translate(0, plateMinY - blockHeight / 2, params.thickness / 2)
 
-  // Canal mais alto que o bloco para cortar limpo e aberto no topo.
-  const slot = new BoxGeometry(params.baseWidth + 2, params.slotDepth + 2, params.slotWidth)
-  slot.translate(0, plateMinY - params.slotDepth / 2 + 1, params.thickness / 2)
+  // Canal aberto no topo que para acima do piso (y ∈ [plateMinY - slotDepth, plateMinY + clearance]).
+  const slotHeight = params.slotDepth + SLOT_CLEARANCE
+  const slot = new BoxGeometry(params.baseWidth + SLOT_CLEARANCE, slotHeight, params.slotWidth)
+  slot.translate(0, plateMinY - params.slotDepth / 2 + SLOT_CLEARANCE / 2, params.thickness / 2)
 
   let base: BufferGeometry
   try {
@@ -291,7 +378,7 @@ function buildBase(
   if (base !== block) block.dispose()
 
   // Transladado para imprimir ao lado da placa.
-  base.translate(params.width / 2 + 10 + params.baseWidth / 2, 0, 0)
+  base.translate(params.width / 2 + BASE_GAP + params.baseWidth / 2, 0, 0)
   return base
 }
 
@@ -310,9 +397,10 @@ function buildSupport(
       params.stemDiameter / 2,
       params.stemDiameter / 2,
       params.stemLength,
-      24,
+      STEM_SEGMENTS,
     )
-    stem.translate(0, plateMinY - params.stemLength / 2, params.thickness / 2)
+    // Embutida na placa (topo em plateMinY + STEM_EMBED) para soldar os corpos.
+    stem.translate(0, plateMinY + STEM_EMBED - params.stemLength / 2, params.thickness / 2)
     return stem
   }
 
@@ -321,24 +409,24 @@ function buildSupport(
 
 export function buildCakeTopper(input: BuildCakeTopperInput): BuildCakeTopperResult {
   const { params, onError } = input
-  const plate = extrudePlate(plateShapes(params, onError), params.thickness)
+  const plate = extrudePlate(plateShapes(params, onError), params.thickness, onError)
+  const plateBounds = plateBoundsOf(plate, params)
 
   if (params.textMode === 'raised') {
     return {
       plate,
-      relief: buildRelief(input, 'raised'),
+      relief: buildRelief(input, 'raised', plateBounds),
       support: buildSupport(params, plate, onError),
     }
   }
 
-  const cutText = buildTextGeometries(input, 'cut')
-  const cutIcon = buildIconGeometry(params, 'cut', cutText.maxY)
+  const cutText = buildTextGeometries(input, 'cut', plateBounds)
+  const cutIcon = buildIconGeometry(params, 'cut', cutText.maxY, plateBounds)
   const cuts = cutIcon ? [...cutText.geometries, cutIcon] : cutText.geometries
 
   if (cuts.length > 0) {
-    plate.computeBoundingBox()
-    if (cutFits(plate, cuts)) {
-      const cutGeometry = mergeAll(cuts)
+    if (cutFits(params, plateBounds, cuts)) {
+      const cutGeometry = mergeAll(cuts, onError)
       try {
         const result = new Evaluator()
           .evaluate(new Brush(plate), new Brush(cutGeometry), SUBTRACTION)
@@ -359,7 +447,7 @@ export function buildCakeTopper(input: BuildCakeTopperInput): BuildCakeTopperRes
 
   return {
     plate,
-    relief: buildRelief(input, 'raised'),
+    relief: buildRelief(input, 'raised', plateBounds),
     support: buildSupport(params, plate, onError),
   }
 }
