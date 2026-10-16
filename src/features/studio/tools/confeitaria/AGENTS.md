@@ -10,7 +10,7 @@ Ferramentas para confeiteiros e cake designers — moldes, carimbos, rolos, supo
 | carimbo-brigadeiro | planejada |
 | rolo-textura | planejada |
 | cortador-carimbo | implementada |
-| topo-bolo | planejada |
+| topo-bolo | implementada |
 | ejetor-brigadeiro | planejada |
 | suporte-bolo | implementada |
 
