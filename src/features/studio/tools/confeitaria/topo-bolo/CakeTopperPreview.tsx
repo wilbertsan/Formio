@@ -3,10 +3,10 @@ import type { BuildCakeTopperResult } from './buildCakeTopper'
 interface CakeTopperPreviewProps {
   geometry: BuildCakeTopperResult | null
   baseColor: string
-  textColor: string
+  letterColor: string
 }
 
-export function CakeTopperPreview({ geometry, baseColor, textColor }: CakeTopperPreviewProps) {
+export function CakeTopperPreview({ geometry, baseColor, letterColor }: CakeTopperPreviewProps) {
   if (!geometry) return null
 
   return (
@@ -14,18 +14,13 @@ export function CakeTopperPreview({ geometry, baseColor, textColor }: CakeTopper
       <mesh geometry={geometry.plate} castShadow receiveShadow>
         <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
       </mesh>
-      {geometry.text && (
-        <mesh geometry={geometry.text} castShadow receiveShadow>
-          <meshStandardMaterial color={textColor} metalness={0.1} roughness={0.3} />
+      {geometry.relief && (
+        <mesh geometry={geometry.relief} castShadow receiveShadow>
+          <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
         </mesh>
       )}
-      {geometry.icon && (
-        <mesh geometry={geometry.icon} castShadow receiveShadow>
-          <meshStandardMaterial color={textColor} metalness={0.1} roughness={0.3} />
-        </mesh>
-      )}
-      {geometry.leg && (
-        <mesh geometry={geometry.leg} castShadow receiveShadow>
+      {geometry.support && (
+        <mesh geometry={geometry.support} castShadow receiveShadow>
           <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
         </mesh>
       )}
