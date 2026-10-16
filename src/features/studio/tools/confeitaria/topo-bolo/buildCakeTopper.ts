@@ -190,45 +190,95 @@ function plateBoundsOf(plate: BufferGeometry, params: CakeTopperParams): PlateBo
   }
 }
 
-/**
- * Deslocamento máximo do centro de um retângulo `halfWidth × halfHeight` para
- * que ele permaneça inscrito no contorno da placa recuado de `margin`.
- * Valores negativos significam que o retângulo não cabe no contorno.
- */
-function outlineLimits(
-  params: CakeTopperParams,
-  plate: PlateBounds,
-  halfWidth: number,
-  halfHeight: number,
-  margin: number,
-): { x: number; y: number } {
+interface OutlineSpec {
+  rx: number
+  ry: number
+  box: boolean
+}
+
+// Contorno recuado de `margin`: elipse (circle/oval) ou caixa (retângulo/custom).
+function outlineSpec(params: CakeTopperParams, plate: PlateBounds, margin: number): OutlineSpec {
   switch (params.shape) {
     case 'circle': {
-      const r = Math.min(params.width, params.height) / 2 - margin
-      return {
-        x: Math.sqrt(Math.max(0, r * r - halfHeight * halfHeight)) - halfWidth,
-        y: Math.sqrt(Math.max(0, r * r - halfWidth * halfWidth)) - halfHeight,
-      }
+      const r = Math.max(0, Math.min(params.width, params.height) / 2 - margin)
+      return { rx: r, ry: r, box: false }
     }
-    case 'oval': {
-      const rx = Math.max(0, params.width / 2 - margin)
-      const ry = Math.max(0, params.height / 2 - margin)
+    case 'oval':
       return {
-        x: rx * Math.sqrt(Math.max(0, 1 - (halfHeight * halfHeight) / (ry * ry || 1))) - halfWidth,
-        y: ry * Math.sqrt(Math.max(0, 1 - (halfWidth * halfWidth) / (rx * rx || 1))) - halfHeight,
+        rx: Math.max(0, params.width / 2 - margin),
+        ry: Math.max(0, params.height / 2 - margin),
+        box: false,
       }
-    }
     case 'rounded-rect':
       return {
-        x: params.width / 2 - halfWidth - margin,
-        y: params.height / 2 - halfHeight - margin,
+        rx: Math.max(0, params.width / 2 - margin),
+        ry: Math.max(0, params.height / 2 - margin),
+        box: true,
       }
     case 'custom':
       return {
-        x: plate.halfWidth - halfWidth - margin,
-        y: plate.halfHeight - halfHeight - margin,
+        rx: Math.max(0, plate.halfWidth - margin),
+        ry: Math.max(0, plate.halfHeight - margin),
+        box: true,
       }
   }
+}
+
+// Retângulo (meia-largura/altura `hw,hh`) centrado em (cx,cy) cabe no contorno?
+// Usa a condição do canto mais distante, acoplando os eixos em elipses.
+function containsCorner(
+  spec: OutlineSpec,
+  hw: number,
+  hh: number,
+  cx: number,
+  cy: number,
+): boolean {
+  const ax = Math.abs(cx) + hw
+  const ay = Math.abs(cy) + hh
+  if (spec.box) return ax <= spec.rx && ay <= spec.ry
+  if (spec.rx <= 0 || spec.ry <= 0) return false
+  return (ax / spec.rx) ** 2 + (ay / spec.ry) ** 2 <= 1 + 1e-9
+}
+
+/**
+ * Encaixa o centro (dx,dy) de um retângulo `hw × hh` no contorno recuado de
+ * `margin`. Nos contornos elípticos os eixos são acoplados: limita X e depois
+ * Y em função do X já limitado, garantindo o canto mais distante dentro.
+ */
+function clampToOutline(
+  params: CakeTopperParams,
+  plate: PlateBounds,
+  hw: number,
+  hh: number,
+  dx: number,
+  dy: number,
+  margin: number,
+): { x: number; y: number } {
+  const spec = outlineSpec(params, plate, margin)
+  if (spec.box) {
+    const limitX = Math.max(0, spec.rx - hw)
+    const limitY = Math.max(0, spec.ry - hh)
+    return { x: clamp(dx, -limitX, limitX), y: clamp(dy, -limitY, limitY) }
+  }
+
+  const limitX0 = Math.max(
+    0,
+    spec.rx * Math.sqrt(Math.max(0, 1 - (hh * hh) / (spec.ry * spec.ry || 1))) - hw,
+  )
+  const x = clamp(dx, -limitX0, limitX0)
+  const inner = 1 - ((Math.abs(x) + hw) / (spec.rx || 1)) ** 2
+  const limitY = Math.max(0, spec.ry * Math.sqrt(Math.max(0, inner)) - hh)
+  const y = clamp(dy, -limitY, limitY)
+  return { x, y }
+}
+
+// Fator ≤ 1 que encolhe um retângulo centrado na origem até o canto caber no contorno.
+function fitScaleToOutline(spec: OutlineSpec, hw: number, hh: number): number {
+  if (hw <= 0 || hh <= 0) return 1
+  if (spec.rx <= 0 || spec.ry <= 0) return 0
+  if (spec.box) return Math.min(1, spec.rx / hw, spec.ry / hh)
+  const corner = (hw / spec.rx) ** 2 + (hh / spec.ry) ** 2
+  return corner > 1 ? 1 / Math.sqrt(corner) : 1
 }
 
 function buildTextGeometries(
@@ -266,13 +316,17 @@ function buildTextGeometries(
     const box = geometry.boundingBox
     const halfWidth = box ? (box.max.x - box.min.x) / 2 : 0
     const halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
-    const limits = outlineLimits(params, plate, halfWidth, halfHeight, TEXT_MARGIN)
-    const limitX = Math.max(0, limits.x)
-    const limitY = Math.max(0, limits.y)
-    const x = clamp(item.offsetX, -limitX, limitX)
-    const y = clamp(item.offsetY, -limitY, limitY)
+    const placed = clampToOutline(
+      params,
+      plate,
+      halfWidth,
+      halfHeight,
+      item.offsetX,
+      item.offsetY,
+      TEXT_MARGIN,
+    )
     const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
-    geometry.translate(x, y, z)
+    geometry.translate(placed.x, placed.y, z)
 
     geometry.computeBoundingBox()
     if (geometry.boundingBox) {
@@ -305,22 +359,30 @@ function buildIconGeometry(
   if (!geometry) return null
 
   geometry.computeBoundingBox()
-  const box = geometry.boundingBox
-  const halfWidth = box ? (box.max.x - box.min.x) / 2 : 0
-  const halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
+  let box = geometry.boundingBox
+  let halfWidth = box ? (box.max.x - box.min.x) / 2 : 0
+  let halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
 
-  let y = 0
-  if (params.iconPosition === 'above') {
-    const anchor = textMaxY ?? params.height / 4
-    y = anchor + ICON_GAP + halfHeight
+  // Encolhe (nunca aumenta) até o canto caber no contorno recuado.
+  const spec = outlineSpec(params, plate, ICON_MARGIN)
+  const factor = fitScaleToOutline(spec, halfWidth, halfHeight)
+  if (factor < 1) {
+    geometry.scale(factor, factor, 1)
+    geometry.computeBoundingBox()
+    box = geometry.boundingBox
+    halfWidth = box ? (box.max.x - box.min.x) / 2 : 0
+    halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
   }
 
-  // Mantém o ícone dentro do contorno, deslocando (ou centrando) se necessário.
-  const limits = outlineLimits(params, plate, halfWidth, halfHeight, ICON_MARGIN)
-  y = clamp(y, -Math.max(0, limits.y), Math.max(0, limits.y))
+  let desiredY = 0
+  if (params.iconPosition === 'above') {
+    const anchor = textMaxY ?? params.height / 4
+    desiredY = anchor + ICON_GAP + halfHeight
+  }
 
+  const placed = clampToOutline(params, plate, halfWidth, halfHeight, 0, desiredY, ICON_MARGIN)
   const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
-  geometry.translate(0, y, z)
+  geometry.translate(placed.x, placed.y, z)
   return geometry
 }
 
@@ -337,6 +399,7 @@ function buildRelief(
 }
 
 function cutFits(params: CakeTopperParams, plate: PlateBounds, cuts: BufferGeometry[]): boolean {
+  const spec = outlineSpec(params, plate, CUT_BORDER)
   return cuts.every((geometry) => {
     geometry.computeBoundingBox()
     const box = geometry.boundingBox
@@ -345,8 +408,7 @@ function cutFits(params: CakeTopperParams, plate: PlateBounds, cuts: BufferGeome
     const halfHeight = (box.max.y - box.min.y) / 2
     const centerX = (box.min.x + box.max.x) / 2
     const centerY = (box.min.y + box.max.y) / 2
-    const limits = outlineLimits(params, plate, halfWidth, halfHeight, CUT_BORDER)
-    return Math.abs(centerX) <= limits.x && Math.abs(centerY) <= limits.y
+    return containsCorner(spec, halfWidth, halfHeight, centerX, centerY)
   })
 }
 

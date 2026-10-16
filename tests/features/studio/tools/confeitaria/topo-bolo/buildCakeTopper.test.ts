@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three'
+import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3, type BufferGeometry } from 'three'
 import { Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
   buildCakeTopper,
@@ -39,6 +39,17 @@ function mockFont(text: string): Font {
 
 function text(overrides: Partial<TextItem>): TextItem {
   return { ...defaultText, ...overrides }
+}
+
+function bounds(geometry: BufferGeometry): { hw: number; hh: number; cx: number; cy: number } {
+  geometry.computeBoundingBox()
+  const box = geometry.boundingBox!
+  return {
+    hw: (box.max.x - box.min.x) / 2,
+    hh: (box.max.y - box.min.y) / 2,
+    cx: (box.min.x + box.max.x) / 2,
+    cy: (box.min.y + box.max.y) / 2,
+  }
 }
 
 describe('buildCakeTopper - placa', () => {
@@ -109,18 +120,32 @@ describe('buildCakeTopper - relevo (raised)', () => {
     expect(onError).toHaveBeenCalledWith(expect.stringContaining('bold'))
   })
 
-  it('mantém texto dentro do contorno circular', () => {
-    // width 80, height 50 => raio 25. offsetX 30 estouraria o círculo sem clamp por contorno.
+  it('mantém o canto do texto dentro do contorno circular (eixos acoplados)', () => {
+    // width 80, height 50 => raio 25. Offsets grandes em X e Y: com limites
+    // independentes por eixo o canto mais distante estouraria o círculo.
     const params = {
       ...defaultCakeTopperParams,
       shape: 'circle' as const,
-      texts: [text({ content: 'A', width: 20, height: 10, offsetX: 30 })],
+      texts: [text({ content: 'A', width: 20, height: 10, offsetX: 30, offsetY: 30 })],
     }
     const result = buildCakeTopper({ params, fonts: { bold: mockFont('A') } })
-    result.relief!.computeBoundingBox()
-    const bb = result.relief!.boundingBox!
-    expect(bb.max.x).toBeLessThanOrEqual(25 + 0.6)
-    expect(bb.min.x).toBeGreaterThanOrEqual(-(25 + 0.6))
+    const bb = bounds(result.relief!)
+    const corner = Math.hypot(Math.abs(bb.cx) + bb.hw, Math.abs(bb.cy) + bb.hh)
+    expect(corner).toBeLessThanOrEqual(25 + 0.5)
+  })
+
+  it('mantém o texto dentro da elipse (eixos acoplados)', () => {
+    // width 80, height 50 => rx 40, ry 25.
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'oval' as const,
+      texts: [text({ content: 'A', width: 20, height: 10, offsetX: 40, offsetY: 40 })],
+    }
+    const result = buildCakeTopper({ params, fonts: { bold: mockFont('A') } })
+    const bb = bounds(result.relief!)
+    const ax = Math.abs(bb.cx) + bb.hw
+    const ay = Math.abs(bb.cy) + bb.hh
+    expect((ax / 40) ** 2 + (ay / 25) ** 2).toBeLessThanOrEqual(1.02)
   })
 
   it('inclui ícone svg no relevo', () => {
@@ -128,6 +153,23 @@ describe('buildCakeTopper - relevo (raised)', () => {
     const result = buildCakeTopper({ params })
     expect(result.relief).not.toBeNull()
     expect(result.relief!.attributes.position).toBeDefined()
+  })
+
+  it('escala ícone grande para caber no contorno', () => {
+    // iconScale 2 gera raio útil (~33mm) maior que o raio da placa (25mm).
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'circle' as const,
+      svgIcon: SVG_RECT,
+      iconScale: 2,
+      iconPosition: 'center' as const,
+      texts: [],
+    }
+    const result = buildCakeTopper({ params })
+    expect(result.relief).not.toBeNull()
+    const bb = bounds(result.relief!)
+    const corner = Math.hypot(Math.abs(bb.cx) + bb.hw, Math.abs(bb.cy) + bb.hh)
+    expect(corner).toBeLessThanOrEqual(25 + 0.5)
   })
 })
 
