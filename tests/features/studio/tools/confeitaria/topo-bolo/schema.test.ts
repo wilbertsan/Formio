@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { cakeTopperParamsSchema, defaultCakeTopperParams, PLA_COLORS } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
+import {
+  cakeTopperParamsSchema,
+  defaultCakeTopperParams,
+  PLA_COLORS,
+} from '@/features/studio/tools/confeitaria/topo-bolo/schema'
 
 describe('cakeTopperParamsSchema', () => {
   it('validates default params', () => {
@@ -7,14 +11,34 @@ describe('cakeTopperParamsSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('rejects invalid text (empty)', () => {
-    const invalid = { ...defaultCakeTopperParams, text: '' }
+  it('rejects invalid shape', () => {
+    const invalid = { ...defaultCakeTopperParams, shape: 'triangle' }
     const result = cakeTopperParamsSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })
 
-  it('rejects text longer than 40 chars', () => {
-    const invalid = { ...defaultCakeTopperParams, text: 'a'.repeat(41) }
+  it('rejects invalid textMode', () => {
+    const invalid = { ...defaultCakeTopperParams, textMode: 'x' }
+    const result = cakeTopperParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects invalid supportType', () => {
+    const invalid = { ...defaultCakeTopperParams, supportType: 'x' }
+    const result = cakeTopperParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects more than 3 texts', () => {
+    const invalid = {
+      ...defaultCakeTopperParams,
+      texts: [
+        defaultCakeTopperParams.texts[0],
+        defaultCakeTopperParams.texts[0],
+        defaultCakeTopperParams.texts[0],
+        defaultCakeTopperParams.texts[0],
+      ],
+    }
     const result = cakeTopperParamsSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })
@@ -25,14 +49,21 @@ describe('cakeTopperParamsSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects invalid shape', () => {
-    const invalid = { ...defaultCakeTopperParams, shape: 'triangle' }
-    const result = cakeTopperParamsSchema.safeParse(invalid)
-    expect(result.success).toBe(false)
+  it('accepts shape custom with contourSvg set', () => {
+    const valid = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: '<svg></svg>',
+    }
+    const result = cakeTopperParamsSchema.safeParse(valid)
+    expect(result.success).toBe(true)
   })
 
-  it('rejects invalid baseColor', () => {
-    const invalid = { ...defaultCakeTopperParams, baseColor: '#000000' }
+  it('rejects empty text content', () => {
+    const invalid = {
+      ...defaultCakeTopperParams,
+      texts: [{ ...defaultCakeTopperParams.texts[0], content: '' }],
+    }
     const result = cakeTopperParamsSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })
