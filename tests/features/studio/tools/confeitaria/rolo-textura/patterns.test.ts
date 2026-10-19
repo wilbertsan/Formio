@@ -30,8 +30,13 @@ describe('patterns', () => {
       expect(Math.max(...xs)).toBeCloseTo(0.5, 5)
     }
   })
-  it('marca stagger', () => {
-    expect(isStaggered('diamonds')).toBe(true)
-    expect(isStaggered('grid')).toBe(false)
+  it('marca stagger de todos os motivos', () => {
+    const staggered: Record<string, boolean> = {
+      diamonds: true, dots: true, grid: false, waves: false, chevrons: false,
+      scales: true, flower: true, leaf: true, rosette: false,
+    }
+    for (const [motif, expected] of Object.entries(staggered)) {
+      expect(isStaggered(motif as never)).toBe(expected)
+    }
   })
 })
