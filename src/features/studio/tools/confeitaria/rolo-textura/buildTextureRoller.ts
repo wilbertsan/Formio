@@ -24,7 +24,7 @@ function svgMotifShapes(parsed: ParsedSvg | null, minFeatureFrac: number): Motif
   const rawSpan = Math.max(raw.width, raw.height)
   if (rawSpan <= 0) return []
 
-  const baseSpan = 0.88 - 2 * minFeatureFrac
+  const baseSpan = Math.max(0.2, 0.88 - minFeatureFrac)
   if (baseSpan <= 0) return []
   const scale = baseSpan / rawSpan
   const mapPoint = (p: Point2): Point2 => ({
@@ -54,19 +54,17 @@ function svgMotifShapes(parsed: ParsedSvg | null, minFeatureFrac: number): Motif
 
 interface ScanlineEdge { x0: number; y0: number; x1: number; y1: number }
 
-// Rasteriza um motivo (outer + furos, regra even-odd) na máscara.
-// X é periódico (wrap) para fechar a costura do cilindro.
-function rasterizeShapes(
+// Rasteriza uma cell row inteira num buffer local de largura `cellW`.
+// O motivo é replicado por blit inteiro, o que garante periodicidade exata.
+function buildCellRowMask(
   shapes: MotifShape[],
-  cols: number,
-  bodyRows: number,
   cellW: number,
   cellH: number,
-  col: number,
+  bodyRows: number,
   row: number,
   xOffset: number,
-  put: (c: number, r: number) => void,
-): void {
+): Uint8Array {
+  const local = new Uint8Array(cellW * bodyRows)
   const edges: ScanlineEdge[] = []
   let minY = Infinity
   let maxY = -Infinity
@@ -75,8 +73,8 @@ function rasterizeShapes(
       for (let i = 0; i < poly.length; i++) {
         const a = poly[i]
         const b = poly[(i + 1) % poly.length]
-        const ax = (col + 0.5 + xOffset + a.x) * cellW
-        const bx = (col + 0.5 + xOffset + b.x) * cellW
+        const ax = (0.5 + xOffset + a.x) * cellW
+        const bx = (0.5 + xOffset + b.x) * cellW
         const ay = (row + 0.5 + a.y) * cellH
         const by = (row + 0.5 + b.y) * cellH
         edges.push({ x0: ax, y0: ay, x1: bx, y1: by })
@@ -85,7 +83,7 @@ function rasterizeShapes(
       }
     }
   }
-  if (edges.length === 0) return
+  if (edges.length === 0) return local
 
   const rStart = Math.max(0, Math.floor(minY))
   const rEnd = Math.min(bodyRows - 1, Math.ceil(maxY))
@@ -99,14 +97,15 @@ function rasterizeShapes(
     }
     xs.sort((a, b) => a - b)
     for (let i = 0; i + 1 < xs.length; i += 2) {
-      const from = Math.ceil(xs[i])
-      const to = Math.floor(xs[i + 1])
+      const from = Math.ceil(xs[i] - 1e-9)
+      const to = Math.floor(xs[i + 1] + 1e-9)
       for (let c = from; c <= to; c++) {
-        const wrapped = ((c % cols) + cols) % cols
-        put(wrapped, r)
+        const lc = ((c % cellW) + cellW) % cellW
+        local[r * cellW + lc] = 1
       }
     }
   }
+  return local
 }
 
 // Chamfer 2-pass com wrap em X: distância até as células cujo valor é `seed`.
@@ -175,7 +174,6 @@ export function buildHeightField(
 ): HeightField {
   const circumference = Math.PI * params.diameter
   const cellMm = DENSITY_CELL_MM[params.density]
-  const minFeatureFrac = MIN_FEATURE_MM / cellMm
   const cellCols = Math.max(3, Math.round(circumference / cellMm))
   const cellRows = Math.max(2, Math.round(params.length / cellMm))
   const minCols = Math.round(circumference / MESH_STEP_MM)
@@ -185,6 +183,11 @@ export function buildHeightField(
 
   const cellW = cols / cellCols
   const cellH = bodyRows / cellRows
+  const cellWidthMm = circumference / cellCols
+  const cellHeightMm = params.length / cellRows
+  const cellMmReal = Math.min(cellWidthMm, cellHeightMm)
+  const minFeatureMm = Math.max(MIN_FEATURE_MM, 2 * MESH_STEP_MM)
+  const minFeatureFrac = minFeatureMm / cellMmReal
 
   let shapes: MotifShape[]
   let staggered = false
@@ -198,12 +201,15 @@ export function buildHeightField(
   const mask = new Uint8Array(cols * bodyRows)
   if (shapes.length > 0) {
     for (let row = 0; row < cellRows; row++) {
+      const xOffset = staggered && row % 2 === 1 ? 0.5 : 0
+      const local = buildCellRowMask(shapes, cellW, cellH, bodyRows, row, xOffset)
       for (let col = 0; col < cellCols; col++) {
-        const xOffset = staggered && row % 2 === 1 ? 0.5 : 0
-        rasterizeShapes(
-          shapes, cols, bodyRows, cellW, cellH, col, row, xOffset,
-          (c, r) => { mask[r * cols + c] = 1 },
-        )
+        const shift = col * cellW
+        for (let r = 0; r < bodyRows; r++) {
+          for (let c = 0; c < cellW; c++) {
+            if (local[r * cellW + c]) mask[r * cols + ((shift + c) % cols)] = 1
+          }
+        }
       }
     }
   }
