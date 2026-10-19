@@ -12,7 +12,7 @@ export const HANDLE_DIAMETER_MM = 8
 export const HANDLE_LENGTH_MM = 25
 export const HANDLE_FILLET_MM = 2
 export const MESH_STEP_MM = 0.5
-export const RELIEF_BEVEL_MM = 0.4
+export const RELIEF_BEVEL_MM = 0.2
 export const MIN_FEATURE_MM = 0.8
 export const EDGE_MARGIN_MM = 1
 

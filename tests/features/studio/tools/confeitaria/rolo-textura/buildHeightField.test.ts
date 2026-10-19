@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildHeightField } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
 import {
   DENSITIES, defaultTextureRollerParams, EDGE_MARGIN_MM, MESH_STEP_MM,
-  MOTIFS_BY_FAMILY, PATTERN_FAMILIES,
+  MOTIFS_BY_FAMILY, PATTERN_FAMILIES, RELIEF_BEVEL_MM,
 } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 
@@ -65,6 +65,9 @@ describe('buildHeightField', () => {
   it('margem axial física respeita 1mm nas duas pontas', () => {
     const { height, cols, bodyRows } = buildHeightField(defaultTextureRollerParams)
     const step = defaultTextureRollerParams.length / bodyRows
+    const marginRows = Math.max(1, Math.ceil(EDGE_MARGIN_MM / step))
+    const bevelRows = Math.ceil(RELIEF_BEVEL_MM / step)
+    const maxOffset = (marginRows + bevelRows) * step
     const rowHasHeight = (r: number): boolean => {
       for (let c = 0; c < cols; c++) if (height[r * cols + c] !== 0) return true
       return false
@@ -83,7 +86,7 @@ describe('buildHeightField', () => {
     }
     const startOffset = firstNonZero * step
     expect(startOffset).toBeGreaterThanOrEqual(EDGE_MARGIN_MM - 1e-9)
-    expect(startOffset).toBeLessThan(EDGE_MARGIN_MM + step)
+    expect(startOffset).toBeLessThanOrEqual(maxOffset + 1e-9)
 
     let lastNonZero = -1
     for (let r = bodyRows - 1; r >= 0; r--) {
@@ -98,7 +101,7 @@ describe('buildHeightField', () => {
     }
     const endOffset = (bodyRows - 1 - lastNonZero) * step
     expect(endOffset).toBeGreaterThanOrEqual(EDGE_MARGIN_MM - 1e-9)
-    expect(endOffset).toBeLessThan(EDGE_MARGIN_MM + step)
+    expect(endOffset).toBeLessThanOrEqual(maxOffset + 1e-9)
   })
   it('normaliza SVG de qualquer escala para ~88% da célula', () => {
     const parsed: ParsedSvg = {
@@ -127,6 +130,18 @@ describe('buildHeightField', () => {
     expect(first.length / cellW).toBeLessThan(0.94)
     expect(runs.length).toBeGreaterThanOrEqual(2)
     expect(runs[1].start - (first.start + first.length)).toBeGreaterThan(0)
+  })
+  it('feições finas atingem a profundidade nominal na densidade alta', () => {
+    for (const patternMotif of ['grid', 'chevrons'] as const) {
+      const family = patternMotif === 'grid' ? 'geometric' : 'wave'
+      const { height } = buildHeightField({
+        ...defaultTextureRollerParams,
+        density: 'high',
+        patternFamily: family,
+        patternMotif,
+      })
+      expect(Math.max(...height)).toBeCloseTo(defaultTextureRollerParams.reliefDepth, 1)
+    }
   })
   it('SVG de traço fino recebe espessura mínima imprimível', () => {
     const parsed: ParsedSvg = {
