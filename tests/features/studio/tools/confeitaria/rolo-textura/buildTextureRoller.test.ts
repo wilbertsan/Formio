@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { BufferGeometry } from 'three'
-import { buildTextureRoller } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
+import { bodyRowForRing, buildTextureRoller } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
 import { defaultTextureRollerParams, HANDLE_LENGTH_MM } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 
 function radiusAt(geometry: BufferGeometry, i: number): number {
@@ -33,6 +33,15 @@ function isClosed(geometry: BufferGeometry): boolean {
 }
 
 describe('buildTextureRoller', () => {
+  it('mapeia anéis do corpo de forma monotônica, sem plateaus no meio', () => {
+    const bodyRows = 208
+    for (let i = 0; i < bodyRows - 1; i++) {
+      expect(bodyRowForRing(i + 1, bodyRows) - bodyRowForRing(i, bodyRows)).toBe(1)
+    }
+    expect(bodyRowForRing(bodyRows, bodyRows)).toBe(bodyRows - 1)
+    expect(bodyRowForRing(0, bodyRows)).toBe(0)
+  })
+
   it('gera malha indexada com vértices e dois grupos de material', () => {
     const { roller } = buildTextureRoller({ params: defaultTextureRollerParams })
     expect(roller.getAttribute('position').count).toBeGreaterThan(1000)
@@ -77,5 +86,22 @@ describe('buildTextureRoller', () => {
     const large = buildTextureRoller({ params: { ...defaultTextureRollerParams, length: 150, diameter: 40 } }).roller
     large.computeBoundingBox()
     expect(large.boundingBox!.max.x - large.boundingBox!.min.x).toBeCloseTo(150 + 2 * HANDLE_LENGTH_MM, 0)
+  })
+
+  it('respeita diâmetro mínimo e máximo', () => {
+    const small = buildTextureRoller({ params: { ...defaultTextureRollerParams, length: 50, diameter: 20 } }).roller
+    expect(maxRadius(small)).toBeCloseTo(10 + defaultTextureRollerParams.reliefDepth, 1)
+    const large = buildTextureRoller({ params: { ...defaultTextureRollerParams, length: 150, diameter: 40 } }).roller
+    expect(maxRadius(large)).toBeCloseTo(20 + defaultTextureRollerParams.reliefDepth, 1)
+    expect(isClosed(large)).toBe(true)
+  })
+
+  it('gera malha válida sem relevo (SVG ausente)', () => {
+    const { roller } = buildTextureRoller({
+      params: { ...defaultTextureRollerParams, patternSource: 'svg', svgIcon: '<svg/>' },
+      parsedSvg: null,
+    })
+    expect(isClosed(roller)).toBe(true)
+    expect(roller.groups[1].count).toBe(0)
   })
 })

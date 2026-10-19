@@ -241,6 +241,11 @@ const AXLE_RADIUS = HANDLE_DIAMETER_MM / 2
 
 interface ProfileSample { x: number; radius: number; body: boolean; row: number }
 
+// Anel i do corpo (x = -L/2 + i*passo) amostra a linha i do campo (centro da célula).
+export function bodyRowForRing(i: number, bodyRows: number): number {
+  return Math.min(bodyRows - 1, i)
+}
+
 function smoothstep(t: number): number {
   return t * t * (3 - 2 * t)
 }
@@ -256,7 +261,7 @@ function buildProfile(params: TextureRollerParams, bodyRows: number): ProfileSam
       x: -half + (params.length * i) / bodyRows,
       radius: bodyRadius,
       body: true,
-      row: Math.min(bodyRows - 1, Math.round((i / bodyRows) * (bodyRows - 1))),
+      row: bodyRowForRing(i, bodyRows),
     })
   }
 
@@ -322,7 +327,7 @@ export function buildTextureRoller({ params, parsedSvg }: BuildTextureRollerInpu
       continue
     }
     const ringHeights = sample.body
-      ? Float32Array.from({ length: nSegments }, (_, j) => height[sample.row * cols + (j % cols)])
+      ? height.subarray(sample.row * cols, (sample.row + 1) * cols)
       : null
     for (let j = 0; j < nSegments; j++) {
       const a = (j / nSegments) * Math.PI * 2
