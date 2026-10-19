@@ -12,37 +12,38 @@ describe('buildHeightField', () => {
     expect(height[0]).toBe(0)
     expect(height[(bodyRows - 1) * cols]).toBe(0)
   })
-  it('fecha a costura sem degrau', () => {
-    const { height, cols, bodyRows } = buildHeightField(defaultTextureRollerParams)
+  it('campo é exatamente periódico em uma volta (sem costura)', () => {
+    const { height, cols, cellCols, bodyRows } = buildHeightField(defaultTextureRollerParams)
+    const cellW = cols / cellCols
+    expect(Number.isInteger(cellW)).toBe(true)
+    let maxDiff = 0
     for (let r = 0; r < bodyRows; r++) {
-      const base = r * cols
-      const seam = Math.abs(height[base] - height[base + cols - 1])
-      const local = Math.max(
-        Math.abs(height[base + 1] - height[base]),
-        Math.abs(height[base + cols - 1] - height[base + cols - 2]),
-      )
-      expect(seam).toBeLessThanOrEqual(local + 1e-6)
+      for (let c = 0; c < cols; c++) {
+        const mirrored = r * cols + ((c + cellW) % cols)
+        maxDiff = Math.max(maxDiff, Math.abs(height[r * cols + c] - height[mirrored]))
+      }
     }
+    expect(maxDiff).toBeLessThan(1e-4)
   })
-  it('motivo staggered cruza a emenda de forma simétrica', () => {
-    const { height, cols, bodyRows, cellRows } = buildHeightField(defaultTextureRollerParams)
-    // linha ímpar (stagger) no meio do corpo, longe das margens axiais
-    const cellRow = Math.max(1, Math.floor(cellRows / 2) | 1)
-    const row = Math.min(bodyRows - 2, Math.max(3, Math.floor((cellRow + 0.5) * (bodyRows / cellRows)) | 1))
-    expect(cellRows).toBeGreaterThan(2)
-    const base = row * cols
-    const seam = height[base]
-    expect(seam).toBeGreaterThan(0.5 * defaultTextureRollerParams.reliefDepth)
-    expect(height[base + 1]).toBeGreaterThan(0)
-    expect(height[base + cols - 1]).toBeGreaterThan(0)
-    expect(Math.abs(height[base + 1] - height[base + cols - 1])).toBeLessThan(0.02)
+  it('periodicidade detecta um degrau artificial na emenda', () => {
+    const { height, cols, cellCols, bodyRows } = buildHeightField(defaultTextureRollerParams)
+    const cellW = cols / cellCols
+    const row = Math.floor(bodyRows / 2)
+    const mutated = height.slice()
+    mutated[row * cols] += 0.5
+    let maxDiff = 0
+    for (let c = 0; c < cols; c++) {
+      const mirrored = row * cols + ((c + cellW) % cols)
+      maxDiff = Math.max(maxDiff, Math.abs(mutated[row * cols + c] - mutated[mirrored]))
+    }
+    expect(maxDiff).toBeGreaterThan(0.4)
   })
   it('muda com a densidade (alta tem mais células)', () => {
     const low = buildHeightField({ ...defaultTextureRollerParams, density: 'low' })
     const high = buildHeightField({ ...defaultTextureRollerParams, density: 'high' })
     expect(high.cellCols).toBeGreaterThan(low.cellCols)
-    expect(high.cols).toBe(low.cols)
-    expect(high.bodyRows).toBe(low.bodyRows)
+    expect(Math.abs(high.cols - low.cols)).toBeLessThanOrEqual(low.cellCols)
+    expect(Math.abs(high.bodyRows - low.bodyRows)).toBeLessThanOrEqual(low.cellRows)
   })
   it('modo svg sem parsedSvg não lança e devolve zeros', () => {
     const { height } = buildHeightField({ ...defaultTextureRollerParams, patternSource: 'svg', svgIcon: '<svg/>' }, null)
@@ -58,7 +59,7 @@ describe('buildHeightField', () => {
       }
     }
   })
-  it('normaliza SVG de qualquer escala para ~88% da célula', () => {
+  it('normaliza SVG de qualquer escala e preserva a espessura física', () => {
     const parsed: ParsedSvg = {
       fills: [{ outer: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], holes: [] }],
       strokes: [],
@@ -67,18 +68,23 @@ describe('buildHeightField', () => {
     const { height, cols, bodyRows, cellCols, cellRows } = buildHeightField(params, parsed)
     const cellRow = Math.floor(cellRows / 2)
     const row = Math.min(bodyRows - 1, Math.floor((cellRow + 0.5) * (bodyRows / cellRows)))
-    let run = 0
-    let started = false
-    for (let c = 0; c < cols; c++) {
-      if (height[row * cols + c] > 0.5 * defaultTextureRollerParams.reliefDepth) {
-        started = true
-        run++
-      } else if (started) {
-        break
+    const threshold = 0.5 * params.reliefDepth
+    const runs: Array<{ start: number; length: number }> = []
+    let start = -1
+    for (let c = 0; c <= cols; c++) {
+      const filled = c < cols && height[row * cols + c] > threshold
+      if (filled && start < 0) start = c
+      if (!filled && start >= 0) {
+        runs.push({ start, length: c - start })
+        start = -1
       }
     }
     const cellW = cols / cellCols
-    expect(run / cellW).toBeGreaterThan(0.85)
-    expect(run / cellW).toBeLessThan(1.1)
+    const first = runs[0]
+    expect(first).toBeDefined()
+    expect(first.length / cellW).toBeGreaterThan(0.6)
+    expect(first.length / cellW).toBeLessThan(0.86)
+    expect(runs.length).toBeGreaterThanOrEqual(2)
+    expect(runs[1].start - (first.start + first.length)).toBeGreaterThan(0)
   })
 })

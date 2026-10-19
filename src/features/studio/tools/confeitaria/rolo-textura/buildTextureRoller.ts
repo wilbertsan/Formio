@@ -1,5 +1,4 @@
-import type { Shape } from 'three'
-import type { ParsedSvg } from '../shared/svgToIconShape'
+import type { ParsedSvg, Point2 } from '../shared/svgToIconShape'
 import { svgBoundsFromParsed, svgShapesFromParsed } from '../shared/svgToIconShape'
 import {
   DENSITY_CELL_MM, EDGE_MARGIN_MM, MIN_FEATURE_MM, MESH_STEP_MM,
@@ -15,57 +14,41 @@ export interface HeightField {
   cellRows: number
 }
 
-// Normaliza contornos do SVG para a célula [-0.44, 0.44], preservando proporção.
-// O SVGLoader entrega Y para baixo; negamos Y para corrigir a orientação.
-interface ShapeBounds {
-  minX: number
-  minY: number
-  maxX: number
-  maxY: number
-}
-
-function shapeBounds(shapes: Shape[]): ShapeBounds | null {
-  let minX = Infinity
-  let minY = Infinity
-  let maxX = -Infinity
-  let maxY = -Infinity
-  for (const shape of shapes) {
-    for (const poly of [shape.getPoints(), ...shape.holes.map((hole) => hole.getPoints())]) {
-      for (const p of poly) {
-        if (p.x < minX) minX = p.x
-        if (p.x > maxX) maxX = p.x
-        if (p.y < minY) minY = p.y
-        if (p.y > maxY) maxY = p.y
-      }
-    }
-  }
-  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null
-  return { minX, minY, maxX, maxY }
-}
-
-function svgMotifShapes(parsed: ParsedSvg | null): MotifShape[] {
+// Normaliza o SVG em unidades de célula antes de dilatar, garantindo que a
+// espessura mínima física não infle o motivo. O SVGLoader entrega Y para baixo;
+// negamos Y no resultado final.
+function svgMotifShapes(parsed: ParsedSvg | null, minFeatureFrac: number): MotifShape[] {
   if (!parsed) return []
   const raw = svgBoundsFromParsed(parsed)
   if (!raw) return []
   const rawSpan = Math.max(raw.width, raw.height)
   if (rawSpan <= 0) return []
 
-  const scaleGuess = 0.88 / rawSpan
-  const minFeatureSvg = MIN_FEATURE_MM / scaleGuess
-  const shapes = svgShapesFromParsed(parsed, minFeatureSvg)
+  const baseSpan = 0.88 - 2 * minFeatureFrac
+  if (baseSpan <= 0) return []
+  const scale = baseSpan / rawSpan
+  const mapPoint = (p: Point2): Point2 => ({
+    x: (p.x - raw.centerX) * scale,
+    y: (p.y - raw.centerY) * scale,
+  })
+
+  const scaled: ParsedSvg = {
+    fills: parsed.fills.map((fill) => ({
+      outer: fill.outer.map(mapPoint),
+      holes: fill.holes.map((hole) => hole.map(mapPoint)),
+    })),
+    strokes: parsed.strokes.map((stroke) => ({
+      points: stroke.points.map(mapPoint),
+      width: stroke.width * scale,
+    })),
+  }
+
+  const shapes = svgShapesFromParsed(scaled, minFeatureFrac)
   if (shapes.length === 0) return []
 
-  const bounds = shapeBounds(shapes)
-  if (!bounds) return []
-  const span = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)
-  if (span <= 0) return []
-
-  const scale = 0.88 / span
-  const cx = (bounds.minX + bounds.maxX) / 2
-  const cy = (bounds.minY + bounds.maxY) / 2
   return shapes.map((shape) => ({
-    outer: shape.getPoints().map((p) => ({ x: (p.x - cx) * scale, y: -(p.y - cy) * scale })),
-    holes: shape.holes.map((hole) => hole.getPoints().map((p) => ({ x: (p.x - cx) * scale, y: -(p.y - cy) * scale }))),
+    outer: shape.getPoints().map((p) => ({ x: p.x, y: -p.y })),
+    holes: shape.holes.map((hole) => hole.getPoints().map((p) => ({ x: p.x, y: -p.y }))),
   }))
 }
 
@@ -192,10 +175,13 @@ export function buildHeightField(
 ): HeightField {
   const circumference = Math.PI * params.diameter
   const cellMm = DENSITY_CELL_MM[params.density]
+  const minFeatureFrac = MIN_FEATURE_MM / cellMm
   const cellCols = Math.max(3, Math.round(circumference / cellMm))
   const cellRows = Math.max(2, Math.round(params.length / cellMm))
-  const cols = Math.max(cellCols, Math.round(circumference / MESH_STEP_MM))
-  const bodyRows = Math.max(cellRows, Math.round(params.length / MESH_STEP_MM))
+  const minCols = Math.round(circumference / MESH_STEP_MM)
+  const cols = Math.max(cellCols, Math.ceil(minCols / cellCols) * cellCols)
+  const minRows = Math.round(params.length / MESH_STEP_MM)
+  const bodyRows = Math.max(cellRows, Math.ceil(minRows / cellRows) * cellRows)
 
   const cellW = cols / cellCols
   const cellH = bodyRows / cellRows
@@ -203,7 +189,7 @@ export function buildHeightField(
   let shapes: MotifShape[]
   let staggered = false
   if (params.patternSource === 'svg') {
-    shapes = svgMotifShapes(parsedSvg)
+    shapes = svgMotifShapes(parsedSvg, minFeatureFrac)
   } else {
     shapes = motifShapes(params.patternFamily, params.patternMotif as PatternMotif)
     staggered = isStaggered(params.patternMotif as PatternMotif)
@@ -223,7 +209,9 @@ export function buildHeightField(
   }
 
   const marginRows = Math.max(1, Math.ceil(EDGE_MARGIN_MM / (params.length / bodyRows)))
-  for (let r = 0; r < marginRows; r++) {
+  const bevelRows = Math.ceil(RELIEF_BEVEL_MM / (params.length / bodyRows))
+  const maskedRows = marginRows + bevelRows
+  for (let r = 0; r < maskedRows; r++) {
     for (let c = 0; c < cols; c++) {
       mask[r * cols + c] = 0
       mask[(bodyRows - 1 - r) * cols + c] = 0
