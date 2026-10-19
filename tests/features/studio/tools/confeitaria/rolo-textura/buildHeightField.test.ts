@@ -166,4 +166,21 @@ describe('buildHeightField', () => {
     expect(best).toBeGreaterThanOrEqual(2)
     expect(best * cellWidthMm).toBeGreaterThanOrEqual(0.8)
   })
+  it('une traços SVG sobrepostos (interseção sólida)', () => {
+    const parsed: ParsedSvg = {
+      fills: [],
+      strokes: [
+        { points: [{ x: 0.2, y: 0.5 }, { x: 0.8, y: 0.5 }], width: 0.2 },
+        { points: [{ x: 0.5, y: 0.2 }, { x: 0.5, y: 0.8 }], width: 0.2 },
+      ],
+    }
+    const params = { ...defaultTextureRollerParams, patternSource: 'svg' as const, density: 'low' as const }
+    const { height, cols, bodyRows, cellCols, cellRows } = buildHeightField(params, parsed)
+    const cellW = cols / cellCols
+    const cellH = bodyRows / cellRows
+    const row = Math.floor(cellRows / 2)
+    const c = Math.floor(0.5 * cellW)
+    const r = Math.floor((row + 0.5) * cellH)
+    expect(height[r * cols + c]).toBeGreaterThan(0.9 * params.reliefDepth)
+  })
 })

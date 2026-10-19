@@ -1,5 +1,6 @@
 import type { ParsedSvg, Point2 } from '../shared/svgToIconShape'
 import { svgBoundsFromParsed, svgShapesFromParsed } from '../shared/svgToIconShape'
+import { pathsToShapes, toClipperPaths, unionPaths } from '../shared/textOutline'
 import {
   DENSITY_CELL_MM, EDGE_MARGIN_MM, MIN_FEATURE_MM, MESH_STEP_MM,
   RELIEF_BEVEL_MM, type PatternMotif, type TextureRollerParams,
@@ -25,7 +26,6 @@ function svgMotifShapes(parsed: ParsedSvg | null, minFeatureFrac: number): Motif
   if (rawSpan <= 0) return []
 
   const baseSpan = Math.max(0.2, 0.88 - minFeatureFrac)
-  if (baseSpan <= 0) return []
   const scale = baseSpan / rawSpan
   const mapPoint = (p: Point2): Point2 => ({
     x: (p.x - raw.centerX) * scale,
@@ -43,10 +43,11 @@ function svgMotifShapes(parsed: ParsedSvg | null, minFeatureFrac: number): Motif
     })),
   }
 
-  const shapes = svgShapesFromParsed(scaled, minFeatureFrac)
-  if (shapes.length === 0) return []
+  const rawShapes = svgShapesFromParsed(scaled, minFeatureFrac)
+  if (rawShapes.length === 0) return []
+  const merged = pathsToShapes(unionPaths(toClipperPaths(rawShapes)))
 
-  return shapes.map((shape) => ({
+  return merged.map((shape) => ({
     outer: shape.getPoints().map((p) => ({ x: p.x, y: -p.y })),
     holes: shape.holes.map((hole) => hole.getPoints().map((p) => ({ x: p.x, y: -p.y }))),
   }))
