@@ -1,8 +1,10 @@
+import { BufferAttribute, BufferGeometry } from 'three'
 import type { ParsedSvg, Point2 } from '../shared/svgToIconShape'
 import { svgBoundsFromParsed, svgShapesFromParsed } from '../shared/svgToIconShape'
 import { pathsToShapes, toClipperPaths, unionPaths } from '../shared/textOutline'
 import {
-  DENSITY_CELL_MM, EDGE_MARGIN_MM, MIN_FEATURE_MM, MESH_STEP_MM,
+  DENSITY_CELL_MM, EDGE_MARGIN_MM, HANDLE_DIAMETER_MM, HANDLE_FILLET_MM,
+  HANDLE_LENGTH_MM, MIN_FEATURE_MM, MESH_STEP_MM,
   RELIEF_BEVEL_MM, type PatternMotif, type TextureRollerParams,
 } from './schema'
 import { isStaggered, motifShapes, type MotifShape } from './patterns'
@@ -233,4 +235,139 @@ export function buildHeightField(
     }
   }
   return { height, cols, bodyRows, cellCols, cellRows }
+}
+
+const AXLE_RADIUS = HANDLE_DIAMETER_MM / 2
+
+interface ProfileSample { x: number; radius: number; body: boolean; row: number }
+
+function smoothstep(t: number): number {
+  return t * t * (3 - 2 * t)
+}
+
+// Perfil de revolução: corpo + filetes côncavos + eixos + pontas hemisféricas.
+function buildProfile(params: TextureRollerParams, bodyRows: number): ProfileSample[] {
+  const half = params.length / 2
+  const bodyRadius = params.diameter / 2
+  const samples: ProfileSample[] = []
+
+  for (let i = 0; i <= bodyRows; i++) {
+    samples.push({
+      x: -half + (params.length * i) / bodyRows,
+      radius: bodyRadius,
+      body: true,
+      row: Math.min(bodyRows - 1, Math.round((i / bodyRows) * (bodyRows - 1))),
+    })
+  }
+
+  const filletSteps = Math.max(2, Math.ceil(HANDLE_FILLET_MM / MESH_STEP_MM))
+  const tipSteps = Math.max(2, Math.ceil(AXLE_RADIUS / MESH_STEP_MM))
+  const axleStart = HANDLE_FILLET_MM
+  const axleEnd = HANDLE_LENGTH_MM - AXLE_RADIUS
+  const axleSteps = Math.max(1, Math.ceil((axleEnd - axleStart) / 1))
+
+  for (const sign of [-1, 1]) {
+    for (let i = 1; i <= filletSteps; i++) {
+      const t = i / filletSteps
+      samples.push({
+        x: sign * (half + HANDLE_FILLET_MM * t),
+        radius: AXLE_RADIUS + (bodyRadius - AXLE_RADIUS) * (1 - smoothstep(t)),
+        body: false,
+        row: 0,
+      })
+    }
+    for (let i = 1; i <= axleSteps; i++) {
+      samples.push({
+        x: sign * (half + axleStart + ((axleEnd - axleStart) * i) / axleSteps),
+        radius: AXLE_RADIUS,
+        body: false,
+        row: 0,
+      })
+    }
+    for (let i = 1; i <= tipSteps; i++) {
+      const t = i / tipSteps
+      samples.push({
+        x: sign * (half + axleEnd + AXLE_RADIUS * t),
+        radius: AXLE_RADIUS * Math.sqrt(Math.max(0, 1 - t * t)),
+        body: false,
+        row: 0,
+      })
+    }
+  }
+
+  return samples.sort((a, b) => a.x - b.x)
+}
+
+export interface BuildTextureRollerInput {
+  params: TextureRollerParams
+  parsedSvg?: ParsedSvg | null
+}
+
+export interface BuildTextureRollerResult {
+  roller: BufferGeometry
+}
+
+export function buildTextureRoller({ params, parsedSvg }: BuildTextureRollerInput): BuildTextureRollerResult {
+  const { height, cols, bodyRows } = buildHeightField(params, parsedSvg)
+  const profile = buildProfile(params, bodyRows)
+  const nSegments = cols
+  const positions: number[] = []
+  const rings: { start: number; apex: boolean; heights: Float32Array | null }[] = []
+
+  for (const sample of profile) {
+    const start = positions.length / 3
+    if (sample.radius < 1e-4) {
+      positions.push(sample.x, 0, 0)
+      rings.push({ start, apex: true, heights: null })
+      continue
+    }
+    const ringHeights = sample.body
+      ? Float32Array.from({ length: nSegments }, (_, j) => height[sample.row * cols + (j % cols)])
+      : null
+    for (let j = 0; j < nSegments; j++) {
+      const a = (j / nSegments) * Math.PI * 2
+      const r = sample.radius + (ringHeights ? ringHeights[j] : 0)
+      positions.push(sample.x, r * Math.cos(a), r * Math.sin(a))
+    }
+    rings.push({ start, apex: false, heights: ringHeights })
+  }
+
+  const bodyIndices: number[] = []
+  const reliefIndices: number[] = []
+  const emit = (target: number[], a: number, b: number, c: number) => target.push(a, b, c)
+
+  for (let i = 0; i + 1 < rings.length; i++) {
+    const a = rings[i]
+    const b = rings[i + 1]
+    if (a.apex || b.apex) {
+      if (a.apex) {
+        for (let j = 0; j < nSegments; j++) {
+          const j2 = (j + 1) % nSegments
+          emit(bodyIndices, a.start, b.start + j2, b.start + j)
+        }
+      } else {
+        for (let j = 0; j < nSegments; j++) {
+          const j2 = (j + 1) % nSegments
+          emit(bodyIndices, b.start, a.start + j, a.start + j2)
+        }
+      }
+      continue
+    }
+    for (let j = 0; j < nSegments; j++) {
+      const j2 = (j + 1) % nSegments
+      const relief = a.heights !== null && b.heights !== null
+        && Math.max(a.heights[j], a.heights[j2], b.heights[j], b.heights[j2]) > 1e-6
+      const target = relief ? reliefIndices : bodyIndices
+      emit(target, a.start + j, b.start + j2, b.start + j)
+      emit(target, a.start + j, a.start + j2, b.start + j2)
+    }
+  }
+
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(positions), 3))
+  geometry.setIndex([...bodyIndices, ...reliefIndices])
+  geometry.addGroup(0, bodyIndices.length, 0)
+  geometry.addGroup(bodyIndices.length, reliefIndices.length, 1)
+  geometry.computeVertexNormals()
+  return { roller: geometry }
 }
