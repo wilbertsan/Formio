@@ -151,7 +151,12 @@ describe('buildHeightField', () => {
       fills: [],
       strokes: [{ points: [{ x: 0.5, y: 0.2 }, { x: 0.5, y: 0.8 }], width: 0.001 }],
     }
-    const params = { ...defaultTextureRollerParams, patternSource: 'svg' as const, density: 'high' as const }
+    const params = {
+      ...defaultTextureRollerParams,
+      patternSource: 'svg' as const,
+      density: 'high' as const,
+      svgLineWidth: 0.9,
+    }
     const { height, cols, bodyRows, cellRows } = buildHeightField(params, parsed)
     const cellRow = Math.floor(cellRows / 2)
     const row = Math.min(bodyRows - 1, Math.floor((cellRow + 0.5) * (bodyRows / cellRows)))
@@ -168,6 +173,35 @@ describe('buildHeightField', () => {
     const cellWidthMm = (Math.PI * params.diameter) / cols
     expect(best).toBeGreaterThanOrEqual(2)
     expect(best * cellWidthMm).toBeGreaterThanOrEqual(0.8)
+  })
+  it('controla a espessura do traço do SVG', () => {
+    const parsed: ParsedSvg = {
+      fills: [],
+      strokes: [{ points: [{ x: 0.5, y: 0.2 }, { x: 0.5, y: 0.8 }], width: 0.001 }],
+    }
+    const measure = (svgLineWidth: number): number => {
+      const params = {
+        ...defaultTextureRollerParams,
+        patternSource: 'svg' as const,
+        density: 'high' as const,
+        svgLineWidth,
+      }
+      const { height, cols, bodyRows, cellRows } = buildHeightField(params, parsed)
+      const cellRow = Math.floor(cellRows / 2)
+      const row = Math.min(bodyRows - 1, Math.floor((cellRow + 0.5) * (bodyRows / cellRows)))
+      let best = 0
+      let current = 0
+      for (let c = 0; c <= cols; c++) {
+        const inside = c < cols && height[row * cols + c] > 0.5 * params.reliefDepth
+        if (inside) current++
+        else {
+          best = Math.max(best, current)
+          current = 0
+        }
+      }
+      return best
+    }
+    expect(measure(1.2)).toBeGreaterThan(measure(0.6))
   })
   it('une traços SVG sobrepostos (interseção sólida)', () => {
     const parsed: ParsedSvg = {

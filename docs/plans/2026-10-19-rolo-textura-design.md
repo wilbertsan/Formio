@@ -24,6 +24,7 @@ borda, pronto para uso, com padrão repetido em toda a superfície de contato.
   - wave: `waves`, `chevrons`, `scales`
   - floral: `flower`, `leaf`, `rosette`
 - Padrão personalizado: SVG opcional (`patternSource: 'svg'`), repetido como motivo
+- Espessura do traço do SVG: 0.3–2 mm (`svgLineWidth`, padrão 0.8 mm)
 - Profundidade do relevo: 0.5–2 mm (padrão 1)
 - Densidade: `low` (célula 12 mm), `medium` (8 mm), `high` (5 mm)
 - Cores: cor do rolo e cor do relevo (10 cores PLA)

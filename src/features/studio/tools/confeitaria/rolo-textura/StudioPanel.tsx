@@ -212,8 +212,16 @@ export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: St
                     </Button>
                   )}
 
+                  <LabeledSlider
+                    label="Espessura do traço"
+                    value={params.svgLineWidth}
+                    min={0.3} max={2} step={0.1}
+                    suffix="mm"
+                    onChange={(value) => onUpdateParam('svgLineWidth', value)}
+                  />
+
                   <Text fontSize="xs" color="font.secondary">
-                    O SVG é repetido como motivo
+                    O SVG é repetido como motivo. Abaixo de 0.8mm o traço pode fundir no FDM.
                   </Text>
                 </>
               )}

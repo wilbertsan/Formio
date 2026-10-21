@@ -20,6 +20,7 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
   `flower`, `leaf`, `rosette`
 - Origem do padrão: `patternSource` `motif` (motivo interno) ou `svg` (SVG
   personalizado, repetido como motivo)
+- Espessura do traço do SVG: 0.3–2mm (`svgLineWidth`, padrão: 0.8mm)
 - Profundidade do relevo: 0.5–2mm (padrão: 1mm)
 - Densidade do padrão: `low`, `medium`, `high` (células de 12/8/5mm;
   padrão: `medium`)

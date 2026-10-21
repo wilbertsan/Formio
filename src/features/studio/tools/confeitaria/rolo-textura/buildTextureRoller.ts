@@ -189,8 +189,11 @@ export function buildHeightField(
   const cellWidthMm = circumference / cellCols
   const cellHeightMm = params.length / cellRows
   const cellMmReal = Math.min(cellWidthMm, cellHeightMm)
-  // Garante ao menos 3 células de largura para o traço sobreviver à rasterização.
-  const minFeatureMm = Math.max(MIN_FEATURE_MM, 3 * MESH_STEP_MM)
+  // No SVG o usuário controla a espessura; nos motivos internos garantimos
+  // ao menos 3 células de largura para o traço sobreviver à rasterização.
+  const minFeatureMm = params.patternSource === 'svg'
+    ? params.svgLineWidth
+    : Math.max(MIN_FEATURE_MM, 3 * MESH_STEP_MM)
   const minFeatureFrac = minFeatureMm / cellMmReal
 
   let shapes: MotifShape[]

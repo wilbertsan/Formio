@@ -51,6 +51,7 @@ describe('StudioPanel (rolo-textura)', () => {
     const params = { ...defaultTextureRollerParams, patternSource: 'svg' as const, svgIcon: null }
     render(<StudioPanel {...defaultProps} params={params} />)
     expect(screen.getByText('Upload SVG')).toBeDefined()
+    expect(screen.getByLabelText('Espessura do traço')).toBeDefined()
     expect(screen.getByText(/repetido como motivo/i)).toBeDefined()
   })
 
