@@ -35,6 +35,8 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
 - Periodicidade exata do padrão em 360° e ao longo do comprimento, sem costura
   nem overlap (número de repetições arredondado)
 - Chanfro do relevo: 0.2mm
+- Resolução da malha: 0.3mm (`MESH_STEP_MM`), garantindo ≥3 células no traço mínimo
+- Preview do relevo com `flatShading` para preservar a definição das bordas
 - Traço mínimo de relevo: 0.8mm (evita fusão no FDM)
 - Margem axial nas extremidades do corpo: 1mm
 - Profundidade mínima imprimível: 0.5mm (FDM)

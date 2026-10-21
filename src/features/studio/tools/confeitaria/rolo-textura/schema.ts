@@ -9,7 +9,7 @@ export type PlaColor = (typeof PLA_COLORS)[number]
 export const PRODUCT_TYPE = 'texture-roller' as const
 
 export const END_FILLET_MM = 1
-export const MESH_STEP_MM = 0.5
+export const MESH_STEP_MM = 0.3
 export const RELIEF_BEVEL_MM = 0.2
 export const MIN_FEATURE_MM = 0.8
 export const EDGE_MARGIN_MM = 1

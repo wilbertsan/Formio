@@ -19,7 +19,7 @@
 
 - Eixo do rolo em **X**: corpo em `[-L/2, L/2]`; cabos para `±(L/2..L/2+25)`.
 - `HANDLE_DIAMETER_MM = 8` (raio 4), `HANDLE_LENGTH_MM = 25`, `HANDLE_FILLET_MM = 2`.
-- `MESH_STEP_MM = 0.5`; `RELIEF_BEVEL_MM = 0.2`; `MIN_FEATURE_MM = 0.8`; `EDGE_MARGIN_MM = 1`.
+- `MESH_STEP_MM = 0.3`; `RELIEF_BEVEL_MM = 0.2`; `MIN_FEATURE_MM = 0.8`; `EDGE_MARGIN_MM = 1`.
 - Célula por densidade: low 12, medium 8, high 5 mm. `nCols = round(2πR/célula)`, `nRows = round(L/célula)`.
 - Motivos em coordenadas de célula `[-0.5, 0.5]²`; contínuos (`waves`, `chevrons`) tocam as bordas em X.
 - Cores: 10 PLA (mesma lista do `cortador-carimbo`). Ícone do card: `🍥`.
@@ -100,7 +100,7 @@ export const PRODUCT_TYPE = 'texture-roller' as const
 export const HANDLE_DIAMETER_MM = 8
 export const HANDLE_LENGTH_MM = 25
 export const HANDLE_FILLET_MM = 2
-export const MESH_STEP_MM = 0.5
+export const MESH_STEP_MM = 0.3
 export const RELIEF_BEVEL_MM = 0.2
 export const MIN_FEATURE_MM = 0.8
 export const EDGE_MARGIN_MM = 1

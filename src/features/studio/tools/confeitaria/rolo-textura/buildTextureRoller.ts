@@ -160,10 +160,11 @@ function applyBevel(
 ): Float32Array {
   const outside = distTo(mask, cols, bodyRows, dU, dV, 0)
   const inside = distTo(mask, cols, bodyRows, dU, dV, 1)
-  const half = Math.min(dU, dV) / 2
   const height = new Float32Array(cols * bodyRows)
   for (let i = 0; i < mask.length; i++) {
-    const signed = mask[i] ? outside[i] - half : -(inside[i] - half)
+    // A borda coincide com a transição de uma célula; o chanfro é o próprio
+    // passo da malha, preservando o platô e as paredes bem definidos.
+    const signed = mask[i] ? outside[i] : -inside[i]
     const t = (signed + RELIEF_BEVEL_MM) / (2 * RELIEF_BEVEL_MM)
     height[i] = depth * Math.min(1, Math.max(0, t))
   }
@@ -188,7 +189,8 @@ export function buildHeightField(
   const cellWidthMm = circumference / cellCols
   const cellHeightMm = params.length / cellRows
   const cellMmReal = Math.min(cellWidthMm, cellHeightMm)
-  const minFeatureMm = Math.max(MIN_FEATURE_MM, 2 * MESH_STEP_MM)
+  // Garante ao menos 3 células de largura para o traço sobreviver à rasterização.
+  const minFeatureMm = Math.max(MIN_FEATURE_MM, 3 * MESH_STEP_MM)
   const minFeatureFrac = minFeatureMm / cellMmReal
 
   let shapes: MotifShape[]

@@ -38,7 +38,8 @@ borda, pronto para uso, com padrão repetido em toda a superfície de contato.
 - Chanfro `RELIEF_BEVEL_MM = 0.2` via transformada de distância assinada → arestas
   arredondadas (contato com alimento), manifold, sem costura.
 - Margem axial de 1 mm em cada ponta do corpo para o relevo zerar antes do filete.
-- Passo de malha `MESH_STEP_MM = 0.5`; traço mínimo `MIN_FEATURE_MM = 0.8`.
+- Passo de malha `MESH_STEP_MM = 0.3`; traço mínimo `MIN_FEATURE_MM = 0.8`.
+- Preview do relevo com `flatShading` para preservar a definição das bordas.
 - Cores por grupos de material: grupo 0 = corpo, grupo 1 = relevo.
 
 ## 4. Decisões
