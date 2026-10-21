@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { BoxGeometry } from 'three'
 import { exportTextureRollerStl } from '@/features/studio/tools/confeitaria/rolo-textura/exportStl'
 import type { BuildTextureRollerResult } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
 
@@ -9,7 +10,7 @@ vi.mock('three/examples/jsm/exporters/STLExporter.js', () => ({
 }))
 
 function makeResult(): BuildTextureRollerResult {
-  return { roller: { dispose: vi.fn() } } as unknown as BuildTextureRollerResult
+  return { roller: new BoxGeometry(1, 1, 1) }
 }
 
 describe('exportTextureRollerStl', () => {

@@ -5,8 +5,7 @@ import type { BuildTextureRollerResult } from './buildTextureRoller'
 
 export function exportTextureRollerStl(geometry: BuildTextureRollerResult, projectName: string): void {
   const scene = new Scene()
-  const mesh = new Mesh()
-  mesh.geometry = geometry.roller
+  const mesh = new Mesh(geometry.roller)
   scene.add(mesh)
   const result = new STLExporter().parse(scene, { binary: true })
   const blob = new Blob([result as unknown as BlobPart], { type: 'model/stl' })
