@@ -12,7 +12,7 @@ export function TextureRollerPreview({ geometry, rollerColor, reliefColor }: Tex
   return (
     <mesh geometry={geometry.roller} castShadow receiveShadow>
       <meshStandardMaterial attach="material-0" color={rollerColor} metalness={0.1} roughness={0.4} />
-      <meshStandardMaterial attach="material-1" color={reliefColor} metalness={0.05} roughness={0.45} flatShading />
+      <meshStandardMaterial attach="material-1" color={reliefColor} metalness={0.05} roughness={0.45} />
     </mesh>
   )
 }
