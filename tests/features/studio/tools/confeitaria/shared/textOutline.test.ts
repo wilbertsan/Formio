@@ -13,6 +13,7 @@ import {
   shapesToGeometry,
   textToShapes,
   outerPaths,
+  clipPathsToRect,
 } from '@/features/studio/tools/confeitaria/shared/textOutline'
 
 function rect(x: number, y: number, w: number, h: number): Shape {
@@ -169,5 +170,23 @@ describe('textToShapes', () => {
     } as unknown as Font
     textToShapes(font, 'Parabéns', 10)
     expect(calls).toEqual(['Parabéns'])
+  })
+})
+
+describe('clipPathsToRect', () => {
+  it('recorta paths no retângulo preservando a área', () => {
+    const square = new Shape([
+      new Vector2(0, 0), new Vector2(10, 0), new Vector2(10, 10), new Vector2(0, 10),
+    ])
+    const clipped = clipPathsToRect(toClipperPaths([square]), 2, 2, 8, 8)
+    const shapes = pathsToShapes(clipped)
+    expect(shapes).toHaveLength(1)
+    const points = shapes[0].getPoints()
+    const xs = points.map((p) => p.x)
+    const ys = points.map((p) => p.y)
+    expect(Math.min(...xs)).toBeCloseTo(2, 2)
+    expect(Math.max(...xs)).toBeCloseTo(8, 2)
+    expect(Math.min(...ys)).toBeCloseTo(2, 2)
+    expect(Math.max(...ys)).toBeCloseTo(8, 2)
   })
 })

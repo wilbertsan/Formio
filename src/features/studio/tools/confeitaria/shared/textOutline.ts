@@ -84,6 +84,34 @@ export function offsetPaths(paths: ClipperPoint[][], mm: number): ClipperPoint[]
   return solution as ClipperPoint[][]
 }
 
+/** Recorta paths (já em unidades Clipper, ×1000) em um retângulo em mm. */
+export function clipPathsToRect(
+  paths: ClipperPoint[][],
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): ClipperPoint[][] {
+  if (paths.length === 0) return []
+  const rect: ClipperPoint[] = [
+    { X: Math.round(minX * 1000), Y: Math.round(minY * 1000) },
+    { X: Math.round(maxX * 1000), Y: Math.round(minY * 1000) },
+    { X: Math.round(maxX * 1000), Y: Math.round(maxY * 1000) },
+    { X: Math.round(minX * 1000), Y: Math.round(maxY * 1000) },
+  ]
+  const clipper = new ClipperLib.Clipper()
+  clipper.AddPaths(paths, ClipperLib.PolyType.ptSubject, true)
+  clipper.AddPaths([rect], ClipperLib.PolyType.ptClip, true)
+  const solution = new ClipperLib.Paths()
+  clipper.Execute(
+    ClipperLib.ClipType.ctIntersection,
+    solution,
+    ClipperLib.PolyFillType.pftNonZero,
+    ClipperLib.PolyFillType.pftNonZero,
+  )
+  return solution as ClipperPoint[][]
+}
+
 /** a − b. */
 export function subtractPaths(a: ClipperPoint[][], b: ClipperPoint[][]): ClipperPoint[][] {
   const clipper = new ClipperLib.Clipper()
