@@ -19,8 +19,7 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
 - Motivo do padrão: `diamonds`, `dots`, `grid`; `waves`, `chevrons`, `scales`;
   `flower`, `leaf`, `rosette`
 - Origem do padrão: `patternSource` `motif` (motivo interno) ou `svg` (SVG
-  personalizado, repetido como motivo)
-- Espessura do traço do SVG: 0.3–2mm (`svgLineWidth`, padrão: 0.8mm)
+  personalizado, repetido como motivo, **sem alterações** nas formas/traço)
 - Profundidade do relevo: 0.5–2mm (padrão: 1mm)
 - Densidade do padrão: `low`, `medium`, `high` (células de 12/8/5mm;
   padrão: `medium`)
@@ -33,6 +32,8 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
 - Malha única manifold (cilindro fechado com tampas) gerada por revolução; sem booleans
 - Sem cabos/eixos laterais: o comprimento total é igual ao comprimento do rolo
 - Relevo gerado por **campo de altura** sobre a superfície do cilindro
+- SVG aplicado exatamente como enviado: sem engrossar traço, dilatar ou unir formas;
+  apenas escala uniforme para caber na célula
 - Periodicidade exata do padrão em 360° e ao longo do comprimento, sem costura
   nem overlap (número de repetições arredondado)
 - Chanfro do relevo: 0.2mm

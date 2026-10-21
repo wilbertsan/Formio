@@ -194,6 +194,36 @@ export function svgShapesFromParsed(parsed: ParsedSvg, minFeatureSvg: number): S
   return shapes
 }
 
+/**
+ * Shapes do SVG exatamente como enviado: sem união, dilatação ou espessura
+ * mínima. Traços viram contornos com a largura declarada no próprio SVG.
+ */
+export function svgRawShapesFromParsed(parsed: ParsedSvg): Shape[] {
+  const shapes: Shape[] = []
+
+  for (const fill of parsed.fills) {
+    if (fill.outer.length < 3) continue
+    const shape = new Shape(fill.outer.map(p => new Vector2(p.x, p.y)))
+    for (const hole of fill.holes) {
+      if (hole.length >= 3) {
+        shape.holes.push(new Path(hole.map(p => new Vector2(p.x, p.y))))
+      }
+    }
+    shapes.push(shape)
+  }
+
+  for (const stroke of parsed.strokes) {
+    const outline = strokeToShape(
+      stroke.points.map(p => new Vector2(p.x, p.y)),
+      1,
+      stroke.width / 2,
+    )
+    if (outline) shapes.push(outline)
+  }
+
+  return shapes
+}
+
 // --- Wrappers por string (uso na main thread / carimbo-brigadeiro) ---
 
 export function svgBounds(svg: string): SvgBounds | null {

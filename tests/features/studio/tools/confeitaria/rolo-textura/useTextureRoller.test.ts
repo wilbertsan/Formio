@@ -184,18 +184,6 @@ describe('useTextureRoller', () => {
     expect(getCalls()).toBe(callsAfterInitial)
   })
 
-  it('rebuilda ao alterar a espessura do traço do SVG', () => {
-    const { factory, getCalls } = makeWorkerFixture()
-    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
-    act(() => { result.current.updateParam('patternSource', 'svg') })
-    act(() => { result.current.setSvgIcon(SVG) })
-    act(() => { vi.advanceTimersByTime(250) })
-    const calls = getCalls()
-    act(() => { result.current.updateParam('svgLineWidth', 1.2) })
-    act(() => { vi.advanceTimersByTime(250) })
-    expect(getCalls()).toBeGreaterThan(calls)
-  })
-
   it('termina o worker anterior antes de um novo build', () => {
     const { factory, terminate } = makeWorkerFixture()
     const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))

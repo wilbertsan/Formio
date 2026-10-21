@@ -10,7 +10,7 @@ describe('rolo-textura schema', () => {
     expect(defaultTextureRollerParams).toMatchObject({
       productType: 'texture-roller', length: 100, diameter: 30,
       patternFamily: 'geometric', patternMotif: 'diamonds',
-      patternSource: 'motif', svgLineWidth: 0.8, reliefDepth: 1, density: 'medium',
+      patternSource: 'motif', reliefDepth: 1, density: 'medium',
     })
   })
   it('rejeita motivo fora da família', () => {
@@ -25,8 +25,6 @@ describe('rolo-textura schema', () => {
     expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, length: 49 }).success).toBe(false)
     expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, diameter: 41 }).success).toBe(false)
     expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, reliefDepth: 2.1 }).success).toBe(false)
-    expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, svgLineWidth: 0.2 }).success).toBe(false)
-    expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, svgLineWidth: 2.1 }).success).toBe(false)
   })
   it('sanitizeFilename', () => {
     expect(sanitizeFilename('Rolo de Textura!')).toBe('Rolo_de_Textura_')

@@ -1,9 +1,9 @@
 import { BufferAttribute, BufferGeometry } from 'three'
-import type { ParsedSvg, Point2 } from '../shared/svgToIconShape'
-import { svgBoundsFromParsed, svgShapesFromParsed } from '../shared/svgToIconShape'
+import type { ParsedSvg } from '../shared/svgToIconShape'
+import { svgRawShapesFromParsed } from '../shared/svgToIconShape'
 import { pathsToShapes, toClipperPaths, unionPaths } from '../shared/textOutline'
 import {
-  DENSITY_CELL_MM, EDGE_MARGIN_MM, END_FILLET_MM, MIN_FEATURE_MM, MESH_STEP_MM,
+  DENSITY_CELL_MM, EDGE_MARGIN_MM, END_FILLET_MM, MESH_STEP_MM,
   RELIEF_BEVEL_MM, type PatternMotif, type TextureRollerParams,
 } from './schema'
 import { isStaggered, motifShapes, type MotifShape } from './patterns'
@@ -16,41 +16,45 @@ export interface HeightField {
   cellRows: number
 }
 
-// Normaliza o SVG em unidades de célula antes de dilatar, garantindo que a
-// espessura mínima física não infle o motivo. O SVGLoader entrega Y para baixo;
+// Usa o SVG exatamente como enviado (traço e formas originais), apenas com
+// escala uniforme para caber na célula. O SVGLoader entrega Y para baixo;
 // negamos Y no resultado final.
-function svgMotifShapes(parsed: ParsedSvg | null, minFeatureFrac: number): MotifShape[] {
+function svgMotifShapes(parsed: ParsedSvg | null): MotifShape[] {
   if (!parsed) return []
-  const raw = svgBoundsFromParsed(parsed)
-  if (!raw) return []
-  const rawSpan = Math.max(raw.width, raw.height)
-  if (rawSpan <= 0) return []
-
-  const baseSpan = Math.max(0.2, 0.88 - minFeatureFrac)
-  const scale = baseSpan / rawSpan
-  const mapPoint = (p: Point2): Point2 => ({
-    x: (p.x - raw.centerX) * scale,
-    y: (p.y - raw.centerY) * scale,
-  })
-
-  const scaled: ParsedSvg = {
-    fills: parsed.fills.map((fill) => ({
-      outer: fill.outer.map(mapPoint),
-      holes: fill.holes.map((hole) => hole.map(mapPoint)),
-    })),
-    strokes: parsed.strokes.map((stroke) => ({
-      points: stroke.points.map(mapPoint),
-      width: stroke.width * scale,
-    })),
-  }
-
-  const rawShapes = svgShapesFromParsed(scaled, minFeatureFrac)
+  const rawShapes = svgRawShapesFromParsed(parsed)
   if (rawShapes.length === 0) return []
   const merged = pathsToShapes(unionPaths(toClipperPaths(rawShapes)))
+  if (merged.length === 0) return []
+
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+  for (const shape of merged) {
+    for (const point of [...shape.getPoints(), ...shape.holes.flatMap((hole) => hole.getPoints())]) {
+      if (point.x < minX) minX = point.x
+      if (point.x > maxX) maxX = point.x
+      if (point.y < minY) minY = point.y
+      if (point.y > maxY) maxY = point.y
+    }
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return []
+
+  const span = Math.max(maxX - minX, maxY - minY)
+  if (span <= 0) return []
+  const scale = 0.88 / span
+  const centerX = (minX + maxX) / 2
+  const centerY = (minY + maxY) / 2
 
   return merged.map((shape) => ({
-    outer: shape.getPoints().map((p) => ({ x: p.x, y: -p.y })),
-    holes: shape.holes.map((hole) => hole.getPoints().map((p) => ({ x: p.x, y: -p.y }))),
+    outer: shape.getPoints().map((p) => ({
+      x: (p.x - centerX) * scale,
+      y: -(p.y - centerY) * scale,
+    })),
+    holes: shape.holes.map((hole) => hole.getPoints().map((p) => ({
+      x: (p.x - centerX) * scale,
+      y: -(p.y - centerY) * scale,
+    }))),
   }))
 }
 
@@ -186,20 +190,11 @@ export function buildHeightField(
 
   const cellW = cols / cellCols
   const cellH = bodyRows / cellRows
-  const cellWidthMm = circumference / cellCols
-  const cellHeightMm = params.length / cellRows
-  const cellMmReal = Math.min(cellWidthMm, cellHeightMm)
-  // No SVG o usuário controla a espessura; nos motivos internos garantimos
-  // ao menos 3 células de largura para o traço sobreviver à rasterização.
-  const minFeatureMm = params.patternSource === 'svg'
-    ? params.svgLineWidth
-    : Math.max(MIN_FEATURE_MM, 3 * MESH_STEP_MM)
-  const minFeatureFrac = minFeatureMm / cellMmReal
 
   let shapes: MotifShape[]
   let staggered = false
   if (params.patternSource === 'svg') {
-    shapes = svgMotifShapes(parsedSvg, minFeatureFrac)
+    shapes = svgMotifShapes(parsedSvg)
   } else {
     shapes = motifShapes(params.patternFamily, params.patternMotif as PatternMotif)
     staggered = isStaggered(params.patternMotif as PatternMotif)

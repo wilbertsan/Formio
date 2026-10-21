@@ -86,7 +86,7 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
 
   const {
     productType, length, diameter, patternFamily, patternMotif,
-    patternSource, svgIcon, svgLineWidth, reliefDepth, density,
+    patternSource, svgIcon, reliefDepth, density,
   } = params
 
   const buildParams = useMemo<TextureRollerParams>(
@@ -98,13 +98,12 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
       patternMotif,
       patternSource,
       svgIcon,
-      svgLineWidth,
       reliefDepth,
       density,
       rollerColor: defaultTextureRollerParams.rollerColor,
       reliefColor: defaultTextureRollerParams.reliefColor,
     }),
-    [productType, length, diameter, patternFamily, patternMotif, patternSource, svgIcon, svgLineWidth, reliefDepth, density],
+    [productType, length, diameter, patternFamily, patternMotif, patternSource, svgIcon, reliefDepth, density],
   )
 
   useEffect(() => {
