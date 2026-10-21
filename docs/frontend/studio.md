@@ -9,7 +9,8 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
 - **Topo de Bolo** — Toppers com texto em relevo ou vazado, ícone SVG e fixação por haste ou base
-- **Cortador + Carimbo** — Cortador de contorno com carimbo central em peça única
+- **Cortador + Carimbo** — Cortador e carimbo no formato do texto, em duas peças
+- **Rolo de Textura** — Rolos cilíndricos com cabos integrados e padrão em relevo (geométrico, ondulado, floral ou SVG)
 - **Marcador de Página** — Marcadores 3D personalizados com texto em relevo e furo para fita
 
 ### Componentes Genéricos
@@ -17,7 +18,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Topbar** — nome do projeto, Exportar STL, Salvar (disabled)
 - **Viewport** — Canvas R3F + OrbitControls + Grid + Environment
 - **Status bar** — dimensões em mm + dicas
-- **Tool Selector** — Seleção de ferramenta
+- **Tool Selector** — Seleção de ferramenta agrupada em duas faixas horizontais: Confeitaria e Letreiros (Chaveiro classificado como Letreiros)
 
 ## Como editar
 
@@ -61,11 +62,24 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Export STL | `src/features/studio/tools/confeitaria/topo-bolo/exportStl.ts` |
 | **Cortador + Carimbo** | |
 | Schema + tipos | `src/features/studio/tools/confeitaria/cortador-carimbo/schema.ts` |
-| Geometria (parede, ponte, carimbo) | `src/features/studio/tools/confeitaria/cortador-carimbo/buildCutterStamp.ts` |
+| Geometria (cortador stroke, base única, relevo) | `src/features/studio/tools/confeitaria/cortador-carimbo/buildCutterStamp.ts` |
 | Hook de estado | `src/features/studio/tools/confeitaria/cortador-carimbo/useCutterStamp.ts` |
 | Painel de parâmetros | `src/features/studio/tools/confeitaria/cortador-carimbo/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/confeitaria/cortador-carimbo/CutterStampPreview.tsx` |
 | Export STL | `src/features/studio/tools/confeitaria/cortador-carimbo/exportStl.ts` |
+| **Rolo de Textura** | |
+| Schema + tipos | `src/features/studio/tools/confeitaria/rolo-textura/schema.ts` |
+| Motivos das famílias | `src/features/studio/tools/confeitaria/rolo-textura/patterns.ts` |
+| Campo de altura + malha | `src/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller.ts` |
+| Worker + serialização | `src/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller.worker.ts` |
+| Interface do worker | `src/features/studio/tools/confeitaria/rolo-textura/workerClient.ts` |
+| Serialização da geometria | `src/features/studio/tools/confeitaria/rolo-textura/workerGeometry.ts` |
+| Hook de estado | `src/features/studio/tools/confeitaria/rolo-textura/useTextureRoller.ts` |
+| Painel de parâmetros | `src/features/studio/tools/confeitaria/rolo-textura/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/confeitaria/rolo-textura/TextureRollerPreview.tsx` |
+| Export STL | `src/features/studio/tools/confeitaria/rolo-textura/exportStl.ts` |
+| Helper SVG compartilhado (SVG → relevo) | `src/features/studio/tools/confeitaria/shared/svgToIconShape.ts` |
+| Helper de contorno de texto (texto → geometria) | `src/features/studio/tools/confeitaria/shared/textOutline.ts` |
 | **Marcador de Página** | |
 | Schema + tipos | `src/features/studio/tools/letreiros/marcador-pagina/schema.ts` |
 | Geometria (base retangular + furo) | `src/features/studio/tools/letreiros/marcador-pagina/buildBookmark.ts` |
@@ -98,7 +112,8 @@ Pipeline completo de geração do chaveiro 3D:
   valida e clampa os valores dos sliders.
 - **Mock de fiber/drei nos testes:** jsdom não tem WebGL; Canvas e componentes
   drei são mockados nos testes do viewport/page.
-- **Tema claro consistente com a landing** (painéis brancos, bordas neutral-200, ativos teal-600); componentes Amplify UI mantidos (SliderField, TextField).
+- **Seletor por categoria:** ferramentas agrupadas em duas faixas horizontais empilhadas (Confeitaria e Letreiros) derivadas do array `TOOLS`; cards com `flex-wrap` e largura responsiva (`w-full sm:w-56`), título da categoria na seção (não mais no card). Chaveiro pertence a Letreiros.
+- **Tema claro consistente com a landing** (painéis brancos, bordas neutral-200, ativos brand-600); componentes Amplify UI mantidos (SliderField, TextField).
 - **Gravação rasa:** o texto gravado corta apenas `textDepth` a partir da face frontal (epsilon 0.2 anti-coplanar) — o verso fica sólido e o texto nunca aparece espelhado por trás.
 - **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
 - **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
@@ -120,7 +135,9 @@ Pipeline completo de geração do chaveiro 3D:
 - **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
 - **Topo de Bolo:** Toppers decorativos para bolo com 1–3 textos independentes (modo relevo `raised` ou vazado `cut` via CSG, com fallback para relevo) e ícone SVG opcional (acima ou centro). Placa em `circle`, `rounded-rect`, `oval` ou contorno `custom` por SVG, via ExtrudeGeometry. Textos posicionados pelo editor 2D. Fixação por `haste` (cilindro integrado) ou `base` separada com canaleta de encaixe. Exportação STL binário.
 - **Marcador de Página:** Marcadores retangulares finos (2mm) para livros com furo circular para fita/laço. 1-3 textos independentes com posicionamento livre via editor visual. Modos relevo (texto saliente) e gravado (texto afundado via CSG). Dimensões ajustáveis (50-150mm x 30-50mm). Exportação STL binário.
-- **Cortador + Carimbo:** Peça única que combina parede cortadora externa com carimbo central. Formatos: círculo, retângulo ou estrela. Parede com ponta de corte fina, sem boolean para criar o canal. Ponte superior contínua conecta parede e carimbo. Conteúdo central combinável (texto + forma predefinida). Folga mínima de 3mm entre parede e carimbo. Exportação STL da peça unida.
+- **Cortador + Carimbo:** Gera duas peças separadas num único STL, a partir de **texto ou ícone SVG** (mutuamente exclusivos), lado a lado. Os contornos vêm de `font.generateShapes` (texto) ou `SVGLoader`+Clipper (SVG, via `shared/svgToIconShape.ts`, com engrossamento de traços finos até `iconLineWidth`). O **cortador** recorta o contorno com margem (`baseMargin`), unindo os elementos — parede de espessura `wallThickness` em volta de `expand(forma, +margem)`, em peça única (sem paredes internas). O **carimbo** (sem cabo) tem **base única** `expand(forma, +margem − folga)` (0.4mm/lado) e a **forma em alto relevo** (`reliefHeight`, 1–3mm) na face de contato. Forma reduzida se exceder `MAX_SHAPE_WIDTH_MM` (150mm). Exportação STL binário das peças mescladas.
+- **Rolo de Textura:** Rolo cilíndrico com eixo/cabos integrados (Ø8mm, 25mm por lado) e relevo saliente contínuo. O padrão vem de três famílias (geométrico: losangos/bolinhas/grade; ondulado: ondas/chevrons/escamas; floral: flor/folha/roseta) ou de um SVG personalizado repetido como motivo. A densidade define células de 12/8/5mm; a profundidade do relevo é 0.5–2mm. O corpo e os cabos formam uma única malha fechada por revolução; o relevo é um campo de altura com chanfro de 0.2mm. A repetição fecha exatamente em 360° e no comprimento (sem costura). Build em Web Worker. Exportação STL binário.
+- **Carimbo Brigadeiro:** Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; relevo fixo de 1mm. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.
 
 ## Próximos passos (fora de escopo desta fase)
 
