@@ -102,7 +102,10 @@ function LabeledSlider({
 
 export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: StudioPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const motifOptions = MOTIFS_BY_FAMILY[params.patternFamily]
+  const familyMotifs = MOTIFS_BY_FAMILY[params.patternFamily]
+  const selectedMotif = (familyMotifs as readonly string[]).includes(params.patternMotif)
+    ? params.patternMotif
+    : familyMotifs[0]
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.target
@@ -154,11 +157,11 @@ export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: St
 
               <SelectField
                 label="Motivo"
-                value={params.patternMotif}
+                value={selectedMotif}
                 onChange={(e) => onUpdateParam('patternMotif', e.target.value)}
               >
-                {motifOptions.map((motif) => (
-                  <option key={motif} value={motif}>{MOTIF_LABELS[motif as PatternMotif]}</option>
+                {familyMotifs.map((motif) => (
+                  <option key={motif} value={motif}>{MOTIF_LABELS[motif]}</option>
                 ))}
               </SelectField>
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { StudioPanel } from '@/features/studio/tools/confeitaria/rolo-textura/StudioPanel'
 import { defaultTextureRollerParams } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 
@@ -59,6 +59,39 @@ describe('StudioPanel (rolo-textura)', () => {
     const params = { ...defaultTextureRollerParams, patternSource: 'svg' as const, svgIcon: '<svg/>' }
     render(<StudioPanel {...defaultProps} params={params} />)
     expect(screen.getByText('Remover SVG')).toBeDefined()
+  })
+
+  it('remove o SVG', () => {
+    const onSetSvgIcon = vi.fn()
+    const params = { ...defaultTextureRollerParams, patternSource: 'svg' as const, svgIcon: '<svg/>' }
+    render(<StudioPanel {...defaultProps} params={params} onSetSvgIcon={onSetSvgIcon} />)
+    screen.getByText('Remover SVG').click()
+    expect(onSetSvgIcon).toHaveBeenCalledWith(null)
+  })
+
+  it('lê o SVG enviado', () => {
+    const onSetSvgIcon = vi.fn()
+    const params = { ...defaultTextureRollerParams, patternSource: 'svg' as const, svgIcon: null }
+    class FakeFileReader {
+      onload: ((event: { target: { result: string } }) => void) | null = null
+      readAsText() { this.onload?.({ target: { result: '<svg/>' } }) }
+    }
+    const original = globalThis.FileReader
+    // @ts-expect-error substituição controlada no teste
+    globalThis.FileReader = FakeFileReader
+    render(<StudioPanel {...defaultProps} params={params} onSetSvgIcon={onSetSvgIcon} />)
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['<svg/>'], 'icone.svg', { type: 'image/svg+xml' })
+    fireEvent.change(input, { target: { files: [file] } })
+    expect(onSetSvgIcon).toHaveBeenCalledWith('<svg/>')
+    globalThis.FileReader = original
+  })
+
+  it('usa o primeiro motivo quando o motivo atual é inválido', () => {
+    const params = { ...defaultTextureRollerParams, patternFamily: 'floral' as const, patternMotif: 'dots' }
+    render(<StudioPanel {...defaultProps} params={params} />)
+    const select = screen.getByLabelText('Motivo') as HTMLSelectElement
+    expect(select.value).toBe('flower')
   })
 
   it('chama onReset', () => {
