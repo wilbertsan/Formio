@@ -4,20 +4,20 @@ import type { PatternFamily, PatternMotif } from './schema'
 export interface Point2 { x: number; y: number }
 export interface MotifShape { outer: Point2[]; holes: Point2[][] }
 
-const circle = (radius: number, cx = 0, cy = 0, segments = 24): Point2[] =>
+const circle = (radius: number, cx = 0, cy = 0, segments = 48): Point2[] =>
   Array.from({ length: segments }, (_, i) => {
     const a = (i / segments) * Math.PI * 2
     return { x: cx + radius * Math.cos(a), y: cy + radius * Math.sin(a) }
   })
 
-const rose = (base: number, amp: number, lobes: number, segments = 60): Point2[] =>
+const rose = (base: number, amp: number, lobes: number, segments = 96): Point2[] =>
   Array.from({ length: segments }, (_, i) => {
     const a = (i / segments) * Math.PI * 2
     const r = base + amp * Math.cos(lobes * a)
     return { x: r * Math.cos(a), y: r * Math.sin(a) }
   })
 
-function waveBand(shape: (x: number) => number, half: number, steps = 48): Point2[] {
+function waveBand(shape: (x: number) => number, half: number, steps = 96): Point2[] {
   const top: Point2[] = []
   const bottom: Point2[] = []
   for (let i = 0; i <= steps; i++) {
@@ -38,7 +38,7 @@ const triangleWave = (x: number, amplitude: number): number =>
 
 function lens(): MotifShape {
   const outer: Point2[] = []
-  const n = 24
+  const n = 48
   for (let i = 0; i <= n; i++) outer.push({ x: -0.45 + (0.9 * i) / n, y: 0.18 * (1 - Math.pow((-1 + (2 * i) / n), 2)) })
   for (let i = n - 1; i >= 1; i--) outer.push({ x: -0.45 + (0.9 * i) / n, y: -0.18 * (1 - Math.pow((-1 + (2 * i) / n), 2)) })
   return { outer, holes: [] }
@@ -46,7 +46,7 @@ function lens(): MotifShape {
 
 function halfDisk(radius: number): Point2[] {
   const pts: Point2[] = [{ x: -radius, y: 0 }]
-  const n = 20
+  const n = 40
   for (let i = 1; i < n; i++) {
     const a = Math.PI - (Math.PI * i) / n
     pts.push({ x: radius * Math.cos(a), y: radius * Math.sin(a) })

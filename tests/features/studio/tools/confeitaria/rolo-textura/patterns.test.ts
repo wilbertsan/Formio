@@ -85,6 +85,12 @@ describe('patterns', () => {
     }
   })
 
+  it('usa contornos suaves nos motivos curvos', () => {
+    expect(motifShapes('geometric', 'dots')[0].outer.length).toBeGreaterThanOrEqual(48)
+    expect(motifShapes('floral', 'flower')[0].outer.length).toBeGreaterThanOrEqual(96)
+    expect(motifShapes('wave', 'waves')[0].outer.length).toBeGreaterThanOrEqual(96)
+  })
+
   it('marca stagger de todos os motivos', () => {
     const expected = {
       diamonds: true, dots: true, grid: false, waves: false, chevrons: false,
