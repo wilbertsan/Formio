@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { BoxGeometry } from 'three'
 import { useTextureRoller } from '@/features/studio/tools/confeitaria/rolo-textura/useTextureRoller'
-import { defaultTextureRollerParams, HANDLE_LENGTH_MM } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
+import { defaultTextureRollerParams } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 import { serializeBuildResult, type SerializedBuildResult } from '@/features/studio/tools/confeitaria/rolo-textura/workerGeometry'
 import type { GeometryWorker } from '@/features/studio/tools/confeitaria/rolo-textura/workerClient'
 import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
@@ -206,7 +206,7 @@ describe('useTextureRoller', () => {
   it('usa fallback de dimensões antes da geometria', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
-    expect(result.current.dimensions.width).toBeCloseTo(defaultTextureRollerParams.length + 2 * HANDLE_LENGTH_MM, 1)
+    expect(result.current.dimensions.width).toBeCloseTo(defaultTextureRollerParams.length, 1)
     expect(result.current.dimensions.height).toBeCloseTo(defaultTextureRollerParams.diameter + 2 * defaultTextureRollerParams.reliefDepth, 1)
   })
 

@@ -4,17 +4,20 @@
 **Status:** Aprovado
 **Ferramenta:** Studio 3D > Confeitaria > Rolo de Textura
 
+> **Revisão (2026-10-21):** cabos/eixos laterais removidos. O rolo é um cilindro
+> fechado com tampas planas e filetes de 1mm; o comprimento total é igual a `length`.
+
 ## 1. Objetivo
 
 Gerar rolos de textura em relevo para marcar massas, fondant, biscoitos e doces.
-A peça é um cilindro único com eixo/cabos integrados, pronto para uso, com padrão
-repetido em toda a superfície de contato.
+A peça é um cilindro fechado, sem cabos laterais, com tampas planas e filetes de
+borda, pronto para uso, com padrão repetido em toda a superfície de contato.
 
 ## 2. Parâmetros
 
 - Comprimento do rolo: 50–150 mm (padrão 100)
 - Diâmetro do rolo: 20–40 mm (padrão 30)
-- Eixo/cabos fixos: Ø8 mm, 25 mm por lado, pontas hemisféricas e filete côncavo de 2 mm
+- Extremidades: tampas planas com filete de 1 mm (`END_FILLET_MM`); sem cabos laterais
 - Família de padrão: `geometric`, `wave`, `floral`
 - Motivo do padrão: 3 por família
   - geometric: `diamonds`, `dots`, `grid`
@@ -27,10 +30,9 @@ repetido em toda a superfície de contato.
 
 ## 3. Geometria
 
-- Eixo do rolo em X; corpo em `[-L/2, L/2]`; cabos para `±(L/2 .. L/2+25)`.
-- Rolo inteiro (corpo + cabos) é **uma única malha fechada** por revolução do perfil
-  amostrado, com deslocamento radial dado por um **campo de altura** aplicado só na
-  região do corpo.
+- Eixo do rolo em X; corpo em `[-L/2, L/2]`, com tampas planas e filete de 1 mm.
+- O rolo é **uma única malha fechada** por revolução do perfil amostrado, com
+  deslocamento radial dado por um **campo de altura** aplicado na lateral do corpo.
 - `h(θ,x)` vem de uma máscara rasterizada dos motivos: `nCols = round(2πR/célula)` e
   `nRows = round(L/célula)` garantem fechamento exato em 360° e no comprimento.
 - Chanfro `RELIEF_BEVEL_MM = 0.2` via transformada de distância assinada → arestas

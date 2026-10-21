@@ -7,15 +7,14 @@ Implementada.
 ## Objetivo
 
 Gerar rolos de textura em relevo para marcar massas, fondant, biscoitos e doces.
-A peça é um **cilindro único com eixo/cabos integrados**, pronto para uso, com um
-padrão repetido em toda a superfície de contato.
+A peça é um **cilindro fechado, sem cabos laterais**, com tampas planas e filetes
+de borda, pronto para uso, com um padrão repetido em toda a superfície de contato.
 
 ## Parâmetros
 
 - Comprimento do rolo: 50–150mm (padrão: 100mm)
 - Diâmetro do rolo: 20–40mm (padrão: 30mm)
-- Cabos: integrados nas extremidades, fixos em Ø8mm × 25mm, com pontas
-  hemisféricas e filete de 2mm na transição com o corpo
+- Extremidades: tampas planas com filete de 1mm (`END_FILLET_MM`); sem cabos laterais
 - Família de padrão: `geometric`, `wave`, `floral` (3 motivos por família)
 - Motivo do padrão: `diamonds`, `dots`, `grid`; `waves`, `chevrons`, `scales`;
   `flower`, `leaf`, `rosette`
@@ -30,7 +29,8 @@ padrão repetido em toda a superfície de contato.
 
 - Contato com alimento: arestas arredondadas, sem furos internos que prendam massa
 - Relevo **somente externo (saliente)** — sem modo gravado
-- Malha única manifold (corpo + cabos) gerada por revolução; sem booleans
+- Malha única manifold (cilindro fechado com tampas) gerada por revolução; sem booleans
+- Sem cabos/eixos laterais: o comprimento total é igual ao comprimento do rolo
 - Relevo gerado por **campo de altura** sobre a superfície do cilindro
 - Periodicidade exata do padrão em 360° e ao longo do comprimento, sem costura
   nem overlap (número de repetições arredondado)

@@ -41,11 +41,10 @@ describe('StudioPanel (rolo-textura)', () => {
     expect(screen.queryByText('Losangos')).toBeNull()
   })
 
-  it('renderiza dimensões e comprimento total', () => {
+  it('renderiza as dimensões', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.getByLabelText('Comprimento do rolo')).toBeDefined()
     expect(screen.getByLabelText('Diâmetro do rolo')).toBeDefined()
-    expect(screen.getByText(/Comprimento total: 150/)).toBeDefined()
   })
 
   it('mostra upload quando a origem é SVG', () => {

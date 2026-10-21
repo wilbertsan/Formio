@@ -3,8 +3,7 @@ import type { ParsedSvg, Point2 } from '../shared/svgToIconShape'
 import { svgBoundsFromParsed, svgShapesFromParsed } from '../shared/svgToIconShape'
 import { pathsToShapes, toClipperPaths, unionPaths } from '../shared/textOutline'
 import {
-  DENSITY_CELL_MM, EDGE_MARGIN_MM, HANDLE_DIAMETER_MM, HANDLE_FILLET_MM,
-  HANDLE_LENGTH_MM, MIN_FEATURE_MM, MESH_STEP_MM,
+  DENSITY_CELL_MM, EDGE_MARGIN_MM, END_FILLET_MM, MIN_FEATURE_MM, MESH_STEP_MM,
   RELIEF_BEVEL_MM, type PatternMotif, type TextureRollerParams,
 } from './schema'
 import { isStaggered, motifShapes, type MotifShape } from './patterns'
@@ -237,70 +236,59 @@ export function buildHeightField(
   return { height, cols, bodyRows, cellCols, cellRows }
 }
 
-const AXLE_RADIUS = HANDLE_DIAMETER_MM / 2
-
 interface ProfileSample { x: number; radius: number; body: boolean; row: number }
 
-// Anel i do corpo (x = -L/2 + i*passo) amostra a linha i do campo (centro da célula).
-export function bodyRowForRing(i: number, bodyRows: number): number {
-  return Math.min(bodyRows - 1, i)
+// Linha do campo de altura para uma posição axial x (corpo inteiro).
+export function bodyRowForX(x: number, length: number, bodyRows: number): number {
+  const t = (x + length / 2) / length
+  return Math.min(bodyRows - 1, Math.max(0, Math.round(t * (bodyRows - 1))))
 }
 
-function smoothstep(t: number): number {
-  return t * t * (3 - 2 * t)
-}
-
-// Perfil de revolução: corpo + filetes côncavos + eixos + pontas hemisféricas.
+// Perfil de revolução: cilindro fechado com tampas planas e filetes de borda.
 function buildProfile(params: TextureRollerParams, bodyRows: number): ProfileSample[] {
   const half = params.length / 2
   const bodyRadius = params.diameter / 2
+  const fillet = Math.min(END_FILLET_MM, bodyRadius / 2, params.length / 4)
+  const capRadius = Math.max(0.001, bodyRadius - fillet)
   const samples: ProfileSample[] = []
+  const filletSteps = Math.max(2, Math.ceil(((Math.PI / 2) * fillet) / MESH_STEP_MM))
 
-  for (let i = 0; i <= bodyRows; i++) {
+  // Tampa esquerda (apex + anel) e filete.
+  samples.push({ x: -half, radius: 0, body: false, row: 0 })
+  samples.push({ x: -half, radius: capRadius, body: false, row: 0 })
+  for (let k = 1; k < filletSteps; k++) {
+    const angle = Math.PI - (Math.PI / 2) * (k / filletSteps)
     samples.push({
-      x: -half + (params.length * i) / bodyRows,
-      radius: bodyRadius,
-      body: true,
-      row: bodyRowForRing(i, bodyRows),
+      x: -half + fillet + fillet * Math.cos(angle),
+      radius: capRadius + fillet * Math.sin(angle),
+      body: false,
+      row: 0,
     })
   }
 
-  const filletSteps = Math.max(2, Math.ceil(HANDLE_FILLET_MM / MESH_STEP_MM))
-  const tipSteps = Math.max(2, Math.ceil(AXLE_RADIUS / MESH_STEP_MM))
-  const axleStart = HANDLE_FILLET_MM
-  const axleEnd = HANDLE_LENGTH_MM - AXLE_RADIUS
-  const axleSteps = Math.max(1, Math.ceil((axleEnd - axleStart) / 1))
-
-  for (const sign of [-1, 1]) {
-    for (let i = 1; i <= filletSteps; i++) {
-      const t = i / filletSteps
-      samples.push({
-        x: sign * (half + HANDLE_FILLET_MM * t),
-        radius: AXLE_RADIUS + (bodyRadius - AXLE_RADIUS) * (1 - smoothstep(t)),
-        body: false,
-        row: 0,
-      })
-    }
-    for (let i = 1; i <= axleSteps; i++) {
-      samples.push({
-        x: sign * (half + axleStart + ((axleEnd - axleStart) * i) / axleSteps),
-        radius: AXLE_RADIUS,
-        body: false,
-        row: 0,
-      })
-    }
-    for (let i = 1; i <= tipSteps; i++) {
-      const t = i / tipSteps
-      samples.push({
-        x: sign * (half + axleEnd + AXLE_RADIUS * t),
-        radius: AXLE_RADIUS * Math.sqrt(Math.max(0, 1 - t * t)),
-        body: false,
-        row: 0,
-      })
-    }
+  // Corpo (relevo por campo de altura).
+  const sideStart = -half + fillet
+  const sideEnd = half - fillet
+  const sideSteps = Math.max(1, Math.ceil((sideEnd - sideStart) / MESH_STEP_MM))
+  for (let i = 0; i <= sideSteps; i++) {
+    const x = sideStart + ((sideEnd - sideStart) * i) / sideSteps
+    samples.push({ x, radius: bodyRadius, body: true, row: bodyRowForX(x, params.length, bodyRows) })
   }
 
-  return samples.sort((a, b) => a.x - b.x)
+  // Filete e tampa direita.
+  for (let k = 1; k < filletSteps; k++) {
+    const angle = Math.PI / 2 + (Math.PI / 2) * (k / filletSteps)
+    samples.push({
+      x: half - fillet - fillet * Math.cos(angle),
+      radius: capRadius + fillet * Math.sin(angle),
+      body: false,
+      row: 0,
+    })
+  }
+  samples.push({ x: half, radius: capRadius, body: false, row: 0 })
+  samples.push({ x: half, radius: 0, body: false, row: 0 })
+
+  return samples
 }
 
 export interface BuildTextureRollerInput {

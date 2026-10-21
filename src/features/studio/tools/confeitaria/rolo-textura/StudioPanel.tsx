@@ -12,7 +12,6 @@ import {
   View,
 } from '@aws-amplify/ui-react'
 import {
-  HANDLE_LENGTH_MM,
   MOTIFS_BY_FAMILY,
   PLA_COLORS,
   type PatternFamily,
@@ -243,9 +242,6 @@ export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: St
                 min={20} max={40} step={1}
                 onChange={(value) => onUpdateParam('diameter', value)}
               />
-              <Text fontSize="xs" color="font.tertiary">
-                Comprimento total: {params.length + 2 * HANDLE_LENGTH_MM} mm
-              </Text>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>

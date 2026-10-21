@@ -3,8 +3,9 @@
 > **For agent:** REQUIRED SUB-SKILL: use superpowers:executing-plans (ou subagent-driven-development) para executar task-a-task.
 > **Workspace:** trabalhar na `main` atual; commitar **apenas** os arquivos da ferramenta `rolo-textura` e docs relacionados (não incluir as demais alterações pendentes do working tree).
 > **Verificação:** usar `npx vitest run --exclude '**/.worktrees/**'` (o `npm test` puro coleta os testes do worktree antigo `.worktrees/feat/segmentacao-agents`, que falham — problema pré-existente).
+> **Revisão (2026-10-21):** cabos/eixos laterais removidos. O rolo é um cilindro fechado com tampas planas e filetes de 1mm (`END_FILLET_MM`); o comprimento total é `length`. As tasks abaixo são o registro histórico da execução inicial.
 
-**Goal:** Implementar a ferramenta Rolo de Textura (rolo cilíndrico manifold, cabos integrados, relevo saliente contínuo) no Studio.
+**Goal:** Implementar a ferramenta Rolo de Textura (cilindro fechado manifold, sem cabos, relevo saliente contínuo) no Studio.
 
 **Architecture:** Malha única fechada por revolução do perfil (corpo + cabos) com deslocamento radial dado por campo de altura derivado de uma máscara de padrão rasterizada. Build puro em Web Worker; hook com reducer + Zod + debounce; preview R3F com dois materiais (grupos); export STL binário.
 

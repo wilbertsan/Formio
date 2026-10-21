@@ -8,9 +8,7 @@ export type PlaColor = (typeof PLA_COLORS)[number]
 
 export const PRODUCT_TYPE = 'texture-roller' as const
 
-export const HANDLE_DIAMETER_MM = 8
-export const HANDLE_LENGTH_MM = 25
-export const HANDLE_FILLET_MM = 2
+export const END_FILLET_MM = 1
 export const MESH_STEP_MM = 0.5
 export const RELIEF_BEVEL_MM = 0.2
 export const MIN_FEATURE_MM = 0.8

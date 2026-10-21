@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import {
-  defaultMotifForFamily, defaultTextureRollerParams, HANDLE_LENGTH_MM,
+  defaultMotifForFamily, defaultTextureRollerParams,
   textureRollerParamsSchema, type PatternFamily, type TextureRollerParams,
 } from './schema'
 import type { BuildTextureRollerResult } from './buildTextureRoller'
@@ -181,7 +181,7 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
     if (!geometry) {
       const fallbackHeight = Number((params.diameter + 2 * params.reliefDepth).toFixed(1))
       return {
-        width: Number((params.length + 2 * HANDLE_LENGTH_MM).toFixed(1)),
+        width: Number((params.length).toFixed(1)),
         height: fallbackHeight,
         thickness: fallbackHeight,
       }
@@ -197,7 +197,7 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
 
   const objectBounds = useMemo(() => {
     if (!geometry) {
-      const fallback = Math.max(params.length + 2 * HANDLE_LENGTH_MM, params.diameter + 2 * params.reliefDepth, 1)
+      const fallback = Math.max(params.length, params.diameter + 2 * params.reliefDepth, 1)
       return { width: fallback, height: fallback, depth: fallback }
     }
     geometry.roller.computeBoundingBox()

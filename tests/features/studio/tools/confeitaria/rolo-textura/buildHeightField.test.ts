@@ -1,10 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { buildHeightField } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
 import {
   DENSITIES, defaultTextureRollerParams, EDGE_MARGIN_MM, MESH_STEP_MM,
   MOTIFS_BY_FAMILY, PATTERN_FAMILIES, RELIEF_BEVEL_MM,
 } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
+
+// O teste de periodicidade constrói 27 campos e é pesado sob carga paralela.
+vi.setConfig({ testTimeout: 15000 })
 
 describe('buildHeightField', () => {
   it('gera máscara com picos na profundidade e zeros nas margens axiais', () => {

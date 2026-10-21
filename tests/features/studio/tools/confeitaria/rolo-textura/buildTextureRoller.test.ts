@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { BufferGeometry } from 'three'
-import { bodyRowForRing, buildTextureRoller } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
-import { defaultTextureRollerParams, HANDLE_LENGTH_MM } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
+import { bodyRowForX, buildTextureRoller } from '@/features/studio/tools/confeitaria/rolo-textura/buildTextureRoller'
+import { defaultTextureRollerParams } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 
 function radiusAt(geometry: BufferGeometry, i: number): number {
   const pos = geometry.getAttribute('position')
@@ -33,13 +33,17 @@ function isClosed(geometry: BufferGeometry): boolean {
 }
 
 describe('buildTextureRoller', () => {
-  it('mapeia anéis do corpo de forma monotônica, sem plateaus no meio', () => {
+  it('mapeia a posição axial para linhas do campo de forma monotônica', () => {
+    const length = 100
     const bodyRows = 208
-    for (let i = 0; i < bodyRows - 1; i++) {
-      expect(bodyRowForRing(i + 1, bodyRows) - bodyRowForRing(i, bodyRows)).toBe(1)
+    expect(bodyRowForX(-50, length, bodyRows)).toBe(0)
+    expect(bodyRowForX(50, length, bodyRows)).toBe(bodyRows - 1)
+    let previous = -1
+    for (let x = -50; x <= 50; x += 0.5) {
+      const row = bodyRowForX(x, length, bodyRows)
+      expect(row).toBeGreaterThanOrEqual(previous)
+      previous = row
     }
-    expect(bodyRowForRing(bodyRows, bodyRows)).toBe(bodyRows - 1)
-    expect(bodyRowForRing(0, bodyRows)).toBe(0)
   })
 
   it('gera malha indexada com vértices e dois grupos de material', () => {
@@ -50,12 +54,20 @@ describe('buildTextureRoller', () => {
     expect(roller.groups[1].count).toBeGreaterThan(0)
   })
 
-  it('dimensões: comprimento total inclui cabos; raio máximo = D/2 + profundidade', () => {
+  it('dimensões: comprimento total igual ao length; raio máximo = D/2 + profundidade', () => {
     const { roller } = buildTextureRoller({ params: defaultTextureRollerParams })
     roller.computeBoundingBox()
     const bb = roller.boundingBox!
-    expect(bb.max.x - bb.min.x).toBeCloseTo(defaultTextureRollerParams.length + 2 * HANDLE_LENGTH_MM, 0)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(defaultTextureRollerParams.length, 0)
     expect(maxRadius(roller)).toBeCloseTo(defaultTextureRollerParams.diameter / 2 + defaultTextureRollerParams.reliefDepth, 1)
+  })
+
+  it('não tem cabos laterais: largura igual ao comprimento', () => {
+    const { roller } = buildTextureRoller({ params: defaultTextureRollerParams })
+    roller.computeBoundingBox()
+    const bb = roller.boundingBox!
+    expect(bb.max.x).toBeCloseTo(defaultTextureRollerParams.length / 2, 1)
+    expect(bb.min.x).toBeCloseTo(-defaultTextureRollerParams.length / 2, 1)
   })
 
   it('malha é fechada (cada aresta em 2 triângulos)', () => {
@@ -82,10 +94,10 @@ describe('buildTextureRoller', () => {
   it('respeita dimensões mínimas e máximas', () => {
     const small = buildTextureRoller({ params: { ...defaultTextureRollerParams, length: 50, diameter: 20 } }).roller
     small.computeBoundingBox()
-    expect(small.boundingBox!.max.x - small.boundingBox!.min.x).toBeCloseTo(50 + 2 * HANDLE_LENGTH_MM, 0)
+    expect(small.boundingBox!.max.x - small.boundingBox!.min.x).toBeCloseTo(50, 0)
     const large = buildTextureRoller({ params: { ...defaultTextureRollerParams, length: 150, diameter: 40 } }).roller
     large.computeBoundingBox()
-    expect(large.boundingBox!.max.x - large.boundingBox!.min.x).toBeCloseTo(150 + 2 * HANDLE_LENGTH_MM, 0)
+    expect(large.boundingBox!.max.x - large.boundingBox!.min.x).toBeCloseTo(150, 0)
   })
 
   it('respeita diâmetro mínimo e máximo', () => {
