@@ -36,7 +36,10 @@ function textureRollerReducer(state: TextureRollerParams, action: TextureRollerA
       }
       // Origem e motivo podem ficar transitórios (ex.: svg antes do upload).
       if (action.key === 'patternSource' || action.key === 'patternMotif') return next
-      const parsed = textureRollerParamsSchema.safeParse(next)
+      const candidate = next.patternSource === 'svg' && next.svgIcon === null
+        ? { ...next, patternSource: 'motif' as const }
+        : next
+      const parsed = textureRollerParamsSchema.safeParse(candidate)
       return parsed.success ? next : state
     }
     case 'setSvg': {
@@ -74,6 +77,13 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
   const geometryRef = useRef<BuildTextureRollerResult | null>(null)
   const parseCacheRef = useRef<Map<string, ParsedSvg | null>>(new Map())
 
+  const clearGeometry = useCallback(() => {
+    setGeometry((prev) => {
+      disposeResult(prev)
+      return null
+    })
+  }, [])
+
   const {
     productType, length, diameter, patternFamily, patternMotif,
     patternSource, svgIcon, reliefDepth, density,
@@ -97,15 +107,16 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
   )
 
   useEffect(() => {
+    workerRef.current?.terminate()
+    workerRef.current = null
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       let parsedSvg: ParsedSvg | null = null
       if (buildParams.patternSource === 'svg') {
         if (!buildParams.svgIcon) {
-          workerRef.current?.terminate()
-          workerRef.current = null
           setIsBuilding(false)
           setError(null)
+          clearGeometry()
           return
         }
         try {
@@ -114,21 +125,20 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
           parsedSvg = null
         }
         if (!parsedSvg) {
-          workerRef.current?.terminate()
-          workerRef.current = null
           setIsBuilding(false)
           setError('Não foi possível ler o SVG')
+          clearGeometry()
           return
         }
       }
       setError(null)
 
-      workerRef.current?.terminate()
       const worker = workerFactory()
       workerRef.current = worker
       setIsBuilding(true)
 
       worker.build(buildParams, parsedSvg, (data: SerializedBuildResult) => {
+        if (workerRef.current !== worker) return
         const next = deserializeBuildResult(data)
         setGeometry((prev) => {
           disposeResult(prev)
@@ -136,11 +146,13 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
         })
         setIsBuilding(false)
       }, () => {
+        if (workerRef.current !== worker) return
         setIsBuilding(false)
+        setError('Falha ao gerar a geometria')
       })
     }, 200)
     return () => clearTimeout(debounceRef.current)
-  }, [buildParams, workerFactory])
+  }, [buildParams, workerFactory, clearGeometry])
 
   useEffect(() => {
     geometryRef.current = geometry

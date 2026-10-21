@@ -111,13 +111,53 @@ describe('useTextureRoller', () => {
     expect(result.current.geometry!.roller).toBeDefined()
   })
 
-  it('reseta isBuilding quando o worker falha', () => {
+  it('reseta isBuilding e expõe erro quando o worker falha', () => {
     const { factory, fail } = makeWorkerFixture()
     const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(250) })
     expect(result.current.isBuilding).toBe(true)
     act(() => { fail() })
     expect(result.current.isBuilding).toBe(false)
+    expect(result.current.error).toBe('Falha ao gerar a geometria')
+  })
+
+  it('aplica densidade, comprimento e cor com patternSource svg sem arquivo', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { result.current.updateParam('patternSource', 'svg') })
+    act(() => {
+      result.current.updateParam('density', 'high')
+      result.current.updateParam('length', 120)
+      result.current.updateParam('rollerColor', '#ef4444')
+    })
+    expect(result.current.params.density).toBe('high')
+    expect(result.current.params.length).toBe(120)
+    expect(result.current.params.rollerColor).toBe('#ef4444')
+  })
+
+  it('limpa a geometria ao selecionar svg sem arquivo', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(250) })
+    act(() => { respond() })
+    expect(result.current.geometry).not.toBeNull()
+    act(() => { result.current.updateParam('patternSource', 'svg') })
+    act(() => { vi.advanceTimersByTime(250) })
+    expect(result.current.geometry).toBeNull()
+    expect(result.current.isBuilding).toBe(false)
+  })
+
+  it('limpa a geometria e expõe erro com SVG inválido', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(250) })
+    act(() => { respond() })
+    expect(result.current.geometry).not.toBeNull()
+    act(() => { result.current.updateParam('patternSource', 'svg') })
+    act(() => { result.current.setSvgIcon('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>') })
+    act(() => { vi.advanceTimersByTime(250) })
+    expect(result.current.geometry).toBeNull()
+    expect(result.current.error).toBe('Não foi possível ler o SVG')
   })
 
   it('cancela o build e reseta isBuilding ao remover o SVG', () => {
