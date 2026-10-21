@@ -17,16 +17,20 @@ function makeWorkerFixture() {
   let pending: ((data: SerializedBuildResult) => void) | null = null
   let fail: (() => void) | null = null
   let lastParsed: ParsedSvg | null | undefined
+  let calls = 0
   const terminate = vi.fn()
-  const factory = (): GeometryWorker => ({
-    build: (_params, parsedSvg, onResult, onError) => {
-      lastParsed = parsedSvg
-      pending = onResult
-      fail = onError ?? null
-    },
-    terminate,
-  })
-  return { factory, terminate, respond: () => pending?.(serializedResult()), fail: () => fail?.(), getParsed: () => lastParsed }
+  const factory = (): GeometryWorker => {
+    calls++
+    return {
+      build: (_params, parsedSvg, onResult, onError) => {
+        lastParsed = parsedSvg
+        pending = onResult
+        fail = onError ?? null
+      },
+      terminate,
+    }
+  }
+  return { factory, terminate, getCalls: () => calls, respond: () => pending?.(serializedResult()), fail: () => fail?.(), getParsed: () => lastParsed }
 }
 
 beforeEach(() => { vi.useFakeTimers() })
@@ -114,6 +118,39 @@ describe('useTextureRoller', () => {
     expect(result.current.isBuilding).toBe(true)
     act(() => { fail() })
     expect(result.current.isBuilding).toBe(false)
+  })
+
+  it('cancela o build e reseta isBuilding ao remover o SVG', () => {
+    const { factory, terminate } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { result.current.updateParam('patternSource', 'svg') })
+    act(() => { result.current.setSvgIcon(SVG) })
+    act(() => { vi.advanceTimersByTime(250) })
+    expect(result.current.isBuilding).toBe(true)
+    act(() => { result.current.setSvgIcon(null) })
+    act(() => { vi.advanceTimersByTime(250) })
+    expect(result.current.isBuilding).toBe(false)
+    expect(terminate).toHaveBeenCalled()
+  })
+
+  it('não rebuilda ao trocar apenas cores', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(250) })
+    const callsAfterInitial = getCalls()
+    act(() => { result.current.updateParam('rollerColor', '#ef4444') })
+    act(() => { result.current.updateParam('reliefColor', '#171717') })
+    act(() => { vi.advanceTimersByTime(250) })
+    expect(getCalls()).toBe(callsAfterInitial)
+  })
+
+  it('termina o worker anterior antes de um novo build', () => {
+    const { factory, terminate } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(250) })
+    act(() => { result.current.updateParam('length', 120) })
+    act(() => { vi.advanceTimersByTime(250) })
+    expect(terminate).toHaveBeenCalled()
   })
 
   it('reporta dimensões após a geometria', () => {

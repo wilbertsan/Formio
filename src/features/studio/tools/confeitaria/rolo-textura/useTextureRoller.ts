@@ -71,19 +71,52 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const workerRef = useRef<GeometryWorker | null>(null)
+  const geometryRef = useRef<BuildTextureRollerResult | null>(null)
   const parseCacheRef = useRef<Map<string, ParsedSvg | null>>(new Map())
+
+  const {
+    productType, length, diameter, patternFamily, patternMotif,
+    patternSource, svgIcon, reliefDepth, density,
+  } = params
+
+  const buildParams = useMemo<TextureRollerParams>(
+    () => ({
+      productType,
+      length,
+      diameter,
+      patternFamily,
+      patternMotif,
+      patternSource,
+      svgIcon,
+      reliefDepth,
+      density,
+      rollerColor: defaultTextureRollerParams.rollerColor,
+      reliefColor: defaultTextureRollerParams.reliefColor,
+    }),
+    [productType, length, diameter, patternFamily, patternMotif, patternSource, svgIcon, reliefDepth, density],
+  )
 
   useEffect(() => {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       let parsedSvg: ParsedSvg | null = null
-      if (params.patternSource === 'svg') {
-        if (!params.svgIcon) {
+      if (buildParams.patternSource === 'svg') {
+        if (!buildParams.svgIcon) {
+          workerRef.current?.terminate()
+          workerRef.current = null
+          setIsBuilding(false)
           setError(null)
           return
         }
-        parsedSvg = parseSvgCached(parseCacheRef.current, params.svgIcon)
+        try {
+          parsedSvg = parseSvgCached(parseCacheRef.current, buildParams.svgIcon)
+        } catch {
+          parsedSvg = null
+        }
         if (!parsedSvg) {
+          workerRef.current?.terminate()
+          workerRef.current = null
+          setIsBuilding(false)
           setError('Não foi possível ler o SVG')
           return
         }
@@ -95,7 +128,7 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
       workerRef.current = worker
       setIsBuilding(true)
 
-      worker.build(params, parsedSvg, (data: SerializedBuildResult) => {
+      worker.build(buildParams, parsedSvg, (data: SerializedBuildResult) => {
         const next = deserializeBuildResult(data)
         setGeometry((prev) => {
           disposeResult(prev)
@@ -107,11 +140,17 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
       })
     }, 200)
     return () => clearTimeout(debounceRef.current)
-  }, [params, workerFactory])
+  }, [buildParams, workerFactory])
+
+  useEffect(() => {
+    geometryRef.current = geometry
+  }, [geometry])
 
   useEffect(() => () => {
     workerRef.current?.terminate()
     workerRef.current = null
+    disposeResult(geometryRef.current)
+    geometryRef.current = null
   }, [])
 
   const updateParam = useCallback((key: keyof TextureRollerParams, value: number | string | null) => {
