@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { Box2 } from 'three'
 import {
   svgBounds,
   svgToShapes,
@@ -6,11 +7,13 @@ import {
   parseSvg,
   svgBoundsFromParsed,
   svgShapesFromParsed,
+  svgRawShapesFromParsed,
 } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 
 const SVG_RECT = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
 const SVG_STROKE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><line x1="1" y1="5" x2="19" y2="5" stroke="#000" stroke-width="0.5"/></svg>'
 const SVG_EMPTY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"></svg>'
+const SVG_CIRCLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#000"/></svg>'
 
 describe('parseSvg (main thread)', () => {
   it('achata fills e strokes em dados serializáveis', () => {
@@ -24,6 +27,22 @@ describe('parseSvg (main thread)', () => {
 
   it('retorna null para svg sem formas', () => {
     expect(parseSvg(SVG_EMPTY)).toBeNull()
+  })
+
+  it('aumenta a resolução das curvas quando solicitado', () => {
+    const low = parseSvg(SVG_CIRCLE, 8)!
+    const high = parseSvg(SVG_CIRCLE, 32)!
+    expect(high.fills[0].outer.length).toBeGreaterThan(low.fills[0].outer.length)
+  })
+
+  it('preserva a espessura original do traço do SVG', () => {
+    const parsed = {
+      fills: [],
+      strokes: [{ points: [{ x: 0.5, y: 0 }, { x: 0.5, y: 1 }], width: 0.25 }],
+    }
+    const shape = svgRawShapesFromParsed(parsed)[0]
+    const box = new Box2().setFromPoints(shape.getPoints())
+    expect(box.max.x - box.min.x).toBeCloseTo(0.25, 2)
   })
 })
 

@@ -58,7 +58,7 @@ function disposeResult(result: BuildTextureRollerResult | null): void {
 }
 
 function parseSvgCached(cache: Map<string, ParsedSvg | null>, svg: string): ParsedSvg | null {
-  if (!cache.has(svg)) cache.set(svg, parseSvg(svg))
+  if (!cache.has(svg)) cache.set(svg, parseSvg(svg, 32))
   return cache.get(svg) ?? null
 }
 

@@ -67,7 +67,7 @@ function pointsOf(points: Vector2[]): Point2[] {
 }
 
 /** Lê o SVG e devolve preenchimentos e traços em dados serializáveis. */
-export function parseSvg(svg: string): ParsedSvg | null {
+export function parseSvg(svg: string, curveSegments = 12): ParsedSvg | null {
   const loader = new SVGLoader()
   const svgData = loader.parse(svg)
 
@@ -82,8 +82,8 @@ export function parseSvg(svg: string): ParsedSvg | null {
     if (hasFill) {
       for (const shape of path.toShapes()) {
         fills.push({
-          outer: pointsOf(shape.getPoints()),
-          holes: shape.holes.map(hole => pointsOf(hole.getPoints())),
+          outer: pointsOf(shape.getPoints(curveSegments)),
+          holes: shape.holes.map(hole => pointsOf(hole.getPoints(curveSegments))),
         })
       }
     }
@@ -91,7 +91,7 @@ export function parseSvg(svg: string): ParsedSvg | null {
     if (hasStroke) {
       const width = style.strokeWidth ?? 1
       for (const subPath of path.subPaths) {
-        const points = pointsOf(subPath.getPoints())
+        const points = pointsOf(subPath.getPoints(curveSegments))
         if (points.length >= 2) strokes.push({ points, width })
       }
     }
