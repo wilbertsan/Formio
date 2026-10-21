@@ -33,7 +33,7 @@ repetido em toda a superfície de contato.
   região do corpo.
 - `h(θ,x)` vem de uma máscara rasterizada dos motivos: `nCols = round(2πR/célula)` e
   `nRows = round(L/célula)` garantem fechamento exato em 360° e no comprimento.
-- Chanfro `RELIEF_BEVEL_MM = 0.4` via transformada de distância assinada → arestas
+- Chanfro `RELIEF_BEVEL_MM = 0.2` via transformada de distância assinada → arestas
   arredondadas (contato com alimento), manifold, sem costura.
 - Margem axial de 1 mm em cada ponta do corpo para o relevo zerar antes do filete.
 - Passo de malha `MESH_STEP_MM = 0.5`; traço mínimo `MIN_FEATURE_MM = 0.8`.
