@@ -22,6 +22,8 @@ import { exportStl as exportPlacaLojaStl } from './tools/letreiros/placa-loja/ex
 import { TextPositionEditor as PlacaLojaTextPositionEditor } from './tools/letreiros/placa-loja/TextPositionEditor'
 import { useCutterStamp } from './tools/confeitaria/cortador-carimbo/useCutterStamp'
 import { exportCutterStampStl } from './tools/confeitaria/cortador-carimbo/exportStl'
+import { useTextureRoller } from './tools/confeitaria/rolo-textura/useTextureRoller'
+import { exportTextureRollerStl } from './tools/confeitaria/rolo-textura/exportStl'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -128,6 +130,18 @@ const CortadorCarimboTool = lazy(() =>
 const CortadorCarimboPreview = lazy(() =>
   import('./tools/confeitaria/cortador-carimbo/CutterStampPreview').then((m) => ({
     default: m.CutterStampPreview,
+  })),
+)
+
+const RoloTexturaTool = lazy(() =>
+  import('./tools/confeitaria/rolo-textura/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const RoloTexturaPreview = lazy(() =>
+  import('./tools/confeitaria/rolo-textura/TextureRollerPreview').then((m) => ({
+    default: m.TextureRollerPreview,
   })),
 )
 
@@ -620,6 +634,89 @@ function CortadorCarimboToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function RoloTexturaToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+
+  const {
+    params,
+    geometry,
+    isBuilding,
+    error,
+    dimensions,
+    cameraPosition,
+    fitRadius,
+    updateParam,
+    setSvgIcon,
+    reset,
+  } = useTextureRoller()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (geometry) {
+      exportTextureRollerStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="relative flex min-h-0 flex-1">
+        {isBuilding && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+          >
+            Gerando…
+          </div>
+        )}
+        {error && (
+          <div
+            role="alert"
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+          >
+            {error}
+          </div>
+        )}
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <RoloTexturaTool
+            params={params}
+            onUpdateParam={updateParam}
+            onSetSvgIcon={setSvgIcon}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+          cameraPosition={cameraPosition}
+          fitRadius={fitRadius}
+        >
+          <Suspense fallback={null}>
+            <RoloTexturaPreview
+              geometry={geometry}
+              rollerColor={params.rollerColor}
+              reliefColor={params.reliefColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
@@ -855,6 +952,9 @@ export function StudioPage() {
       )}
       {activeTool === 'cortador-carimbo' && (
         <CortadorCarimboToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'rolo-textura' && (
+        <RoloTexturaToolWrapper onBack={() => setActiveTool(null)} />
       )}
       {activeTool === 'marcador-pagina' && (
         <MarcadorPaginaToolWrapper onBack={() => setActiveTool(null)} />
