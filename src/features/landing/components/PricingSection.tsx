@@ -35,7 +35,7 @@ export function PricingSection() {
               variation={plan.highlighted ? 'elevated' : 'outlined'}
               className={
                 plan.highlighted
-                  ? 'w-full max-w-sm border-2 border-teal-600'
+                  ? 'w-full max-w-sm border-2 border-brand-600'
                   : 'w-full max-w-sm'
               }
             >
@@ -57,7 +57,7 @@ export function PricingSection() {
                       key={feature}
                       className="flex items-start gap-2 text-sm text-neutral-700"
                     >
-                      <span aria-hidden="true" className="mt-0.5 text-teal-600">
+                      <span aria-hidden="true" className="mt-0.5 text-brand-600">
                         ✓
                       </span>
                       {feature}

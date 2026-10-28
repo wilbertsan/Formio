@@ -33,7 +33,7 @@ Localizadas em `tools/<categoria>/<ferramenta>/`. Cada ferramenta exporta:
 - 1 unidade Three.js = 1 mm
 - React.lazy para code-splitting por ferramenta (~600KB Three.js)
 - Estado local com useReducer + Zod (sem estado global)
-- Tema claro: painéis brancos, bordas neutral-200, ativos teal-600
+- Tema claro: painéis brancos, bordas neutral-200, ativos brand-600 (#1F6E0B)
 - Mock de fiber/drei nos testes (jsdom sem WebGL)
 
 ## Fora de escopo

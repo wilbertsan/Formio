@@ -31,9 +31,13 @@ describe('Hero', () => {
     expect(screen.getByRole('link', { name: 'Ver preços' })).toHaveAttribute('href', '#precos')
   })
 
-  it('renderiza o visual com rótulo acessível', () => {
+  it('renderiza o vídeo demonstrativo com rótulo acessível', () => {
     renderHero()
-    expect(screen.getByRole('img', { name: /ilustração de modelos 3d/i })).toBeInTheDocument()
+    const video = screen.getByLabelText(/vídeo demonstrativo de modelos 3d/i)
+    expect(video).toBeInTheDocument()
+    expect(video).toHaveAttribute('autoplay')
+    expect(video).toHaveAttribute('loop')
+    expect((video as HTMLVideoElement).muted).toBe(true)
   })
 
   it('exibe CTA terciário para o Studio', () => {

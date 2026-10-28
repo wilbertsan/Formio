@@ -30,7 +30,7 @@ export function StudioTopbar({ projectName, onProjectNameChange, canExport, onEx
           aria-label="Nome do projeto"
           value={projectName}
           onChange={(event: React.ChangeEvent<HTMLInputElement>) => onProjectNameChange(event.target.value)}
-          className="w-56 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 outline-none focus:border-teal-600"
+          className="w-56 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-neutral-900 outline-none focus:border-brand-600"
         />
       </Flex>
       <Flex direction="row" gap="small">

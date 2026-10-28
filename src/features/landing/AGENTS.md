@@ -8,7 +8,7 @@ Página pública de apresentação do 3DFormio em `/`.
 
 - `Navbar.tsx` — navegação sticky com links para Preços, FAQ, Studio 3D, Criar conta
 - `Hero.tsx` — headline + CTA (Começar grátis / Ver preços / Abrir o Studio)
-- `HeroVisual.tsx` — SVG animado com visual isométrico
+- `HeroVisual.tsx` — vídeo demonstrativo (autoplay/loop/muted) em `public/hero.mp4`
 - `PricingSection.tsx` — 3 planos (Grátis, Pro, Business) lidos de `config/plans.ts`
 - `FaqSection.tsx` — accordion de perguntas lido de `config/faq.ts`
 - `Footer.tsx` — links úteis + copyright
@@ -24,7 +24,7 @@ React 19, React Router, Amplify UI (Heading, Text, View, Card, Accordion, Badge)
 
 ## Decisões visuais
 
-- Tema teal (`teal-600` primary), neutral-900 text
+- Tema verde (`brand-600` #1F6E0B primary), neutral-900 text
 - Classes utilitárias `.btn-primary` e `.btn-secondary` definidas em `src/index.css`
 - Max width 1120px, responsivo via `direction={{ base: 'column', large: 'row' }}`
 

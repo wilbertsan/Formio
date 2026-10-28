@@ -30,7 +30,7 @@ export function Hero() {
           </Flex>
           <Link
             to="/studio"
-            className="text-sm font-medium text-teal-600 no-underline underline-offset-4 hover:underline"
+            className="text-sm font-medium text-brand-600 no-underline underline-offset-4 hover:underline"
           >
             Abrir o Studio →
           </Link>

@@ -1,31 +1,24 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-50: #d6edd0;
+  --color-brand-100: #c8ecbf;
+  --color-brand-200: #aee79f;
+  --color-brand-300: #89e172;
+  --color-brand-400: #50dd2d;
+  --color-brand-500: #33ac15;
+  --color-brand-600: #1f6e0b;
+  --color-brand-700: #185908;
+  --color-brand-800: #134905;
+  --color-brand-900: #0e3804;
+}
+
 .btn-primary {
-  @apply inline-flex items-center justify-center rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-medium text-white no-underline transition-colors hover:bg-teal-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600;
+  @apply inline-flex items-center justify-center rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white no-underline transition-colors hover:bg-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600;
 }
 
 .btn-secondary {
   @apply inline-flex items-center justify-center rounded-lg border border-neutral-300 bg-white px-5 py-2.5 text-sm font-medium text-neutral-700 no-underline transition-colors hover:border-neutral-400 hover:text-neutral-900;
-}
-
-@keyframes hero-float {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-12px);
-  }
-}
-
-.hero-float {
-  animation: hero-float 6s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-float {
-    animation: none;
-  }
 }
 
 .studio-parameters .amplify-field {
