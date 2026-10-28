@@ -1,4 +1,4 @@
-import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
+import type { BufferGeometry } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
   type ClipperPoint,
@@ -17,9 +17,8 @@ import {
 import { parseSvg, svgBoundsFromParsed, svgShapesFromParsed, type ParsedSvg } from '../shared/svgToIconShape'
 import {
   type CutterStampParams,
+  BASE_HEIGHT_RATIO,
   CLEARANCE_MM,
-  HANDLE_HEIGHT_RATIO,
-  HANDLE_RADIUS_RATIO,
   MAX_SHAPE_WIDTH_MM,
   PIECE_GAP_MM,
 } from './schema'
@@ -35,7 +34,6 @@ export interface BuildCutterStampResult {
   cutter: BufferGeometry
   stampBase: BufferGeometry
   stampRelief: BufferGeometry
-  stampHandle: BufferGeometry
 }
 
 // Contornos da forma (texto ou ícone SVG) unidos, reduzidos para caber na
@@ -82,12 +80,6 @@ function buildShapePaths(params: CutterStampParams, font: Font | null, parsedSvg
   return translatePaths(paths, -(fitted.minX + fitted.maxX) / 2, -(fitted.minY + fitted.maxY) / 2)
 }
 
-function createCircleShape(radius: number): Shape {
-  const shape = new Shape()
-  shape.absarc(0, 0, radius, 0, Math.PI * 2, false)
-  return shape
-}
-
 // Centraliza as geometrias em X/Y e devolve a meia-largura (para o layout).
 function centerPiece(geometries: BufferGeometry[]): { halfWidth: number } {
   let minX = Infinity
@@ -115,7 +107,6 @@ function centerPiece(geometries: BufferGeometry[]): { halfWidth: number } {
 
 export function buildCutterStamp({ params, font, parsedSvg }: BuildCutterStampInput): BuildCutterStampResult {
   const shape = buildShapePaths(params, font, parsedSvg)
-  const bounds = pathsBoundingBox(shape)
 
   // Abertura única (mantém furos), reaproveitada pela base do carimbo.
   const fullOpening = offsetPaths(shape, params.baseMargin)
@@ -128,25 +119,16 @@ export function buildCutterStamp({ params, font, parsedSvg }: BuildCutterStampIn
 
   // Base única do carimbo: abertura com folga, para encaixar no corte.
   const basePaths = offsetPaths(fullOpening, -CLEARANCE_MM)
-  const baseThickness = (params.stampHeight - params.reliefHeight) * (1 - HANDLE_HEIGHT_RATIO)
+  const baseThickness = (params.stampHeight - params.reliefHeight) * BASE_HEIGHT_RATIO
   const stampBase = shapesToGeometry(pathsToShapes(basePaths), baseThickness, false)
   stampBase.translate(0, 0, params.reliefHeight)
 
   // Relevo: forma preenchida em alto relevo na face de contato.
   const stampRelief = shapesToGeometry(pathsToShapes(shape), params.reliefHeight, false)
 
-  // Cabo: cilindro central sobre a base.
-  const handleRadius = Math.max(1, bounds.height * HANDLE_RADIUS_RATIO)
-  const handleHeight = (params.stampHeight - params.reliefHeight) * HANDLE_HEIGHT_RATIO
-  const stampHandle = new ExtrudeGeometry(createCircleShape(handleRadius), {
-    depth: handleHeight,
-    bevelEnabled: false,
-  })
-  stampHandle.translate(0, 0, params.reliefHeight + baseThickness)
-
   // Layout lado a lado.
   const cutterBounds = centerPiece([cutter])
-  const stampGeometries = [stampBase, stampRelief, stampHandle]
+  const stampGeometries = [stampBase, stampRelief]
   const stampBounds = centerPiece(stampGeometries)
 
   cutter.translate(-(cutterBounds.halfWidth + PIECE_GAP_MM / 2), 0, 0)
@@ -154,5 +136,5 @@ export function buildCutterStamp({ params, font, parsedSvg }: BuildCutterStampIn
     geometry.translate(stampBounds.halfWidth + PIECE_GAP_MM / 2, 0, 0)
   }
 
-  return { cutter, stampBase, stampRelief, stampHandle }
+  return { cutter, stampBase, stampRelief }
 }

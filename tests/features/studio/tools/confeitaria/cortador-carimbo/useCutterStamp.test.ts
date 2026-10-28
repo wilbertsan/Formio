@@ -24,7 +24,6 @@ function serializedResult(): SerializedBuildResult {
     cutter: rect(-26.2, 26.2, 25),
     stampBase: rect(5, 54.2, 8),
     stampRelief: rect(10, 45, 2),
-    stampHandle: rect(20, 40, 12),
   }).data
 }
 

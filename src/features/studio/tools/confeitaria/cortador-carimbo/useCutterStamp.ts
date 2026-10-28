@@ -54,7 +54,6 @@ function disposeResult(result: BuildCutterStampResult | null): void {
   result?.cutter.dispose()
   result?.stampBase.dispose()
   result?.stampRelief.dispose()
-  result?.stampHandle.dispose()
 }
 
 // O parse do SVG usa DOMParser (só na main thread) e é cacheado por conteúdo.
@@ -141,7 +140,7 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
 
     let minX = Infinity
     let maxX = -Infinity
-    for (const piece of [geometry.cutter, geometry.stampBase, geometry.stampRelief, geometry.stampHandle]) {
+    for (const piece of [geometry.cutter, geometry.stampBase, geometry.stampRelief]) {
       piece.computeBoundingBox()
       const bb = piece.boundingBox!
       minX = Math.min(minX, bb.min.x)
@@ -168,7 +167,7 @@ export function useCutterStamp(options: UseCutterStampOptions = {}) {
     let maxY = -Infinity
     let minZ = Infinity
     let maxZ = -Infinity
-    for (const piece of [geometry.cutter, geometry.stampBase, geometry.stampRelief, geometry.stampHandle]) {
+    for (const piece of [geometry.cutter, geometry.stampBase, geometry.stampRelief]) {
       piece.computeBoundingBox()
       const bb = piece.boundingBox!
       minX = Math.min(minX, bb.min.x)

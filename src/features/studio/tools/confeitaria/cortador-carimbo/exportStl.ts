@@ -9,7 +9,6 @@ export function exportCutterStampStl(geometry: BuildCutterStampResult, projectNa
     geometry.cutter,
     geometry.stampBase,
     geometry.stampRelief,
-    geometry.stampHandle,
   ]) ?? geometry.cutter
   const scene = new Scene()
   scene.add(new Mesh(merged))

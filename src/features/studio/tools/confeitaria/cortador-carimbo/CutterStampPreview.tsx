@@ -20,9 +20,6 @@ export function CutterStampPreview({ geometry, cutterColor, stampColor }: Cutter
       <mesh geometry={geometry.stampRelief} castShadow receiveShadow>
         <meshStandardMaterial color={stampColor} metalness={0.1} roughness={0.3} />
       </mesh>
-      <mesh geometry={geometry.stampHandle} castShadow receiveShadow>
-        <meshStandardMaterial color={stampColor} metalness={0.1} roughness={0.4} />
-      </mesh>
     </group>
   )
 }

@@ -12,7 +12,6 @@ export interface SerializedBuildResult {
   cutter: SerializedGeometry
   stampBase: SerializedGeometry
   stampRelief: SerializedGeometry
-  stampHandle: SerializedGeometry
 }
 
 function floatArray(geometry: BufferGeometry, name: 'position' | 'normal' | 'uv'): Float32Array {
@@ -52,7 +51,6 @@ export function serializeBuildResult(result: BuildCutterStampResult): { data: Se
     cutter: result.cutter,
     stampBase: result.stampBase,
     stampRelief: result.stampRelief,
-    stampHandle: result.stampHandle,
   }
 
   const data = {} as SerializedBuildResult
@@ -72,6 +70,5 @@ export function deserializeBuildResult(data: SerializedBuildResult): BuildCutter
     cutter: deserializeGeometry(data.cutter),
     stampBase: deserializeGeometry(data.stampBase),
     stampRelief: deserializeGeometry(data.stampRelief),
-    stampHandle: deserializeGeometry(data.stampHandle),
   }
 }

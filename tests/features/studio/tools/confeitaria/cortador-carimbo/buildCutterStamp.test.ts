@@ -5,8 +5,8 @@ import { buildCutterStamp } from '@/features/studio/tools/confeitaria/cortador-c
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import {
   defaultCutterStampParams,
+  BASE_HEIGHT_RATIO,
   CLEARANCE_MM,
-  HANDLE_HEIGHT_RATIO,
   MAX_SHAPE_WIDTH_MM,
 } from '@/features/studio/tools/confeitaria/cortador-carimbo/schema'
 
@@ -93,12 +93,11 @@ const params = { ...defaultCutterStampParams, text: 'AB', textHeight: 25 }
 const textWidth = 'AB'.length * params.textHeight * FONT_WIDTH_FACTOR
 
 describe('buildCutterStamp - peças', () => {
-  it('retorna cortador, base, relevo e cabo', () => {
+  it('retorna cortador, base e relevo', () => {
     const result = buildCutterStamp({ params, font: mockFont() })
     expect(result.cutter).toBeDefined()
     expect(result.stampBase).toBeDefined()
     expect(result.stampRelief).toBeDefined()
-    expect(result.stampHandle).toBeDefined()
   })
 
   it('aceita texto vazio sem lançar', () => {
@@ -164,14 +163,12 @@ describe('buildCutterStamp - carimbo empilhado', () => {
     expect(base.min.z).toBeCloseTo(params.reliefHeight, 1)
   })
 
-  it('cabo fica acima da base e termina na altura total', () => {
+  it('base tem a espessura definida por BASE_HEIGHT_RATIO (sem cabo)', () => {
     const result = buildCutterStamp({ params, font: mockFont() })
     const base = bbox(result.stampBase)
-    const handle = bbox(result.stampHandle)
     const remaining = params.stampHeight - params.reliefHeight
-    expect(handle.min.z).toBeCloseTo(base.max.z, 0)
-    expect(base.max.z).toBeCloseTo(params.reliefHeight + remaining * (1 - HANDLE_HEIGHT_RATIO), 0)
-    expect(handle.max.z).toBeCloseTo(params.stampHeight, 0)
+    expect(base.min.z).toBeCloseTo(params.reliefHeight, 1)
+    expect(base.max.z).toBeCloseTo(params.reliefHeight + remaining * BASE_HEIGHT_RATIO, 1)
   })
 })
 
@@ -198,12 +195,11 @@ describe('buildCutterStamp - svg', () => {
   const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 20"><rect x="0" y="0" width="40" height="20" fill="#000"/></svg>'
   const svgParams = { ...defaultCutterStampParams, contentType: 'svg' as const, svgIcon: SVG, textHeight: 20, iconScale: 1 }
 
-  it('gera as quatro peças a partir de um svg', () => {
+  it('gera as três peças a partir de um svg', () => {
     const result = buildCutterStamp({ params: svgParams, font: mockFont() })
     expect(result.cutter).toBeDefined()
     expect(result.stampBase).toBeDefined()
     expect(result.stampRelief).toBeDefined()
-    expect(result.stampHandle).toBeDefined()
   })
 
   it('dimensiona o relevo pela altura-alvo (textHeight × iconScale)', () => {

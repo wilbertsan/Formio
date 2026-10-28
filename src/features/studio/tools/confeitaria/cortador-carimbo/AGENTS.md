@@ -19,7 +19,7 @@ da marca.
 - SVG: escala 0.5–1.0x e espessura mínima de linha 0.1–1.5mm (engrossa traços finos)
 - Altura da parede do cortador: 15–40mm
 - Espessura da parede do cortador: 0.8–2mm
-- Altura total do carimbo (relevo + base + cabo): 15–25mm
+- Altura do carimbo (relevo + base, sem cabo): 15–25mm nominal (a base ocupa 40%)
 - Margem da base: 2–10mm (une os elementos)
 - Altura do relevo (alto relevo): 1–3mm
 - Cores de preview: cor do cortador e cor do carimbo (10 cores PLA)
@@ -35,11 +35,10 @@ da marca.
   A abertura usa apenas o contorno externo (furos preenchidos), então o
   cortador é **uma peça única** (sem paredes internas separadas) e o corte sai sólido
 - **Base única do carimbo**: `expand(forma, +margem − folga)` (une os elementos),
-  extrudada em `(stampHeight − reliefHeight) × (1 − HANDLE_HEIGHT_RATIO)`
+  extrudada em `(stampHeight − reliefHeight) × BASE_HEIGHT_RATIO` (sem cabo; a peça
+  é mais baixa: base + relevo)
 - **Relevo (alto relevo)**: `forma` preenchida, extrudada em `reliefHeight`, na face
   de contato (z = 0), sobre a base
-- **Cabo** cilíndrico central: raio `HANDLE_RADIUS_RATIO = 0.35` da altura da forma;
-  altura `(stampHeight − reliefHeight) × HANDLE_HEIGHT_RATIO`
 - **SVG**: dimensionado pela altura-alvo (`textHeight × iconScale`); orientação
   corrigida com giro 180° em Z (SVGLoader entrega Y para baixo)
 - Folga por lado entre cortador e base: `CLEARANCE_MM = 0.4mm` (fixa)
@@ -68,7 +67,7 @@ da marca.
 src/features/studio/tools/confeitaria/cortador-carimbo/
 ├── AGENTS.md
 ├── schema.ts              # Schema Zod, constantes e tipos
-├── buildCutterStamp.ts    # Geometria: cortador (stroke) e carimbo (base + relevo + cabo)
+├── buildCutterStamp.ts    # Geometria: cortador (stroke) e carimbo (base + relevo)
 ├── buildCutterStamp.worker.ts # Worker: roda o build e serializa as geometrias
 ├── workerGeometry.ts      # Serialização de BufferGeometry (transferível)
 ├── workerClient.ts        # Fábrica do Worker e interface

@@ -11,15 +11,13 @@ export type PlaColor = (typeof PLA_COLORS)[number]
 // Constantes fixas
 // Folga por lado entre a abertura do cortador e a silhueta do carimbo (mm)
 export const CLEARANCE_MM = 0.4
-// Proporção da altura total do carimbo reservada ao cabo
-export const HANDLE_HEIGHT_RATIO = 0.6
+// Fração de (stampHeight − relevo) ocupada pela base do carimbo
+export const BASE_HEIGHT_RATIO = 0.4
 // Espaço entre as duas peças no leito de impressão (mm)
 export const PIECE_GAP_MM = 10
 
 // Largura máxima da forma (mm) — mesa de impressão típica ~220mm
 export const MAX_SHAPE_WIDTH_MM = 150
-// Raio do cabo como fração da altura da forma
-export const HANDLE_RADIUS_RATIO = 0.35
 
 // Tipo de forma (mutuamente exclusivo)
 export const CONTENT_TYPES = ['text', 'svg'] as const
@@ -67,7 +65,7 @@ export const defaultCutterStampParams: CutterStampParams = {
   wallHeight: 25,
   wallThickness: 1.2,
   stampHeight: 20,
-  baseMargin: 4,
+  baseMargin: 6,
   reliefHeight: 2,
   cutterColor: '#14b8a6',
   stampColor: '#f5f5f5',

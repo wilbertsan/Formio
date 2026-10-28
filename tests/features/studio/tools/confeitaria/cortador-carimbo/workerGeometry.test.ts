@@ -33,12 +33,11 @@ describe('workerGeometry', () => {
     expect(transfer.length).toBeGreaterThan(0)
   })
 
-  it('round-trip do resultado completo preserva as quatro peças', () => {
+  it('round-trip do resultado completo preserva as três peças', () => {
     const result = {
       cutter: rectGeometry(3),
       stampBase: rectGeometry(2),
       stampRelief: rectGeometry(1),
-      stampHandle: rectGeometry(1),
     } as unknown as BuildCutterStampResult
 
     const { data, transfer } = serializeBuildResult(result)
@@ -47,7 +46,6 @@ describe('workerGeometry', () => {
     expect(restored.cutter.attributes.position.count).toBe(result.cutter.attributes.position.count)
     expect(restored.stampBase.attributes.position.count).toBe(result.stampBase.attributes.position.count)
     expect(restored.stampRelief.attributes.position.count).toBe(result.stampRelief.attributes.position.count)
-    expect(restored.stampHandle.attributes.position.count).toBe(result.stampHandle.attributes.position.count)
-    expect(transfer.length).toBeGreaterThanOrEqual(4)
+    expect(transfer.length).toBeGreaterThanOrEqual(3)
   })
 })

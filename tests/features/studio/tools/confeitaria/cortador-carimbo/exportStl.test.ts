@@ -24,7 +24,6 @@ function makeGeometry(): BuildCutterStampResult {
     cutter: { dispose: vi.fn() },
     stampBase: { dispose: vi.fn() },
     stampRelief: { dispose: vi.fn() },
-    stampHandle: { dispose: vi.fn() },
   } as unknown as BuildCutterStampResult
 }
 
@@ -60,9 +59,9 @@ describe('exportCutterStampStl', () => {
     Object.defineProperty(document.body, 'removeChild', { value: removeChildOrig, writable: true })
   })
 
-  it('mescla as quatro peças', () => {
+  it('mescla as três peças', () => {
     vi.mocked(mergeGeometries).mockClear()
     exportCutterStampStl(makeGeometry(), 'Projeto')
-    expect(vi.mocked(mergeGeometries).mock.calls[0]![0]).toHaveLength(4)
+    expect(vi.mocked(mergeGeometries).mock.calls[0]![0]).toHaveLength(3)
   })
 })
