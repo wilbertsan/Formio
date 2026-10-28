@@ -1,4 +1,4 @@
-import { type BufferGeometry, Box3, BoxGeometry, ExtrudeGeometry, Shape } from 'three'
+import { type BufferGeometry, Box3, BoxGeometry, ExtrudeGeometry, Shape, Vector3 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import type { PhotoStandParams } from './schema'
@@ -156,8 +156,8 @@ export function buildPhotoStand({ params, font }: BuildPhotoStandInput): BuildPh
   if (leftGeometry.boundingBox) box.union(leftGeometry.boundingBox)
   if (rightGeometry.boundingBox) box.union(rightGeometry.boundingBox)
   if (base.boundingBox) box.union(base.boundingBox)
-  const size = { x: 0, y: 0, z: 0 }
-  box.getSize(size as any)
+  const size = new Vector3()
+  box.getSize(size)
 
   return {
     leftText: leftGeometry,
