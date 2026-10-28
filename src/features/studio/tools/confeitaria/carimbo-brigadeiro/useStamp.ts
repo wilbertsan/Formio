@@ -9,11 +9,17 @@ type StampAction =
   | { type: 'setSvg'; svg: string | null }
   | { type: 'reset' }
 
+// Ângulo (graus) da câmera de reset, no plano XZ em torno do eixo vertical (Y).
+const RESET_CAMERA_ANGLE_DEGREES = 240
+// Inclinação (graus) da câmera de reset em torno do eixo X.
+const RESET_CAMERA_TILT_DEGREES = 30
+
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   fontSize: { min: 6, max: 15 },
   diameter: { min: 10, max: 30 },
   height: { min: 15, max: 25 },
-  iconScale: { min: 0.5, max: 2.0 },
+  iconScale: { min: 0.5, max: 1.0 },
+  iconLineWidth: { min: 0.1, max: 1.5 },
 }
 
 function clampValue(key: string, value: number): number {
@@ -90,9 +96,14 @@ export function useStamp() {
     thickness: params.diameter,
   }), [params.diameter, params.height])
 
+  // Posição da câmera de reset: 240° no plano XZ (eixo Y) e 20° de inclinação (eixo X).
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = params.diameter * 2
-    return [0, 0, distance]
+    const azimuth = (RESET_CAMERA_ANGLE_DEGREES * Math.PI) / 180
+    const tilt = (RESET_CAMERA_TILT_DEGREES * Math.PI) / 180
+    const x = distance * Math.sin(azimuth)
+    const z = distance * Math.cos(azimuth)
+    return [x, -z * Math.sin(tilt), z * Math.cos(tilt)]
   }, [params.diameter])
 
   return { params, geometry, dimensions, cameraPosition, updateParam, setSvgIcon, reset }

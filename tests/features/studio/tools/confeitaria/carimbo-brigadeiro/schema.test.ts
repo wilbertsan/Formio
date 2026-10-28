@@ -80,8 +80,29 @@ describe('stampParamsSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects iconScale above 2.0', () => {
-    const invalid = { ...defaultStampParams, iconScale: 2.5 }
+  it('rejects iconScale above 1.0', () => {
+    const invalid = { ...defaultStampParams, iconScale: 1.5 }
+    const result = stampParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects iconLineWidth below 0.1', () => {
+    const invalid = { ...defaultStampParams, iconLineWidth: 0.05 }
+    expect(stampParamsSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('rejects iconLineWidth above 1.5', () => {
+    const invalid = { ...defaultStampParams, iconLineWidth: 2 }
+    expect(stampParamsSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('accepts contentType text or svg', () => {
+    expect(stampParamsSchema.safeParse({ ...defaultStampParams, contentType: 'text' }).success).toBe(true)
+    expect(stampParamsSchema.safeParse({ ...defaultStampParams, contentType: 'svg' }).success).toBe(true)
+  })
+
+  it('rejects invalid contentType', () => {
+    const invalid = { ...defaultStampParams, contentType: 'image' }
     const result = stampParamsSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })

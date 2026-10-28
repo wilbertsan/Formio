@@ -1,10 +1,9 @@
 import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { buildSvgIconGeometry } from '../shared/svgToIconShape'
 import type { StampParams } from './schema'
-import { HANDLE_HEIGHT_RATIO, RELIEF_DEPTH } from './schema'
+import { CONTENT_MARGIN_MM, HANDLE_HEIGHT_RATIO, RELIEF_DEPTH } from './schema'
 
 export interface BuildStampInput {
   params: StampParams
@@ -83,10 +82,25 @@ function buildText(params: StampParams, font: Font | null): BufferGeometry | nul
     bevelSegments: 2,
   })
 
+  // Encolher o texto (apenas X/Y) para caber dentro do círculo do carimbo,
+  // garantindo que os cantos da bounding box fiquem dentro do raio útil.
+  // Nunca aumenta: textos curtos mantêm o fontSize desejado.
   textGeometry.computeBoundingBox()
   const bb = textGeometry.boundingBox!
-  const cx = (bb.min.x + bb.max.x) / 2
-  const cy = (bb.min.y + bb.max.y) / 2
+  const halfWidth = (bb.max.x - bb.min.x) / 2
+  const halfHeight = (bb.max.y - bb.min.y) / 2
+  const cornerRadius = Math.hypot(halfWidth, halfHeight)
+  const maxRadius = params.diameter / 2 - CONTENT_MARGIN_MM
+
+  if (cornerRadius > maxRadius) {
+    const scale = maxRadius / cornerRadius
+    textGeometry.scale(scale, scale, 1) // não escala Z: mantém o relevo
+  }
+
+  textGeometry.computeBoundingBox()
+  const fitted = textGeometry.boundingBox!
+  const cx = (fitted.min.x + fitted.max.x) / 2
+  const cy = (fitted.min.y + fitted.max.y) / 2
 
   const zOffset = params.reliefType === 'negative' ? -RELIEF_DEPTH : 0
   textGeometry.translate(-cx, -cy, zOffset)
@@ -97,51 +111,18 @@ function buildText(params: StampParams, font: Font | null): BufferGeometry | nul
 function buildIcon(params: StampParams): BufferGeometry | null {
   if (!params.svgIcon) return null
 
-  const loader = new SVGLoader()
-  const svgData = loader.parse(params.svgIcon)
-
-  const shapes: Shape[] = []
-
-  for (const path of svgData.paths) {
-    const pathShapes = path.toShapes()
-    shapes.push(...pathShapes)
-  }
-
-  if (shapes.length === 0) return null
-
-  const geometries: BufferGeometry[] = []
-  for (const shape of shapes) {
-    const geometry = new ExtrudeGeometry(shape, {
-      depth: RELIEF_DEPTH,
-      bevelEnabled: true,
-      bevelThickness: 0.1,
-      bevelSize: 0.1,
-      bevelSegments: 1,
-    })
-    geometries.push(geometry)
-  }
-
-  const iconGeometry = mergeGeometries(geometries)
+  const iconGeometry = buildSvgIconGeometry({
+    svg: params.svgIcon,
+    maxRadius: params.diameter / 2 - CONTENT_MARGIN_MM,
+    lineWidth: params.iconLineWidth,
+    iconScale: params.iconScale,
+    depth: RELIEF_DEPTH,
+  })
   if (!iconGeometry) return null
 
-  geometries.forEach(g => g.dispose())
-
-  iconGeometry.computeBoundingBox()
-  const bb = iconGeometry.boundingBox!
-  const sizeX = bb.max.x - bb.min.x
-  const sizeY = bb.max.y - bb.min.y
-  const maxSize = Math.max(sizeX, sizeY)
-  const scale = (params.fontSize * 2 * params.iconScale) / maxSize
-
-  iconGeometry.scale(scale, scale, 1)
-
-  iconGeometry.computeBoundingBox()
-  const bb2 = iconGeometry.boundingBox!
-  const cx = (bb2.min.x + bb2.max.x) / 2
-  const cy = (bb2.min.y + bb2.max.y) / 2
-
+  // Relevo negativo afunda o ícone para dentro da base.
   const zOffset = params.reliefType === 'negative' ? -RELIEF_DEPTH : 0
-  iconGeometry.translate(-cx, -cy, zOffset)
+  iconGeometry.translate(0, 0, zOffset)
 
   return iconGeometry
 }
@@ -149,8 +130,8 @@ function buildIcon(params: StampParams): BufferGeometry | null {
 export function buildStamp({ params, font }: BuildStampInput): BuildStampResult {
   const base = buildBase(params)
   const handle = buildHandle(params)
-  const text = buildText(params, font)
-  const icon = buildIcon(params)
+  const text = params.contentType === 'text' ? buildText(params, font) : null
+  const icon = params.contentType === 'svg' ? buildIcon(params) : null
 
   return { base, handle, text, icon }
 }

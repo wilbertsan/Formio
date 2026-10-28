@@ -87,6 +87,10 @@ describe('useStamp', () => {
   it('returns camera position based on diameter', () => {
     const { result } = renderHook(() => useStamp())
 
-    expect(result.current.cameraPosition).toEqual([0, 0, 40])
+    // 240° em torno do eixo Y + 30° de inclinação no eixo X
+    const [x, y, z] = result.current.cameraPosition
+    expect(x).toBeCloseTo(-34.641, 2)
+    expect(y).toBeCloseTo(10, 2)
+    expect(z).toBeCloseTo(-17.321, 2)
   })
 })

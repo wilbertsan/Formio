@@ -4,6 +4,8 @@ import {
   Button,
   Flex,
   Heading,
+  Radio,
+  RadioGroupField,
   SelectField,
   SliderField,
   Text,
@@ -81,43 +83,115 @@ export function StudioPanel({
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="texto">
+        <Accordion.Item value="conteudo">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Texto
+              Conteúdo
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <TextField
-                label="Conteúdo"
-                value={params.text}
-                maxLength={30}
-                onChange={(e) => onUpdateParam('text', e.target.value)}
-              />
-
-              <SelectField
-                label="Estilo da fonte"
-                value={params.fontStyle}
-                onChange={(e) => onUpdateParam('fontStyle', e.target.value)}
+              <RadioGroupField
+                legend="Tipo de conteúdo"
+                name="contentType"
+                value={params.contentType}
+                onChange={(e) => onUpdateParam('contentType', e.target.value)}
               >
-                <option value="normal">Normal</option>
-                <option value="bold">Negrito</option>
-                <option value="serif">Serif</option>
-              </SelectField>
+                <Radio value="text">Texto</Radio>
+                <Radio value="svg">Ícone SVG</Radio>
+              </RadioGroupField>
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Tamanho</Text>
-                <Text fontSize="xs" color="font.secondary">{params.fontSize} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Tamanho da fonte"
-                min={6} max={15} step={1}
-                value={params.fontSize}
-                onChange={(value) => onUpdateParam('fontSize', value as number)}
-              />
+              {params.contentType === 'text' ? (
+                <>
+                  <TextField
+                    label="Conteúdo"
+                    value={params.text}
+                    maxLength={30}
+                    onChange={(e) => onUpdateParam('text', e.target.value)}
+                  />
+
+                  <SelectField
+                    label="Estilo da fonte"
+                    value={params.fontStyle}
+                    onChange={(e) => onUpdateParam('fontStyle', e.target.value)}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="bold">Negrito</option>
+                    <option value="serif">Serif</option>
+                  </SelectField>
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Tamanho</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.fontSize} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Tamanho da fonte"
+                    min={6} max={15} step={1}
+                    value={params.fontSize}
+                    onChange={(value) => onUpdateParam('fontSize', value as number)}
+                  />
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".svg"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
+                  />
+
+                  {!params.svgIcon ? (
+                    <Button
+                      size="small"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Upload SVG
+                    </Button>
+                  ) : (
+                    <>
+                      <Text fontSize="xs" color="font.secondary">
+                        Ícone carregado
+                      </Text>
+                      <Button
+                        size="small"
+                        variation="link"
+                        onClick={() => onSetSvgIcon(null)}
+                      >
+                        Remover ícone
+                      </Button>
+                    </>
+                  )}
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Escala</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.iconScale.toFixed(1)}x</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Escala do ícone"
+                    min={0.5} max={1.0} step={0.1}
+                    value={params.iconScale}
+                    isDisabled={!params.svgIcon}
+                    onChange={(value) => onUpdateParam('iconScale', value as number)}
+                  />
+
+                  <Flex direction="row" justifyContent="space-between">
+                    <Text fontSize="xs" color="font.tertiary">Espessura da linha</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.iconLineWidth.toFixed(2)} mm</Text>
+                  </Flex>
+                  <SliderField
+                    label=""
+                    aria-label="Espessura da linha do ícone"
+                    min={0.1} max={1.5} step={0.05}
+                    value={params.iconLineWidth}
+                    isDisabled={!params.svgIcon}
+                    onChange={(value) => onUpdateParam('iconLineWidth', value as number)}
+                  />
+                </>
+              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
@@ -153,61 +227,6 @@ export function StudioPanel({
                 min={15} max={25} step={1}
                 value={params.height}
                 onChange={(value) => onUpdateParam('height', value as number)}
-              />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="icone">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Ícone SVG
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".svg"
-                onChange={handleFileUpload}
-                style={{ display: 'none' }}
-              />
-
-              {!params.svgIcon ? (
-                <Button
-                  size="small"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  Upload SVG
-                </Button>
-              ) : (
-                <>
-                  <Text fontSize="xs" color="font.secondary">
-                    Ícone carregado
-                  </Text>
-                  <Button
-                    size="small"
-                    variation="link"
-                    onClick={() => onSetSvgIcon(null)}
-                  >
-                    Remover ícone
-                  </Button>
-                </>
-              )}
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Escala</Text>
-                <Text fontSize="xs" color="font.secondary">{params.iconScale.toFixed(1)}x</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Escala do ícone"
-                min={0.5} max={2.0} step={0.1}
-                value={params.iconScale}
-                isDisabled={!params.svgIcon}
-                onChange={(value) => onUpdateParam('iconScale', value as number)}
               />
             </Flex>
           </Accordion.Content>

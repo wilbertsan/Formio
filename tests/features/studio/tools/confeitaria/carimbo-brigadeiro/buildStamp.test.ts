@@ -89,8 +89,8 @@ describe('buildStamp - text', () => {
 
   it('text depth is RELIEF_DEPTH (1mm) + bevel', () => {
     const mockFont = new Font(mockFontData)
-    const result = buildStamp({ params: defaultStampParams, font: mockFont })
-    
+    const result = buildStamp({ params: { ...defaultStampParams, text: 'Teste' }, font: mockFont })
+
     if (result.text) {
       result.text.computeBoundingBox()
       const bb = result.text.boundingBox!
@@ -98,39 +98,180 @@ describe('buildStamp - text', () => {
       expect(depth).toBeCloseTo(1.2, 0)
     }
   })
+
+  it('shrinks long text to fit inside the stamp circle', () => {
+    const mockFont = new Font(mockFontData)
+    const params = { ...defaultStampParams, text: 'Parabéns', fontSize: 15, diameter: 20 }
+    const result = buildStamp({ params, font: mockFont })
+
+    expect(result.text).not.toBeNull()
+    result.text!.computeBoundingBox()
+    const bb = result.text!.boundingBox!
+    const halfWidth = (bb.max.x - bb.min.x) / 2
+    const halfHeight = (bb.max.y - bb.min.y) / 2
+
+    expect(Math.hypot(halfWidth, halfHeight)).toBeLessThanOrEqual(params.diameter / 2)
+  })
+
+  it('keeps the requested size when short text already fits', () => {
+    const mockFont = new Font(mockFontData)
+    const small = buildStamp({
+      params: { ...defaultStampParams, text: 'T', fontSize: 6 },
+      font: mockFont,
+    })
+    const large = buildStamp({
+      params: { ...defaultStampParams, text: 'T', fontSize: 12 },
+      font: mockFont,
+    })
+
+    small.text!.computeBoundingBox()
+    large.text!.computeBoundingBox()
+    const smallWidth = small.text!.boundingBox!.max.x - small.text!.boundingBox!.min.x
+    const largeWidth = large.text!.boundingBox!.max.x - large.text!.boundingBox!.min.x
+
+    expect(largeWidth).toBeGreaterThan(smallWidth)
+  })
+
+  it('does not build text when contentType is svg', () => {
+    const mockFont = new Font(mockFontData)
+    const params = { ...defaultStampParams, contentType: 'svg' as const, text: 'Teste' }
+    const result = buildStamp({ params, font: mockFont })
+    expect(result.text).toBeNull()
+  })
 })
 
 describe('buildStamp - icon', () => {
-  it('builds icon geometry when svgIcon is provided', () => {
-    const svgString = '<svg><circle cx="10" cy="10" r="5"/></svg>'
-    const params = { ...defaultStampParams, svgIcon: svgString }
+  const svgString = '<svg><circle cx="10" cy="10" r="5"/></svg>'
+
+  it('builds icon geometry when contentType is svg and svgIcon is provided', () => {
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: svgString }
     const result = buildStamp({ params, font: null })
-    
+
     expect(result.icon).toBeDefined()
     expect(result.icon).not.toBeNull()
   })
 
-  it('returns null for icon when svgIcon is null', () => {
-    const result = buildStamp({ params: defaultStampParams, font: null })
+  it('does not build icon when contentType is text', () => {
+    const params = { ...defaultStampParams, contentType: 'text' as const, svgIcon: svgString }
+    const result = buildStamp({ params, font: null })
     expect(result.icon).toBeNull()
   })
 
-  it('icon is scaled by iconScale parameter', () => {
-    const svgString = '<svg><circle cx="10" cy="10" r="5"/></svg>'
-    const params1 = { ...defaultStampParams, svgIcon: svgString, iconScale: 1.0 }
-    const params2 = { ...defaultStampParams, svgIcon: svgString, iconScale: 2.0 }
-    
+  it('returns null for icon when svgIcon is null', () => {
+    const params = { ...defaultStampParams, contentType: 'svg' as const }
+    const result = buildStamp({ params, font: null })
+    expect(result.icon).toBeNull()
+  })
+
+  it('fits the icon inside the stamp circle', () => {
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: svgString, diameter: 20 }
+    const result = buildStamp({ params, font: null })
+
+    const position = result.icon!.attributes.position
+    let maxDistance = 0
+    for (let i = 0; i < position.count; i++) {
+      const distance = Math.hypot(position.getX(i), position.getY(i))
+      if (distance > maxDistance) maxDistance = distance
+    }
+
+    expect(maxDistance).toBeLessThanOrEqual(params.diameter / 2)
+  })
+
+  it('scales the icon to fill the usable stamp radius', () => {
+    // Círculo de raio 5 → com diâmetro 20 e margem 1.5, deve preencher 8.5mm
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: svgString, diameter: 20, iconScale: 1.0 }
+    const result = buildStamp({ params, font: null })
+
+    const position = result.icon!.attributes.position
+    let maxDistance = 0
+    for (let i = 0; i < position.count; i++) {
+      const distance = Math.hypot(position.getX(i), position.getY(i))
+      if (distance > maxDistance) maxDistance = distance
+    }
+
+    expect(maxDistance).toBeCloseTo(8.5, 0)
+  })
+
+  it('thickens thin filled shapes to the minimum line width', () => {
+    // Retângulo fino (80×2) em viewBox 100 — sem engrossar ficaria ~0.4mm.
+    const thinRect = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="10" y="49" width="80" height="2"/></svg>'
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: thinRect }
+    const result = buildStamp({ params, font: null })
+
+    expect(result.icon).not.toBeNull()
+    result.icon!.computeBoundingBox()
+    const bb = result.icon!.boundingBox!
+    const height = bb.max.y - bb.min.y
+
+    expect(height).toBeGreaterThanOrEqual(params.iconLineWidth)
+  })
+
+  it('builds geometry for stroke-only paths with the minimum width', () => {
+    // Path só de linha (fill=none) — antes geraria geometria vazia.
+    const strokeOnly = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 50 L90 50" fill="none" stroke="black" stroke-width="1"/></svg>'
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: strokeOnly }
+    const result = buildStamp({ params, font: null })
+
+    expect(result.icon).not.toBeNull()
+    result.icon!.computeBoundingBox()
+    const bb = result.icon!.boundingBox!
+    const height = bb.max.y - bb.min.y
+
+    expect(height).toBeGreaterThanOrEqual(params.iconLineWidth)
+  })
+
+  it('thickens strokes according to iconLineWidth', () => {
+    const strokeOnly = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M10 50 L90 50" fill="none" stroke="black" stroke-width="1"/></svg>'
+    const thin = buildStamp({
+      params: { ...defaultStampParams, contentType: 'svg' as const, svgIcon: strokeOnly, iconLineWidth: 0.2 },
+      font: null,
+    })
+    const thick = buildStamp({
+      params: { ...defaultStampParams, contentType: 'svg' as const, svgIcon: strokeOnly, iconLineWidth: 1.0 },
+      font: null,
+    })
+
+    thin.icon!.computeBoundingBox()
+    thick.icon!.computeBoundingBox()
+    const thinHeight = thin.icon!.boundingBox!.max.y - thin.icon!.boundingBox!.min.y
+    const thickHeight = thick.icon!.boundingBox!.max.y - thick.icon!.boundingBox!.min.y
+
+    expect(thickHeight).toBeGreaterThan(thinHeight)
+  })
+
+  it('rotates the icon 180° about Z', () => {
+    // Triângulo com ápice no topo em coordenadas SVG (Y para baixo)
+    const triangle = '<svg><path d="M5 0 L10 10 L0 10 Z"/></svg>'
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: triangle }
+    const result = buildStamp({ params, font: null })
+
+    const position = result.icon!.attributes.position
+    let maxY = -Infinity
+    let xAtMaxY = 0
+    for (let i = 0; i < position.count; i++) {
+      const y = position.getY(i)
+      if (y > maxY) {
+        maxY = y
+        xAtMaxY = position.getX(i)
+      }
+    }
+
+    // Após girar 180°, o ápice (X≈0) fica no topo (maior Y), não na base.
+    expect(Math.abs(xAtMaxY)).toBeLessThan(1)
+  })
+
+  it('scales the icon with iconScale', () => {
+    const params1 = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: svgString, iconScale: 0.5 }
+    const params2 = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: svgString, iconScale: 1.0 }
+
     const result1 = buildStamp({ params: params1, font: null })
     const result2 = buildStamp({ params: params2, font: null })
-    
-    if (result1.icon && result2.icon) {
-      result1.icon.computeBoundingBox()
-      result2.icon.computeBoundingBox()
-      
-      const size1 = result1.icon.boundingBox!.max.x - result1.icon.boundingBox!.min.x
-      const size2 = result2.icon.boundingBox!.max.x - result2.icon.boundingBox!.min.x
-      
-      expect(size2).toBeGreaterThan(size1)
-    }
+
+    result1.icon!.computeBoundingBox()
+    result2.icon!.computeBoundingBox()
+    const size1 = result1.icon!.boundingBox!.max.x - result1.icon!.boundingBox!.min.x
+    const size2 = result2.icon!.boundingBox!.max.x - result2.icon!.boundingBox!.min.x
+
+    expect(size2).toBeGreaterThan(size1)
   })
 })

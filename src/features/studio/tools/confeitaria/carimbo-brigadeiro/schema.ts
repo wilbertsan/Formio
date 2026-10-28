@@ -8,13 +8,20 @@ export const PLA_COLORS = [
 
 export type PlaColor = (typeof PLA_COLORS)[number]
 
+// Tipo de conteúdo gravado no carimbo (mutuamente exclusivo)
+export const CONTENT_TYPES = ['text', 'svg'] as const
+export type ContentType = (typeof CONTENT_TYPES)[number]
+
 // Constantes fixas
 export const RELIEF_DEPTH = 1
 export const HANDLE_HEIGHT_RATIO = 0.6
+// Margem interna entre o conteúdo (texto ou ícone) e a borda do carimbo (mm)
+export const CONTENT_MARGIN_MM = 1.5
 
 // Schema do carimbo
 export const stampParamsSchema = z.object({
   productType: z.literal('stamp'),
+  contentType: z.enum(['text', 'svg']),
   text: z.string().min(1).max(30),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   fontSize: z.number().min(6).max(15),
@@ -22,7 +29,8 @@ export const stampParamsSchema = z.object({
   height: z.number().min(15).max(25),
   reliefType: z.enum(['negative', 'positive']),
   svgIcon: z.string().nullable(),
-  iconScale: z.number().min(0.5).max(2.0),
+  iconScale: z.number().min(0.5).max(1.0),
+  iconLineWidth: z.number().min(0.1).max(1.5),
   baseColor: z.enum(PLA_COLORS),
   reliefColor: z.enum(PLA_COLORS),
 })
@@ -37,7 +45,8 @@ export function sanitizeFilename(name: string): string {
 // Valores padrão
 export const defaultStampParams: StampParams = {
   productType: 'stamp',
-  text: 'Parabéns',
+  contentType: 'text',
+  text: 'Texto',
   fontStyle: 'bold',
   fontSize: 10,
   diameter: 20,
@@ -45,6 +54,7 @@ export const defaultStampParams: StampParams = {
   reliefType: 'negative',
   svgIcon: null,
   iconScale: 1.0,
+  iconLineWidth: 0.3,
   baseColor: '#14b8a6',
   reliefColor: '#f5f5f5',
 }
