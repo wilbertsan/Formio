@@ -2,10 +2,15 @@ import {
   type BufferGeometry,
   BoxGeometry,
   CylinderGeometry,
+  DoubleSide,
   ExtrudeGeometry,
+  Mesh,
+  MeshBasicMaterial,
   Path,
+  Raycaster,
   Shape,
   Vector2,
+  Vector3,
 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
@@ -112,6 +117,15 @@ function transformShape(shape: Shape, scale: number, dx: number, dy: number): Sh
   return transformed
 }
 
+// O SVGLoader entrega o eixo Y para baixo; invertemos apenas o Y (o X permanece
+// correto) para o contorno não aparecer de cabeça para baixo.
+function flipShapeY(shape: Shape): Shape {
+  const map = (point: Vector2): Vector2 => new Vector2(point.x, -point.y)
+  const flipped = new Shape(shape.getPoints().map(map))
+  for (const hole of shape.holes) flipped.holes.push(new Path(hole.getPoints().map(map)))
+  return flipped
+}
+
 function fitShapesToBox(shapes: Shape[], boxWidth: number, boxHeight: number): Shape[] {
   let minX = Infinity
   let maxX = -Infinity
@@ -145,7 +159,7 @@ function customPlateShapes(params: CakeTopperParams): Shape[] {
   if (!parsed) return []
   const shapes = svgShapesFromParsed(parsed, CUSTOM_MIN_FEATURE)
   if (shapes.length === 0) return []
-  return fitShapesToBox(shapes, params.width, params.height)
+  return fitShapesToBox(shapes.map(flipShapeY), params.width, params.height)
 }
 
 function plateShapes(params: CakeTopperParams, onError?: (message: string) => void): Shape[] {
@@ -444,6 +458,43 @@ function buildBase(
   return base
 }
 
+// X onde a placa "pisa": dispara raios verticais para baixo ao longo de X e
+// devolve o X cujo fundo é o mais baixo (empate → mais próximo de 0). Mantém a
+// haste centrada em formas simétricas e a move para baixo do fundo em contornos
+// irregulares, garantindo o contato com a placa.
+function plateBottomAnchorX(plate: BufferGeometry, thickness: number): number {
+  plate.computeBoundingBox()
+  const bb = plate.boundingBox
+  if (!bb) return 0
+
+  const material = new MeshBasicMaterial({ side: DoubleSide })
+  const mesh = new Mesh(plate, material)
+  const raycaster = new Raycaster()
+  const dir = new Vector3(0, -1, 0)
+  const fromY = bb.max.y + 1
+  const z = thickness / 2
+
+  let bestX = 0
+  let bestBottom = Infinity
+  const step = 0.5
+  for (let x = bb.min.x; x <= bb.max.x + 1e-6; x += step) {
+    raycaster.set(new Vector3(x, fromY, z), dir)
+    const hits = raycaster.intersectObject(mesh, false)
+    if (hits.length === 0) continue
+    let bottom = Infinity
+    for (const hit of hits) if (hit.point.y < bottom) bottom = hit.point.y
+    const lower = bottom < bestBottom - 1e-6
+    const tieNearCenter = Math.abs(bottom - bestBottom) <= 1e-6 && Math.abs(x) < Math.abs(bestX)
+    if (lower || tieNearCenter) {
+      bestBottom = bottom
+      bestX = x
+    }
+  }
+
+  material.dispose()
+  return bestX
+}
+
 function buildSupport(
   params: CakeTopperParams,
   plate: BufferGeometry,
@@ -461,8 +512,10 @@ function buildSupport(
       params.stemLength,
       STEM_SEGMENTS,
     )
-    // Embutida na placa (topo em plateMinY + STEM_EMBED) para soldar os corpos.
-    stem.translate(0, plateMinY + STEM_EMBED - params.stemLength / 2, params.thickness / 2)
+    // Ancora sob o fundo real da placa e embute o topo (plateMinY + STEM_EMBED)
+    // para soldar os corpos.
+    const anchorX = plateBottomAnchorX(plate, params.thickness)
+    stem.translate(anchorX, plateMinY + STEM_EMBED - params.stemLength / 2, params.thickness / 2)
     return stem
   }
 

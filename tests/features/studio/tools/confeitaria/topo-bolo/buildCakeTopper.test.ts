@@ -13,6 +13,10 @@ import {
 
 const SVG_RECT = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
 const SVG_EMPTY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"></svg>'
+// Trapézio: topo (y=0) estreito (largura 40), base (y=100) larga (largura 100).
+const SVG_TRAPEZOID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M30,0 L70,0 L100,100 L0,100 Z" fill="#000"/></svg>'
+// Triângulo retângulo: base (SVG y=100) reduzida a um único ponto em x=0 (esquerda).
+const SVG_TRIANGLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L0,100 Z" fill="#000"/></svg>'
 
 // Deve bater com BASE_FLOOR em buildCakeTopper.ts.
 const BASE_FLOOR = 3
@@ -50,6 +54,22 @@ function bounds(geometry: BufferGeometry): { hw: number; hh: number; cx: number;
     cx: (box.min.x + box.max.x) / 2,
     cy: (box.min.y + box.max.y) / 2,
   }
+}
+
+// Intervalo em X dos vértices da geometria cujo Y cai em [fromY, toY].
+function xIntervalInBand(geometry: BufferGeometry, fromY: number, toY: number): { min: number; max: number } | null {
+  const pos = geometry.getAttribute('position')
+  let min = Infinity
+  let max = -Infinity
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i)
+    if (y >= fromY && y <= toY) {
+      const x = pos.getX(i)
+      if (x < min) min = x
+      if (x > max) max = x
+    }
+  }
+  return Number.isFinite(min) ? { min, max } : null
 }
 
 describe('buildCakeTopper - placa', () => {
@@ -91,6 +111,29 @@ describe('buildCakeTopper - placa', () => {
     const result = buildCakeTopper({ params, onError })
     expect(result.plate.attributes.position).toBeDefined()
     expect(onError).toHaveBeenCalled()
+  })
+
+  it('custom não fica de cabeça para baixo (Y do SVG é invertido)', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_TRAPEZOID,
+      width: 100,
+      height: 100,
+    }
+    const { plate } = buildCakeTopper({ params })
+    plate.computeBoundingBox()
+    const bb = plate.boundingBox!
+    const eps = (bb.max.y - bb.min.y) * 0.1
+
+    const bottom = xIntervalInBand(plate, bb.min.y, bb.min.y + eps)!
+    const top = xIntervalInBand(plate, bb.max.y - eps, bb.max.y)!
+    const bottomWidth = bottom.max - bottom.min
+    const topWidth = top.max - top.min
+
+    // No SVG a base (y=100) é larga e o topo (y=0) é estreito; no 3D o fundo
+    // deve continuar sendo a parte larga.
+    expect(bottomWidth).toBeGreaterThan(topWidth)
   })
 })
 
@@ -247,6 +290,38 @@ describe('buildCakeTopper - fixação (support)', () => {
     result.support!.computeBoundingBox()
     // Topo da haste avança STEM_EMBED (2mm) para dentro da placa.
     expect(result.support!.boundingBox!.max.y).toBeCloseTo(plateMinY + 2, 5)
+  })
+
+  it('haste se ancora sob o fundo real do contorno (não flutua)', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_TRIANGLE,
+      width: 100,
+      height: 100,
+      supportType: 'haste' as const,
+      stemDiameter: 4,
+    }
+    const result = buildCakeTopper({ params })
+    result.plate.computeBoundingBox()
+    const pb = result.plate.boundingBox!
+    result.support!.computeBoundingBox()
+    const sb = result.support!.boundingBox!
+    const stemX = (sb.min.x + sb.max.x) / 2
+
+    // O fundo real do triângulo é um bico deslocado (não em x=0); a haste deve
+    // ficar sob esse fundo, dentro do intervalo de X da faixa inferior da placa.
+    const band = xIntervalInBand(result.plate, pb.min.y, pb.min.y + 1)!
+    expect(stemX).toBeGreaterThanOrEqual(band.min - 0.25)
+    expect(stemX).toBeLessThanOrEqual(band.max + 0.25)
+  })
+
+  it('haste permanece centralizada em formas simétricas', () => {
+    const params = { ...defaultCakeTopperParams, shape: 'circle' as const, supportType: 'haste' as const }
+    const result = buildCakeTopper({ params })
+    result.support!.computeBoundingBox()
+    const sb = result.support!.boundingBox!
+    expect((sb.min.x + sb.max.x) / 2).toBeCloseTo(0, 3)
   })
 
   it('base é transladada para o lado da placa', () => {
