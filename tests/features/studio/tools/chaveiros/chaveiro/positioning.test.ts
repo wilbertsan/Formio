@@ -50,6 +50,18 @@ describe('clampTextPosition', () => {
     const distance = Math.hypot(result.x - hole.x, result.y - hole.y)
     expect(distance).toBeGreaterThanOrEqual(hole.radius + 1)
   })
+
+  it('empurra determinísticamente quando o texto está no centro do furo', () => {
+    const centeredHole = { x: 0, y: 0, radius: 3 }
+    const result = clampTextPosition(
+      { x: 0, y: 0, halfWidth: 10, halfHeight: 2 },
+      pieceBB,
+      centeredHole,
+    )
+    expect(result.x).toBe(0)
+    expect(result.y).toBe(4)
+    expect(Math.hypot(result.x - centeredHole.x, result.y - centeredHole.y)).toBeGreaterThanOrEqual(4)
+  })
 })
 
 describe('snapTextToSupport', () => {

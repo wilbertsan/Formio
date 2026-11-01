@@ -7,6 +7,7 @@ import {
   scaleShape,
   svgBoundsFromParsed,
   svgShapesFromParsed,
+  type ParsedSvg,
 } from '../../confeitaria/shared/svgToIconShape'
 import { clampTextPosition, type BoundingBox2D, type Circle2D } from './positioning'
 import { normalizeName, type ContentItem, type KeychainParams } from './schema'
@@ -20,7 +21,7 @@ export type UsableRegion =
 export interface FitContext {
   region: UsableRegion | null
   params: KeychainParams
-  font: Font
+  font?: Font
   referenceSize: number
   pieceBB?: BoundingBox2D
   hole?: Circle2D
@@ -48,21 +49,27 @@ export function getUsableRegion(params: KeychainParams): UsableRegion | null {
 
   if (params.baseShape === 'heart') {
     const points = createOutline('heart', params.width, params.height).getPoints(64)
-    const inset = Math.min(...points.map(point => Math.hypot(point.x, point.y)))
+    const xs = points.map(point => point.x)
+    const ys = points.map(point => point.y)
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+    const inset = Math.min(...points.map(point => Math.hypot(point.x - cx, point.y - cy)))
     return {
       kind: 'circle',
-      cx: 0,
-      cy: 0,
+      cx,
+      cy,
       radius: Math.max(1, inset - params.borderWidth),
     }
   }
 
+  const halfWidth = Math.max(0.5, params.width / 2 - params.borderWidth)
+  const halfHeight = Math.max(0.5, params.height / 2 - params.borderWidth)
   return {
     kind: 'rect',
-    minX: -params.width / 2 + params.borderWidth,
-    maxX: params.width / 2 - params.borderWidth,
-    minY: -params.height / 2 + params.borderWidth,
-    maxY: params.height / 2 - params.borderWidth,
+    minX: -halfWidth,
+    maxX: halfWidth,
+    minY: -halfHeight,
+    maxY: halfHeight,
   }
 }
 
@@ -89,11 +96,13 @@ export function fitGeometryToRegion(geometry: BufferGeometry, region: UsableRegi
 
   const fitted = geometry.boundingBox
   if (!fitted) return
-  geometry.translate(
-    -(fitted.min.x + fitted.max.x) / 2,
-    -(fitted.min.y + fitted.max.y) / 2,
-    -fitted.min.z,
-  )
+
+  const centerX = (fitted.min.x + fitted.max.x) / 2
+  const centerY = (fitted.min.y + fitted.max.y) / 2
+  const targetX = region.kind === 'circle' ? region.cx : 0
+  const targetY = region.kind === 'circle' ? region.cy : 0
+
+  geometry.translate(targetX - centerX, targetY - centerY, -fitted.min.z)
 }
 
 export function clampOffset(
@@ -112,13 +121,15 @@ export function clampOffset(
   }
 
   const maxCenter = Math.max(0, region.radius - Math.hypot(halfWidth, halfHeight))
-  const distance = Math.hypot(offset.x, offset.y)
+  const dx = offset.x - region.cx
+  const dy = offset.y - region.cy
+  const distance = Math.hypot(dx, dy)
   if (distance <= maxCenter || distance === 0) {
     return { x: offset.x, y: offset.y }
   }
 
   const scale = maxCenter / distance
-  return { x: offset.x * scale, y: offset.y * scale }
+  return { x: region.cx + dx * scale, y: region.cy + dy * scale }
 }
 
 export function resolveContentGeometry(
@@ -126,48 +137,57 @@ export function resolveContentGeometry(
   ctx: FitContext,
 ): FittedContent | null {
   if (item.kind === 'text') {
+    if (!ctx.font) return null
+
     const geometry = nameToGeometry({
       font: ctx.font,
       name: item.content,
       size: item.fontSize,
       depth: ctx.params.reliefDepth,
     })
+    normalizeZ(geometry)
     if (ctx.region) fitGeometryToRegion(geometry, ctx.region)
     return fittedContent(geometry, item, ctx)
   }
 
-  if (item.svgIcon === null) return null
+  const svg = item.svgIcon
+  if (svg === null) return null
 
+  const region = ctx.region
   let geometry: BufferGeometry | null
-  if (ctx.region?.kind === 'circle') {
-    geometry = buildSvgIconGeometry({
-      svg: item.svgIcon,
-      maxRadius: ctx.region.radius,
+  if (region?.kind === 'circle') {
+    const radius = region.radius
+    geometry = safeIconGeometry(() => buildSvgIconGeometry({
+      svg,
+      maxRadius: radius,
       lineWidth: item.iconLineWidth,
       iconScale: item.iconScale,
       depth: ctx.params.reliefDepth,
-    })
-  } else if (ctx.region?.kind === 'rect') {
-    geometry = buildSvgIconGeometryInBox({
-      svg: item.svgIcon,
-      maxWidth: ctx.region.maxX - ctx.region.minX,
-      maxHeight: ctx.region.maxY - ctx.region.minY,
+    }))
+  } else if (region?.kind === 'rect') {
+    const maxWidth = region.maxX - region.minX
+    const maxHeight = region.maxY - region.minY
+    geometry = safeIconGeometry(() => buildSvgIconGeometryInBox({
+      svg,
+      maxWidth,
+      maxHeight,
       lineWidth: item.iconLineWidth,
       iconScale: item.iconScale,
       depth: ctx.params.reliefDepth,
-    })
+    }))
   } else {
-    geometry = buildSvgIconGeometryInBox({
-      svg: item.svgIcon,
+    geometry = safeIconGeometry(() => buildSvgIconGeometryInBox({
+      svg,
       maxWidth: ctx.referenceSize * 2,
       maxHeight: ctx.referenceSize * 2,
       lineWidth: item.iconLineWidth,
       iconScale: item.iconScale,
       depth: ctx.params.reliefDepth,
-    })
+    }))
   }
 
   if (!geometry) return null
+  normalizeZ(geometry)
   if (ctx.region) fitGeometryToRegion(geometry, ctx.region)
   return fittedContent(geometry, item, ctx)
 }
@@ -178,14 +198,13 @@ export function buildContentShapes(
   referenceSize: number,
 ): Shape[] {
   if (item.kind === 'text') {
-    return font
-      .generateShapes(normalizeName(item.content), item.fontSize)
-      .map(shape => translateShape(shape, item.offsetX, item.offsetY))
+    const shapes = font.generateShapes(normalizeName(item.content), item.fontSize)
+    return centerShapes(shapes, item.offsetX, item.offsetY)
   }
 
   if (item.svgIcon === null) return []
 
-  const parsed = parseSvg(item.svgIcon)
+  const parsed = safeParseSvg(item.svgIcon)
   if (!parsed) return []
 
   const bounds = svgBoundsFromParsed(parsed)
@@ -194,13 +213,74 @@ export function buildContentShapes(
   const scale = (referenceSize / bounds.farthest) * item.iconScale
   if (scale <= 0) return []
 
-  return svgShapesFromParsed(parsed, item.iconLineWidth / scale)
+  const shapes = svgShapesFromParsed(parsed, item.iconLineWidth / scale)
     .map(shape => rotateShape180(scaleShape(shape, scale)))
-    .map(shape => translateShape(shape, item.offsetX, item.offsetY))
+
+  return centerShapes(shapes, item.offsetX, item.offsetY)
 }
 
 function ratio(available: number, size: number): number {
   return size > 0 ? available / size : Infinity
+}
+
+function normalizeZ(geometry: BufferGeometry): void {
+  geometry.computeBoundingBox()
+  const bb = geometry.boundingBox
+  if (bb) geometry.translate(0, 0, -bb.min.z)
+}
+
+function safeParseSvg(svg: string): ParsedSvg | null {
+  try {
+    return parseSvg(svg)
+  } catch {
+    return null
+  }
+}
+
+function safeIconGeometry(
+  create: () => BufferGeometry | null,
+): BufferGeometry | null {
+  try {
+    return create()
+  } catch {
+    return null
+  }
+}
+
+function shapesBounds(shapes: Shape[]): BoundingBox2D | null {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+
+  for (const shape of shapes) {
+    for (const point of shape.getPoints()) {
+      minX = Math.min(minX, point.x)
+      maxX = Math.max(maxX, point.x)
+      minY = Math.min(minY, point.y)
+      maxY = Math.max(maxY, point.y)
+    }
+    for (const hole of shape.holes) {
+      for (const point of hole.getPoints()) {
+        minX = Math.min(minX, point.x)
+        maxX = Math.max(maxX, point.x)
+        minY = Math.min(minY, point.y)
+        maxY = Math.max(maxY, point.y)
+      }
+    }
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null
+  return { minX, maxX, minY, maxY }
+}
+
+function centerShapes(shapes: Shape[], offsetX: number, offsetY: number): Shape[] {
+  const bounds = shapesBounds(shapes)
+  if (!bounds) return shapes.map(shape => translateShape(shape, offsetX, offsetY))
+
+  const dx = -(bounds.minX + bounds.maxX) / 2 + offsetX
+  const dy = -(bounds.minY + bounds.maxY) / 2 + offsetY
+  return shapes.map(shape => translateShape(shape, dx, dy))
 }
 
 function fittedContent(

@@ -62,10 +62,15 @@ export function clampTextPosition(
   const distance = Math.hypot(dx, dy)
   const minDistance = hole.radius + HOLE_CLEARANCE
 
-  if (distance < minDistance && distance > 0.0001) {
-    const push = minDistance / distance
-    x = hole.x + dx * push
-    y = hole.y + dy * push
+  if (distance < minDistance) {
+    if (distance > 0.0001) {
+      const push = minDistance / distance
+      x = hole.x + dx * push
+      y = hole.y + dy * push
+    } else {
+      x = hole.x
+      y = hole.y + minDistance
+    }
     x = Math.min(maxX, Math.max(minX, x))
     y = Math.min(maxY, Math.max(minY, y))
   }
