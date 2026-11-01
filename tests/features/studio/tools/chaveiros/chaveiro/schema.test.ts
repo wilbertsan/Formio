@@ -1,43 +1,14 @@
 import {
+  contentItemSchema,
   defaultKeychainParams,
   keychainParamsSchema,
   normalizeName,
   sanitizeFilename,
-  textItemSchema,
   TEXT_BORDER_MIN,
   RING_EDGE_MARGIN,
 } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 describe('keychain schema', () => {
-  it('defaults são válidos', () => {
-    expect(keychainParamsSchema.parse(defaultKeychainParams)).toEqual(defaultKeychainParams)
-  })
-
-  it('aceita 1, 2 e 3 textos', () => {
-    for (const count of [1, 2, 3]) {
-      const texts = Array.from({ length: count }, (_, i) => ({
-        ...defaultKeychainParams.texts[0],
-        id: `t${i}`,
-      }))
-      expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, texts }).success).toBe(true)
-    }
-  })
-
-  it('rejeita 0 textos e 4 textos', () => {
-    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, texts: [] }).success).toBe(false)
-    const four = Array.from({ length: 4 }, (_, i) => ({ ...defaultKeychainParams.texts[0], id: `t${i}` }))
-    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, texts: four }).success).toBe(false)
-  })
-
-  it('textItemSchema valida ranges corretamente', () => {
-    const valid = defaultKeychainParams.texts[0]
-    expect(textItemSchema.parse(valid)).toEqual(valid)
-    expect(textItemSchema.safeParse({ ...valid, content: '' }).success).toBe(false)
-    expect(textItemSchema.safeParse({ ...valid, width: 3 }).success).toBe(false)
-    expect(textItemSchema.safeParse({ ...valid, height: 25 }).success).toBe(false)
-    expect(textItemSchema.safeParse({ ...valid, offsetX: 25 }).success).toBe(false)
-  })
-
   it('schema não inclui campos globais de texto removidos', () => {
     expect('name' in keychainParamsSchema.shape).toBe(false)
     expect('fontStyle' in keychainParamsSchema.shape).toBe(false)
@@ -69,5 +40,45 @@ describe('keychain schema', () => {
 
   it('baseShape aceita formato name', () => {
     expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, baseShape: 'name' }).success).toBe(true)
+  })
+})
+
+describe('conteúdo texto/ícone', () => {
+  it('aceita texto com fontSize 6-15', () => {
+    const text = {
+      id: 't1', kind: 'text', content: 'Ana', fontStyle: 'bold',
+      fontSize: 10, offsetX: 0, offsetY: 0,
+    }
+    expect(contentItemSchema.parse(text)).toEqual(text)
+    expect(contentItemSchema.safeParse({ ...text, fontSize: 5 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, fontSize: 16 }).success).toBe(false)
+  })
+
+  it('aceita ícone sem SVG (upload pendente)', () => {
+    const icon = {
+      id: 'i1', kind: 'icon', svgIcon: null, iconScale: 1,
+      iconLineWidth: 0.3, offsetX: 0, offsetY: 0,
+    }
+    expect(contentItemSchema.parse(icon)).toEqual(icon)
+  })
+
+  it('defaults são válidos e incluem reliefDepth', () => {
+    expect(keychainParamsSchema.parse(defaultKeychainParams)).toEqual(defaultKeychainParams)
+    expect(defaultKeychainParams.reliefDepth).toBe(1)
+    expect(defaultKeychainParams.contents).toHaveLength(1)
+  })
+
+  it('aceita 1-3 conteúdos e rejeita 0/4', () => {
+    for (const count of [1, 2, 3]) {
+      const contents = Array.from({ length: count }, (_, i) => ({
+        ...defaultKeychainParams.contents[0], id: `c${i}`,
+      }))
+      expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, contents }).success).toBe(true)
+    }
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, contents: [] }).success).toBe(false)
+    const four = Array.from({ length: 4 }, (_, i) => ({
+      ...defaultKeychainParams.contents[0], id: `c${i}`,
+    }))
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, contents: four }).success).toBe(false)
   })
 })

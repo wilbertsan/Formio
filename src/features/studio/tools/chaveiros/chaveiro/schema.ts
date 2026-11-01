@@ -10,19 +10,37 @@ export const PLA_COLORS = [
 
 export type PlaColor = (typeof PLA_COLORS)[number]
 
-export const textItemSchema = z.object({
+const contentBase = {
   id: z.string().min(1),
-  content: z.string().trim().min(1).max(12),
-  fontStyle: z.enum(['normal', 'bold', 'serif']),
-  width: z.number().min(8).max(60),
-  height: z.number().min(4).max(20),
-  relief: z.number().min(0.4).max(2),
-  proportional: z.boolean(),
   offsetX: z.number().min(-20).max(20),
   offsetY: z.number().min(-20).max(20),
+}
+
+export const textContentSchema = z.object({
+  ...contentBase,
+  kind: z.literal('text'),
+  content: z.string().trim().min(1).max(12),
+  fontStyle: z.enum(['normal', 'bold', 'serif']),
+  fontSize: z.number().min(6).max(15),
 })
 
-export type TextItem = z.infer<typeof textItemSchema>
+export const iconContentSchema = z.object({
+  ...contentBase,
+  kind: z.literal('icon'),
+  svgIcon: z.string().nullable(),
+  iconScale: z.number().min(0.5).max(1.0),
+  iconLineWidth: z.number().min(0.1).max(1.5),
+})
+
+export const contentItemSchema = z.discriminatedUnion('kind', [
+  textContentSchema,
+  iconContentSchema,
+])
+
+export type TextContent = z.infer<typeof textContentSchema>
+export type IconContent = z.infer<typeof iconContentSchema>
+export type ContentItem = z.infer<typeof contentItemSchema>
+export type FontStyle = TextContent['fontStyle']
 
 export const keychainParamsSchema = z.object({
   productType: z.literal('keychain'),
@@ -39,23 +57,21 @@ export const keychainParamsSchema = z.object({
   ringRadialOffset: z.number().min(0).max(5),
   baseColor: z.enum(PLA_COLORS),
   letterColor: z.enum(PLA_COLORS),
-  texts: z.array(textItemSchema).min(1).max(3),
+  reliefDepth: z.number().min(0.4).max(2),
+  contents: z.array(contentItemSchema).min(1).max(3),
 })
 
 export type KeychainParams = z.infer<typeof keychainParamsSchema>
 export type KeychainShape = KeychainParams['baseShape']
 export type KeychainTextMode = KeychainParams['textMode']
-export type FontStyle = TextItem['fontStyle']
 export type RingPosition = KeychainParams['ringPosition']
 
-const defaultText: TextItem = {
-  id: 'text-1',
+const defaultContent: TextContent = {
+  id: 'content-1',
+  kind: 'text',
   content: 'Meu nome',
   fontStyle: 'bold',
-  width: 40,
-  height: 10,
-  relief: 1,
-  proportional: false,
+  fontSize: 10,
   offsetX: 0,
   offsetY: 0,
 }
@@ -75,7 +91,8 @@ export const defaultKeychainParams: KeychainParams = {
   ringRadialOffset: 0,
   baseColor: '#14b8a6',
   letterColor: '#f5f5f5',
-  texts: [defaultText],
+  reliefDepth: 1,
+  contents: [defaultContent],
 }
 
 export function normalizeName(name: string): string {
