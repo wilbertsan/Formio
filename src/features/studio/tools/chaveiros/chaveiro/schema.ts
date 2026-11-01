@@ -10,14 +10,14 @@ export const PLA_COLORS = [
 
 export type PlaColor = (typeof PLA_COLORS)[number]
 
-const contentBase = {
+const contentFields = {
   id: z.string().min(1),
   offsetX: z.number().min(-20).max(20),
   offsetY: z.number().min(-20).max(20),
 }
 
 export const textContentSchema = z.object({
-  ...contentBase,
+  ...contentFields,
   kind: z.literal('text'),
   content: z.string().trim().min(1).max(12),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
@@ -25,10 +25,10 @@ export const textContentSchema = z.object({
 })
 
 export const iconContentSchema = z.object({
-  ...contentBase,
+  ...contentFields,
   kind: z.literal('icon'),
-  svgIcon: z.string().nullable(),
-  iconScale: z.number().min(0.5).max(1.0),
+  svgIcon: z.string().min(1).nullable(),
+  iconScale: z.number().min(0.5).max(1),
   iconLineWidth: z.number().min(0.1).max(1.5),
 })
 

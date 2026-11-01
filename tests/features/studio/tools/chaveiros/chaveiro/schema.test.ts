@@ -62,6 +62,38 @@ describe('conteúdo texto/ícone', () => {
     expect(contentItemSchema.parse(icon)).toEqual(icon)
   })
 
+  it('rejeita texto vazio, longo e offsets fora do limite', () => {
+    const text = {
+      id: 't1', kind: 'text', content: 'Ana', fontStyle: 'bold',
+      fontSize: 10, offsetX: 0, offsetY: 0,
+    }
+    expect(contentItemSchema.safeParse({ ...text, content: '' }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, content: 'a'.repeat(13) }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, offsetX: 21 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, offsetX: -21 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, offsetY: 21 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, offsetY: -21 }).success).toBe(false)
+  })
+
+  it('rejeita ícone com SVG vazio e escalas/linhas fora do limite', () => {
+    const icon = {
+      id: 'i1', kind: 'icon', svgIcon: null, iconScale: 1,
+      iconLineWidth: 0.3, offsetX: 0, offsetY: 0,
+    }
+    expect(contentItemSchema.safeParse({ ...icon, svgIcon: '' }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...icon, iconScale: 0.4 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...icon, iconScale: 1.1 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 0.05 }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 1.6 }).success).toBe(false)
+  })
+
+  it('rejeita reliefDepth fora do limite e kind desconhecido', () => {
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 0.3 }).success).toBe(false)
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 2.1 }).success).toBe(false)
+    const [content] = defaultKeychainParams.contents
+    expect(contentItemSchema.safeParse({ ...content, kind: 'image' }).success).toBe(false)
+  })
+
   it('defaults são válidos e incluem reliefDepth', () => {
     expect(keychainParamsSchema.parse(defaultKeychainParams)).toEqual(defaultKeychainParams)
     expect(defaultKeychainParams.reliefDepth).toBe(1)
