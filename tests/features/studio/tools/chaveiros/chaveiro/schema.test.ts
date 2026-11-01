@@ -94,6 +94,35 @@ describe('conteúdo texto/ícone', () => {
     expect(contentItemSchema.safeParse({ ...content, kind: 'image' }).success).toBe(false)
   })
 
+  it('aceita texto e offsets nos limites válidos', () => {
+    const text = {
+      id: 't1', kind: 'text', content: 'Ana', fontStyle: 'bold',
+      fontSize: 10, offsetX: 0, offsetY: 0,
+    }
+    expect(contentItemSchema.safeParse({ ...text, content: 'a'.repeat(12) }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, offsetX: 20 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, offsetX: -20 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, offsetY: 20 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, offsetY: -20 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, fontSize: 6 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, fontSize: 15 }).success).toBe(true)
+  })
+
+  it('aceita ícone nos limites válidos', () => {
+    const icon = {
+      id: 'i1', kind: 'icon', svgIcon: null, iconScale: 1,
+      iconLineWidth: 0.3, offsetX: 0, offsetY: 0,
+    }
+    expect(contentItemSchema.safeParse({ ...icon, iconScale: 0.5 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 0.1 }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 1.5 }).success).toBe(true)
+  })
+
+  it('aceita reliefDepth nos limites válidos', () => {
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 0.4 }).success).toBe(true)
+    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 2 }).success).toBe(true)
+  })
+
   it('defaults são válidos e incluem reliefDepth', () => {
     expect(keychainParamsSchema.parse(defaultKeychainParams)).toEqual(defaultKeychainParams)
     expect(defaultKeychainParams.reliefDepth).toBe(1)
