@@ -74,6 +74,14 @@ export function createReinforcementRing(ring: RingParams): Shape {
   return shape
 }
 
+export function createOutline(
+  shapeType: Exclude<KeychainShape, 'name'>,
+  width: number,
+  height: number,
+): Shape {
+  return buildOutline(shapeType, width, height)
+}
+
 function buildOutline(shapeType: KeychainShape, width: number, height: number): Shape {
   switch (shapeType) {
     case 'rect': return rectShape(width, height)
