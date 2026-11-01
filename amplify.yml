@@ -4,8 +4,7 @@ backend:
   phases:
     build:
       commands:
-        - npm install --package-lock-only --ignore-scripts
-        - npm ci --cache .npm --prefer-offline
+        - npm install --cache .npm --prefer-offline --no-audit
 frontend:
   phases:
     build:
