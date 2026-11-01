@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { Box2 } from 'three'
+import { Box2, type BufferGeometry } from 'three'
 import {
   svgBounds,
   svgToShapes,
@@ -95,17 +95,82 @@ describe('buildSvgIconGeometry', () => {
   })
 })
 
+function measure(geo: BufferGeometry): { w: number; h: number; minZ: number } {
+  geo.computeBoundingBox()
+  const bb = geo.boundingBox!
+  return { w: bb.max.x - bb.min.x, h: bb.max.y - bb.min.y, minZ: bb.min.z }
+}
+
 describe('buildSvgIconGeometryInBox', () => {
   it('encaixa o ícone em uma caixa com proporção', () => {
     const svg = `<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100" height="50" fill="#000"/></svg>`
     const geo = buildSvgIconGeometryInBox({
       svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
     })
-    geo!.computeBoundingBox()
-    const w = geo!.boundingBox!.max.x - geo!.boundingBox!.min.x
-    const h = geo!.boundingBox!.max.y - geo!.boundingBox!.min.y
+    expect(geo).not.toBeNull()
+    const { w, h } = measure(geo!)
     expect(w).toBeLessThanOrEqual(20.1)
     expect(h).toBeLessThanOrEqual(20.1)
     expect(Math.max(w, h)).toBeGreaterThan(15)
+  })
+
+  it('respeita o eixo mais restritivo (altura)', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="50" height="100" fill="#000"/></svg>`
+    const geo = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    expect(geo).not.toBeNull()
+    const { w, h } = measure(geo!)
+    expect(h).toBeLessThanOrEqual(20.1)
+    expect(w).toBeLessThan(h)
+  })
+
+  it('retorna null para svg vazio', () => {
+    expect(buildSvgIconGeometryInBox({
+      svg: SVG_EMPTY, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })).toBeNull()
+  })
+
+  it('aplica iconScale proporcionalmente', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100" height="50" fill="#000"/></svg>`
+    const full = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })!
+    const half = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 0.5, depth: 1,
+    })!
+    const fullMax = Math.max(measure(full).w, measure(full).h)
+    const halfMax = Math.max(measure(half).w, measure(half).h)
+    expect(halfMax / fullMax).toBeCloseTo(0.5, 1)
+  })
+
+  it('considera a largura declarada de traços largos', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><polyline points="0,0 100,10" stroke="#000" stroke-width="10" fill="none"/></svg>`
+    const geo = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    expect(geo).not.toBeNull()
+    const { w, h } = measure(geo!)
+    expect(w).toBeLessThanOrEqual(20.1)
+    expect(h).toBeLessThanOrEqual(20.1)
+  })
+
+  it('aceita ícone com altura zero', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="0" x2="100" y2="0" stroke="#000" stroke-width="2"/></svg>`
+    const geo = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    expect(geo).not.toBeNull()
+    const { w } = measure(geo!)
+    expect(w).toBeLessThanOrEqual(20.1)
+  })
+
+  it('normaliza a base da extrusão em Z = 0', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100" height="50" fill="#000"/></svg>`
+    const geo = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    expect(geo).not.toBeNull()
+    expect(measure(geo!).minZ).toBeCloseTo(0, 3)
   })
 })

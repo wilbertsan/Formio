@@ -5,6 +5,8 @@ import ClipperLib from 'js-clipper'
 import { clipperPathsToShape } from '../../chaveiros/chaveiro/nameOutline'
 import { type ClipperPoint, offsetPaths, pathsToShapes, unionPaths } from './textOutline'
 
+const BEVEL = 0.1
+
 export interface SvgIconInput {
   /** Conteúdo do arquivo SVG */
   svg: string
@@ -323,16 +325,26 @@ export function buildSvgIconGeometryInBox({
   if (!parsed) return null
 
   const bounds = svgBoundsFromParsed(parsed)
-  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null
+  if (!bounds || (bounds.width <= 0 && bounds.height <= 0)) return null
 
-  // A dilatação mínima (`lineWidth`) e o bevel (0.1 por lado) aumentam as
+  const maxStroke = Math.max(0, ...parsed.strokes.map(s => s.width))
+
+  // A dilatação mínima (`lineWidth`), traços largos e o bevel aumentam as
   // dimensões finais; desconta-os da caixa para o ícone caber de fato.
-  const margin = lineWidth + 0.2
-  const availableWidth = maxWidth - margin
-  const availableHeight = maxHeight - margin
-  if (availableWidth <= 0 || availableHeight <= 0) return null
-
-  const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height) * iconScale
+  let scale = Math.min(
+    bounds.width > 0 ? maxWidth / bounds.width : Infinity,
+    bounds.height > 0 ? maxHeight / bounds.height : Infinity,
+  ) * iconScale
+  for (let i = 0; i < 2; i++) {
+    const margin = Math.max(lineWidth, maxStroke * scale) + 2 * BEVEL
+    const availW = maxWidth - margin
+    const availH = maxHeight - margin
+    if (availW <= 0 || availH <= 0) return null
+    scale = Math.min(
+      bounds.width > 0 ? availW / bounds.width : Infinity,
+      bounds.height > 0 ? availH / bounds.height : Infinity,
+    ) * iconScale
+  }
   if (scale <= 0) return null
 
   const shapes = svgShapesFromParsed(parsed, lineWidth / scale).map(shape => scaleShape(shape, scale))
@@ -341,8 +353,8 @@ export function buildSvgIconGeometryInBox({
   const geometries = shapes.map(shape => new ExtrudeGeometry(shape, {
     depth,
     bevelEnabled: true,
-    bevelThickness: 0.1,
-    bevelSize: 0.1,
+    bevelThickness: BEVEL,
+    bevelSize: BEVEL,
     bevelSegments: 1,
   }))
 
@@ -350,7 +362,17 @@ export function buildSvgIconGeometryInBox({
   geometries.forEach(g => g.dispose())
   if (!iconGeometry) return null
 
+  // Rescala de segurança caso dilatação/bevel ainda ultrapassem a caixa.
   iconGeometry.computeBoundingBox()
+  const fit = iconGeometry.boundingBox!
+  const width = fit.max.x - fit.min.x
+  const height = fit.max.y - fit.min.y
+  if (width > maxWidth || height > maxHeight) {
+    const fix = Math.min(maxWidth / width, maxHeight / height)
+    iconGeometry.scale(fix, fix, 1)
+    iconGeometry.computeBoundingBox()
+  }
+
   const bb = iconGeometry.boundingBox!
   iconGeometry.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, -bb.min.z)
   iconGeometry.rotateZ(Math.PI)
