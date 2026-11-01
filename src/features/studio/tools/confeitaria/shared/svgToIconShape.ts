@@ -237,7 +237,7 @@ export function svgToShapes(svg: string, minFeatureSvg: number): Shape[] {
 }
 
 // Escala os contornos de um Shape em torno da origem.
-function scaleShape(shape: Shape, factor: number): Shape {
+export function scaleShape(shape: Shape, factor: number): Shape {
   const outer = shape.getPoints().map(p => new Vector2(p.x * factor, p.y * factor))
   const scaled = new Shape(outer)
 
@@ -292,6 +292,67 @@ export function buildSvgIconGeometry({
   const bb = iconGeometry.boundingBox!
   iconGeometry.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, 0)
 
+  iconGeometry.rotateZ(Math.PI)
+
+  return iconGeometry
+}
+
+export interface SvgIconBoxInput {
+  svg: string
+  maxWidth: number
+  maxHeight: number
+  lineWidth: number
+  iconScale: number
+  depth: number
+}
+
+/**
+ * Converte um SVG em geometria de relevo encaixada em uma caixa com proporção,
+ * preservando o aspecto original. O resultado fica centralizado em X/Y,
+ * extrudado em Z a partir de 0 e girado 180° no eixo Z.
+ */
+export function buildSvgIconGeometryInBox({
+  svg,
+  maxWidth,
+  maxHeight,
+  lineWidth,
+  iconScale,
+  depth,
+}: SvgIconBoxInput): BufferGeometry | null {
+  const parsed = parseSvg(svg)
+  if (!parsed) return null
+
+  const bounds = svgBoundsFromParsed(parsed)
+  if (!bounds || bounds.width <= 0 || bounds.height <= 0) return null
+
+  // A dilatação mínima (`lineWidth`) e o bevel (0.1 por lado) aumentam as
+  // dimensões finais; desconta-os da caixa para o ícone caber de fato.
+  const margin = lineWidth + 0.2
+  const availableWidth = maxWidth - margin
+  const availableHeight = maxHeight - margin
+  if (availableWidth <= 0 || availableHeight <= 0) return null
+
+  const scale = Math.min(availableWidth / bounds.width, availableHeight / bounds.height) * iconScale
+  if (scale <= 0) return null
+
+  const shapes = svgShapesFromParsed(parsed, lineWidth / scale).map(shape => scaleShape(shape, scale))
+  if (shapes.length === 0) return null
+
+  const geometries = shapes.map(shape => new ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: true,
+    bevelThickness: 0.1,
+    bevelSize: 0.1,
+    bevelSegments: 1,
+  }))
+
+  const iconGeometry = mergeGeometries(geometries)
+  geometries.forEach(g => g.dispose())
+  if (!iconGeometry) return null
+
+  iconGeometry.computeBoundingBox()
+  const bb = iconGeometry.boundingBox!
+  iconGeometry.translate(-(bb.min.x + bb.max.x) / 2, -(bb.min.y + bb.max.y) / 2, -bb.min.z)
   iconGeometry.rotateZ(Math.PI)
 
   return iconGeometry

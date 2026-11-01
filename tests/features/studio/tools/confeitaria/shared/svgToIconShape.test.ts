@@ -4,6 +4,7 @@ import {
   svgBounds,
   svgToShapes,
   buildSvgIconGeometry,
+  buildSvgIconGeometryInBox,
   parseSvg,
   svgBoundsFromParsed,
   svgShapesFromParsed,
@@ -91,5 +92,20 @@ describe('buildSvgIconGeometry', () => {
 
   it('retorna null para svg sem paths', () => {
     expect(buildSvgIconGeometry({ svg: SVG_EMPTY, maxRadius: 5, lineWidth: 0.3, iconScale: 1, depth: 1 })).toBeNull()
+  })
+})
+
+describe('buildSvgIconGeometryInBox', () => {
+  it('encaixa o ícone em uma caixa com proporção', () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100" height="50" fill="#000"/></svg>`
+    const geo = buildSvgIconGeometryInBox({
+      svg, maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    geo!.computeBoundingBox()
+    const w = geo!.boundingBox!.max.x - geo!.boundingBox!.min.x
+    const h = geo!.boundingBox!.max.y - geo!.boundingBox!.min.y
+    expect(w).toBeLessThanOrEqual(20.1)
+    expect(h).toBeLessThanOrEqual(20.1)
+    expect(Math.max(w, h)).toBeGreaterThan(15)
   })
 })
