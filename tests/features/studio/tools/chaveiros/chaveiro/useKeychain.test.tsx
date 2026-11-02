@@ -1,51 +1,57 @@
 import * as THREE from 'three'
-import { act, renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { useKeychain } from '@/features/studio/tools/chaveiros/chaveiro/useKeychain'
 import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
+import { serializeKeychainResult, type SerializedKeychainResult } from '@/features/studio/tools/chaveiros/chaveiro/workerGeometry'
+import type { KeychainWorker, KeychainWorkerRequest } from '@/features/studio/tools/chaveiros/chaveiro/workerClient'
 
-const { fontLoadControl } = vi.hoisted(() => ({
-  fontLoadControl: { completeFontLoads: true },
-}))
+const SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
 
-vi.mock('@/features/studio/tools/chaveiros/chaveiro/buildKeychain', () => ({
-  buildKeychain: vi.fn(() => ({
-    base: new THREE.BufferGeometry(),
-    content: new THREE.BufferGeometry(),
+function serialized(): SerializedKeychainResult {
+  return serializeKeychainResult({
+    base: new THREE.BoxGeometry(10, 10, 3),
+    content: new THREE.BoxGeometry(5, 5, 1),
     contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2, geometry: null }],
     pieceBB: { minX: -30, maxX: 30, minY: -15, maxY: 15 },
     hole: { x: 0, y: 10, radius: 4.5 },
-  })),
-}))
+  }).data
+}
 
-vi.mock('@/features/studio/tools/chaveiros/chaveiro/fonts', () => ({
-  fontUrls: { normal: '/font-normal.json', bold: '/font-bold.json', serif: '/font-serif.json' },
-}))
-
-vi.mock('@/assets/fonts/helvetiker_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
-vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({ default: '/mock-font.json' }))
-vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
-
-vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
-  FontLoader: class {
-    load(_url: string, onLoad: (font: unknown) => void): void {
-      if (fontLoadControl.completeFontLoads) onLoad({ glyphs: {} })
-    }
-  },
-}))
-
-vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
-  TextGeometry: class extends THREE.BufferGeometry {
-    constructor() { super() }
-  },
-}))
+// Worker falso controlável: guarda os callbacks e só responde quando o teste mandar.
+function makeWorkerFixture() {
+  let pending: ((data: SerializedKeychainResult) => void) | null = null
+  let fail: ((message: string) => void) | null = null
+  let lastRequest: KeychainWorkerRequest | null = null
+  const terminate = vi.fn()
+  const factory = (): KeychainWorker => ({
+    build: (request, onResult, onError) => {
+      lastRequest = request
+      pending = onResult
+      fail = onError ?? null
+    },
+    terminate,
+  })
+  return {
+    factory,
+    terminate,
+    respond: () => pending?.(serialized()),
+    fail: (m = 'Falha ao gerar a peça') => fail?.(m),
+    getRequest: () => lastRequest,
+  }
+}
 
 beforeEach(() => {
-  fontLoadControl.completeFontLoads = true
+  vi.useFakeTimers()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('useKeychain', () => {
   it('inicia com 1 conteúdo de texto no default', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     expect(result.current.params.contents).toHaveLength(1)
     const [first] = result.current.params.contents
     expect(first.kind).toBe('text')
@@ -53,13 +59,15 @@ describe('useKeychain', () => {
   })
 
   it('updateParam clampa valores da peça', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.updateParam('borderWidth', 2))
     expect(result.current.params.borderWidth).toBe(4)
   })
 
   it('reset restaura defaults e contents com 1 item', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.updateParam('width', 80))
     act(() => result.current.addContent())
     act(() => result.current.reset())
@@ -68,7 +76,8 @@ describe('useKeychain', () => {
   })
 
   it('addContent adiciona um segundo texto e limita em 3', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.addContent())
     expect(result.current.params.contents).toHaveLength(2)
     const second = result.current.params.contents[1]
@@ -81,7 +90,8 @@ describe('useKeychain', () => {
   })
 
   it('addContent posiciona o novo conteúdo fora do centro', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.addContent())
 
     const added = result.current.params.contents[1]
@@ -90,7 +100,8 @@ describe('useKeychain', () => {
   })
 
   it('addContent retorna o id do novo conteúdo e null ao atingir o limite', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     let firstId: string | null = null
     act(() => {
       firstId = result.current.addContent()
@@ -106,7 +117,8 @@ describe('useKeychain', () => {
   })
 
   it('removeContent remove um item adicionado e não remove o último', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.addContent())
     const addedId = result.current.params.contents[1].id
     act(() => result.current.removeContent(addedId))
@@ -118,7 +130,8 @@ describe('useKeychain', () => {
   })
 
   it('updateContent patcha o item correto', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const id = result.current.params.contents[0].id
     act(() => result.current.updateContent(id, { content: 'Novo nome', fontSize: 12, offsetX: 10 }))
     const updated = result.current.params.contents[0]
@@ -131,7 +144,8 @@ describe('useKeychain', () => {
   })
 
   it('updateContent clampa valores numéricos', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const id = result.current.params.contents[0].id
     act(() => result.current.updateContent(id, { fontSize: 99, offsetX: -99 }))
     const updated = result.current.params.contents[0]
@@ -141,7 +155,8 @@ describe('useKeychain', () => {
   })
 
   it('updateContent ignora id desconhecido', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const before = result.current.params.contents
     act(() => result.current.updateContent('missing-id', { content: 'Fantasma' }))
     expect(result.current.params.contents).toEqual(before)
@@ -150,7 +165,8 @@ describe('useKeychain', () => {
   })
 
   it('setContentType alterna texto para ícone preservando id e offsets, e volta', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const id = result.current.params.contents[0].id
     act(() => result.current.updateContent(id, { offsetX: 7, offsetY: -3 }))
     act(() => result.current.setContentType(id, 'icon'))
@@ -173,7 +189,8 @@ describe('useKeychain', () => {
   })
 
   it('setContentType para o mesmo tipo é idempotente e preserva dados', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const id = result.current.params.contents[0].id
     act(() => result.current.updateContent(id, { content: 'Custom' }))
     act(() => result.current.setContentType(id, 'text'))
@@ -183,7 +200,8 @@ describe('useKeychain', () => {
   })
 
   it('setContentType para o mesmo tipo de ícone preserva o svg', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const id = result.current.params.contents[0].id
     act(() => result.current.setContentType(id, 'icon'))
     act(() => result.current.updateContent(id, { svgIcon: '<svg></svg>' }))
@@ -194,7 +212,8 @@ describe('useKeychain', () => {
   })
 
   it('updateContent aceita svgIcon em item de ícone', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     const id = result.current.params.contents[0].id
     act(() => result.current.setContentType(id, 'icon'))
     act(() => result.current.updateContent(id, { svgIcon: '<svg></svg>' }))
@@ -203,64 +222,156 @@ describe('useKeychain', () => {
     if (icon.kind === 'icon') expect(icon.svgIcon).toBe('<svg></svg>')
   })
 
-  it('carrega fonte e gera geometria', async () => {
-    const { result } = renderHook(() => useKeychain())
-    await waitFor(() => expect(result.current.geometry).not.toBeNull())
+  it('começa sem geometria, sem build em andamento e sem erro', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    expect(result.current.geometry).toBeNull()
+    expect(result.current.isBuilding).toBe(false)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('inicia o worker após o debounce de 200ms', () => {
+    const { factory, getRequest } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.isBuilding).toBe(true)
+    expect(getRequest()).not.toBeNull()
+  })
+
+  it('define a geometria quando o worker responde', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(result.current.isBuilding).toBe(false)
+    expect(result.current.geometry).not.toBeNull()
     expect(result.current.geometry?.base).toBeDefined()
     expect(result.current.geometry?.content).toBeDefined()
   })
 
-  it('dimensions inclui width, height e thickness para retângulo', () => {
-    const { result } = renderHook(() => useKeychain())
-    expect(result.current.dimensions.width).toBe(defaultKeychainParams.width)
-    expect(result.current.dimensions.height).toBe(defaultKeychainParams.height)
+  it('expõe erro e encerra o build quando o worker falha', () => {
+    const { factory, fail } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.isBuilding).toBe(true)
+    act(() => {
+      fail('Falha ao gerar a peça')
+    })
+    expect(result.current.isBuilding).toBe(false)
+    expect(result.current.error).toBe('Falha ao gerar a peça')
+  })
+
+  it('parseia o SVG na main thread e envia ao worker', () => {
+    const { factory, getRequest } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    const id = result.current.params.contents[0].id
+    act(() => result.current.setContentType(id, 'icon'))
+    act(() => result.current.updateContent(id, { svgIcon: SVG }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    const request = getRequest()
+    expect(request).not.toBeNull()
+    const parsed = request!.parsedSvgs[id]
+    expect(parsed).not.toBeNull()
+    expect(parsed!.fills.length).toBeGreaterThan(0)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('expõe erro e não chama o worker quando o SVG é inválido', () => {
+    const { factory, getRequest } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    const id = result.current.params.contents[0].id
+    act(() => result.current.setContentType(id, 'icon'))
+    act(() => result.current.updateContent(id, { svgIcon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"></svg>' }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.error).toBe('Não foi possível ler o SVG')
+    expect(getRequest()).toBeNull()
+  })
+
+  it('mantém a geometria anterior enquanto um novo build está em andamento', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(result.current.geometry).not.toBeNull()
+
+    act(() => result.current.updateParam('width', 60))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.geometry).not.toBeNull()
+    expect(result.current.isBuilding).toBe(true)
+  })
+
+  it('encerra o worker ao reconstruir e ao desmontar', () => {
+    const { factory, terminate } = makeWorkerFixture()
+    const { result, unmount } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(terminate).not.toHaveBeenCalled()
+
+    act(() => result.current.updateParam('width', 60))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(terminate).toHaveBeenCalledTimes(1)
+
+    unmount()
+    expect(terminate).toHaveBeenCalledTimes(2)
+  })
+
+  it('dimensions inclui width, height e thickness para retângulo após a resposta', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(result.current.dimensions.width).toBe(50)
+    expect(result.current.dimensions.height).toBe(25)
     expect(result.current.dimensions.thickness).toBe(defaultKeychainParams.thickness)
   })
 
-  it('dimensions para name usa pieceBB quando a geometria existe', async () => {
-    const { result } = renderHook(() => useKeychain())
+  it('dimensions para name usa pieceBB quando a geometria existe', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.updateParam('baseShape', 'name'))
-    await waitFor(() => expect(result.current.geometry).not.toBeNull())
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
     expect(result.current.dimensions.width).toBe(60)
     expect(result.current.dimensions.height).toBe(30)
   })
 
   it('height é independente do width e é clampado', () => {
-    const { result } = renderHook(() => useKeychain())
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => result.current.updateParam('height', 40))
     expect(result.current.params.height).toBe(40)
     expect(result.current.dimensions.height).toBe(40)
 
     act(() => result.current.updateParam('height', 10))
     expect(result.current.params.height).toBe(20)
-  })
-
-  it('texto vazio não espera carregamento de fonte', async () => {
-    fontLoadControl.completeFontLoads = false
-    const { result } = renderHook(() => useKeychain())
-    const id = result.current.params.contents[0].id
-    act(() => result.current.updateContent(id, { content: '' }))
-    await waitFor(() => expect(result.current.geometry).not.toBeNull())
-    expect(result.current.geometry?.base).toBeDefined()
-  })
-
-  it('conteúdo somente ícone gera geometria sem fonte', async () => {
-    fontLoadControl.completeFontLoads = false
-    const { result } = renderHook(() => useKeychain())
-    const id = result.current.params.contents[0].id
-    act(() => result.current.setContentType(id, 'icon'))
-    await waitFor(() => expect(result.current.geometry).not.toBeNull())
-    expect(result.current.geometry?.base).toBeDefined()
-  })
-
-  it('descarta a geometria anterior ao reconstruir', async () => {
-    const disposeSpy = vi.spyOn(THREE.BufferGeometry.prototype, 'dispose')
-    const { result } = renderHook(() => useKeychain())
-    await waitFor(() => expect(result.current.geometry).not.toBeNull())
-
-    disposeSpy.mockClear()
-    act(() => result.current.updateParam('width', 60))
-    await waitFor(() => expect(disposeSpy).toHaveBeenCalled())
-    disposeSpy.mockRestore()
   })
 })

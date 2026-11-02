@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
-import { fontUrls } from './fonts'
 import {
   defaultKeychainParams,
   keychainParamsSchema,
@@ -11,7 +8,10 @@ import {
   type KeychainParams,
   type TextContent,
 } from './schema'
-import { buildKeychain, type BuildKeychainResult } from './buildKeychain'
+import type { BuildKeychainResult } from './buildKeychain'
+import { parseSvg, type ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
+import { deserializeKeychainResult, type SerializedKeychainResult } from './workerGeometry'
+import { createKeychainWorker, type KeychainWorker } from './workerClient'
 
 const TEXT_DEFAULTS = {
   content: 'Novo texto',
@@ -152,79 +152,80 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
   }
 }
 
-export function useKeychain() {
-  const [params, dispatch] = useReducer(keychainReducer, defaultKeychainParams)
-  const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
-  const [fontError, setFontError] = useState(false)
-  const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
-  const geometryRef = useRef<BuildKeychainResult | null>(null)
+// O parse do SVG usa DOMParser (só na main thread) e é cacheado por conteúdo.
+function parseSvgCached(cache: Map<string, ParsedSvg | null>, svg: string): ParsedSvg | null {
+  if (!cache.has(svg)) cache.set(svg, parseSvg(svg))
+  return cache.get(svg) ?? null
+}
 
-  const uniqueStyles = useMemo(() => {
+export interface UseKeychainOptions {
+  workerFactory?: () => KeychainWorker
+}
+
+export function useKeychain(options: UseKeychainOptions = {}) {
+  const workerFactory = options.workerFactory ?? createKeychainWorker
+  const [params, dispatch] = useReducer(keychainReducer, defaultKeychainParams)
+  const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
+  const [isBuilding, setIsBuilding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const geometryRef = useRef<BuildKeychainResult | null>(null)
+  const workerRef = useRef<KeychainWorker | null>(null)
+  const parseCacheRef = useRef<Map<string, ParsedSvg | null>>(new Map())
+
+  const styleKey = useMemo(() => {
     const styles = new Set<FontStyle>()
     for (const item of params.contents) {
       if (item.kind === 'text' && item.content.trim()) styles.add(item.fontStyle)
     }
-    return Array.from(styles)
+    return Array.from(styles).join(',')
   }, [params.contents])
 
-  const styleKey = uniqueStyles.join(',')
-
   useEffect(() => {
-    let cancelled = false
-    const styles = styleKey.length > 0 ? (styleKey.split(',') as FontStyle[]) : []
-    const pending = styles.filter((style) => !fontCache.has(style))
-    if (pending.length > 0) setFontError(false)
-
-    for (const style of pending) {
-      const loader = new FontLoader()
-      loader.load(
-        fontUrls[style],
-        (font) => {
-          if (cancelled) return
-          setFontCache((prev) => new Map(prev).set(style, font as unknown as Font))
-        },
-        undefined,
-        () => {
-          if (!cancelled) setFontError(true)
-        },
-      )
-    }
-
-    return () => {
-      cancelled = true
-    }
-  }, [styleKey, fontCache])
-
-  const fonts = useMemo(
-    () => Object.fromEntries(fontCache) as Partial<Record<FontStyle, Font>>,
-    [fontCache],
-  )
-
-  const ready = uniqueStyles.every((style) => fontCache.has(style))
-
-  useEffect(() => {
-    geometryRef.current = geometry
-  }, [geometry])
-
-  useEffect(() => {
-    if (!ready) return
     const timer = setTimeout(() => {
-      try {
-        const next = buildKeychain({ fonts, params, onError: () => undefined })
+      // Cancela o build anterior (termina o worker) e inicia um novo.
+      workerRef.current?.terminate()
+      workerRef.current = null
+
+      // SVG precisa ser achatado na main thread (o worker não tem DOMParser).
+      const parsedSvgs: Record<string, ParsedSvg | null> = {}
+      for (const item of params.contents) {
+        if (item.kind !== 'icon' || !item.svgIcon) continue
+        const parsed = parseSvgCached(parseCacheRef.current, item.svgIcon)
+        if (!parsed) {
+          setIsBuilding(false)
+          setError('Não foi possível ler o SVG')
+          return
+        }
+        parsedSvgs[item.id] = parsed
+      }
+      setError(null)
+
+      const styles = styleKey.length > 0 ? (styleKey.split(',') as FontStyle[]) : []
+      const worker = workerFactory()
+      workerRef.current = worker
+      setIsBuilding(true)
+
+      worker.build({ params, parsedSvgs, styles }, (data: SerializedKeychainResult) => {
+        const next = deserializeKeychainResult(data)
         const prev = geometryRef.current
         geometryRef.current = next
         setGeometry(next)
         prev?.base.dispose()
         prev?.content?.dispose()
-      } catch {
-        // mantém a geometria anterior; onError é opcional
-      }
+        setIsBuilding(false)
+        setError(null)
+      }, (message) => {
+        setIsBuilding(false)
+        setError(message)
+      })
     }, 200)
     return () => clearTimeout(timer)
-  }, [ready, fonts, params])
+  }, [params, styleKey, workerFactory])
 
   useEffect(() => {
     return () => {
+      workerRef.current?.terminate()
+      workerRef.current = null
       geometryRef.current?.base.dispose()
       geometryRef.current?.content?.dispose()
     }
@@ -277,7 +278,8 @@ export function useKeychain() {
   return {
     params,
     geometry,
-    fontError,
+    isBuilding,
+    error,
     dimensions,
     updateParam,
     updateContent,
