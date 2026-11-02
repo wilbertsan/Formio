@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import {
   Accordion,
   Button,
@@ -31,6 +31,48 @@ interface StudioPanelProps {
   onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
   onReset: () => void
   onOpenEditor: () => void
+}
+
+const MAX_SVG_BYTES = 1024 * 1024
+const SVG_ERROR_MESSAGE = 'Envie um arquivo SVG de até 1 MB.'
+
+function LabeledSlider({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  step,
+  onChange,
+  isDisabled,
+}: {
+  label: string
+  value: number
+  unit: string
+  min: number
+  max: number
+  step: number
+  onChange: (value: number) => void
+  isDisabled?: boolean
+}) {
+  return (
+    <>
+      <Flex direction="row" justifyContent="space-between">
+        <Text fontSize="xs" color="font.tertiary">{label}</Text>
+        <Text fontSize="xs" color="font.secondary">{value} {unit}</Text>
+      </Flex>
+      <SliderField
+        label=""
+        aria-label={label}
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        isDisabled={isDisabled}
+        onChange={(v) => onChange(v as number)}
+      />
+    </>
+  )
 }
 
 function ColorSwatches({
@@ -72,18 +114,37 @@ export function StudioPanel({
   onOpenEditor,
 }: StudioPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [svgError, setSvgError] = useState<string | null>(null)
   const selected = params.contents.find((item) => item.id === selectedContentId) ?? params.contents[0]
   const canAddContent = params.contents.length < 3
+  const iconItems = params.contents.filter((item) => item.kind === 'icon')
+  const hasMultipleIcons = iconItems.length > 1
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) {
+      input.value = ''
+      return
+    }
+
+    if (!file.name.toLowerCase().endsWith('.svg') || file.size > MAX_SVG_BYTES) {
+      setSvgError(SVG_ERROR_MESSAGE)
+      input.value = ''
+      return
+    }
 
     const contentId = selected.id
     const reader = new FileReader()
     reader.onload = (e) => {
       const svgContent = e.target?.result as string
+      setSvgError(null)
       onUpdateContent(contentId, { svgIcon: svgContent })
+      input.value = ''
+    }
+    reader.onerror = () => {
+      setSvgError(SVG_ERROR_MESSAGE)
+      input.value = ''
     }
     reader.readAsText(file)
   }
@@ -121,7 +182,11 @@ export function StudioPanel({
                     aria-pressed={item.id === selected.id}
                     onClick={() => onSelectContent(item.id)}
                   >
-                    {item.kind === 'text' ? item.content : 'Ícone'}
+                    {item.kind === 'text'
+                      ? item.content
+                      : hasMultipleIcons
+                        ? `Ícone ${iconItems.findIndex((icon) => icon.id === item.id) + 1}`
+                        : 'Ícone'}
                   </Button>
                 ))}
                 {params.contents.length > 1 && (
@@ -180,12 +245,12 @@ export function StudioPanel({
                     <option value="serif">Serifada</option>
                   </SelectField>
 
-                  <SliderField
-                    label=""
-                    aria-label="Tamanho da fonte"
-                    min={6} max={15} step={1}
+                  <LabeledSlider
+                    label="Tamanho da fonte"
                     value={selected.fontSize}
-                    onChange={(value) => onUpdateContent(selected.id, { fontSize: value as number })}
+                    unit="mm"
+                    min={6} max={15} step={1}
+                    onChange={(value) => onUpdateContent(selected.id, { fontSize: value })}
                   />
                 </>
               ) : (
@@ -221,22 +286,28 @@ export function StudioPanel({
                     </>
                   )}
 
-                  <SliderField
-                    label=""
-                    aria-label="Escala do ícone"
-                    min={0.5} max={1} step={0.1}
+                  {svgError && (
+                    <Text role="alert" fontSize="xs" className="text-red-600">
+                      {svgError}
+                    </Text>
+                  )}
+
+                  <LabeledSlider
+                    label="Escala do ícone"
                     value={selected.iconScale}
+                    unit="x"
+                    min={0.5} max={1} step={0.1}
                     isDisabled={!selected.svgIcon}
-                    onChange={(value) => onUpdateContent(selected.id, { iconScale: value as number })}
+                    onChange={(value) => onUpdateContent(selected.id, { iconScale: value })}
                   />
 
-                  <SliderField
-                    label=""
-                    aria-label="Espessura da linha do ícone"
-                    min={0.1} max={1.5} step={0.05}
+                  <LabeledSlider
+                    label="Espessura da linha do ícone"
                     value={selected.iconLineWidth}
+                    unit="mm"
+                    min={0.1} max={1.5} step={0.05}
                     isDisabled={!selected.svgIcon}
-                    onChange={(value) => onUpdateContent(selected.id, { iconLineWidth: value as number })}
+                    onChange={(value) => onUpdateContent(selected.id, { iconLineWidth: value })}
                   />
                 </>
               )}
@@ -276,22 +347,22 @@ export function StudioPanel({
               </SelectField>
 
               {params.baseShape !== 'name' && (
-                <SliderField
-                  label=""
-                  aria-label="Comprimento"
-                  min={20} max={80} step={1}
+                <LabeledSlider
+                  label="Comprimento"
                   value={params.width}
-                  onChange={(value) => onUpdateParam('width', value as number)}
+                  unit="mm"
+                  min={20} max={80} step={1}
+                  onChange={(value) => onUpdateParam('width', value)}
                 />
               )}
 
               {params.baseShape !== 'circle' && params.baseShape !== 'name' && (
-                <SliderField
-                  label=""
-                  aria-label="Altura da peça"
-                  min={20} max={80} step={1}
+                <LabeledSlider
+                  label="Altura da peça"
                   value={params.height}
-                  onChange={(value) => onUpdateParam('height', value as number)}
+                  unit="mm"
+                  min={20} max={80} step={1}
+                  onChange={(value) => onUpdateParam('height', value)}
                 />
               )}
 
@@ -301,20 +372,20 @@ export function StudioPanel({
                 </Text>
               )}
 
-              <SliderField
-                label=""
-                aria-label="Espessura"
-                min={2} max={6} step={0.5}
+              <LabeledSlider
+                label="Espessura"
                 value={params.thickness}
-                onChange={(value) => onUpdateParam('thickness', value as number)}
+                unit="mm"
+                min={2} max={6} step={0.5}
+                onChange={(value) => onUpdateParam('thickness', value)}
               />
 
-              <SliderField
-                label=""
-                aria-label="Borda"
-                min={4} max={10} step={1}
+              <LabeledSlider
+                label="Borda"
                 value={params.borderWidth}
-                onChange={(value) => onUpdateParam('borderWidth', value as number)}
+                unit="mm"
+                min={4} max={10} step={1}
+                onChange={(value) => onUpdateParam('borderWidth', value)}
               />
             </Flex>
           </Accordion.Content>
@@ -340,12 +411,12 @@ export function StudioPanel({
                 <option value="engraved">Gravado</option>
               </SelectField>
 
-              <SliderField
-                label=""
-                aria-label="Profundidade do relevo"
-                min={0.4} max={2} step={0.1}
+              <LabeledSlider
+                label="Profundidade do relevo"
                 value={params.reliefDepth}
-                onChange={(value) => onUpdateParam('reliefDepth', value as number)}
+                unit="mm"
+                min={0.4} max={2} step={0.1}
+                onChange={(value) => onUpdateParam('reliefDepth', value)}
               />
             </Flex>
           </Accordion.Content>
@@ -373,36 +444,36 @@ export function StudioPanel({
                 <option value="right">Direita</option>
               </SelectField>
 
-              <SliderField
-                label=""
-                aria-label="Diâmetro interno"
-                min={3} max={10} step={0.5}
+              <LabeledSlider
+                label="Diâmetro interno"
                 value={params.ringInnerDiameter}
-                onChange={(value) => onUpdateParam('ringInnerDiameter', value as number)}
+                unit="mm"
+                min={3} max={10} step={0.5}
+                onChange={(value) => onUpdateParam('ringInnerDiameter', value)}
               />
 
-              <SliderField
-                label=""
-                aria-label="Embutimento"
-                min={0} max={3} step={0.5}
+              <LabeledSlider
+                label="Embutimento"
                 value={params.ringEmbedding}
-                onChange={(value) => onUpdateParam('ringEmbedding', value as number)}
+                unit="mm"
+                min={0} max={3} step={0.5}
+                onChange={(value) => onUpdateParam('ringEmbedding', value)}
               />
 
-              <SliderField
-                label=""
-                aria-label="Deslocamento radial"
-                min={0} max={5} step={0.5}
+              <LabeledSlider
+                label="Deslocamento radial"
                 value={params.ringRadialOffset}
-                onChange={(value) => onUpdateParam('ringRadialOffset', value as number)}
+                unit="mm"
+                min={0} max={5} step={0.5}
+                onChange={(value) => onUpdateParam('ringRadialOffset', value)}
               />
 
-              <SliderField
-                label=""
-                aria-label="Deslocamento lateral"
-                min={-10} max={10} step={0.5}
+              <LabeledSlider
+                label="Deslocamento lateral"
                 value={params.ringLateralOffset}
-                onChange={(value) => onUpdateParam('ringLateralOffset', value as number)}
+                unit="mm"
+                min={-10} max={10} step={0.5}
+                onChange={(value) => onUpdateParam('ringLateralOffset', value)}
               />
             </Flex>
           </Accordion.Content>

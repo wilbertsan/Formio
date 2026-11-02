@@ -144,6 +144,15 @@ describe('StudioPanel', () => {
     expect(props.onUpdateContent).toHaveBeenCalledWith(firstContentId, { fontSize: 11 })
   })
 
+  it('exibe rótulos e valores dos sliders', () => {
+    renderPanel()
+
+    expect(screen.getByText('Tamanho da fonte')).toBeInTheDocument()
+    expect(screen.getByText('10 mm')).toBeInTheDocument()
+    expect(screen.getByText('Profundidade do relevo')).toBeInTheDocument()
+    expect(screen.getByText('1 mm')).toBeInTheDocument()
+  })
+
   it('expõe os limites dos sliders de fonte e relevo', () => {
     renderPanel()
 
@@ -167,8 +176,9 @@ describe('StudioPanel', () => {
 
     expect(screen.getByRole('button', { name: /upload svg/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /remover ícone/i })).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Escala do ícone')).toBeInTheDocument()
-    expect(screen.getByLabelText('Espessura da linha do ícone')).toBeInTheDocument()
+    expect(screen.getByLabelText('Escala do ícone')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByLabelText('Espessura da linha do ícone')).toHaveAttribute('aria-disabled', 'true')
+    expect(screen.queryByLabelText('Conteúdo')).not.toBeInTheDocument()
   })
 
   it('renderiza estado de ícone carregado e permite removê-lo', async () => {
@@ -177,10 +187,27 @@ describe('StudioPanel', () => {
 
     expect(screen.getByText('Ícone carregado')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /upload svg/i })).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Escala do ícone')).toHaveAttribute('aria-disabled', 'false')
+    expect(screen.getByLabelText('Espessura da linha do ícone')).toHaveAttribute('aria-disabled', 'false')
 
     await user.click(screen.getByRole('button', { name: /remover ícone/i }))
 
     expect(props.onUpdateContent).toHaveBeenCalledWith('i1', { svgIcon: null })
+  })
+
+  it('distingue chips de múltiplos ícones', async () => {
+    const user = userEvent.setup()
+    const secondIcon = { ...iconContent, id: 'i2' }
+    const props = renderPanel({
+      params: { ...defaultKeychainParams, contents: [iconContent, secondIcon] },
+      selectedContentId: 'i1',
+    })
+
+    expect(screen.getByRole('button', { name: 'Ícone 1' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Ícone 2' }))
+
+    expect(props.onSelectContent).toHaveBeenCalledWith('i2')
   })
 
   it('carrega arquivo SVG e envia seu conteúdo', async () => {
@@ -193,6 +220,44 @@ describe('StudioPanel', () => {
     await waitFor(() =>
       expect(props.onUpdateContent).toHaveBeenCalledWith('i1', { svgIcon: '<svg></svg>' }),
     )
+  })
+
+  it('rejeita arquivo que não é SVG', async () => {
+    const props = renderPanel({ params: iconParams(null), selectedContentId: 'i1' })
+    const file = new File(['png'], 'icon.png', { type: 'image/png' })
+
+    fireEvent.change(screen.getByTestId('icon-upload'), { target: { files: [file] } })
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Envie um arquivo SVG de até 1 MB.'),
+    )
+    expect(props.onUpdateContent).not.toHaveBeenCalled()
+  })
+
+  it('rejeita SVG maior que 1 MB', async () => {
+    const props = renderPanel({ params: iconParams(null), selectedContentId: 'i1' })
+    const file = new File(['a'.repeat(1_048_577)], 'grande.svg', { type: 'image/svg+xml' })
+
+    fireEvent.change(screen.getByTestId('icon-upload'), { target: { files: [file] } })
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('Envie um arquivo SVG de até 1 MB.'),
+    )
+    expect(props.onUpdateContent).not.toHaveBeenCalled()
+  })
+
+  it('permite reenviar o mesmo arquivo após limpar o input', async () => {
+    const user = userEvent.setup()
+    const props = renderPanel({ params: iconParams(null), selectedContentId: 'i1' })
+    const input = screen.getByTestId('icon-upload') as HTMLInputElement
+    const file = new File(['<svg></svg>'], 'icon.svg', { type: 'image/svg+xml' })
+
+    await user.upload(input, file)
+    await waitFor(() => expect(props.onUpdateContent).toHaveBeenCalledTimes(1))
+    expect(input.value).toBe('')
+
+    await user.upload(input, file)
+    await waitFor(() => expect(props.onUpdateContent).toHaveBeenCalledTimes(2))
   })
 
   it('dispara onUpdateContent ao mover os sliders do ícone', () => {
