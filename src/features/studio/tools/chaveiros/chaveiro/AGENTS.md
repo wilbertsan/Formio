@@ -85,7 +85,7 @@ O helper `../../confeitaria/shared/svgToIconShape.ts` é compartilhado para pars
 
 ## Testes
 
-`tests/features/studio/tools/chaveiros/chaveiro/` — 12 arquivos, 185 testes:
+`tests/features/studio/tools/chaveiros/chaveiro/` — 12 arquivos, 188 testes:
 
 - `autoFit.test.ts`
 - `buildKeychain.test.ts`
