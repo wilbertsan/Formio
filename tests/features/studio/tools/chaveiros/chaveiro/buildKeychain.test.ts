@@ -285,18 +285,37 @@ describe('buildKeychain', () => {
     expect(withIcon.base).toBeDefined()
   })
 
-  it('name: furo da argola é vazado na base', () => {
+  it('name: furo da argola é vazado na base e no content', () => {
     const result = buildKeychain(makeInput({
       baseShape: 'name',
       contents: [{ ...textItem, content: 'A' }],
     }))
 
-    const mesh = new THREE.Mesh(result.base)
+    expect(result.content).not.toBeNull()
+    const baseMesh = new THREE.Mesh(result.base)
+    const contentMesh = new THREE.Mesh(result.content!)
     const raycaster = new THREE.Raycaster(
       new THREE.Vector3(result.hole.x, result.hole.y, 100),
       new THREE.Vector3(0, 0, -1),
     )
-    expect(raycaster.intersectObject(mesh)).toHaveLength(0)
+    expect(raycaster.intersectObject(baseMesh)).toHaveLength(0)
+    expect(raycaster.intersectObject(contentMesh)).toHaveLength(0)
+  })
+
+  it('name: com embedding zero o centro do furo fica fora da bbox do content', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      ringEmbedding: 0,
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+
+    const contentBB = boundsOf(result.content)
+    const outside =
+      result.hole.x < contentBB.min.x ||
+      result.hole.x > contentBB.max.x ||
+      result.hole.y < contentBB.min.y ||
+      result.hole.y > contentBB.max.y
+    expect(outside).toBe(true)
   })
 
   it('name: ringPosition bottom posiciona o furo abaixo do centro', () => {

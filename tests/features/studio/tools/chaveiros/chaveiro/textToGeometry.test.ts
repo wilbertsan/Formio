@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { fitTextHeight, nameToGeometry } from '@/features/studio/tools/chaveiros/chaveiro/textToGeometry'
+import { nameToGeometry } from '@/features/studio/tools/chaveiros/chaveiro/textToGeometry'
 
 // Mock TextGeometry to return a predictable BufferGeometry
 vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
@@ -41,15 +41,5 @@ describe('nameToGeometry', () => {
     const geometry = nameToGeometry({ font: fontStub, name: 'ANA', size: 16, depth: 1 })
     geometry.computeBoundingBox()
     expect(geometry.boundingBox?.max.z).toBeGreaterThan(0)
-  })
-})
-
-describe('fitTextHeight', () => {
-  it('reduz o tamanho quando o nome não cabe na largura disponível', () => {
-    expect(fitTextHeight({ name: 'ABCDEFGHIJKL', requestedSize: 16, maxWidth: 40, factor: 0.62 })).toBeLessThan(16)
-  })
-
-  it('mantém o tamanho quando cabe', () => {
-    expect(fitTextHeight({ name: 'ANA', requestedSize: 16, maxWidth: 40, factor: 0.62 })).toBe(16)
   })
 })

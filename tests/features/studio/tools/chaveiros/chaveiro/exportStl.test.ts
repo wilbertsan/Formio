@@ -33,10 +33,12 @@ let bodyDescriptors: { appendChild?: PropertyDescriptor; removeChild?: PropertyD
 function makeGeometry(
   content: THREE.BufferGeometry | null,
   base: THREE.BufferGeometry = new THREE.BoxGeometry(10, 10, 10),
+  mode: BuildKeychainResult['mode'] = 'raised',
 ): BuildKeychainResult {
   return {
     base,
     content,
+    mode,
     contentItems: [],
     pieceBB: PIECE_BB,
     hole: HOLE,
@@ -156,6 +158,20 @@ describe('exportStl', () => {
     expect(Array.from(
       (mergedGeometries[1].getAttribute('position') as THREE.BufferAttribute).array,
     )).toEqual(expectedPosition(content))
+  })
+
+  it('modo engraved exporta apenas a base mesmo com conteúdo presente', () => {
+    setupDownloadHarness()
+    const content = new THREE.BoxGeometry(5, 5, 5)
+    const geometry = makeGeometry(content, new THREE.BoxGeometry(10, 10, 10), 'engraved')
+
+    exportStl(geometry, 'Gravado')
+
+    const mergedGeometries = lastMergeArguments()
+    expect(mergedGeometries).toHaveLength(1)
+    expect(Array.from(
+      (mergedGeometries[0].getAttribute('position') as THREE.BufferAttribute).array,
+    )).toEqual(expectedPosition(geometry.base))
   })
 
   it('combina apenas a base quando não há conteúdo', () => {

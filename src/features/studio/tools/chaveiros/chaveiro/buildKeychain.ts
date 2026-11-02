@@ -31,6 +31,7 @@ export interface BuildContentItem {
 export interface BuildKeychainResult {
   base: BufferGeometry
   content: BufferGeometry | null
+  mode: 'raised' | 'engraved'
   contentItems: BuildContentItem[]
   pieceBB: BoundingBox2D
   hole: Circle2D
@@ -141,19 +142,20 @@ function contentItemFromShapes(item: ContentItem, shapes: Shape[]): BuildContent
 
 function nameRingCenter(bbox: BoundingBox2D, ring: RingParams): Vector2 {
   const radius = ring.innerDiameter / 2
-  const inset = RING_EDGE_MARGIN + radius + ring.radialOffset + ring.embedding
+  const offset = RING_EDGE_MARGIN + radius + ring.radialOffset - ring.embedding
   const cx = (bbox.minX + bbox.maxX) / 2
   const cy = (bbox.minY + bbox.maxY) / 2
-
+  const maxLateralX = Math.max(0, (bbox.maxX - bbox.minX) / 2 - radius)
+  const maxLateralY = Math.max(0, (bbox.maxY - bbox.minY) / 2 - radius)
+  const isVertical = ring.position === 'top' || ring.position === 'bottom'
+  const lateral = isVertical
+    ? Math.min(maxLateralX, Math.max(-maxLateralX, ring.lateralOffset))
+    : Math.min(maxLateralY, Math.max(-maxLateralY, ring.lateralOffset))
   switch (ring.position) {
-    case 'top':
-      return new Vector2(cx + ring.lateralOffset, bbox.maxY - inset)
-    case 'bottom':
-      return new Vector2(cx + ring.lateralOffset, bbox.minY + inset)
-    case 'left':
-      return new Vector2(bbox.minX + inset, cy + ring.lateralOffset)
-    case 'right':
-      return new Vector2(bbox.maxX - inset, cy + ring.lateralOffset)
+    case 'top': return new Vector2(cx + lateral, bbox.maxY + offset)
+    case 'bottom': return new Vector2(cx + lateral, bbox.minY - offset)
+    case 'left': return new Vector2(bbox.minX - offset, cy + lateral)
+    case 'right': return new Vector2(bbox.maxX + offset, cy + lateral)
   }
 }
 
@@ -243,12 +245,12 @@ function buildRegularKeychain({
   if (params.textMode === 'raised') {
     mergedBase.computeVertexNormals()
     content?.computeVertexNormals()
-    return { base: mergedBase, content, contentItems, pieceBB, hole }
+    return { base: mergedBase, content, mode: 'raised', contentItems, pieceBB, hole }
   }
 
   if (!content) {
     mergedBase.computeVertexNormals()
-    return { base: mergedBase, content: null, contentItems, pieceBB, hole }
+    return { base: mergedBase, content: null, mode: 'engraved', contentItems, pieceBB, hole }
   }
 
   try {
@@ -256,13 +258,13 @@ function buildRegularKeychain({
     const result = evaluator.evaluate(new Brush(mergedBase), new Brush(content), SUBTRACTION)
     result.geometry.computeVertexNormals()
     mergedBase.dispose()
-    return { base: result.geometry, content, contentItems, pieceBB, hole }
+    return { base: result.geometry, content, mode: 'engraved', contentItems, pieceBB, hole }
   } catch {
     onError?.('Falha na gravação; usando relevo')
     content.translate(0, 0, surfaceTop - 0.01 - z)
     content.computeVertexNormals()
     mergedBase.computeVertexNormals()
-    return { base: mergedBase, content, contentItems, pieceBB, hole }
+    return { base: mergedBase, content, mode: 'raised', contentItems, pieceBB, hole }
   }
 }
 
@@ -291,24 +293,12 @@ function buildNameKeychain({
     onError?.('Sem conteúdo válido para o formato nome')
   }
 
-  const shapesBB = shapeBounds(allShapes)
-  const bbox: BoundingBox2D = shapesBB
-    ? {
-        minX: shapesBB.minX - params.borderWidth,
-        maxX: shapesBB.maxX + params.borderWidth,
-        minY: shapesBB.minY - params.borderWidth,
-        maxY: shapesBB.maxY + params.borderWidth,
-      }
-    : {
-        minX: -params.borderWidth,
-        maxX: params.borderWidth,
-        minY: -params.borderWidth,
-        maxY: params.borderWidth,
-      }
+  const contentBB: BoundingBox2D = shapeBounds(allShapes)
+    ?? { minX: 0, maxX: 0, minY: 0, maxY: 0 }
 
   const ring = makeRingParams(params)
   const radius = ring.innerDiameter / 2
-  const ringCenter = nameRingCenter(bbox, ring)
+  const ringCenter = nameRingCenter(contentBB, ring)
 
   const holeShape = new Shape()
   holeShape.absarc(ringCenter.x, ringCenter.y, radius, 0, Math.PI * 2, false)
@@ -338,8 +328,9 @@ function buildNameKeychain({
     radius,
   }
 
-  const contentShapes = unionShapes(allShapes)
-  const contentGeometries = contentShapes.map(shape => new ExtrudeGeometry(shape, {
+  const contentShapesWithHole = unionShapes(allShapes)
+    .flatMap(shape => subtractShapes(shape, holeShape))
+  const contentGeometries = contentShapesWithHole.map(shape => new ExtrudeGeometry(shape, {
     depth: params.reliefDepth,
     bevelEnabled: false,
   }))
@@ -358,12 +349,12 @@ function buildNameKeychain({
     content?.translate(0, 0, z)
     content?.computeVertexNormals()
     base.computeVertexNormals()
-    return { base, content, contentItems, ...computeBaseBB(base, hole) }
+    return { base, content, mode: 'raised', contentItems, ...computeBaseBB(base, hole) }
   }
 
   if (!content) {
     base.computeVertexNormals()
-    return { base, content: null, contentItems, ...computeBaseBB(base, hole) }
+    return { base, content: null, mode: 'engraved', contentItems, ...computeBaseBB(base, hole) }
   }
 
   content.translate(0, 0, z)
@@ -373,13 +364,19 @@ function buildNameKeychain({
     const result = evaluator.evaluate(new Brush(base), new Brush(content), SUBTRACTION)
     result.geometry.computeVertexNormals()
     base.dispose()
-    return { base: result.geometry, content, contentItems, ...computeBaseBB(result.geometry, hole) }
+    return {
+      base: result.geometry,
+      content,
+      mode: 'engraved',
+      contentItems,
+      ...computeBaseBB(result.geometry, hole),
+    }
   } catch {
     onError?.('Falha na gravação; usando relevo')
     content.translate(0, 0, surfaceTop - 0.01 - z)
     content.computeVertexNormals()
     base.computeVertexNormals()
-    return { base, content, contentItems, ...computeBaseBB(base, hole) }
+    return { base, content, mode: 'raised', contentItems, ...computeBaseBB(base, hole) }
   }
 }
 

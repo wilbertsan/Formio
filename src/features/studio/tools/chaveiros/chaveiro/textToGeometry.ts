@@ -21,16 +21,3 @@ export function nameToGeometry({ font, name, size, depth }: NameToGeometryInput)
   geometry.center()
   return geometry
 }
-
-interface FitTextHeightInput {
-  name: string
-  requestedSize: number
-  maxWidth: number
-  factor: number
-}
-
-export function fitTextHeight({ name, requestedSize, maxWidth, factor }: FitTextHeightInput): number {
-  const estimatedWidth = normalizeName(name).length * requestedSize * factor
-  if (estimatedWidth <= maxWidth) return requestedSize
-  return Math.max(0.4, Math.floor((maxWidth / (normalizeName(name).length * factor)) * 10) / 10)
-}

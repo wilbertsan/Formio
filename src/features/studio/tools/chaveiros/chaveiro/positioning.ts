@@ -21,24 +21,6 @@ export interface Circle2D {
 }
 
 const HOLE_CLEARANCE = 1
-const STACK_GAP = 2
-const SUPPORT_FUSION = 0.5
-
-export interface SnapContext {
-  supports: Array<{ x: number; y: number; halfWidth: number; halfHeight: number }>
-  pieceBB: BoundingBox2D
-  hole?: Circle2D
-}
-
-export function defaultStackOffsets(heights: number[]): number[] {
-  const total = heights.length
-  if (total === 0) return []
-  const step = () => {
-    const tallest = Math.max(...heights)
-    return tallest + STACK_GAP
-  }
-  return heights.map((_, index) => ((total - 1) / 2 - index) * step())
-}
 
 export function clampTextPosition(
   text: TextPosition,
@@ -60,7 +42,10 @@ export function clampTextPosition(
   const dx = x - hole.x
   const dy = y - hole.y
   const distance = Math.hypot(dx, dy)
-  const minDistance = hole.radius + HOLE_CLEARANCE
+  const extent = distance > 0.0001
+    ? (Math.abs(dx) * text.halfWidth + Math.abs(dy) * text.halfHeight) / distance
+    : 0
+  const minDistance = hole.radius + HOLE_CLEARANCE + extent
 
   if (distance < minDistance) {
     if (distance > 0.0001) {
@@ -76,34 +61,4 @@ export function clampTextPosition(
   }
 
   return { x, y }
-}
-
-export function snapTextToSupport(
-  text: TextPosition,
-  context: SnapContext,
-): { x: number; y: number } {
-  const { supports, pieceBB, hole } = context
-  const pieceTop = pieceBB.maxY - TEXT_BORDER_MIN
-  let supportY = pieceTop
-
-  for (const s of supports) {
-    const sBottom = s.y - s.halfHeight
-    if (sBottom < supportY && sBottom > pieceBB.minY) {
-      supportY = sBottom
-    }
-  }
-
-  if (hole && Math.abs(text.x - hole.x) < text.halfWidth + hole.radius) {
-    const holeBottom = hole.y - hole.radius
-    if (holeBottom < supportY && holeBottom > pieceBB.minY) {
-      supportY = holeBottom
-    }
-  }
-
-  const hasSupport = supportY !== pieceTop
-  const fusion = hasSupport ? SUPPORT_FUSION : 0
-  const y = supportY - text.halfHeight - fusion
-  const minY = pieceBB.minY + text.halfHeight
-  const x = clampTextPosition({ ...text, y }, pieceBB, hole ?? { x: 0, y: 100, radius: 0 }).x
-  return { x, y: Math.max(minY, y) }
 }

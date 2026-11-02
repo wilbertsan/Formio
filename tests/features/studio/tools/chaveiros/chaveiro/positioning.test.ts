@@ -1,27 +1,4 @@
-import {
-  clampTextPosition,
-  defaultStackOffsets,
-  snapTextToSupport,
-} from '@/features/studio/tools/chaveiros/chaveiro/positioning'
-
-describe('defaultStackOffsets', () => {
-  it('um texto fica centrado em 0', () => {
-    expect(defaultStackOffsets([10])).toEqual([0])
-  })
-
-  it('dois textos ficam um acima e um abaixo do centro', () => {
-    const offsets = defaultStackOffsets([10, 10])
-    expect(offsets[0]).toBeGreaterThan(0)
-    expect(offsets[1]).toBeLessThan(0)
-    expect(offsets[0] + offsets[1]).toBeCloseTo(0, 5)
-  })
-
-  it('espaçamento cresce com a altura do texto', () => {
-    const small = defaultStackOffsets([8, 8])
-    const large = defaultStackOffsets([16, 16])
-    expect(Math.abs(large[0] - large[1])).toBeGreaterThan(Math.abs(small[0] - small[1]))
-  })
-})
+import { clampTextPosition } from '@/features/studio/tools/chaveiros/chaveiro/positioning'
 
 describe('clampTextPosition', () => {
   const pieceBB = { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 }
@@ -29,9 +6,9 @@ describe('clampTextPosition', () => {
   const hole = { x: 0, y: 10, radius: 4.5 }
 
   it('mantém posição válida', () => {
-    const result = clampTextPosition({ x: 0, y: 0, ...textHalf }, pieceBB, hole)
+    const result = clampTextPosition({ x: 0, y: -2, ...textHalf }, pieceBB, hole)
     expect(result.x).toBe(0)
-    expect(result.y).toBe(0)
+    expect(result.y).toBe(-2)
   })
 
   it('limita texto dentro da borda da peça', () => {
@@ -62,43 +39,15 @@ describe('clampTextPosition', () => {
     expect(result.y).toBe(4)
     expect(Math.hypot(result.x - centeredHole.x, result.y - centeredHole.y)).toBeGreaterThanOrEqual(4)
   })
-})
 
-describe('snapTextToSupport', () => {
-  const pieceBB = { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 }
-  const FUSION = 0.5
-
-  it('texto flutuante no meio snapa para o topo interno da peça', () => {
-    const result = snapTextToSupport(
-      { x: 0, y: 0, halfWidth: 10, halfHeight: 5 },
-      { supports: [], pieceBB },
+  it('considera a extensão do conteúdo na folga do furo', () => {
+    const localHole = { x: 0, y: 10, radius: 2.5 }
+    const result = clampTextPosition(
+      { x: 0, y: 7, halfWidth: 10, halfHeight: 4 },
+      { minX: -25, maxX: 25, minY: -25, maxY: 25 },
+      localHole,
     )
-    expect(result.y + 5).toBeCloseTo(pieceBB.maxY - 4, 1)
-  })
-
-  it('texto snapa para a base do texto anterior com fusão', () => {
-    const previous = { x: 0, y: 5, halfWidth: 10, halfHeight: 5 }
-    const result = snapTextToSupport(
-      { x: 0, y: -3, halfWidth: 10, halfHeight: 5 },
-      { supports: [previous], pieceBB },
-    )
-    expect(result.y + 5).toBeCloseTo(previous.y - 5 - FUSION, 1)
-  })
-
-  it('texto snapa para a borda inferior do furo quando acima dele', () => {
-    const hole = { x: 0, y: 9, radius: 4.5 }
-    const result = snapTextToSupport(
-      { x: 0, y: 2, halfWidth: 10, halfHeight: 5 },
-      { supports: [], pieceBB, hole },
-    )
-    expect(result.y + 5).toBeCloseTo(hole.y - hole.radius - FUSION, 1)
-  })
-
-  it('preserva X quando há suporte vertical', () => {
-    const result = snapTextToSupport(
-      { x: 8, y: 0, halfWidth: 10, halfHeight: 5 },
-      { supports: [], pieceBB },
-    )
-    expect(result.x).toBe(8)
+    const distance = Math.abs(result.y - localHole.y)
+    expect(distance).toBeGreaterThanOrEqual(2.5 + 1 + 4 - 0.01)
   })
 })
