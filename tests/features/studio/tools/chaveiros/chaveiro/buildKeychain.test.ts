@@ -136,12 +136,12 @@ describe('buildKeychain', () => {
     expect(result.content!.getAttribute('position')).toBeDefined()
   })
 
-  it('raised: content acima da espessura da base', () => {
+  it('conteúdo: content acima da espessura da base', () => {
     const result = buildKeychain(makeInput())
     expect(boundsOf(result.content).max.z).toBeGreaterThan(defaultKeychainParams.thickness)
   })
 
-  it('raised regular: fundo do content no topo biselado', () => {
+  it('conteúdo regular: fundo do content no topo biselado', () => {
     const result = buildKeychain(makeInput())
     expect(boundsOf(result.content).min.z).toBeCloseTo(
       defaultKeychainParams.thickness + 0.19,

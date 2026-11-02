@@ -209,7 +209,6 @@ function buildRegularKeychain({
       : undefined
     const fitted = resolveContentGeometry(item, {
       region,
-      params,
       font: itemFont,
       referenceSize: 10,
       pieceBB,

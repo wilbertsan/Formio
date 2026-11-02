@@ -20,7 +20,6 @@ export type UsableRegion =
 
 export interface FitContext {
   region: UsableRegion | null
-  params: KeychainParams
   font?: Font
   referenceSize: number
   pieceBB?: BoundingBox2D

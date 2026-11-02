@@ -100,7 +100,6 @@ function shapeBounds(shapes: THREE.Shape[]): {
 function baseContext(overrides: Partial<FitContext> = {}): FitContext {
   return {
     region: getUsableRegion(defaultKeychainParams),
-    params: defaultKeychainParams,
     font: fontStub,
     referenceSize: 10,
     ...overrides,

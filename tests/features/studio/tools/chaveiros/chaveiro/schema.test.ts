@@ -118,7 +118,7 @@ describe('conteúdo texto/ícone', () => {
     expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 1.5 }).success).toBe(true)
   })
 
-  it('não expõe textMode nem reliefDepth', () => {
+  it('não expõe textMode nem reliefDepth e fixa CONTENT_DEPTH', () => {
     expect(CONTENT_DEPTH).toBe(1)
     expect('textMode' in defaultKeychainParams).toBe(false)
     expect('reliefDepth' in defaultKeychainParams).toBe(false)
