@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
 import { Button, Flex, Heading } from '@aws-amplify/ui-react'
 import { Shape, Vector2 } from 'three'
 import { clampOffset, getUsableRegion } from './autoFit'
@@ -7,18 +10,25 @@ import { clampTextPosition, type BoundingBox2D } from './positioning'
 import {
   createBaseShape,
   getClampedRingPosition,
-  getRingPosition,
   RING_WALL,
   type RingParams,
 } from './shapes'
-import { TEXT_BORDER_MIN } from './schema'
+import { RING_EDGE_MARGIN, TEXT_BORDER_MIN } from './schema'
 import type { ContentItem, KeychainParams } from './schema'
 import type { BuildKeychainResult } from './buildKeychain'
 
 const FALLBACK_HALF_WIDTH = 4
 const FALLBACK_HALF_HEIGHT = 3
 const FALLBACK_PADDING = 5
+const DRAG_THRESHOLD = 0.5
 const HEADING_ID = 'text-position-editor-heading'
+
+const KEY_DELTAS: Record<string, { x: number; y: number }> = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: 1 },
+  ArrowDown: { x: 0, y: -1 },
+}
 
 function clamp(value: number, min: number, max: number): number {
   if (min > max) return (min + max) / 2
@@ -54,6 +64,34 @@ function nameFallbackBB(contents: ContentItem[]): BoundingBox2D {
   return { minX, maxX, minY, maxY }
 }
 
+function nameRingCenter(bb: BoundingBox2D, ring: RingParams): { x: number; y: number } {
+  const radius = ring.innerDiameter / 2
+  const inset = RING_EDGE_MARGIN + radius + ring.radialOffset + ring.embedding
+  const cx = (bb.minX + bb.maxX) / 2
+  const cy = (bb.minY + bb.maxY) / 2
+
+  switch (ring.position) {
+    case 'top':
+      return { x: cx + ring.lateralOffset, y: bb.maxY - inset }
+    case 'bottom':
+      return { x: cx + ring.lateralOffset, y: bb.minY + inset }
+    case 'left':
+      return { x: bb.minX + inset, y: cy + ring.lateralOffset }
+    case 'right':
+      return { x: bb.maxX - inset, y: cy + ring.lateralOffset }
+  }
+}
+
+function halfSize(built: { halfWidth: number; halfHeight: number } | undefined): {
+  halfWidth: number
+  halfHeight: number
+} {
+  return {
+    halfWidth: built && built.halfWidth > 0 ? built.halfWidth : FALLBACK_HALF_WIDTH,
+    halfHeight: built && built.halfHeight > 0 ? built.halfHeight : FALLBACK_HALF_HEIGHT,
+  }
+}
+
 interface TextPositionEditorProps {
   params: KeychainParams
   geometry: BuildKeychainResult | null
@@ -72,7 +110,15 @@ export function TextPositionEditor({
   onClose,
 }: TextPositionEditorProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const dragRef = useRef<{ id: string } | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const dragRef = useRef<{
+    id: string
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    moved: boolean
+  } | null>(null)
   const paramsRef = useRef(params)
   paramsRef.current = params
   const geometryRef = useRef(geometry)
@@ -97,8 +143,13 @@ export function TextPositionEditor({
     params.ringRadialOffset,
   ])
 
-  const ringCenter = params.baseShape === 'name'
-    ? getRingPosition(params.baseShape, params.width, params.height, ring)
+  const fallbackNameBB = useMemo(() => nameFallbackBB(params.contents), [params.contents])
+  const nameBB = params.baseShape === 'name'
+    ? geometry?.pieceBB ?? fallbackNameBB
+    : null
+
+  const ringCenter = nameBB
+    ? nameRingCenter(nameBB, ring)
     : getClampedRingPosition(params.baseShape, params.width, params.height, ring)
   const hole = geometry?.hole ?? {
     x: ringCenter.x,
@@ -108,7 +159,7 @@ export function TextPositionEditor({
 
   const { minX, minY, maxY, vbWidth, vbHeight, basePoints } = useMemo(() => {
     const baseShape = params.baseShape === 'name'
-      ? rectShapeFromBB(geometry?.pieceBB ?? nameFallbackBB(params.contents))
+      ? rectShapeFromBB(nameBB ?? fallbackNameBB)
       : createBaseShape(params.baseShape, params.width, params.height, ring)
     const points = baseShape.getPoints(64)
     const xs = points.map((p) => p.x)
@@ -125,7 +176,7 @@ export function TextPositionEditor({
       vbHeight: mxY - mnY,
       basePoints: points.map((p) => `${p.x},${-p.y}`).join(' '),
     }
-  }, [params, geometry, ring])
+  }, [params, ring, nameBB, fallbackNameBB])
 
   const region = useMemo(() => getUsableRegion(params), [params])
 
@@ -136,8 +187,7 @@ export function TextPositionEditor({
       label: item.kind === 'text' ? item.content : 'ícone',
       x: item.offsetX,
       y: item.offsetY,
-      halfWidth: built?.halfWidth ?? FALLBACK_HALF_WIDTH,
-      halfHeight: built?.halfHeight ?? FALLBACK_HALF_HEIGHT,
+      ...halfSize(built),
     }
   })
   const contentBoxesRef = useRef(contentBoxes)
@@ -146,6 +196,20 @@ export function TextPositionEditor({
   const toSvg = useCallback((clientX: number, clientY: number) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
+
+    if (typeof svg.getScreenCTM === 'function' && typeof svg.createSVGPoint === 'function') {
+      const ctm = svg.getScreenCTM()
+      if (ctm) {
+        const pt = svg.createSVGPoint()
+        pt.x = clientX
+        pt.y = clientY
+        const mapped = pt.matrixTransform(ctm.inverse())
+        if (Number.isFinite(mapped.x) && Number.isFinite(mapped.y)) {
+          return { x: mapped.x, y: -mapped.y }
+        }
+      }
+    }
+
     const rect = svg.getBoundingClientRect()
     const scaleX = vbWidth / (rect.width || 1)
     const scaleY = vbHeight / (rect.height || 1)
@@ -155,69 +219,120 @@ export function TextPositionEditor({
     }
   }, [vbWidth, vbHeight, minX, minY])
 
+  const clampPosition = useCallback((
+    pos: { x: number; y: number },
+    halfWidth: number,
+    halfHeight: number,
+  ) => {
+    const p = paramsRef.current
+    const currentGeometry = geometryRef.current
+
+    const applyRegion = (value: { x: number; y: number }) => {
+      const usable = getUsableRegion(p)
+      if (usable?.kind === 'rect') {
+        return {
+          x: clamp(value.x, usable.minX + halfWidth, usable.maxX - halfWidth),
+          y: clamp(value.y, usable.minY + halfHeight, usable.maxY - halfHeight),
+        }
+      }
+      if (usable?.kind === 'circle') {
+        const local = clampOffset(usable, halfWidth, halfHeight, value)
+        return { x: usable.cx + local.x, y: usable.cy + local.y }
+      }
+      return value
+    }
+
+    let result = applyRegion(pos)
+
+    if (p.baseShape === 'name' && currentGeometry) {
+      const bb = currentGeometry.pieceBB
+      result = {
+        x: clamp(
+          result.x,
+          bb.minX + TEXT_BORDER_MIN + halfWidth,
+          bb.maxX - TEXT_BORDER_MIN - halfWidth,
+        ),
+        y: clamp(
+          result.y,
+          bb.minY + TEXT_BORDER_MIN + halfHeight,
+          bb.maxY - TEXT_BORDER_MIN - halfHeight,
+        ),
+      }
+    }
+
+    if (currentGeometry) {
+      const adjusted = clampTextPosition(
+        { ...result, halfWidth, halfHeight },
+        currentGeometry.pieceBB,
+        currentGeometry.hole,
+      )
+      result = applyRegion(adjusted)
+    }
+
+    return result
+  }, [])
+
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
-      if (!dragRef.current) return
+      const drag = dragRef.current
+      if (!drag) return
+
       const pos = toSvg(e.clientX, e.clientY)
-      setDragPos({ id: dragRef.current.id, x: pos.x, y: pos.y })
+      const deltaX = pos.x - drag.startX
+      const deltaY = pos.y - drag.startY
+
+      if (!drag.moved && Math.hypot(deltaX, deltaY) <= DRAG_THRESHOLD) return
+
+      const box = contentBoxesRef.current.find((content) => content.id === drag.id)
+      if (!box) return
+
+      drag.moved = true
+      const next = clampPosition(
+        { x: drag.originX + deltaX, y: drag.originY + deltaY },
+        box.halfWidth,
+        box.halfHeight,
+      )
+      setDragPos({ id: drag.id, x: next.x, y: next.y })
     }
 
     const onUp = (e: PointerEvent) => {
       const drag = dragRef.current
       if (!drag) return
 
-      const p = paramsRef.current
-      const currentGeometry = geometryRef.current
-      const item = p.contents.find((content) => content.id === drag.id)
-      if (!item) {
-        dragRef.current = null
-        setDragPos(null)
-        return
+      if (drag.moved) {
+        const box = contentBoxesRef.current.find((content) => content.id === drag.id)
+        const pos = toSvg(e.clientX, e.clientY)
+        if (box) {
+          const next = clampPosition(
+            {
+              x: drag.originX + pos.x - drag.startX,
+              y: drag.originY + pos.y - drag.startY,
+            },
+            box.halfWidth,
+            box.halfHeight,
+          )
+          onMoveContentRef.current(drag.id, next.x, next.y)
+        }
       }
 
-      const box = contentBoxesRef.current.find((content) => content.id === drag.id)
-      const halfWidth = box?.halfWidth ?? FALLBACK_HALF_WIDTH
-      const halfHeight = box?.halfHeight ?? FALLBACK_HALF_HEIGHT
-      const pos = toSvg(e.clientX, e.clientY)
-      let x = pos.x
-      let y = pos.y
+      dragRef.current = null
+      setDragPos(null)
+    }
 
-      const usable = getUsableRegion(p)
-      if (usable?.kind === 'rect') {
-        x = clamp(x, usable.minX + halfWidth, usable.maxX - halfWidth)
-        y = clamp(y, usable.minY + halfHeight, usable.maxY - halfHeight)
-      } else if (usable?.kind === 'circle') {
-        const local = clampOffset(usable, halfWidth, halfHeight, { x, y })
-        x = usable.cx + local.x
-        y = usable.cy + local.y
-      } else if (currentGeometry) {
-        const bb = currentGeometry.pieceBB
-        x = clamp(x, bb.minX + TEXT_BORDER_MIN + halfWidth, bb.maxX - TEXT_BORDER_MIN - halfWidth)
-        y = clamp(y, bb.minY + TEXT_BORDER_MIN + halfHeight, bb.maxY - TEXT_BORDER_MIN - halfHeight)
-      }
-
-      if (currentGeometry) {
-        const adjusted = clampTextPosition(
-          { x, y, halfWidth, halfHeight },
-          currentGeometry.pieceBB,
-          currentGeometry.hole,
-        )
-        x = adjusted.x
-        y = adjusted.y
-      }
-
-      onMoveContentRef.current(drag.id, x, y)
+    const onCancel = () => {
       dragRef.current = null
       setDragPos(null)
     }
 
     document.addEventListener('pointermove', onMove)
     document.addEventListener('pointerup', onUp)
+    document.addEventListener('pointercancel', onCancel)
     return () => {
       document.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerup', onUp)
+      document.removeEventListener('pointercancel', onCancel)
     }
-  }, [toSvg])
+  }, [toSvg, clampPosition])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -227,13 +342,46 @@ export function TextPositionEditor({
     return () => document.removeEventListener('keydown', onKey)
   }, [])
 
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+  }, [])
+
   const handlePointerDown = useCallback((id: string, e: ReactPointerEvent) => {
     e.stopPropagation()
     onSelectContent(id)
+
     const box = contentBoxesRef.current.find((content) => content.id === id)
-    dragRef.current = { id }
-    setDragPos({ id, x: box?.x ?? 0, y: box?.y ?? 0 })
-  }, [onSelectContent])
+    if (!box) return
+
+    const pos = toSvg(e.clientX, e.clientY)
+    dragRef.current = {
+      id,
+      startX: pos.x,
+      startY: pos.y,
+      originX: box.x,
+      originY: box.y,
+      moved: false,
+    }
+  }, [onSelectContent, toSvg])
+
+  const handleKeyDown = useCallback((
+    id: string,
+    e: ReactKeyboardEvent<SVGGElement>,
+  ) => {
+    const delta = KEY_DELTAS[e.key]
+    if (!delta) return
+
+    const box = contentBoxesRef.current.find((content) => content.id === id)
+    if (!box) return
+
+    e.preventDefault()
+    const next = clampPosition(
+      { x: box.x + delta.x, y: box.y + delta.y },
+      box.halfWidth,
+      box.halfHeight,
+    )
+    onMoveContentRef.current(id, next.x, next.y)
+  }, [clampPosition])
 
   return (
     <div
@@ -249,7 +397,15 @@ export function TextPositionEditor({
       >
         <Flex direction="row" justifyContent="space-between" alignItems="center" marginBottom="medium">
           <Heading id={HEADING_ID} level={2} fontSize="large">Posicionar conteúdos</Heading>
-          <Button size="small" variation="link" aria-label="Fechar" onClick={onClose}>✕</Button>
+          <Button
+            ref={closeButtonRef}
+            size="small"
+            variation="link"
+            aria-label="Fechar"
+            onClick={onClose}
+          >
+            ✕
+          </Button>
         </Flex>
 
         <svg
@@ -297,7 +453,11 @@ export function TextPositionEditor({
               <g
                 key={box.id}
                 data-testid={`editor-content-${box.id}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Mover ${box.label}`}
                 onPointerDown={(e) => handlePointerDown(box.id, e)}
+                onKeyDown={(e) => handleKeyDown(box.id, e)}
                 style={{ cursor: 'grab' }}
               >
                 <rect

@@ -29,15 +29,15 @@ function mockGeometry(): BuildKeychainResult {
   }
 }
 
-function iconParams(): KeychainParams {
+function iconParams(id = 'content-1', offsetX = 0, offsetY = 0): KeychainParams {
   const icon: IconContent = {
-    id: 'content-1',
+    id,
     kind: 'icon',
     svgIcon: null,
     iconScale: 1,
     iconLineWidth: 0.3,
-    offsetX: 0,
-    offsetY: 0,
+    offsetX,
+    offsetY,
   }
   return { ...defaultKeychainParams, contents: [icon] }
 }
@@ -69,6 +69,22 @@ function dragContent(id: string, clientX: number, clientY: number): void {
   fireEvent.pointerUp(document, { clientX, clientY })
 }
 
+function mockSvgViewport(container: HTMLElement, width: number, height: number): void {
+  const svg = container.querySelector('svg')
+  if (!svg) throw new Error('svg não encontrado')
+  vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: width,
+    bottom: height,
+    width,
+    height,
+    toJSON: () => ({}),
+  } as DOMRect)
+}
+
 describe('TextPositionEditor', () => {
   it('renderiza base, furo, caixa de conteúdo e label', () => {
     renderEditor()
@@ -96,6 +112,19 @@ describe('TextPositionEditor', () => {
     expect(area).toHaveAttribute('stroke-dasharray', '1,0.5')
   })
 
+  it('não move ao clicar sem arrastar', () => {
+    const onMoveContent = vi.fn()
+    const onSelectContent = vi.fn()
+    renderEditor({ onMoveContent, onSelectContent, selectedContentId: '' })
+
+    const element = screen.getByTestId('editor-content-content-1')
+    fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 100 })
+
+    expect(onSelectContent).toHaveBeenCalledWith('content-1')
+    expect(onMoveContent).not.toHaveBeenCalled()
+  })
+
   it('dispara onMoveContent ao arrastar e soltar', () => {
     const onMoveContent = vi.fn()
     renderEditor({ onMoveContent })
@@ -105,18 +134,36 @@ describe('TextPositionEditor', () => {
     expect(onMoveContent).toHaveBeenCalledWith('content-1', expect.any(Number), expect.any(Number))
   })
 
-  it('limita o conteúdo à área útil ao arrastar para fora', () => {
+  it('usa o delta do arraste a partir da posição de origem', () => {
+    const params: KeychainParams = {
+      ...defaultKeychainParams,
+      contents: [{ ...defaultKeychainParams.contents[0], offsetX: 5, offsetY: -2 }],
+    }
+    const onMoveContent = vi.fn()
+    const { container } = renderEditor({ params, onMoveContent })
+    mockSvgViewport(container, 60, 35)
+
+    const element = screen.getByTestId('editor-content-content-1')
+    fireEvent.pointerDown(element, { clientX: 39, clientY: 18.5, button: 0, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 42, clientY: 16.5 })
+    fireEvent.pointerUp(document, { clientX: 42, clientY: 16.5 })
+
+    const [id, x, y] = onMoveContent.mock.calls[0]
+    expect(id).toBe('content-1')
+    expect(x).toBeCloseTo(8, 1)
+    expect(y).toBeCloseTo(0, 1)
+    expect(x).not.toBeCloseTo(12, 1)
+  })
+
+  it('limita o conteúdo exatamente à área útil', () => {
     const onMoveContent = vi.fn()
     renderEditor({ onMoveContent })
 
     dragContent('content-1', 5000, 5000)
 
-    const [id, x, y] = onMoveContent.mock.calls[0]
+    const [id, x] = onMoveContent.mock.calls[0]
     expect(id).toBe('content-1')
-    expect(x).toBeLessThanOrEqual(16)
-    expect(x).toBeGreaterThanOrEqual(-16)
-    expect(y).toBeLessThanOrEqual(6.5)
-    expect(y).toBeGreaterThanOrEqual(-6.5)
+    expect(Math.abs(x - 16)).toBeLessThanOrEqual(0.5)
   })
 
   it('seleciona o conteúdo ao clicar', () => {
@@ -142,6 +189,12 @@ describe('TextPositionEditor', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('foca o botão fechar ao montar', () => {
+    renderEditor()
+
+    expect(screen.getByRole('button', { name: /fechar/i })).toHaveFocus()
+  })
+
   it('expõe diálogo modal rotulado pelo título', () => {
     renderEditor()
 
@@ -160,10 +213,40 @@ describe('TextPositionEditor', () => {
     expect(container.querySelector('svg')).toHaveAttribute('viewBox', '-35 -20 70 40')
   })
 
+  it('usa a bbox de fallback para o furo no formato name sem geometria', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'name' as const }
+    renderEditor({ params, geometry: null })
+
+    expect(screen.getByTestId('editor-hole')).toHaveAttribute('cy', '-3.5')
+  })
+
+  it('renderiza base e caixas de fallback sem geometria', () => {
+    renderEditor({ geometry: null })
+
+    expect(screen.getByTestId('editor-base')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-hole')).toBeInTheDocument()
+    const rect = screen.getByTestId('editor-content-content-1').querySelector('rect')
+    expect(rect).toHaveAttribute('width', '8')
+    expect(rect).toHaveAttribute('height', '6')
+  })
+
   it('renderiza placeholder ícone para conteúdo do tipo icon', () => {
     renderEditor({ params: iconParams() })
 
     expect(screen.getByText('ícone')).toBeInTheDocument()
+  })
+
+  it('move conteúdo por teclado com as setas', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ params: iconParams('i1'), onMoveContent })
+
+    const element = screen.getByRole('button', { name: /mover ícone/i })
+    fireEvent.keyDown(element, { key: 'ArrowRight' })
+
+    const [id, x, y] = onMoveContent.mock.calls[0]
+    expect(id).toBe('i1')
+    expect(x).toBeCloseTo(1, 1)
+    expect(y).toBeCloseTo(0, 1)
   })
 
   it('calcula viewBox dinamicamente a partir da base', () => {
