@@ -1,5 +1,5 @@
 import { Box2, Shape, Path, Vector2 } from 'three'
-import { createNameOutline, expandShape, shapeToClipperPaths, unionShapes } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
+import { clipperPathsToShapes, createNameOutline, expandShape, shapeToClipperPaths, unionShapes } from '@/features/studio/tools/chaveiros/chaveiro/nameOutline'
 
 describe('createNameOutline', () => {
   it('gera outline com espessura e bounding box da união', () => {
@@ -145,6 +145,31 @@ describe('createNameOutline', () => {
     expect(union).toHaveLength(1)
     expect(union[0].getPoints().length).toBeGreaterThan(0)
     expect(union[0].holes).toHaveLength(1)
+  })
+
+  it('associa furo aninhado ao contorno externo correto', () => {
+    const toPath = (points: Array<[number, number]>) =>
+      points.map(([x, y]) => ({ X: x * 1000, Y: y * 1000 }))
+
+    const shapes = clipperPathsToShapes([
+      toPath([[0, 0], [100, 0], [100, 100], [0, 100]]),
+      toPath([[20, 20], [20, 80], [80, 80], [80, 20]]),
+      toPath([[40, 40], [60, 40], [60, 60], [40, 60]]),
+    ])
+
+    const outer = shapes.find(shape => {
+      const box = new Box2().setFromPoints(shape.getPoints())
+      return box.min.x === 0 && box.max.x === 100
+    })
+    const island = shapes.find(shape => {
+      const box = new Box2().setFromPoints(shape.getPoints())
+      return box.min.x === 40 && box.max.x === 60
+    })
+
+    expect(outer).toBeDefined()
+    expect(outer!.holes).toHaveLength(1)
+    expect(island).toBeDefined()
+    expect(island!.holes).toHaveLength(0)
   })
 
   it('expande shape usando offset externo', () => {

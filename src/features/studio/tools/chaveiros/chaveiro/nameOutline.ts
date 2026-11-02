@@ -31,20 +31,6 @@ function pathArea(path: ClipperPoint[]): number {
   return Math.abs(ClipperLib.Clipper.Area(path))
 }
 
-const clipperOrientation = (
-  ClipperLib.Clipper as unknown as { Orientation: (path: ClipperPoint[]) => boolean }
-).Orientation
-
-function pathCentroid(path: ClipperPoint[]): ClipperPoint {
-  let x = 0
-  let y = 0
-  for (const p of path) {
-    x += p.X
-    y += p.Y
-  }
-  return { X: x / path.length, Y: y / path.length }
-}
-
 export function clipperPathsToShapes(paths: ClipperPoint[][]): Shape[] {
   const validPaths = paths.filter(path => path.length >= 3)
   if (validPaths.length === 0) return []
@@ -53,7 +39,7 @@ export function clipperPathsToShapes(paths: ClipperPoint[][]): Shape[] {
   const holePaths: ClipperPoint[][] = []
 
   for (const path of validPaths) {
-    if (clipperOrientation(path)) {
+    if (ClipperLib.Clipper.Orientation(path)) {
       outerPaths.push(path)
     } else {
       holePaths.push(path)
@@ -79,12 +65,12 @@ export function clipperPathsToShapes(paths: ClipperPoint[][]): Shape[] {
   const areas = outerPaths.map(pathArea)
 
   for (const hole of holePaths) {
-    const centroid = pathCentroid(hole)
+    const point = hole[0]
 
     let bestIndex = -1
     let bestArea = Infinity
     for (let i = 0; i < outerPaths.length; i++) {
-      if (ClipperLib.Clipper.PointInPolygon(centroid, outerPaths[i]) !== 0 && areas[i] < bestArea) {
+      if (ClipperLib.Clipper.PointInPolygon(point, outerPaths[i]) !== 0 && areas[i] < bestArea) {
         bestArea = areas[i]
         bestIndex = i
       }

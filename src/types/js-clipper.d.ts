@@ -10,6 +10,7 @@ declare module 'js-clipper' {
     }) & {
       PointInPolygon: (pt: { X: number; Y: number }, path: Array<{ X: number; Y: number }>) => number
       Area: (path: Array<{ X: number; Y: number }>) => number
+      Orientation: (path: Array<{ X: number; Y: number }>) => boolean
     }
     PolyType: {
       ptSubject: number
