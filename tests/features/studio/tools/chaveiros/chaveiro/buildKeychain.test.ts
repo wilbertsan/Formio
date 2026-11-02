@@ -1,6 +1,17 @@
 import * as THREE from 'three'
-import { buildKeychain, type BuildKeychainInput } from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
-import { defaultKeychainParams, type KeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
+import {
+  buildKeychain,
+  type BuildKeychainInput,
+} from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
+import {
+  defaultKeychainParams,
+  type IconContent,
+  type KeychainParams,
+  type TextContent,
+} from '@/features/studio/tools/chaveiros/chaveiro/schema'
+
+const SVG_RECT =
+  '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#000"/></svg>'
 
 const fontStub = {
   glyphs: {},
@@ -16,6 +27,26 @@ const fontStub = {
     return [shape]
   },
 } as never
+
+const textItem: TextContent = {
+  id: 'content-1',
+  kind: 'text',
+  content: 'Meu nome',
+  fontStyle: 'bold',
+  fontSize: 10,
+  offsetX: 0,
+  offsetY: 0,
+}
+
+const iconItem: IconContent = {
+  id: 'i1',
+  kind: 'icon',
+  svgIcon: SVG_RECT,
+  iconScale: 1,
+  iconLineWidth: 0.3,
+  offsetX: 0,
+  offsetY: 0,
+}
 
 vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   TextGeometry: class extends THREE.BufferGeometry {
@@ -86,224 +117,164 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
   },
 }))
 
-function makeInput(overrides?: Partial<BuildKeychainInput>): BuildKeychainInput {
+function makeInput(
+  params: Partial<KeychainParams> = {},
+  extra: Partial<BuildKeychainInput> = {},
+): BuildKeychainInput {
   return {
     font: fontStub,
     fonts: { bold: fontStub, normal: fontStub, serif: fontStub },
-    params: { ...defaultKeychainParams, ...overrides?.params },
+    params: { ...defaultKeychainParams, ...params },
     onError: () => undefined,
+    ...extra,
   }
 }
 
+function boundsOf(geometry: THREE.BufferGeometry | null): THREE.Box3 {
+  if (!geometry) throw new Error('geometria ausente')
+  geometry.computeBoundingBox()
+  if (!geometry.boundingBox) throw new Error('bounding box ausente')
+  return geometry.boundingBox
+}
+
+function size(geometry: THREE.BufferGeometry | null): { width: number; height: number } {
+  const bb = boundsOf(geometry)
+  return { width: bb.max.x - bb.min.x, height: bb.max.y - bb.min.y }
+}
+
 describe('buildKeychain', () => {
-  it('retorna base e texto como BufferGeometry separados', () => {
+  it('retorna base, content e contentItems', () => {
     const result = buildKeychain(makeInput())
     expect(result.base).toBeDefined()
-    expect(result.text).toBeDefined()
-    expect(result.base.getAttribute('position')).toBeDefined()
-    expect(result.text.getAttribute('position')).toBeDefined()
+    expect(result.content).not.toBeNull()
+    expect(result.contentItems).toHaveLength(1)
+    expect(result.content!.getAttribute('position')).toBeDefined()
   })
 
-  it('raised: texto acima da espessura da base', () => {
+  it('raised: content acima da espessura da base', () => {
     const result = buildKeychain(makeInput())
-    result.text.computeBoundingBox()
-    expect(result.text.boundingBox?.max.z).toBeGreaterThan(defaultKeychainParams.thickness)
+    expect(boundsOf(result.content).max.z).toBeGreaterThan(defaultKeychainParams.thickness)
   })
 
-  it('engraved: CSG subtrai do base', () => {
+  it('engraved: exatamente um CSG com brush na faixa gravada', () => {
     csgCalls.length = 0
-    const result = buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
+    const result = buildKeychain(makeInput({ textMode: 'engraved' }))
     expect(result.base).toBeDefined()
     expect(csgCalls).toHaveLength(1)
+
+    const bb = boundsOf(csgCalls[0].text)
+    const lower = defaultKeychainParams.thickness - defaultKeychainParams.reliefDepth - 0.21
+    const upper = defaultKeychainParams.thickness + 0.21
+    expect(bb.min.z).toBeGreaterThanOrEqual(lower)
+    expect(bb.max.z).toBeLessThanOrEqual(upper)
   })
 
-  it('engraved: verso da base intacto (gravação rasa)', () => {
-    csgCalls.length = 0
-    const result = buildKeychain(makeInput({ params: { textMode: 'engraved' } as KeychainParams }))
-    result.base.computeBoundingBox()
-    expect(result.base.boundingBox?.min.z).toBeGreaterThan(-0.3)
+  it('auto-fit: content cabe em width - 2*borderWidth', () => {
+    const result = buildKeychain(makeInput({ width: 50, borderWidth: 10 }))
+    expect(size(result.content).width).toBeLessThanOrEqual(50 - 2 * 10 + 1)
   })
 
-  it('texto não excede largura disponível (width - 2 * borderWidth)', () => {
-    const result = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        borderWidth: 10,
-        width: 50,
-        texts: [{ ...defaultKeychainParams.texts[0], width: 50 }],
-      } as KeychainParams,
-    }))
-    result.text.computeBoundingBox()
-    const textWidth = (result.text.boundingBox?.max.x ?? 0) - (result.text.boundingBox?.min.x ?? 0)
-    expect(textWidth).toBeLessThanOrEqual(50 - 2 * 10 + 1)
-  })
-
-  it('textSize define a altura das letras', () => {
+  it('fontSize 15 gera content mais alto que 6', () => {
     const small = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        texts: [{ ...defaultKeychainParams.texts[0], height: 8 }],
-      } as KeychainParams,
+      contents: [{ ...textItem, fontSize: 6 }],
     }))
     const large = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        texts: [{ ...defaultKeychainParams.texts[0], height: 16 }],
-      } as KeychainParams,
+      contents: [{ ...textItem, fontSize: 15 }],
     }))
-    small.text.computeBoundingBox()
-    large.text.computeBoundingBox()
-    const hSmall = (small.text.boundingBox?.max.y ?? 0) - (small.text.boundingBox?.min.y ?? 0)
-    const hLarge = (large.text.boundingBox?.max.y ?? 0) - (large.text.boundingBox?.min.y ?? 0)
-    expect(hLarge).toBeGreaterThan(hSmall)
+    expect(size(large.content).height).toBeGreaterThan(size(small.content).height)
   })
 
-  it('textWidth limita a largura do texto sem exceder a área útil', () => {
-    const result = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        width: 50,
-        borderWidth: 4,
-        texts: [{ ...defaultKeychainParams.texts[0], width: 60 }],
-      } as KeychainParams,
-    }))
-    result.text.computeBoundingBox()
-    const w = (result.text.boundingBox?.max.x ?? 0) - (result.text.boundingBox?.min.x ?? 0)
-    expect(w).toBeLessThanOrEqual(50 - 2 * 4 + 1)
+  it('ícone SVG gera content e contentItems', () => {
+    const result = buildKeychain(makeInput({ contents: [iconItem] }))
+    expect(result.content).not.toBeNull()
+    expect(result.contentItems[0].halfWidth).toBeGreaterThan(0)
   })
 
-  it('textWidth menor reduz a largura do texto', () => {
-    const wide = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        texts: [{ ...defaultKeychainParams.texts[0], width: 40 }],
-      } as KeychainParams,
-    }))
-    const narrow = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        texts: [{ ...defaultKeychainParams.texts[0], width: 12 }],
-      } as KeychainParams,
-    }))
-    wide.text.computeBoundingBox()
-    narrow.text.computeBoundingBox()
-    const wWide = (wide.text.boundingBox?.max.x ?? 0) - (wide.text.boundingBox?.min.x ?? 0)
-    const wNarrow = (narrow.text.boundingBox?.max.x ?? 0) - (narrow.text.boundingBox?.min.x ?? 0)
-    expect(wWide).toBeGreaterThan(wNarrow)
+  it('ícone sem SVG gera content nulo e base válida', () => {
+    const result = buildKeychain(makeInput({ contents: [{ ...iconItem, svgIcon: null }] }))
+    expect(result.content).toBeNull()
+    expect(result.base).toBeDefined()
+    expect(result.contentItems[0].geometry).toBeNull()
   })
 
-  it('usando borderWidth menor resulta em texto maior', () => {
-    const result4 = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        borderWidth: 4,
-        width: 28,
-        texts: [{ ...defaultKeychainParams.texts[0], relief: 2 }],
-      } as KeychainParams,
-    }))
-    const result10 = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        borderWidth: 10,
-        width: 28,
-        texts: [{ ...defaultKeychainParams.texts[0], relief: 2 }],
-      } as KeychainParams,
-    }))
-    result4.text.computeBoundingBox()
-    result10.text.computeBoundingBox()
-    const w4 = (result4.text.boundingBox?.max.x ?? 0) - (result4.text.boundingBox?.min.x ?? 0)
-    const w10 = (result10.text.boundingBox?.max.x ?? 0) - (result10.text.boundingBox?.min.x ?? 0)
-    expect(w4).toBeGreaterThan(w10)
-  })
-
-  it('dois textos empilhados têm bboxes Y distintos', () => {
-    const result = buildKeychain(makeInput({
-      fonts: { bold: fontStub },
-      params: {
-        ...defaultKeychainParams,
-        texts: [
-          { ...defaultKeychainParams.texts[0], offsetY: 3 },
-          { ...defaultKeychainParams.texts[0], id: 'text-2', content: 'Outro', offsetY: -3 },
-        ],
-      },
-    }))
-    result.text.computeBoundingBox()
-    const textBB = result.text.boundingBox
-    expect(textBB).not.toBeNull()
-    const textHeight = (textBB!.max.y - textBB!.min.y)
-    expect(textHeight).toBeGreaterThan(10)
-  })
-
-  it('offsetX move o texto', () => {
+  it('offsetX move o content', () => {
     const centered = buildKeychain(makeInput({
-      fonts: { bold: fontStub },
-      params: { ...defaultKeychainParams, texts: [{ ...defaultKeychainParams.texts[0], offsetX: 0 }] },
+      width: 80,
+      contents: [{ ...textItem, offsetX: 0 }],
     }))
     const shifted = buildKeychain(makeInput({
-      fonts: { bold: fontStub },
-      params: { ...defaultKeychainParams, texts: [{ ...defaultKeychainParams.texts[0], offsetX: 10 }] },
+      width: 80,
+      contents: [{ ...textItem, offsetX: 10 }],
     }))
-    centered.text.computeBoundingBox()
-    shifted.text.computeBoundingBox()
-    expect(shifted.text.boundingBox?.max.x).toBeGreaterThan(centered.text.boundingBox!.max.x)
+    expect(boundsOf(shifted.content).max.x).toBeGreaterThan(boundsOf(centered.content).max.x)
   })
 
-  it('respeita os offsets do usuário no posicionamento do texto', () => {
+  it('dois contents com offsetY distintos ocupam Y > 10', () => {
     const result = buildKeychain(makeInput({
-      fonts: { bold: fontStub },
-      params: {
-        ...defaultKeychainParams,
-        texts: [{ ...defaultKeychainParams.texts[0], offsetX: 10, offsetY: -2 }],
-      },
+      contents: [
+        { ...textItem, offsetY: 3 },
+        { ...textItem, id: 'c2', content: 'Outro', offsetY: -3 },
+      ],
     }))
-    result.text.computeBoundingBox()
-    expect(result.text.boundingBox?.max.x).toBeGreaterThan(5)
+    expect(size(result.content).height).toBeGreaterThan(10)
   })
 
-  it('height independente de width define dimensões da base', () => {
-    const result = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        width: 60,
-        height: 30,
-      },
-    }))
-    result.base.computeBoundingBox()
-    const bb = result.base.boundingBox!
-    const w = bb.max.x - bb.min.x
-    const h = bb.max.y - bb.min.y
-    expect(w).toBeCloseTo(60, 0)
-    expect(h).toBeCloseTo(30, 0)
+  it('base retangular tem as dimensões dos parâmetros', () => {
+    const result = buildKeychain(makeInput({ width: 60, height: 30 }))
+    const bb = boundsOf(result.base)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(60, 0)
+    expect(bb.max.y - bb.min.y).toBeCloseTo(30, 0)
   })
 
-  it('gravado subtrai todos os textos com um único CSG', () => {
+  it('engraved com dois contents usa um único CSG', () => {
     csgCalls.length = 0
     buildKeychain(makeInput({
-      fonts: { bold: fontStub },
-      params: {
-        ...defaultKeychainParams,
-        textMode: 'engraved',
-        texts: [
-          { ...defaultKeychainParams.texts[0], offsetY: 3 },
-          { ...defaultKeychainParams.texts[0], id: 't2', content: 'Dois', offsetY: -3 },
-        ],
-      },
+      textMode: 'engraved',
+      contents: [
+        { ...textItem, offsetY: 3 },
+        { ...textItem, id: 'c2', content: 'Dois', offsetY: -3 },
+      ],
     }))
     expect(csgCalls).toHaveLength(1)
   })
 
-  it('baseShape name gera contorno e preenchimento', () => {
+  it('name: somente texto gera base, content, pieceBB e hole', () => {
     const result = buildKeychain(makeInput({
-      params: {
-        ...defaultKeychainParams,
-        baseShape: 'name',
-        texts: [{ ...defaultKeychainParams.texts[0], content: 'A' }],
-      },
+      baseShape: 'name',
+      contents: [{ ...textItem, content: 'A' }],
     }))
-    
     expect(result.base).toBeDefined()
-    expect(result.text).toBeDefined()
-    expect(result.pieceBB).toBeDefined()
-    expect(result.pieceBB.minX).toBeDefined()
+    expect(result.content).not.toBeNull()
+    expect(result.pieceBB.minX).toBeLessThan(result.pieceBB.maxX)
+    expect(result.hole.radius).toBeGreaterThan(0)
+  })
+
+  it('name: texto + ícone gera content e base', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      contents: [
+        { ...textItem, content: 'A' },
+        { ...iconItem, id: 'i2' },
+      ],
+    }))
+    expect(result.content).not.toBeNull()
+    expect(result.base).toBeDefined()
+  })
+
+  it('name: somente ícone funciona sem fonte', () => {
+    const result = buildKeychain(
+      makeInput({ baseShape: 'name', contents: [iconItem] }, { font: undefined, fonts: {} }),
+    )
+    expect(result.content).not.toBeNull()
+    expect(result.base).toBeDefined()
+  })
+
+  it('name: raio do furo igual a ringInnerDiameter / 2', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      ringInnerDiameter: 8,
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+    expect(result.hole.radius).toBeCloseTo(4)
   })
 })

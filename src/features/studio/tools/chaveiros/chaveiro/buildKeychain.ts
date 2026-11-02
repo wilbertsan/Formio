@@ -1,13 +1,13 @@
-import { type BufferGeometry, ExtrudeGeometry, Path, Shape, Vector2 } from 'three'
+import { BufferGeometry, ExtrudeGeometry, Path, Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
+import { buildContentShapes, getUsableRegion, resolveContentGeometry } from './autoFit'
+import { createNameOutline, unionShapes } from './nameOutline'
 import { createBaseShape, createReinforcementRing, getRingPosition, type RingParams } from './shapes'
-import { nameToGeometry } from './textToGeometry'
-import { createNameOutline } from './nameOutline'
 import type { BoundingBox2D, Circle2D } from './positioning'
-import { TEXT_BORDER_MIN, RING_EDGE_MARGIN } from './schema'
-import type { KeychainParams, FontStyle, TextItem } from './schema'
+import { RING_EDGE_MARGIN } from './schema'
+import type { ContentItem, FontStyle, KeychainParams } from './schema'
 
 export interface BuildKeychainInput {
   font?: Font
@@ -16,10 +16,17 @@ export interface BuildKeychainInput {
   onError?: (message: string) => void
 }
 
+export interface BuildContentItem {
+  id: string
+  halfWidth: number
+  halfHeight: number
+  geometry: BufferGeometry | null
+}
+
 export interface BuildKeychainResult {
   base: BufferGeometry
-  text: BufferGeometry
-  textItems: Array<{ id: string; geometry: BufferGeometry }>
+  content: BufferGeometry | null
+  contentItems: BuildContentItem[]
   pieceBB: BoundingBox2D
   hole: Circle2D
 }
@@ -37,32 +44,6 @@ function translatedShape(shape: Shape, x: number, y: number): Shape {
   return translated
 }
 
-function buildScaledText({
-  font,
-  name,
-  textSize,
-  targetWidth,
-  depth,
-}: {
-  font: Font
-  name: string
-  textSize: number
-  targetWidth: number
-  depth: number
-}): BufferGeometry {
-  const geometry = nameToGeometry({ font, name, size: textSize, depth })
-  geometry.computeBoundingBox()
-  const naturalWidth = geometry.boundingBox
-    ? geometry.boundingBox.max.x - geometry.boundingBox.min.x
-    : 0
-  if (naturalWidth > targetWidth && naturalWidth > 0) {
-    const scale = targetWidth / naturalWidth
-    geometry.scale(scale, scale, 1)
-    geometry.center()
-  }
-  return geometry
-}
-
 function resolveFont(
   fonts: Partial<Record<FontStyle, Font>> | undefined,
   font: Font | undefined,
@@ -73,38 +54,80 @@ function resolveFont(
   throw new Error(`No font provided for style "${style}"`)
 }
 
-function buildItemGeometry(
-  item: TextItem,
-  resolvedFont: Font,
-  availableWidth: number,
-): BufferGeometry {
-  const targetWidth = Math.min(item.width, availableWidth)
-  return buildScaledText({
-    font: resolvedFont,
-    name: item.content,
-    textSize: item.height,
-    targetWidth,
-    depth: item.relief,
-  })
+function mergeOrFirst(geometries: BufferGeometry[]): BufferGeometry {
+  return mergeGeometries(geometries) ?? geometries[0] ?? new BufferGeometry()
 }
 
-export function buildKeychain({
-  font,
-  fonts,
-  params,
-  onError,
-}: BuildKeychainInput): BuildKeychainResult {
-  if (params.baseShape === 'name') {
-    return buildNameKeychain({ font, fonts, params, onError })
-  }
-
-  const ring: RingParams = {
+function makeRingParams(params: KeychainParams): RingParams {
+  return {
     position: params.ringPosition,
     innerDiameter: params.ringInnerDiameter,
     embedding: params.ringEmbedding,
     lateralOffset: params.ringLateralOffset,
     radialOffset: params.ringRadialOffset,
   }
+}
+
+function contentZ(params: KeychainParams): number {
+  return params.textMode === 'raised'
+    ? params.thickness - 0.01
+    : params.thickness - params.reliefDepth + ENGRAVE_EPSILON
+}
+
+function computeBaseBB(geometry: BufferGeometry, hole: Circle2D): {
+  pieceBB: BoundingBox2D
+  hole: Circle2D
+} {
+  geometry.computeBoundingBox()
+  const bb = geometry.boundingBox
+  const pieceBB: BoundingBox2D = bb && Number.isFinite(bb.min.x)
+    ? { minX: bb.min.x, maxX: bb.max.x, minY: bb.min.y, maxY: bb.max.y }
+    : { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+  return { pieceBB, hole }
+}
+
+function shapeBounds(shapes: Shape[]): BoundingBox2D | null {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+
+  const includePoint = (p: Vector2): void => {
+    minX = Math.min(minX, p.x)
+    maxX = Math.max(maxX, p.x)
+    minY = Math.min(minY, p.y)
+    maxY = Math.max(maxY, p.y)
+  }
+
+  for (const shape of shapes) {
+    for (const point of shape.getPoints()) includePoint(point)
+    for (const hole of shape.holes) {
+      for (const point of hole.getPoints()) includePoint(point)
+    }
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null
+  return { minX, maxX, minY, maxY }
+}
+
+function contentItemFromShapes(item: ContentItem, shapes: Shape[]): BuildContentItem {
+  const bounds = shapeBounds(shapes)
+  if (!bounds) return { id: item.id, halfWidth: 0, halfHeight: 0, geometry: null }
+  return {
+    id: item.id,
+    halfWidth: (bounds.maxX - bounds.minX) / 2,
+    halfHeight: (bounds.maxY - bounds.minY) / 2,
+    geometry: null,
+  }
+}
+
+function buildRegularKeychain({
+  font,
+  fonts,
+  params,
+  onError,
+}: BuildKeychainInput): BuildKeychainResult {
+  const ring = makeRingParams(params)
   const baseShape = createBaseShape(params.baseShape, params.width, params.height, ring)
 
   const baseGeometry = new ExtrudeGeometry(baseShape, {
@@ -126,118 +149,109 @@ export function buildKeychain({
     bevelEnabled: false,
   })
 
-  const mergedBase = mergeGeometries([baseGeometry, reinforcementGeometry]) ?? baseGeometry
+  const mergedBase = mergeOrFirst([baseGeometry, reinforcementGeometry])
+  const hole: Circle2D = {
+    x: ringCenter.x,
+    y: ringCenter.y,
+    radius: params.ringInnerDiameter / 2,
+  }
+  const { pieceBB } = computeBaseBB(mergedBase, hole)
 
-  const availableWidth = params.width - 2 * params.borderWidth
+  const region = getUsableRegion(params)
+  const z = contentZ(params)
+  const contentGeometries: BufferGeometry[] = []
+  const contentItems: BuildContentItem[] = []
 
-  const textGeometries: BufferGeometry[] = []
-  const textItems: Array<{ id: string; geometry: BufferGeometry }> = []
+  for (const item of params.contents) {
+    const itemFont = item.kind === 'text'
+      ? resolveFont(fonts, font, item.fontStyle)
+      : undefined
+    const fitted = resolveContentGeometry(item, {
+      region,
+      params,
+      font: itemFont,
+      referenceSize: 10,
+      pieceBB,
+      hole,
+    })
 
-  for (let i = 0; i < params.texts.length; i++) {
-    const item = params.texts[i]
-    const resolvedFont = resolveFont(fonts, font, item.fontStyle)
-    const textGeometry = buildItemGeometry(item, resolvedFont, availableWidth)
+    if (!fitted) {
+      contentItems.push({ id: item.id, halfWidth: 0, halfHeight: 0, geometry: null })
+      continue
+    }
 
-    textGeometry.computeBoundingBox()
-    const bb = textGeometry.boundingBox!
-    const halfWidth = (bb.max.x - bb.min.x) / 2
-
-    const textAvailableWidth = params.width / 2 - TEXT_BORDER_MIN
-    const clampedX = Math.max(-textAvailableWidth + halfWidth, Math.min(textAvailableWidth - halfWidth, item.offsetX))
-    const clampedY = item.offsetY
-
-    textGeometry.translate(clampedX, clampedY, params.thickness - 0.01)
-    textGeometries.push(textGeometry)
-    textItems.push({ id: item.id, geometry: textGeometry })
+    fitted.geometry.translate(fitted.x, fitted.y, z)
+    contentItems.push({
+      id: item.id,
+      halfWidth: fitted.halfWidth,
+      halfHeight: fitted.halfHeight,
+      geometry: fitted.geometry,
+    })
+    contentGeometries.push(fitted.geometry)
   }
 
+  const content = contentGeometries.length > 0
+    ? mergeOrFirst(contentGeometries)
+    : null
+
   if (params.textMode === 'raised') {
-    const merged = mergeGeometries(textGeometries) ?? textGeometries[0]
-    merged.computeVertexNormals()
     mergedBase.computeVertexNormals()
-    const baseBB = computeBaseBB(mergedBase)
-    return {
-      base: mergedBase,
-      text: merged,
-      textItems,
-      pieceBB: baseBB.pieceBB,
-      hole: baseBB.hole,
-    }
+    content?.computeVertexNormals()
+    return { base: mergedBase, content, contentItems, pieceBB, hole }
+  }
+
+  if (!content) {
+    mergedBase.computeVertexNormals()
+    return { base: mergedBase, content: null, contentItems, pieceBB, hole }
   }
 
   try {
-    const mergedText = mergeGeometries(textGeometries) ?? textGeometries[0]
-    mergedText.translate(0, 0, ENGRAVE_EPSILON)
     const evaluator = new Evaluator()
-    const result = evaluator.evaluate(new Brush(mergedBase), new Brush(mergedText), SUBTRACTION)
+    const result = evaluator.evaluate(new Brush(mergedBase), new Brush(content), SUBTRACTION)
     result.geometry.computeVertexNormals()
-    const baseBB = computeBaseBB(result.geometry)
-    return {
-      base: result.geometry,
-      text: mergedText,
-      textItems,
-      pieceBB: baseBB.pieceBB,
-      hole: baseBB.hole,
-    }
+    return { base: result.geometry, content, contentItems, pieceBB, hole }
   } catch {
     onError?.('Falha na gravação; usando relevo')
-    const fallbackMerged = mergeGeometries(textGeometries) ?? textGeometries[0]
-    fallbackMerged.computeVertexNormals()
+    content.translate(0, 0, params.thickness - 0.01 - z)
+    content.computeVertexNormals()
     mergedBase.computeVertexNormals()
-    const baseBB = computeBaseBB(mergedBase)
-    return {
-      base: mergedBase,
-      text: fallbackMerged,
-      textItems,
-      pieceBB: baseBB.pieceBB,
-      hole: baseBB.hole,
-    }
+    return { base: mergedBase, content, contentItems, pieceBB, hole }
   }
 }
 
-function computeBaseBB(geometry: BufferGeometry): {
-  pieceBB: BoundingBox2D
-  hole: Circle2D
-} {
-  geometry.computeBoundingBox()
-  const bb = geometry.boundingBox!
-  const pieceBB: BoundingBox2D = {
-    minX: bb.min.x,
-    maxX: bb.max.x,
-    minY: bb.min.y,
-    maxY: bb.max.y,
-  }
-  const cx = (bb.min.x + bb.max.x) / 2
-  const cy = (bb.min.y + bb.max.y) / 2
-  const hole: Circle2D = { x: cx, y: cy, radius: 0 }
-  return { pieceBB, hole }
-}
+function buildNameKeychain({
+  font,
+  fonts,
+  params,
+  onError,
+}: BuildKeychainInput): BuildKeychainResult {
+  const textReference = params.contents.find(item => item.kind === 'text')
+  const referenceSize = textReference?.kind === 'text' ? textReference.fontSize : 10
 
-function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKeychainResult {
-  // Gerar base usando createNameOutline
-  const resolvedFont = resolveFont(fonts, font, params.texts[0].fontStyle)
-  
-  const { outline: baseGeometry, boundingBox } = createNameOutline({
-    font: resolvedFont,
-    texts: params.texts,
+  const allShapes: Shape[] = []
+  const contentItems: BuildContentItem[] = []
+
+  for (const item of params.contents) {
+    const itemFont = item.kind === 'text'
+      ? resolveFont(fonts, font, item.fontStyle)
+      : undefined
+    const shapes = buildContentShapes(item, itemFont, referenceSize)
+    allShapes.push(...shapes)
+    contentItems.push(contentItemFromShapes(item, shapes))
+  }
+
+  const { outline, boundingBox } = createNameOutline({
+    shapes: allShapes,
     borderWidth: params.borderWidth,
+    thickness: params.thickness,
   })
 
-  // Add ring
-  const ring: RingParams = {
-    position: params.ringPosition,
-    innerDiameter: params.ringInnerDiameter,
-    embedding: params.ringEmbedding,
-    lateralOffset: params.ringLateralOffset,
-    radialOffset: params.ringRadialOffset,
-  }
-
-  // Calculate ring position relative to bounding box
+  const ring = makeRingParams(params)
   const ringCenter = new Vector2(
     ring.lateralOffset,
-    boundingBox.maxY - ring.innerDiameter / 2 - RING_EDGE_MARGIN + ring.radialOffset + ring.embedding,
+    boundingBox.maxY - params.ringInnerDiameter / 2 - RING_EDGE_MARGIN
+      + ring.radialOffset + ring.embedding,
   )
-
   const reinforcementShape = translatedShape(
     createReinforcementRing(ring),
     ringCenter.x,
@@ -247,50 +261,56 @@ function buildNameKeychain({ font, fonts, params }: BuildKeychainInput): BuildKe
     depth: params.thickness,
     bevelEnabled: false,
   })
-
-  // Merge base with ring
-  const mergedBase = mergeGeometries([baseGeometry, reinforcementGeometry]) ?? baseGeometry
-
-  // Gerar camada de letras usando a mesma lógica dos outros formatos
-  const textGeometries: BufferGeometry[] = []
-  const textItems: Array<{ id: string; geometry: BufferGeometry }> = []
-
-  for (let i = 0; i < params.texts.length; i++) {
-    const item = params.texts[i]
-    const itemFont = resolveFont(fonts, font, item.fontStyle)
-    
-    // Usar buildItemGeometry (mesma lógica dos outros formatos)
-    const textGeometry = buildItemGeometry(item, itemFont, params.width)
-    textGeometry.computeBoundingBox()
-    const bb = textGeometry.boundingBox!
-    const halfWidth = (bb.max.x - bb.min.x) / 2
-
-    // Posicionar texto
-    const textAvailableWidth = boundingBox.maxX - boundingBox.minX - 2 * TEXT_BORDER_MIN
-    const centerX = (boundingBox.minX + boundingBox.maxX) / 2
-    const clampedX = Math.max(
-      -textAvailableWidth / 2 + halfWidth,
-      Math.min(textAvailableWidth / 2 - halfWidth, item.offsetX)
-    )
-    const clampedY = item.offsetY
-
-    textGeometry.translate(centerX + clampedX, clampedY, params.thickness - 0.01)
-    textGeometries.push(textGeometry)
-    textItems.push({ id: item.id, geometry: textGeometry })
+  const hole: Circle2D = {
+    x: ringCenter.x,
+    y: ringCenter.y,
+    radius: params.ringInnerDiameter / 2,
   }
 
-  const mergedText = mergeGeometries(textGeometries) ?? textGeometries[0]
+  const contentShapes = unionShapes(allShapes)
+  const content = contentShapes.length > 0
+    ? mergeOrFirst(contentShapes.map(shape => new ExtrudeGeometry(shape, {
+        depth: params.reliefDepth,
+        bevelEnabled: false,
+      })))
+    : null
 
-  return {
-    base: mergedBase,
-    text: mergedText,
-    textItems,
-    pieceBB: {
-      minX: boundingBox.minX,
-      maxX: boundingBox.maxX,
-      minY: boundingBox.minY,
-      maxY: boundingBox.maxY + ring.innerDiameter + RING_EDGE_MARGIN * 2,
-    },
-    hole: { x: ringCenter.x, y: ringCenter.y, radius: ring.innerDiameter / 2 },
+  const z = contentZ(params)
+
+  if (params.textMode === 'raised') {
+    const base = mergeOrFirst([outline, reinforcementGeometry])
+    content?.translate(0, 0, z)
+    content?.computeVertexNormals()
+    base.computeVertexNormals()
+    return { base, content, contentItems, ...computeBaseBB(base, hole) }
   }
+
+  const base = mergeOrFirst([outline, reinforcementGeometry])
+
+  if (!content) {
+    base.computeVertexNormals()
+    return { base, content: null, contentItems, ...computeBaseBB(base, hole) }
+  }
+
+  content.translate(0, 0, z)
+
+  try {
+    const evaluator = new Evaluator()
+    const result = evaluator.evaluate(new Brush(base), new Brush(content), SUBTRACTION)
+    result.geometry.computeVertexNormals()
+    return { base: result.geometry, content, contentItems, ...computeBaseBB(result.geometry, hole) }
+  } catch {
+    onError?.('Falha na gravação; usando relevo')
+    content.translate(0, 0, params.thickness - 0.01 - z)
+    content.computeVertexNormals()
+    base.computeVertexNormals()
+    return { base, content, contentItems, ...computeBaseBB(base, hole) }
+  }
+}
+
+export function buildKeychain(input: BuildKeychainInput): BuildKeychainResult {
+  if (input.params.baseShape === 'name') {
+    return buildNameKeychain(input)
+  }
+  return buildRegularKeychain(input)
 }
