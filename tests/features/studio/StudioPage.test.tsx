@@ -140,7 +140,7 @@ describe('StudioPage', () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
 
-    fireEvent.click(await screen.findByRole('button', { name: /posicionar textos/i }, LAZY_TIMEOUT))
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar conteúdos/i }, LAZY_TIMEOUT))
     expect(screen.getByRole('heading', { name: /posicionar conteúdos/i })).toBeInTheDocument()
   })
 })

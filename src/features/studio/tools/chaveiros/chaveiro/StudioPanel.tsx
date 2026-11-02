@@ -328,9 +328,9 @@ export function StudioPanel({
                 size="small"
                 variation="link"
                 onClick={onOpenEditor}
-                aria-label="Posicionar textos"
+                aria-label="Posicionar conteúdos"
               >
-                ✥ Posicionar textos
+                ✥ Posicionar conteúdos
               </Button>
             </Flex>
           </Accordion.Content>

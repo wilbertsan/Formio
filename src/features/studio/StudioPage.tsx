@@ -186,6 +186,10 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
     updateContent(id, { offsetX: x, offsetY: y })
   }, [updateContent])
 
+  const effectiveSelectedContentId = params.contents.some((content) => content.id === selectedContentId)
+    ? selectedContentId
+    : params.contents[0].id
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
       <StudioTopbar
@@ -199,7 +203,7 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <ChaveiroTool
             params={params}
-            selectedContentId={selectedContentId}
+            selectedContentId={effectiveSelectedContentId}
             onSelectContent={handleSelectContent}
             onUpdateContent={updateContent}
             onSetContentType={setContentType}
@@ -230,7 +234,7 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
           <TextPositionEditor
             params={params}
             geometry={geometry}
-            selectedContentId={selectedContentId}
+            selectedContentId={effectiveSelectedContentId}
             onSelectContent={setSelectedContentId}
             onMoveContent={handleMoveContent}
             onClose={() => setEditorOpen(false)}

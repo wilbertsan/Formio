@@ -13,9 +13,12 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
 const PIECE_BB = { minX: -5, maxX: 5, minY: -5, maxY: 5 }
 const HOLE = { x: 0, y: 0, radius: 0 }
 
-function makeGeometry(content: THREE.BufferGeometry | null): BuildKeychainResult {
+function makeGeometry(
+  content: THREE.BufferGeometry | null,
+  base: THREE.BufferGeometry = new THREE.BoxGeometry(10, 10, 10),
+): BuildKeychainResult {
   return {
-    base: new THREE.BoxGeometry(10, 10, 10),
+    base,
     content,
     contentItems: [],
     pieceBB: PIECE_BB,
@@ -23,7 +26,27 @@ function makeGeometry(content: THREE.BufferGeometry | null): BuildKeychainResult
   }
 }
 
+function expectedPosition(geometry: THREE.BufferGeometry): number[] {
+  const source = geometry.index ? geometry.toNonIndexed() : geometry.clone()
+  const positions = Array.from(
+    (source.getAttribute('position') as THREE.BufferAttribute).array,
+  )
+  if (source !== geometry) source.dispose()
+  return positions
+}
+
+function lastMergeArguments(): THREE.BufferGeometry[] {
+  const calls = vi.mocked(mergeGeometries).mock.calls
+  const lastCall = calls[calls.length - 1]
+  if (!lastCall) throw new Error('mergeGeometries não foi chamado')
+  return lastCall[0]
+}
+
+let restoreEnvironment: (() => void) | null = null
+
 function stubDownloadEnvironment() {
+  const createObjectURLDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL')
+  const revokeObjectURLDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL')
   const createObjectURL = vi.fn(() => 'blob:mock-url')
   const revokeObjectURL = vi.fn()
   Object.defineProperty(window.URL, 'createObjectURL', {
@@ -67,13 +90,26 @@ function stubDownloadEnvironment() {
       writable: true,
       configurable: true,
     })
+    if (createObjectURLDescriptor) {
+      Object.defineProperty(window.URL, 'createObjectURL', createObjectURLDescriptor)
+    }
+    if (revokeObjectURLDescriptor) {
+      Object.defineProperty(window.URL, 'revokeObjectURL', revokeObjectURLDescriptor)
+    }
   }
 
-  return { createObjectURL, revokeObjectURL, clickSpy, anchorStub, restore }
+  restoreEnvironment = restore
+  return { createObjectURL, revokeObjectURL, clickSpy, anchorStub }
 }
 
 describe('exportStl', () => {
   beforeEach(() => {
+    vi.mocked(mergeGeometries).mockClear()
+  })
+
+  afterEach(() => {
+    restoreEnvironment?.()
+    restoreEnvironment = null
     vi.mocked(mergeGeometries).mockClear()
   })
 
@@ -89,18 +125,59 @@ describe('exportStl', () => {
     expect(env.anchorStub.download).toBe('Meu-Projeto.stl')
     expect(env.clickSpy).toHaveBeenCalledTimes(1)
     expect(env.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
+  })
 
-    env.restore()
+  it('combina base e conteúdo normalizados na ordem correta', () => {
+    stubDownloadEnvironment()
+    const content = new THREE.BoxGeometry(5, 5, 5)
+    const geometry = makeGeometry(content)
+
+    exportStl(geometry, 'Com conteúdo')
+
+    const mergedGeometries = lastMergeArguments()
+    expect(mergedGeometries).toHaveLength(2)
+    expect(Array.from(
+      (mergedGeometries[0].getAttribute('position') as THREE.BufferAttribute).array,
+    )).toEqual(expectedPosition(geometry.base))
+    expect(Array.from(
+      (mergedGeometries[1].getAttribute('position') as THREE.BufferAttribute).array,
+    )).toEqual(expectedPosition(content))
   })
 
   it('combina apenas a base quando não há conteúdo', () => {
-    const env = stubDownloadEnvironment()
+    stubDownloadEnvironment()
     const geometry = makeGeometry(null)
 
     exportStl(geometry, 'Sem conteúdo')
 
-    expect(vi.mocked(mergeGeometries)).toHaveBeenCalledWith([geometry.base])
+    const mergedGeometries = lastMergeArguments()
+    expect(mergedGeometries).toHaveLength(1)
+    expect(Array.from(
+      (mergedGeometries[0].getAttribute('position') as THREE.BufferAttribute).array,
+    )).toEqual(expectedPosition(geometry.base))
+  })
 
-    env.restore()
+  it('normaliza base indexada e conteúdo não indexado antes de combinar', () => {
+    stubDownloadEnvironment()
+    const base = new THREE.BoxGeometry(10, 10, 10)
+    const content = new THREE.TetrahedronGeometry(2)
+    expect(base.index).not.toBeNull()
+    expect(content.index).toBeNull()
+    const geometry = makeGeometry(content, base)
+
+    exportStl(geometry, 'Misto')
+
+    const mergedGeometries = lastMergeArguments()
+    expect(mergedGeometries).toHaveLength(2)
+    expect(mergedGeometries[0].index).toBeNull()
+    expect(mergedGeometries[1].index).toBeNull()
+    expect(mergedGeometries[0].getAttribute('normal')).toBeDefined()
+    expect(mergedGeometries[1].getAttribute('normal')).toBeDefined()
+    expect(Array.from(
+      (mergedGeometries[0].getAttribute('position') as THREE.BufferAttribute).array,
+    )).toEqual(expectedPosition(base))
+    expect(Array.from(
+      (mergedGeometries[1].getAttribute('position') as THREE.BufferAttribute).array,
+    )).toEqual(expectedPosition(content))
   })
 })

@@ -331,11 +331,11 @@ describe('StudioPanel', () => {
     expect(props.onUpdateContent).toHaveBeenCalledWith('i1', { iconLineWidth: 1.5 })
   })
 
-  it('dispara onOpenEditor ao clicar em Posicionar textos', async () => {
+  it('dispara onOpenEditor ao clicar em Posicionar conteúdos', async () => {
     const user = userEvent.setup()
     const props = renderPanel()
 
-    await user.click(screen.getByRole('button', { name: /posicionar textos/i }))
+    await user.click(screen.getByRole('button', { name: /posicionar conteúdos/i }))
 
     expect(props.onOpenEditor).toHaveBeenCalledTimes(1)
   })
