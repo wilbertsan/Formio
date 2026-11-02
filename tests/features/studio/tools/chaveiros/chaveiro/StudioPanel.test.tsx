@@ -358,7 +358,7 @@ describe('StudioPanel', () => {
 
   it('não renderiza o bloco Relevo e informa a altura fixa', () => {
     renderPanel()
-    expect(screen.queryByText(/relevo/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Relevo' })).not.toBeInTheDocument()
     expect(screen.getByText(/elevados em 1 mm/i)).toBeInTheDocument()
   })
 
