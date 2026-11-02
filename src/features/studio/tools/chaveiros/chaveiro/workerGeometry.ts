@@ -25,8 +25,8 @@ export function serializeKeychainResult(result: BuildKeychainResult): {
       base: base.data,
       content: content?.data ?? null,
       contentItems: result.contentItems.map(({ id, halfWidth, halfHeight }) => ({ id, halfWidth, halfHeight })),
-      pieceBB: result.pieceBB,
-      hole: result.hole,
+      pieceBB: { ...result.pieceBB },
+      hole: { ...result.hole },
     },
     transfer: [...base.transfer, ...(content?.transfer ?? [])],
   }
@@ -37,7 +37,7 @@ export function deserializeKeychainResult(data: SerializedKeychainResult): Build
     base: deserializeGeometry(data.base),
     content: data.content ? deserializeGeometry(data.content) : null,
     contentItems: data.contentItems.map((item) => ({ ...item, geometry: null })),
-    pieceBB: data.pieceBB,
-    hole: data.hole,
+    pieceBB: { ...data.pieceBB },
+    hole: { ...data.hole },
   }
 }
