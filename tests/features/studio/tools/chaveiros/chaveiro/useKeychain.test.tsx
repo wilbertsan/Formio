@@ -3,12 +3,16 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { useKeychain } from '@/features/studio/tools/chaveiros/chaveiro/useKeychain'
 import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
+const { fontLoadControl } = vi.hoisted(() => ({
+  fontLoadControl: { completeFontLoads: true },
+}))
+
 vi.mock('@/features/studio/tools/chaveiros/chaveiro/buildKeychain', () => ({
   buildKeychain: vi.fn(() => ({
     base: new THREE.BufferGeometry(),
     content: new THREE.BufferGeometry(),
     contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2, geometry: null }],
-    pieceBB: { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 },
+    pieceBB: { minX: -30, maxX: 30, minY: -15, maxY: 15 },
     hole: { x: 0, y: 10, radius: 4.5 },
   })),
 }))
@@ -24,7 +28,7 @@ vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/
 vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
   FontLoader: class {
     load(_url: string, onLoad: (font: unknown) => void): void {
-      onLoad({ glyphs: {} })
+      if (fontLoadControl.completeFontLoads) onLoad({ glyphs: {} })
     }
   },
 }))
@@ -34,6 +38,10 @@ vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
     constructor() { super() }
   },
 }))
+
+beforeEach(() => {
+  fontLoadControl.completeFontLoads = true
+})
 
 describe('useKeychain', () => {
   it('inicia com 1 conteúdo de texto no default', () => {
@@ -97,6 +105,25 @@ describe('useKeychain', () => {
     expect(updated.offsetX).toBe(10)
   })
 
+  it('updateContent clampa valores numéricos', () => {
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.contents[0].id
+    act(() => result.current.updateContent(id, { fontSize: 99, offsetX: -99 }))
+    const updated = result.current.params.contents[0]
+    expect(updated.kind).toBe('text')
+    if (updated.kind === 'text') expect(updated.fontSize).toBe(15)
+    expect(updated.offsetX).toBe(-20)
+  })
+
+  it('updateContent ignora id desconhecido', () => {
+    const { result } = renderHook(() => useKeychain())
+    const before = result.current.params.contents
+    act(() => result.current.updateContent('missing-id', { content: 'Fantasma' }))
+    expect(result.current.params.contents).toEqual(before)
+    const [first] = result.current.params.contents
+    if (first.kind === 'text') expect(first.content).toBe('Meu nome')
+  })
+
   it('setContentType alterna texto para ícone preservando id e offsets, e volta', () => {
     const { result } = renderHook(() => useKeychain())
     const id = result.current.params.contents[0].id
@@ -118,6 +145,27 @@ describe('useKeychain', () => {
     expect(text.id).toBe(id)
     expect(text.kind).toBe('text')
     if (text.kind === 'text') expect(text.content).toBe('Novo texto')
+  })
+
+  it('setContentType para o mesmo tipo é idempotente e preserva dados', () => {
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.contents[0].id
+    act(() => result.current.updateContent(id, { content: 'Custom' }))
+    act(() => result.current.setContentType(id, 'text'))
+    const text = result.current.params.contents[0]
+    expect(text.kind).toBe('text')
+    if (text.kind === 'text') expect(text.content).toBe('Custom')
+  })
+
+  it('setContentType para o mesmo tipo de ícone preserva o svg', () => {
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.contents[0].id
+    act(() => result.current.setContentType(id, 'icon'))
+    act(() => result.current.updateContent(id, { svgIcon: '<svg></svg>' }))
+    act(() => result.current.setContentType(id, 'icon'))
+    const icon = result.current.params.contents[0]
+    expect(icon.kind).toBe('icon')
+    if (icon.kind === 'icon') expect(icon.svgIcon).toBe('<svg></svg>')
   })
 
   it('updateContent aceita svgIcon em item de ícone', () => {
@@ -148,8 +196,8 @@ describe('useKeychain', () => {
     const { result } = renderHook(() => useKeychain())
     act(() => result.current.updateParam('baseShape', 'name'))
     await waitFor(() => expect(result.current.geometry).not.toBeNull())
-    expect(result.current.dimensions.width).toBe(50)
-    expect(result.current.dimensions.height).toBe(25)
+    expect(result.current.dimensions.width).toBe(60)
+    expect(result.current.dimensions.height).toBe(30)
   })
 
   it('height é independente do width e é clampado', () => {
@@ -162,11 +210,23 @@ describe('useKeychain', () => {
     expect(result.current.params.height).toBe(20)
   })
 
-  it('conteúdo somente ícone gera geometria', async () => {
+  it('conteúdo somente ícone gera geometria sem fonte', async () => {
+    fontLoadControl.completeFontLoads = false
     const { result } = renderHook(() => useKeychain())
     const id = result.current.params.contents[0].id
     act(() => result.current.setContentType(id, 'icon'))
     await waitFor(() => expect(result.current.geometry).not.toBeNull())
     expect(result.current.geometry?.base).toBeDefined()
+  })
+
+  it('descarta a geometria anterior ao reconstruir', async () => {
+    const disposeSpy = vi.spyOn(THREE.BufferGeometry.prototype, 'dispose')
+    const { result } = renderHook(() => useKeychain())
+    await waitFor(() => expect(result.current.geometry).not.toBeNull())
+
+    disposeSpy.mockClear()
+    act(() => result.current.updateParam('width', 60))
+    await waitFor(() => expect(disposeSpy).toHaveBeenCalled())
+    disposeSpy.mockRestore()
   })
 })

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import { fontUrls } from './fonts'
@@ -33,7 +33,7 @@ type KeychainAction =
   | { type: 'update'; key: keyof KeychainParams; value: number | string }
   | { type: 'updateContent'; id: string; patch: Partial<TextContent> | Partial<IconContent> }
   | { type: 'setContentType'; id: string; kind: 'text' | 'icon' }
-  | { type: 'addContent' }
+  | { type: 'addContent'; id: string }
   | { type: 'removeContent'; id: string }
   | { type: 'reset' }
 
@@ -75,6 +75,13 @@ function clampContentPatch(
   return result as Partial<TextContent> | Partial<IconContent>
 }
 
+function freshDefaults(): KeychainParams {
+  return {
+    ...defaultKeychainParams,
+    contents: defaultKeychainParams.contents.map((item): ContentItem => ({ ...item })),
+  }
+}
+
 function keychainReducer(state: KeychainParams, action: KeychainAction): KeychainParams {
   switch (action.type) {
     case 'update': {
@@ -83,18 +90,21 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
         : action.value
       const next = { ...state, [action.key]: clamped }
       const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
+      return parsed.success ? parsed.data : state
     }
     case 'updateContent': {
+      if (!state.contents.some((item) => item.id === action.id)) return state
       const patch = clampContentPatch(action.patch)
       const nextContents = state.contents.map((item) =>
         item.id === action.id ? ({ ...item, ...patch } as ContentItem) : item,
       )
       const next = { ...state, contents: nextContents }
       const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
+      return parsed.success ? parsed.data : state
     }
     case 'setContentType': {
+      const target = state.contents.find((item) => item.id === action.id)
+      if (!target || target.kind === action.kind) return state
       const nextContents = state.contents.map((item) => {
         if (item.id !== action.id) return item
         if (action.kind === 'text') {
@@ -118,27 +128,27 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
       })
       const next = { ...state, contents: nextContents }
       const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
+      return parsed.success ? parsed.data : state
     }
     case 'addContent': {
       if (state.contents.length >= 3) return state
       const newItem: TextContent = {
-        id: crypto.randomUUID(),
+        id: action.id,
         kind: 'text',
         ...TEXT_DEFAULTS,
       }
       const next = { ...state, contents: [...state.contents, newItem] }
       const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
+      return parsed.success ? parsed.data : state
     }
     case 'removeContent': {
       if (state.contents.length <= 1) return state
       const next = { ...state, contents: state.contents.filter((item) => item.id !== action.id) }
       const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
+      return parsed.success ? parsed.data : state
     }
     case 'reset':
-      return defaultKeychainParams
+      return freshDefaults()
   }
 }
 
@@ -147,6 +157,7 @@ export function useKeychain() {
   const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
   const [fontError, setFontError] = useState(false)
   const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
+  const geometryRef = useRef<BuildKeychainResult | null>(null)
 
   const uniqueStyles = useMemo(() => {
     const styles = new Set<FontStyle>()
@@ -156,20 +167,33 @@ export function useKeychain() {
     return Array.from(styles)
   }, [params.contents])
 
+  const styleKey = uniqueStyles.join(',')
+
   useEffect(() => {
-    for (const style of uniqueStyles) {
-      if (fontCache.has(style)) continue
+    let cancelled = false
+    const styles = styleKey.length > 0 ? (styleKey.split(',') as FontStyle[]) : []
+    const pending = styles.filter((style) => !fontCache.has(style))
+    if (pending.length > 0) setFontError(false)
+
+    for (const style of pending) {
       const loader = new FontLoader()
       loader.load(
         fontUrls[style],
         (font) => {
+          if (cancelled) return
           setFontCache((prev) => new Map(prev).set(style, font as unknown as Font))
         },
         undefined,
-        () => setFontError(true),
+        () => {
+          if (!cancelled) setFontError(true)
+        },
       )
     }
-  }, [uniqueStyles, fontCache])
+
+    return () => {
+      cancelled = true
+    }
+  }, [styleKey, fontCache])
 
   const fonts = useMemo(
     () => Object.fromEntries(fontCache) as Partial<Record<FontStyle, Font>>,
@@ -179,16 +203,32 @@ export function useKeychain() {
   const ready = uniqueStyles.every((style) => fontCache.has(style))
 
   useEffect(() => {
+    geometryRef.current = geometry
+  }, [geometry])
+
+  useEffect(() => {
     if (!ready) return
     const timer = setTimeout(() => {
-      setGeometry((prev) => {
+      try {
+        const next = buildKeychain({ fonts, params, onError: () => undefined })
+        const prev = geometryRef.current
+        geometryRef.current = next
+        setGeometry(next)
         prev?.base.dispose()
         prev?.content?.dispose()
-        return buildKeychain({ fonts, params, onError: () => undefined })
-      })
+      } catch {
+        // mantém a geometria anterior; onError é opcional
+      }
     }, 200)
     return () => clearTimeout(timer)
   }, [ready, fonts, params])
+
+  useEffect(() => {
+    return () => {
+      geometryRef.current?.base.dispose()
+      geometryRef.current?.content?.dispose()
+    }
+  }, [])
 
   const updateParam = useCallback((key: keyof KeychainParams, value: number | string) => {
     dispatch({ type: 'update', key, value })
@@ -206,7 +246,7 @@ export function useKeychain() {
   }, [])
 
   const addContent = useCallback(() => {
-    dispatch({ type: 'addContent' })
+    dispatch({ type: 'addContent', id: crypto.randomUUID() })
   }, [])
 
   const removeContent = useCallback((id: string) => {
