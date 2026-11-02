@@ -324,6 +324,10 @@ export function StudioPanel({
                 </>
               )}
 
+              <Text fontSize="xs" color="font.tertiary">
+                Textos e ícones elevados em 1 mm.
+              </Text>
+
               <Button
                 size="small"
                 variation="link"
@@ -398,37 +402,6 @@ export function StudioPanel({
                 unit="mm"
                 min={4} max={10} step={1}
                 onChange={(value) => onUpdateParam('borderWidth', value)}
-              />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="relevo">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Relevo
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <SelectField
-                label="Modo de relevo"
-                value={params.textMode}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateParam('textMode', e.target.value)
-                }
-              >
-                <option value="raised">Elevado</option>
-                <option value="engraved">Gravado</option>
-              </SelectField>
-
-              <LabeledSlider
-                label="Profundidade do relevo"
-                value={params.reliefDepth}
-                unit="mm"
-                min={0.4} max={2} step={0.1}
-                onChange={(value) => onUpdateParam('reliefDepth', value)}
               />
             </Flex>
           </Accordion.Content>

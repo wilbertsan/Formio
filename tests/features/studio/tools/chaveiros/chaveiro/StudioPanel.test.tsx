@@ -164,17 +164,13 @@ describe('StudioPanel', () => {
 
     expect(screen.getByText('Tamanho da fonte')).toBeInTheDocument()
     expect(screen.getByText('10 mm')).toBeInTheDocument()
-    expect(screen.getByText('Profundidade do relevo')).toBeInTheDocument()
-    expect(screen.getByText('1 mm')).toBeInTheDocument()
   })
 
-  it('expõe os limites dos sliders de fonte e relevo', () => {
+  it('expõe os limites do slider de fonte', () => {
     renderPanel()
 
     expect(getSlider('Tamanho da fonte')).toHaveAttribute('aria-valuemin', '6')
     expect(getSlider('Tamanho da fonte')).toHaveAttribute('aria-valuemax', '15')
-    expect(getSlider('Profundidade do relevo')).toHaveAttribute('aria-valuemin', '0.4')
-    expect(getSlider('Profundidade do relevo')).toHaveAttribute('aria-valuemax', '2')
   })
 
   it('chama onSetContentType ao selecionar Ícone', async () => {
@@ -352,12 +348,18 @@ describe('StudioPanel', () => {
     expect(props.onOpenEditor).toHaveBeenCalledTimes(1)
   })
 
-  it('renderiza as seções Conteúdo, Formato, Relevo, Argola e Aparência', () => {
+  it('renderiza as seções Conteúdo, Formato, Argola e Aparência', () => {
     renderPanel()
 
-    for (const section of ['Conteúdo', 'Formato', 'Relevo', 'Argola', 'Aparência']) {
+    for (const section of ['Conteúdo', 'Formato', 'Argola', 'Aparência']) {
       expect(screen.getByRole('heading', { name: section })).toBeInTheDocument()
     }
+  })
+
+  it('não renderiza o bloco Relevo e informa a altura fixa', () => {
+    renderPanel()
+    expect(screen.queryByText(/relevo/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/elevados em 1 mm/i)).toBeInTheDocument()
   })
 
   it('mostra comprimento e altura no formato retangular', () => {
@@ -406,17 +408,6 @@ describe('StudioPanel', () => {
     fireEvent.keyDown(getSlider('Borda'), { key: 'ArrowRight' })
 
     expect(props.onUpdateParam).toHaveBeenCalledWith('borderWidth', 5)
-  })
-
-  it('dispara onUpdateParam ao alterar relevo', async () => {
-    const user = userEvent.setup()
-    const props = renderPanel()
-
-    await user.selectOptions(screen.getByLabelText('Modo de relevo'), 'engraved')
-    expect(props.onUpdateParam).toHaveBeenCalledWith('textMode', 'engraved')
-
-    fireEvent.keyDown(getSlider('Profundidade do relevo'), { key: 'ArrowRight' })
-    expect(props.onUpdateParam).toHaveBeenCalledWith('reliefDepth', 1.1)
   })
 
   it('dispara onUpdateParam ao alterar controles da argola', async () => {
