@@ -18,12 +18,25 @@ export function createBaseShape(
   ring: RingParams,
 ): Shape {
   const shape = buildOutline(shapeType, width, height)
-  const center = getRingPosition(shapeType, width, height, ring)
-  const clamped = clampToBoundingBox(shape, center, ring.innerDiameter / 2)
+  const clamped = getClampedRingPosition(shapeType, width, height, ring)
   const hole = new Path()
   hole.absarc(clamped.x, clamped.y, ring.innerDiameter / 2, 0, Math.PI * 2, true)
   shape.holes.push(hole)
   return shape
+}
+
+export function getClampedRingPosition(
+  shapeType: KeychainShape,
+  width: number,
+  height: number,
+  ring: RingParams,
+): Vector2 {
+  const shape = buildOutline(shapeType, width, height)
+  return clampToBoundingBox(
+    shape,
+    getRingPosition(shapeType, width, height, ring),
+    ring.innerDiameter / 2,
+  )
 }
 
 export function getRingPosition(

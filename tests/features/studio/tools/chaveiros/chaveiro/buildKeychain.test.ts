@@ -69,15 +69,17 @@ vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   },
 }))
 
-const { csgCalls } = vi.hoisted(() => {
+const { csgCalls, csgState } = vi.hoisted(() => {
   const csgCalls: Array<{ base: THREE.BufferGeometry; text: THREE.BufferGeometry }> = []
-  return { csgCalls }
+  const csgState = { shouldThrow: false }
+  return { csgCalls, csgState }
 })
 
 vi.mock('three-bvh-csg', () => ({
   Brush: class { constructor(public geometry: THREE.BufferGeometry) {} },
   Evaluator: class {
     evaluate(a: { geometry: THREE.BufferGeometry }, b: { geometry: THREE.BufferGeometry }) {
+      if (csgState.shouldThrow) throw new Error('CSG falhou')
       csgCalls.push({ base: a.geometry, text: b.geometry })
       return { geometry: a.geometry.clone() }
     }
@@ -143,6 +145,11 @@ function size(geometry: THREE.BufferGeometry | null): { width: number; height: n
 }
 
 describe('buildKeychain', () => {
+  beforeEach(() => {
+    csgCalls.length = 0
+    csgState.shouldThrow = false
+  })
+
   it('retorna base, content e contentItems', () => {
     const result = buildKeychain(makeInput())
     expect(result.base).toBeDefined()
@@ -162,11 +169,20 @@ describe('buildKeychain', () => {
     expect(result.base).toBeDefined()
     expect(csgCalls).toHaveLength(1)
 
+    const surfaceTop = defaultKeychainParams.thickness + 0.2
     const bb = boundsOf(csgCalls[0].text)
-    const lower = defaultKeychainParams.thickness - defaultKeychainParams.reliefDepth - 0.21
-    const upper = defaultKeychainParams.thickness + 0.21
+    const lower = surfaceTop - defaultKeychainParams.reliefDepth - 0.21
+    const upper = surfaceTop + 0.21
     expect(bb.min.z).toBeGreaterThanOrEqual(lower)
     expect(bb.max.z).toBeLessThanOrEqual(upper)
+  })
+
+  it('raised regular: fundo do content no topo biselado', () => {
+    const result = buildKeychain(makeInput())
+    expect(boundsOf(result.content).min.z).toBeCloseTo(
+      defaultKeychainParams.thickness + 0.19,
+      1,
+    )
   })
 
   it('auto-fit: content cabe em width - 2*borderWidth', () => {
@@ -249,16 +265,64 @@ describe('buildKeychain', () => {
     expect(result.hole.radius).toBeGreaterThan(0)
   })
 
-  it('name: texto + ícone gera content e base', () => {
-    const result = buildKeychain(makeInput({
+  it('name: texto + ícone aumenta a área unida do content', () => {
+    const textOnly = buildKeychain(makeInput({
+      baseShape: 'name',
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+    const withIcon = buildKeychain(makeInput({
       baseShape: 'name',
       contents: [
         { ...textItem, content: 'A' },
         { ...iconItem, id: 'i2' },
       ],
     }))
-    expect(result.content).not.toBeNull()
+
+    const textSize = size(textOnly.content)
+    const iconSize = size(withIcon.content)
+    expect(iconSize.width).toBeGreaterThan(textSize.width)
+    expect(iconSize.width * iconSize.height).toBeGreaterThan(textSize.width * textSize.height)
+    expect(withIcon.base).toBeDefined()
+  })
+
+  it('name: furo da argola é vazado na base', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+
+    const mesh = new THREE.Mesh(result.base)
+    const raycaster = new THREE.Raycaster(
+      new THREE.Vector3(result.hole.x, result.hole.y, 100),
+      new THREE.Vector3(0, 0, -1),
+    )
+    expect(raycaster.intersectObject(mesh)).toHaveLength(0)
+  })
+
+  it('name: ringPosition bottom posiciona o furo abaixo do centro', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      ringPosition: 'bottom',
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+    expect(result.hole.y).toBeLessThan(0)
+  })
+
+  it('name: engraved usa um CSG com brush na faixa gravada', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      textMode: 'engraved',
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+
     expect(result.base).toBeDefined()
+    expect(csgCalls).toHaveLength(1)
+    const bb = boundsOf(csgCalls[0].text)
+    const lower = defaultKeychainParams.thickness - defaultKeychainParams.reliefDepth - 0.21
+    const upper = defaultKeychainParams.thickness + 0.21
+    expect(bb.min.z).toBeGreaterThanOrEqual(lower)
+    expect(bb.max.z).toBeLessThanOrEqual(upper)
+    expect(bb.max.z).toBeCloseTo(defaultKeychainParams.thickness + 0.2, 1)
   })
 
   it('name: somente ícone funciona sem fonte', () => {
@@ -276,5 +340,37 @@ describe('buildKeychain', () => {
       contents: [{ ...textItem, content: 'A' }],
     }))
     expect(result.hole.radius).toBeCloseTo(4)
+  })
+
+  it('engraved: fallback recoloca o content em relevo e avisa', () => {
+    csgState.shouldThrow = true
+    const onError = vi.fn()
+    const result = buildKeychain(makeInput({ textMode: 'engraved' }, { onError }))
+
+    expect(onError).toHaveBeenCalledWith('Falha na gravação; usando relevo')
+    expect(boundsOf(result.content).max.z).toBeGreaterThan(defaultKeychainParams.thickness)
+  })
+
+  it('fontes mistas normal e bold constroem sem lançar', () => {
+    expect(() => buildKeychain(makeInput(
+      {
+        contents: [
+          { ...textItem, id: 'normal', fontStyle: 'normal' },
+          { ...textItem, id: 'bold', content: 'Outro', fontStyle: 'bold', offsetY: -3 },
+        ],
+      },
+      { fonts: { normal: fontStub, bold: fontStub } },
+    ))).not.toThrow()
+  })
+
+  it('name: somente ícone sem SVG avisa e ainda gera base', () => {
+    const onError = vi.fn()
+    const result = buildKeychain(makeInput(
+      { baseShape: 'name', contents: [{ ...iconItem, svgIcon: null }] },
+      { onError },
+    ))
+
+    expect(onError).toHaveBeenCalled()
+    expect(result.base).toBeDefined()
   })
 })

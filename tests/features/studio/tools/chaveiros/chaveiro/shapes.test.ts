@@ -1,5 +1,10 @@
 import * as THREE from 'three'
-import { createBaseShape, createReinforcementRing, getRingPosition } from '@/features/studio/tools/chaveiros/chaveiro/shapes'
+import {
+  createBaseShape,
+  createReinforcementRing,
+  getClampedRingPosition,
+  getRingPosition,
+} from '@/features/studio/tools/chaveiros/chaveiro/shapes'
 import { defaultKeychainParams, RING_EDGE_MARGIN, type RingPosition } from '@/features/studio/tools/chaveiros/chaveiro/schema'
 
 const baseParams = { ...defaultKeychainParams }
@@ -64,6 +69,21 @@ describe('getRingPosition', () => {
     const pos = getRingPosition('circle', 50, 50, getRing('top'))
     const r = 50 / 2
     expect(pos.y).toBeCloseTo(r - RING_EDGE_MARGIN - baseParams.ringInnerDiameter / 2)
+  })
+})
+
+describe('getClampedRingPosition', () => {
+  it('clampa o topo do círculo 20x80 no mesmo centro do furo da base', () => {
+    const ring = getRing('top')
+    const clamped = getClampedRingPosition('circle', 20, 80, ring)
+    const shape = createBaseShape('circle', 20, 80, ring)
+    const holeBB = new THREE.Box3().setFromPoints(toVector3Like(shape.holes[0].getPoints(32)))
+    const centerX = (holeBB.min.x + holeBB.max.x) / 2
+    const centerY = (holeBB.min.y + holeBB.max.y) / 2
+
+    expect(clamped.x).toBeCloseTo(centerX)
+    expect(clamped.y).toBeCloseTo(centerY)
+    expect(clamped.y).toBeCloseTo(5.5)
   })
 })
 

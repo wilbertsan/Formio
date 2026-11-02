@@ -3,8 +3,13 @@ import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
 import { buildContentShapes, getUsableRegion, resolveContentGeometry } from './autoFit'
-import { createNameOutline, unionShapes } from './nameOutline'
-import { createBaseShape, createReinforcementRing, getRingPosition, type RingParams } from './shapes'
+import { createNameOutline, expandShape, subtractShapes, unionShapes } from './nameOutline'
+import {
+  createBaseShape,
+  createReinforcementRing,
+  getClampedRingPosition,
+  type RingParams,
+} from './shapes'
 import type { BoundingBox2D, Circle2D } from './positioning'
 import { RING_EDGE_MARGIN } from './schema'
 import type { ContentItem, FontStyle, KeychainParams } from './schema'
@@ -32,6 +37,7 @@ export interface BuildKeychainResult {
 }
 
 const ENGRAVE_EPSILON = 0.2
+const REGULAR_SURFACE_TOP = 0.2
 
 function translatedShape(shape: Shape, x: number, y: number): Shape {
   const pts = shape.getPoints()
@@ -54,8 +60,20 @@ function resolveFont(
   throw new Error(`No font provided for style "${style}"`)
 }
 
-function mergeOrFirst(geometries: BufferGeometry[]): BufferGeometry {
-  return mergeGeometries(geometries) ?? geometries[0] ?? new BufferGeometry()
+function mergeOrFirst(
+  geometries: BufferGeometry[],
+  onError?: (message: string) => void,
+): BufferGeometry {
+  const merged = mergeGeometries(geometries)
+  if (merged) return merged
+  onError?.('Falha ao combinar geometrias')
+  return geometries[0] ?? new BufferGeometry()
+}
+
+function disposeAll(geometries: BufferGeometry[], keep?: BufferGeometry): void {
+  for (const geometry of geometries) {
+    if (geometry !== keep) geometry.dispose()
+  }
 }
 
 function makeRingParams(params: KeychainParams): RingParams {
@@ -68,10 +86,10 @@ function makeRingParams(params: KeychainParams): RingParams {
   }
 }
 
-function contentZ(params: KeychainParams): number {
+function contentZ(params: KeychainParams, surfaceTop: number): number {
   return params.textMode === 'raised'
-    ? params.thickness - 0.01
-    : params.thickness - params.reliefDepth + ENGRAVE_EPSILON
+    ? surfaceTop - 0.01
+    : surfaceTop - params.reliefDepth + ENGRAVE_EPSILON
 }
 
 function computeBaseBB(geometry: BufferGeometry, hole: Circle2D): {
@@ -121,6 +139,24 @@ function contentItemFromShapes(item: ContentItem, shapes: Shape[]): BuildContent
   }
 }
 
+function nameRingCenter(bbox: BoundingBox2D, ring: RingParams): Vector2 {
+  const radius = ring.innerDiameter / 2
+  const inset = RING_EDGE_MARGIN + radius + ring.radialOffset + ring.embedding
+  const cx = (bbox.minX + bbox.maxX) / 2
+  const cy = (bbox.minY + bbox.maxY) / 2
+
+  switch (ring.position) {
+    case 'top':
+      return new Vector2(cx + ring.lateralOffset, bbox.maxY - inset)
+    case 'bottom':
+      return new Vector2(cx + ring.lateralOffset, bbox.minY + inset)
+    case 'left':
+      return new Vector2(bbox.minX + inset, cy + ring.lateralOffset)
+    case 'right':
+      return new Vector2(bbox.maxX - inset, cy + ring.lateralOffset)
+  }
+}
+
 function buildRegularKeychain({
   font,
   fonts,
@@ -138,7 +174,12 @@ function buildRegularKeychain({
     bevelSegments: 1,
   })
 
-  const ringCenter = getRingPosition(params.baseShape, params.width, params.height, ring)
+  const ringCenter = getClampedRingPosition(
+    params.baseShape,
+    params.width,
+    params.height,
+    ring,
+  )
   const reinforcementShape = translatedShape(
     createReinforcementRing(ring),
     ringCenter.x,
@@ -149,7 +190,9 @@ function buildRegularKeychain({
     bevelEnabled: false,
   })
 
-  const mergedBase = mergeOrFirst([baseGeometry, reinforcementGeometry])
+  const mergedBase = mergeOrFirst([baseGeometry, reinforcementGeometry], onError)
+  disposeAll([baseGeometry, reinforcementGeometry], mergedBase)
+
   const hole: Circle2D = {
     x: ringCenter.x,
     y: ringCenter.y,
@@ -157,8 +200,9 @@ function buildRegularKeychain({
   }
   const { pieceBB } = computeBaseBB(mergedBase, hole)
 
+  const surfaceTop = params.thickness + REGULAR_SURFACE_TOP
   const region = getUsableRegion(params)
-  const z = contentZ(params)
+  const z = contentZ(params, surfaceTop)
   const contentGeometries: BufferGeometry[] = []
   const contentItems: BuildContentItem[] = []
 
@@ -191,8 +235,10 @@ function buildRegularKeychain({
   }
 
   const content = contentGeometries.length > 0
-    ? mergeOrFirst(contentGeometries)
+    ? mergeOrFirst(contentGeometries, onError)
     : null
+  disposeAll(contentGeometries, content ?? undefined)
+  for (const item of contentItems) item.geometry = null
 
   if (params.textMode === 'raised') {
     mergedBase.computeVertexNormals()
@@ -209,10 +255,11 @@ function buildRegularKeychain({
     const evaluator = new Evaluator()
     const result = evaluator.evaluate(new Brush(mergedBase), new Brush(content), SUBTRACTION)
     result.geometry.computeVertexNormals()
+    mergedBase.dispose()
     return { base: result.geometry, content, contentItems, pieceBB, hole }
   } catch {
     onError?.('Falha na gravação; usando relevo')
-    content.translate(0, 0, params.thickness - 0.01 - z)
+    content.translate(0, 0, surfaceTop - 0.01 - z)
     content.computeVertexNormals()
     mergedBase.computeVertexNormals()
     return { base: mergedBase, content, contentItems, pieceBB, hole }
@@ -240,18 +287,41 @@ function buildNameKeychain({
     contentItems.push(contentItemFromShapes(item, shapes))
   }
 
-  const { outline, boundingBox } = createNameOutline({
-    shapes: allShapes,
-    borderWidth: params.borderWidth,
+  if (allShapes.length === 0) {
+    onError?.('Sem conteúdo válido para o formato nome')
+  }
+
+  const shapesBB = shapeBounds(allShapes)
+  const bbox: BoundingBox2D = shapesBB
+    ? {
+        minX: shapesBB.minX - params.borderWidth,
+        maxX: shapesBB.maxX + params.borderWidth,
+        minY: shapesBB.minY - params.borderWidth,
+        maxY: shapesBB.maxY + params.borderWidth,
+      }
+    : {
+        minX: -params.borderWidth,
+        maxX: params.borderWidth,
+        minY: -params.borderWidth,
+        maxY: params.borderWidth,
+      }
+
+  const ring = makeRingParams(params)
+  const radius = ring.innerDiameter / 2
+  const ringCenter = nameRingCenter(bbox, ring)
+
+  const holeShape = new Shape()
+  holeShape.absarc(ringCenter.x, ringCenter.y, radius, 0, Math.PI * 2, false)
+  const expandedShapes = unionShapes(allShapes)
+    .flatMap(shape => expandShape(shape, params.borderWidth))
+  const shapesWithHole = expandedShapes.flatMap(shape => subtractShapes(shape, holeShape))
+
+  const { outline } = createNameOutline({
+    shapes: shapesWithHole,
+    borderWidth: 0,
     thickness: params.thickness,
   })
 
-  const ring = makeRingParams(params)
-  const ringCenter = new Vector2(
-    ring.lateralOffset,
-    boundingBox.maxY - params.ringInnerDiameter / 2 - RING_EDGE_MARGIN
-      + ring.radialOffset + ring.embedding,
-  )
   const reinforcementShape = translatedShape(
     createReinforcementRing(ring),
     ringCenter.x,
@@ -261,31 +331,35 @@ function buildNameKeychain({
     depth: params.thickness,
     bevelEnabled: false,
   })
+
   const hole: Circle2D = {
     x: ringCenter.x,
     y: ringCenter.y,
-    radius: params.ringInnerDiameter / 2,
+    radius,
   }
 
   const contentShapes = unionShapes(allShapes)
-  const content = contentShapes.length > 0
-    ? mergeOrFirst(contentShapes.map(shape => new ExtrudeGeometry(shape, {
-        depth: params.reliefDepth,
-        bevelEnabled: false,
-      })))
+  const contentGeometries = contentShapes.map(shape => new ExtrudeGeometry(shape, {
+    depth: params.reliefDepth,
+    bevelEnabled: false,
+  }))
+  const content = contentGeometries.length > 0
+    ? mergeOrFirst(contentGeometries, onError)
     : null
+  disposeAll(contentGeometries, content ?? undefined)
 
-  const z = contentZ(params)
+  const base = mergeOrFirst([outline, reinforcementGeometry], onError)
+  disposeAll([outline, reinforcementGeometry], base)
+
+  const surfaceTop = params.thickness
+  const z = contentZ(params, surfaceTop)
 
   if (params.textMode === 'raised') {
-    const base = mergeOrFirst([outline, reinforcementGeometry])
     content?.translate(0, 0, z)
     content?.computeVertexNormals()
     base.computeVertexNormals()
     return { base, content, contentItems, ...computeBaseBB(base, hole) }
   }
-
-  const base = mergeOrFirst([outline, reinforcementGeometry])
 
   if (!content) {
     base.computeVertexNormals()
@@ -298,10 +372,11 @@ function buildNameKeychain({
     const evaluator = new Evaluator()
     const result = evaluator.evaluate(new Brush(base), new Brush(content), SUBTRACTION)
     result.geometry.computeVertexNormals()
+    base.dispose()
     return { base: result.geometry, content, contentItems, ...computeBaseBB(result.geometry, hole) }
   } catch {
     onError?.('Falha na gravação; usando relevo')
-    content.translate(0, 0, params.thickness - 0.01 - z)
+    content.translate(0, 0, surfaceTop - 0.01 - z)
     content.computeVertexNormals()
     base.computeVertexNormals()
     return { base, content, contentItems, ...computeBaseBB(base, hole) }
