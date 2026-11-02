@@ -236,6 +236,15 @@ describe('useKeychain', () => {
     expect(result.current.params.height).toBe(20)
   })
 
+  it('texto vazio não espera carregamento de fonte', async () => {
+    fontLoadControl.completeFontLoads = false
+    const { result } = renderHook(() => useKeychain())
+    const id = result.current.params.contents[0].id
+    act(() => result.current.updateContent(id, { content: '' }))
+    await waitFor(() => expect(result.current.geometry).not.toBeNull())
+    expect(result.current.geometry?.base).toBeDefined()
+  })
+
   it('conteúdo somente ícone gera geometria sem fonte', async () => {
     fontLoadControl.completeFontLoads = false
     const { result } = renderHook(() => useKeychain())

@@ -163,7 +163,7 @@ export function useKeychain() {
   const uniqueStyles = useMemo(() => {
     const styles = new Set<FontStyle>()
     for (const item of params.contents) {
-      if (item.kind === 'text') styles.add(item.fontStyle)
+      if (item.kind === 'text' && item.content.trim()) styles.add(item.fontStyle)
     }
     return Array.from(styles)
   }, [params.contents])

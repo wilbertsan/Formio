@@ -209,7 +209,7 @@ function buildRegularKeychain({
   const contentItems: BuildContentItem[] = []
 
   for (const item of params.contents) {
-    const itemFont = item.kind === 'text'
+    const itemFont = item.kind === 'text' && item.content.trim()
       ? resolveFont(fonts, font, item.fontStyle)
       : undefined
     const fitted = resolveContentGeometry(item, {
@@ -281,7 +281,7 @@ function buildNameKeychain({
   const contentItems: BuildContentItem[] = []
 
   for (const item of params.contents) {
-    const itemFont = item.kind === 'text'
+    const itemFont = item.kind === 'text' && item.content.trim()
       ? resolveFont(fonts, font, item.fontStyle)
       : undefined
     const shapes = buildContentShapes(item, itemFont, referenceSize)

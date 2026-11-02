@@ -220,6 +220,22 @@ describe('buildKeychain', () => {
     expect(result.contentItems[0].geometry).toBeNull()
   })
 
+  it('texto vazio não exige fonte no formato regular nem no nome', () => {
+    const regular = buildKeychain(makeInput(
+      { contents: [{ ...textItem, content: '' }] },
+      { font: undefined, fonts: {} },
+    ))
+    expect(regular.base).toBeDefined()
+    expect(regular.content).toBeNull()
+
+    const name = buildKeychain(makeInput(
+      { baseShape: 'name', contents: [{ ...textItem, content: '' }] },
+      { font: undefined, fonts: {} },
+    ))
+    expect(name.base).toBeDefined()
+    expect(name.content).toBeNull()
+  })
+
   it('offsetX move o content', () => {
     const centered = buildKeychain(makeInput({
       width: 80,
