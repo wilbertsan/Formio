@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { MockInstance } from 'vitest'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { exportStl } from '@/features/studio/tools/chaveiros/chaveiro/exportStl'
 import type { BuildKeychainResult } from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
@@ -12,6 +13,22 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
 
 const PIECE_BB = { minX: -5, maxX: 5, minY: -5, maxY: 5 }
 const HOLE = { x: 0, y: 0, radius: 0 }
+
+const mergeMock = vi.mocked(mergeGeometries)
+
+interface DownloadHarness {
+  createObjectURL: ReturnType<typeof vi.fn>
+  revokeObjectURL: ReturnType<typeof vi.fn>
+  clickSpy: ReturnType<typeof vi.fn>
+  anchorStub: { click: () => void; href: string; download: string }
+}
+
+let urlDescriptors: {
+  createObjectURL?: PropertyDescriptor
+  revokeObjectURL?: PropertyDescriptor
+} = {}
+let createElementSpy: MockInstance | null = null
+let bodyDescriptors: { appendChild?: PropertyDescriptor; removeChild?: PropertyDescriptor } = {}
 
 function makeGeometry(
   content: THREE.BufferGeometry | null,
@@ -36,19 +53,19 @@ function expectedPosition(geometry: THREE.BufferGeometry): number[] {
 }
 
 function lastMergeArguments(): THREE.BufferGeometry[] {
-  const calls = vi.mocked(mergeGeometries).mock.calls
+  const calls = mergeMock.mock.calls
   const lastCall = calls[calls.length - 1]
   if (!lastCall) throw new Error('mergeGeometries não foi chamado')
   return lastCall[0]
 }
 
-let restoreEnvironment: (() => void) | null = null
-
-function stubDownloadEnvironment() {
-  const createObjectURLDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL')
-  const revokeObjectURLDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL')
+function setupDownloadHarness(): DownloadHarness {
   const createObjectURL = vi.fn(() => 'blob:mock-url')
   const revokeObjectURL = vi.fn()
+  urlDescriptors = {
+    createObjectURL: Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL'),
+    revokeObjectURL: Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL'),
+  }
   Object.defineProperty(window.URL, 'createObjectURL', {
     value: createObjectURL,
     writable: true,
@@ -62,73 +79,70 @@ function stubDownloadEnvironment() {
 
   const clickSpy = vi.fn()
   const anchorStub = { click: clickSpy, href: '', download: '' }
-  const createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchorStub as never)
-  const appendChildSpy = vi.fn()
-  const removeChildSpy = vi.fn()
-  const appendChildOrig = document.body.appendChild.bind(document.body)
-  const removeChildOrig = document.body.removeChild.bind(document.body)
+  createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(anchorStub as never)
+  bodyDescriptors = {
+    appendChild: Object.getOwnPropertyDescriptor(document.body, 'appendChild'),
+    removeChild: Object.getOwnPropertyDescriptor(document.body, 'removeChild'),
+  }
   Object.defineProperty(document.body, 'appendChild', {
-    value: appendChildSpy,
+    value: vi.fn(),
     writable: true,
     configurable: true,
   })
   Object.defineProperty(document.body, 'removeChild', {
-    value: removeChildSpy,
+    value: vi.fn(),
     writable: true,
     configurable: true,
   })
 
-  const restore = () => {
-    createElementSpy.mockRestore()
-    Object.defineProperty(document.body, 'appendChild', {
-      value: appendChildOrig,
-      writable: true,
-      configurable: true,
-    })
-    Object.defineProperty(document.body, 'removeChild', {
-      value: removeChildOrig,
-      writable: true,
-      configurable: true,
-    })
-    if (createObjectURLDescriptor) {
-      Object.defineProperty(window.URL, 'createObjectURL', createObjectURLDescriptor)
-    }
-    if (revokeObjectURLDescriptor) {
-      Object.defineProperty(window.URL, 'revokeObjectURL', revokeObjectURLDescriptor)
-    }
-  }
-
-  restoreEnvironment = restore
   return { createObjectURL, revokeObjectURL, clickSpy, anchorStub }
+}
+
+function restoreProperty(
+  target: object,
+  name: string,
+  descriptor: PropertyDescriptor | undefined,
+): void {
+  if (descriptor) {
+    Object.defineProperty(target, name, descriptor)
+  } else {
+    delete (target as Record<string, unknown>)[name]
+  }
 }
 
 describe('exportStl', () => {
   beforeEach(() => {
-    vi.mocked(mergeGeometries).mockClear()
+    mergeMock.mockClear()
   })
 
   afterEach(() => {
-    restoreEnvironment?.()
-    restoreEnvironment = null
-    vi.mocked(mergeGeometries).mockClear()
+    mergeMock.mockClear()
+    createElementSpy?.mockRestore()
+    createElementSpy = null
+    restoreProperty(document.body, 'appendChild', bodyDescriptors.appendChild)
+    restoreProperty(document.body, 'removeChild', bodyDescriptors.removeChild)
+    bodyDescriptors = {}
+    restoreProperty(window.URL, 'createObjectURL', urlDescriptors.createObjectURL)
+    restoreProperty(window.URL, 'revokeObjectURL', urlDescriptors.revokeObjectURL)
+    urlDescriptors = {}
   })
 
   it('gera download com blob e nome sanitizado', () => {
-    const env = stubDownloadEnvironment()
+    const harness = setupDownloadHarness()
 
     exportStl(makeGeometry(new THREE.BoxGeometry(5, 5, 5)), 'Meu Projeto! @#')
 
-    expect(env.createObjectURL).toHaveBeenCalledTimes(1)
-    const blob = (env.createObjectURL.mock.calls as unknown[][])[0]![0] as Blob
+    expect(harness.createObjectURL).toHaveBeenCalledTimes(1)
+    const blob = (harness.createObjectURL.mock.calls as unknown[][])[0]![0] as Blob
     expect(blob).toBeInstanceOf(Blob)
     expect(blob.size).toBeGreaterThan(0)
-    expect(env.anchorStub.download).toBe('Meu-Projeto.stl')
-    expect(env.clickSpy).toHaveBeenCalledTimes(1)
-    expect(env.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
+    expect(harness.anchorStub.download).toBe('Meu-Projeto.stl')
+    expect(harness.clickSpy).toHaveBeenCalledTimes(1)
+    expect(harness.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
   })
 
   it('combina base e conteúdo normalizados na ordem correta', () => {
-    stubDownloadEnvironment()
+    setupDownloadHarness()
     const content = new THREE.BoxGeometry(5, 5, 5)
     const geometry = makeGeometry(content)
 
@@ -145,7 +159,7 @@ describe('exportStl', () => {
   })
 
   it('combina apenas a base quando não há conteúdo', () => {
-    stubDownloadEnvironment()
+    setupDownloadHarness()
     const geometry = makeGeometry(null)
 
     exportStl(geometry, 'Sem conteúdo')
@@ -158,7 +172,7 @@ describe('exportStl', () => {
   })
 
   it('normaliza base indexada e conteúdo não indexado antes de combinar', () => {
-    stubDownloadEnvironment()
+    setupDownloadHarness()
     const base = new THREE.BoxGeometry(10, 10, 10)
     const content = new THREE.TetrahedronGeometry(2)
     expect(base.index).not.toBeNull()
