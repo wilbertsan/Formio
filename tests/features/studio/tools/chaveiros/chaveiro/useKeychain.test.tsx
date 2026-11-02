@@ -80,6 +80,22 @@ describe('useKeychain', () => {
     expect(result.current.params.contents).toHaveLength(3)
   })
 
+  it('addContent retorna o id do novo conteúdo e null ao atingir o limite', () => {
+    const { result } = renderHook(() => useKeychain())
+    let firstId: string | null = null
+    act(() => {
+      firstId = result.current.addContent()
+    })
+    expect(firstId).toBe(result.current.params.contents[1].id)
+
+    act(() => result.current.addContent())
+    let overflowId: string | null = 'pendente'
+    act(() => {
+      overflowId = result.current.addContent()
+    })
+    expect(overflowId).toBeNull()
+  })
+
   it('removeContent remove um item adicionado e não remove o último', () => {
     const { result } = renderHook(() => useKeychain())
     act(() => result.current.addContent())

@@ -148,7 +148,7 @@ const RoloTexturaPreview = lazy(() =>
 function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
-  const [selectedTextId, setSelectedTextId] = useState<string>('')
+  const [selectedContentId, setSelectedContentId] = useState<string>('')
   const [isEditorOpen, setEditorOpen] = useState(false)
 
   const {
@@ -156,9 +156,10 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
     geometry,
     dimensions,
     updateParam,
-    updateText,
-    addText,
-    removeText,
+    updateContent,
+    addContent,
+    removeContent,
+    setContentType,
     reset,
   } = useKeychain()
 
@@ -172,21 +173,18 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
     }
   }, [geometry, projectName])
 
-  const handleSelectText = useCallback((id: string) => {
-    setSelectedTextId(id)
+  const handleSelectContent = useCallback((id: string) => {
+    setSelectedContentId(id)
   }, [])
 
-  const handleAddText = useCallback(() => {
-    addText()
-    if (params.texts.length < 3) {
-      const next = params.texts[params.texts.length]
-      if (next) setSelectedTextId(next.id)
-    }
-  }, [addText, params.texts])
+  const handleAddContent = useCallback(() => {
+    const id = addContent()
+    if (id) setSelectedContentId(id)
+  }, [addContent])
 
-  const handleMoveText = useCallback((id: string, x: number, y: number) => {
-    updateText(id, { offsetX: x, offsetY: y })
-  }, [updateText])
+  const handleMoveContent = useCallback((id: string, x: number, y: number) => {
+    updateContent(id, { offsetX: x, offsetY: y })
+  }, [updateContent])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
@@ -201,11 +199,12 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <ChaveiroTool
             params={params}
-            selectedTextId={selectedTextId}
-            onSelectText={handleSelectText}
-            onUpdateText={updateText}
-            onAddText={handleAddText}
-            onRemoveText={removeText}
+            selectedContentId={selectedContentId}
+            onSelectContent={handleSelectContent}
+            onUpdateContent={updateContent}
+            onSetContentType={setContentType}
+            onAddContent={handleAddContent}
+            onRemoveContent={removeContent}
             onUpdateParam={updateParam}
             onReset={reset}
             onOpenEditor={() => setEditorOpen(true)}
@@ -230,9 +229,10 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
         <Suspense fallback={null}>
           <TextPositionEditor
             params={params}
-            selectedTextId={selectedTextId}
-            onSelectText={setSelectedTextId}
-            onMoveText={handleMoveText}
+            geometry={geometry}
+            selectedContentId={selectedContentId}
+            onSelectContent={setSelectedContentId}
+            onMoveContent={handleMoveContent}
             onClose={() => setEditorOpen(false)}
           />
         </Suspense>

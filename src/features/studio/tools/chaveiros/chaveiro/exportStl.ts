@@ -5,7 +5,8 @@ import { sanitizeFilename } from './schema'
 import type { BuildKeychainResult } from './buildKeychain'
 
 export function exportStl(geometry: BuildKeychainResult, projectName: string): void {
-  const merged = mergeGeometries([geometry.base, geometry.text]) ?? geometry.base
+  const geometries = geometry.content ? [geometry.base, geometry.content] : [geometry.base]
+  const merged = mergeGeometries(geometries) ?? geometry.base
   const scene = new Scene()
   scene.add(new Mesh(merged))
   const exporter = new STLExporter()

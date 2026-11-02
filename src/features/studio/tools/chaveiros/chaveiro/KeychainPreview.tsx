@@ -13,9 +13,11 @@ export function KeychainPreview({ geometry, baseColor, letterColor }: KeychainPr
       <mesh geometry={geometry.base} castShadow receiveShadow>
         <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
       </mesh>
-      <mesh geometry={geometry.text} castShadow>
-        <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
-      </mesh>
+      {geometry.content && (
+        <mesh geometry={geometry.content} castShadow>
+          <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
+        </mesh>
+      )}
     </group>
   )
 }

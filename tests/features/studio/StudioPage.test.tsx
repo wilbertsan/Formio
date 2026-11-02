@@ -5,6 +5,8 @@ import { StudioPage } from '@/features/studio/StudioPage'
 // transformado e resolva de imediato mesmo sob carga da suíte completa.
 import '@/features/studio/tools/confeitaria/topo-bolo/StudioPanel'
 import '@/features/studio/tools/confeitaria/rolo-textura/StudioPanel'
+import '@/features/studio/tools/chaveiros/chaveiro/StudioPanel'
+import '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -113,5 +115,32 @@ describe('StudioPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /posicionar textos/i }, LAZY_TIMEOUT))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
+  })
+
+  it('abre a ferramenta Chaveiro e mostra a seção de conteúdo', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Produto' }, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeInTheDocument()
+  })
+
+  it('adiciona um segundo conteúdo no Chaveiro', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
+
+    const addButton = await screen.findByRole('button', { name: /adicionar texto/i }, LAZY_TIMEOUT)
+    fireEvent.click(addButton)
+
+    const secondChip = await screen.findByRole('button', { name: 'Novo texto' }, LAZY_TIMEOUT)
+    expect(secondChip).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('abre o editor de posicionamento no Chaveiro', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
+
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar textos/i }, LAZY_TIMEOUT))
+    expect(screen.getByRole('heading', { name: /posicionar conteúdos/i })).toBeInTheDocument()
   })
 })

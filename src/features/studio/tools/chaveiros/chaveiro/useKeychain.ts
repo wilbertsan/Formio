@@ -245,9 +245,12 @@ export function useKeychain() {
     dispatch({ type: 'setContentType', id, kind })
   }, [])
 
-  const addContent = useCallback(() => {
-    dispatch({ type: 'addContent', id: crypto.randomUUID() })
-  }, [])
+  const addContent = useCallback((): string | null => {
+    if (params.contents.length >= 3) return null
+    const id = crypto.randomUUID()
+    dispatch({ type: 'addContent', id })
+    return id
+  }, [params.contents.length])
 
   const removeContent = useCallback((id: string) => {
     dispatch({ type: 'removeContent', id })
