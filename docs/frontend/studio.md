@@ -33,8 +33,11 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Texto 3D (TextGeometry) | `src/features/studio/tools/chaveiros/chaveiro/textToGeometry.ts` |
 | União/expansão de contorno do nome | `src/features/studio/tools/chaveiros/chaveiro/nameOutline.ts` |
 | Composição {base, content, contentItems} | `src/features/studio/tools/chaveiros/chaveiro/buildKeychain.ts` |
+| Worker + serialização | `src/features/studio/tools/chaveiros/chaveiro/buildKeychain.worker.ts` |
+| Interface do worker | `src/features/studio/tools/chaveiros/chaveiro/workerClient.ts` |
+| Serialização da geometria | `src/features/studio/tools/chaveiros/chaveiro/workerGeometry.ts` |
 | Export STL (merge) | `src/features/studio/tools/chaveiros/chaveiro/exportStl.ts` |
-| Estado + fontes lazy | `src/features/studio/tools/chaveiros/chaveiro/useKeychain.ts` |
+| Estado + parse SVG + worker + debounce | `src/features/studio/tools/chaveiros/chaveiro/useKeychain.ts` |
 | Painel de blocos | `src/features/studio/tools/chaveiros/chaveiro/StudioPanel.tsx` |
 | **Cartão de Visita** | |
 | Schema + tipos | `src/features/studio/tools/letreiros/cartao-visita/schema.ts` |
@@ -95,15 +98,17 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 
 Pipeline completo de geração do chaveiro 3D:
 
-**schema.ts (Zod)** → **autoFit.ts / shapes.ts (região útil + THREE.Shape + furo nativo)** → **textToGeometry.ts (TextGeometry)** → **buildKeychain.ts (merge base + conteúdo)** → **exportStl.ts (STL binário + download)**, com **svgToIconShape.ts** compartilhado para ícones SVG.
+**useKeychain.ts** → **buildKeychain.worker.ts** → **buildKeychain.ts** → **exportStl.ts**, com **svgToIconShape.ts** compartilhado para ícones SVG.
 
 1. **schema.ts** — Valida e normaliza parâmetros (conteúdo 1–3 itens discriminados em texto/ícone, forma, dimensões)
-2. **autoFit.ts** — Define a região útil por formato (retângulo interno, círculo inscrito, círculo inscrito no coração; `name` sem região), reduz o conteúdo para caber sem ampliar e aplica clamp de borda (4mm) e folga do furo (1mm)
-3. **shapes.ts** — Gera a forma base (retângulo, círculo ou coração) com furo nativo para o aro; no formato `name`, a base é a união dos contornos de textos e ícones dilatada por `borderWidth`
-4. **textToGeometry.ts** — Cria a geometria 3D do texto com TextGeometry, normalizando o nome
-5. **svgToIconShape.ts** (compartilhado) — Converte o SVG em shapes/geometria, com escala e engrossamento de traço (`iconLineWidth`)
-6. **buildKeychain.ts** — Compõe os conteúdos sempre elevados em 1mm (`CONTENT_DEPTH`) e mescla as geometrias de conteúdo
-7. **exportStl.ts** — Exporta geometria final como STL binário e dispara download
+2. **useKeychain.ts** — Parseia cada SVG na main thread (`ParsedSvg`), aplica debounce e envia `{ params, parsedSvgs, styles }` ao Worker; `isBuilding` alimenta o aviso “Gerando…” e `error` aparece no overlay
+3. **autoFit.ts** — Define a região útil por formato (retângulo interno, círculo inscrito, círculo inscrito no coração; `name` sem região), reduz o conteúdo para caber sem ampliar e aplica clamp de borda (4mm) e folga do furo (1mm)
+4. **shapes.ts** — Gera a forma base (retângulo, círculo ou coração) com furo nativo para o aro; no formato `name`, a base é a união dos contornos de textos e ícones dilatada por `borderWidth`
+5. **textToGeometry.ts** — Cria a geometria 3D do texto com TextGeometry, normalizando o nome
+6. **svgToIconShape.ts** (compartilhado) — Converte o SVG em shapes/geometria, com escala e engrossamento de traço (`iconLineWidth`)
+7. **buildKeychain.worker.ts** — Carrega as fontes necessárias (typeface.json) e chama `buildKeychain` fora da main thread; o resultado é serializado por `workerGeometry.ts` e devolvido à main thread
+8. **buildKeychain.ts** — Compõe os conteúdos sempre elevados em 1mm (`CONTENT_DEPTH`) e mescla as geometrias de conteúdo
+9. **exportStl.ts** — Exporta geometria final como STL binário e dispara download
 
 ## Decisões
 
@@ -121,7 +126,8 @@ Pipeline completo de geração do chaveiro 3D:
 - **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
 - **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
 - **Regras de segurança:** conteúdo sempre com borda ≥ 4mm (`TEXT_BORDER_MIN`); furo da argola sempre a ≥ 2mm da borda (`RING_EDGE_MARGIN`). Clamp automático.
-- **3 fontes carregadas sob demanda:** helvetiker_regular (normal), helvetiker_bold (bold), optimer_regular (serif). Cache no hook; troca rebuilda geometria.
+- **3 fontes carregadas sob demanda:** helvetiker_regular (normal), helvetiker_bold (bold), optimer_regular (serif). O Worker carrega apenas os estilos usados no build; troca rebuilda geometria.
+- **Build em Web Worker + Gerando…:** `useKeychain` parseia o SVG na main thread e envia `{ params, parsedSvgs, styles }` ao `buildKeychain.worker.ts`, que carrega as fontes e roda `buildKeychain` sem bloquear a UI. O resultado é serializado de volta por `workerGeometry.ts`; a peça anterior permanece visível durante o rebuild e erros aparecem no overlay.
 - **2 cores no preview:** `buildKeychain` retorna `{base, content, contentItems}`; material base = `baseColor`, material conteúdo = `letterColor`. Troca de cor NÃO rebuilda geometria (só material).
 - **Anel de reforço:** anel extrudado ao redor do furo, mergeado na base.
 - **Swatches PLA:** 10 cores fixas no schema; STL exportado não carrega cor.

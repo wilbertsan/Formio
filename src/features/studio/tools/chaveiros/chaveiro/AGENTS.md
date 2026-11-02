@@ -51,10 +51,13 @@ tools/chaveiros/chaveiro/
   textToGeometry.ts     — TextGeometry + normalização de nome
   nameOutline.ts        — união/expansão de contornos para formato 'name'
   buildKeychain.ts      — composição base + conteúdo (merge)
+  buildKeychain.worker.ts — build em Web Worker
+  workerClient.ts       — client do Worker
+  workerGeometry.ts     — serialização do resultado
   positioning.ts        — clamp de borda/furo
   exportStl.ts          — STL binário + download
   fonts.ts              — mapa estilo → typeface.json
-  useKeychain.ts        — hook: estado + fontes lazy + debounce
+  useKeychain.ts        — hook: estado + parse SVG + worker + debounce
   StudioPanel.tsx       — painel de parâmetros
   KeychainPreview.tsx   — preview R3F com 2 materiais
   TextPositionEditor.tsx — editor 2D SVG de posicionamento
@@ -73,11 +76,16 @@ O helper `../../confeitaria/shared/svgToIconShape.ts` é compartilhado para pars
 
 ## Pipeline de geração
 
-`schema.ts` → `autoFit.ts`/`shapes.ts` → `textToGeometry.ts` → `buildKeychain.ts` → `exportStl.ts`, com `svgToIconShape.ts` compartilhado para ícones.
+`schema.ts` → `autoFit.ts`/`shapes.ts` → `textToGeometry.ts` → `buildKeychain.ts` → `exportStl.ts`, com `svgToIconShape.ts` compartilhado para ícones. O `buildKeychain` roda em Web Worker:
+
+- **main thread** (`useKeychain.ts`) parseia cada SVG e obtém um `ParsedSvg`, então envia `{ params, parsedSvgs, styles }` ao Worker
+- **Worker** (`buildKeychain.worker.ts`) carrega as fontes necessárias e chama `buildKeychain`
+- `workerGeometry.ts` serializa o resultado (geometrias + metadados) de volta para a main thread
+- `isBuilding` controla o aviso “Gerando…” e os erros aparecem no overlay da UI; a geometria anterior permanece visível durante o rebuild
 
 ## Testes
 
-`tests/features/studio/tools/chaveiros/chaveiro/` — 11 arquivos, 171 testes:
+`tests/features/studio/tools/chaveiros/chaveiro/` — 12 arquivos, 185 testes:
 
 - `autoFit.test.ts`
 - `buildKeychain.test.ts`
@@ -88,6 +96,7 @@ O helper `../../confeitaria/shared/svgToIconShape.ts` é compartilhado para pars
 - `shapes.test.ts`
 - `textToGeometry.test.ts`
 - `useKeychain.test.tsx`
+- `workerGeometry.test.ts`
 - `StudioPanel.test.tsx`
 - `TextPositionEditor.test.tsx`
 
