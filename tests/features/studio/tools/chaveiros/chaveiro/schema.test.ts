@@ -62,12 +62,13 @@ describe('conteúdo texto/ícone', () => {
     expect(contentItemSchema.parse(icon)).toEqual(icon)
   })
 
-  it('rejeita texto vazio, longo e offsets fora do limite', () => {
+  it('aceita texto vazio e rejeita texto longo e offsets fora do limite', () => {
     const text = {
       id: 't1', kind: 'text', content: 'Ana', fontStyle: 'bold',
       fontSize: 10, offsetX: 0, offsetY: 0,
     }
-    expect(contentItemSchema.safeParse({ ...text, content: '' }).success).toBe(false)
+    expect(contentItemSchema.safeParse({ ...text, content: '' }).success).toBe(true)
+    expect(contentItemSchema.safeParse({ ...text, content: '' }).data).toMatchObject({ content: '' })
     expect(contentItemSchema.safeParse({ ...text, content: 'a'.repeat(13) }).success).toBe(false)
     expect(contentItemSchema.safeParse({ ...text, offsetX: 21 }).success).toBe(false)
     expect(contentItemSchema.safeParse({ ...text, offsetX: -21 }).success).toBe(false)

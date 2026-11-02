@@ -179,14 +179,19 @@ export function TextPositionEditor({
   }, [params, ring, nameBB, fallbackNameBB])
 
   const region = useMemo(() => getUsableRegion(params), [params])
+  const center = region?.kind === 'circle'
+    ? { x: region.cx, y: region.cy }
+    : { x: 0, y: 0 }
+  const centerRef = useRef(center)
+  centerRef.current = center
 
   const contentBoxes = params.contents.map((item) => {
     const built = geometry?.contentItems.find((content) => content.id === item.id)
     return {
       id: item.id,
-      label: item.kind === 'text' ? item.content : 'ícone',
-      x: item.offsetX,
-      y: item.offsetY,
+      label: item.kind === 'text' ? item.content || 'Texto' : 'ícone',
+      x: center.x + item.offsetX,
+      y: center.y + item.offsetY,
       ...halfSize(built),
     }
   })
@@ -311,7 +316,11 @@ export function TextPositionEditor({
             box.halfWidth,
             box.halfHeight,
           )
-          onMoveContentRef.current(drag.id, next.x, next.y)
+          onMoveContentRef.current(
+            drag.id,
+            next.x - centerRef.current.x,
+            next.y - centerRef.current.y,
+          )
         }
       }
 
@@ -380,7 +389,11 @@ export function TextPositionEditor({
       box.halfWidth,
       box.halfHeight,
     )
-    onMoveContentRef.current(id, next.x, next.y)
+    onMoveContentRef.current(
+      id,
+      next.x - centerRef.current.x,
+      next.y - centerRef.current.y,
+    )
   }, [clampPosition])
 
   return (

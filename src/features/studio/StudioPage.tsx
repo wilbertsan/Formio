@@ -154,6 +154,7 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
   const {
     params,
     geometry,
+    fontError,
     dimensions,
     updateParam,
     updateContent,
@@ -199,6 +200,11 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
+      {fontError && (
+        <div role="alert" className="border-b border-red-200 bg-red-50 px-3 py-1 text-xs text-red-600">
+          Falha ao carregar a fonte. Verifique a conexão e tente novamente.
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <ChaveiroTool

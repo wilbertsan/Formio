@@ -56,6 +56,18 @@ function getSlider(label: string): HTMLElement {
 }
 
 describe('StudioPanel', () => {
+  it('usa "Texto" no chip quando o conteúdo está vazio', () => {
+    const first = defaultKeychainParams.contents[0]
+    if (first.kind !== 'text') throw new Error('conteúdo inesperado')
+    const params: KeychainParams = {
+      ...defaultKeychainParams,
+      contents: [{ ...first, content: '' }],
+    }
+    renderPanel({ params })
+
+    expect(screen.getByRole('button', { name: 'Texto' })).toBeInTheDocument()
+  })
+
   it('renderiza o primeiro conteúdo, botão de adicionar e tipo de conteúdo', () => {
     renderPanel()
 

@@ -189,7 +189,7 @@ export function StudioPanel({
                     onClick={() => onSelectContent(item.id)}
                   >
                     {item.kind === 'text'
-                      ? item.content
+                      ? item.content || 'Texto'
                       : hasMultipleIcons
                         ? `Ícone ${iconItems.findIndex((icon) => icon.id === item.id) + 1}`
                         : 'Ícone'}

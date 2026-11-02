@@ -81,6 +81,15 @@ describe('useKeychain', () => {
     expect(result.current.params.contents).toHaveLength(3)
   })
 
+  it('addContent posiciona o novo conteúdo fora do centro', () => {
+    const { result } = renderHook(() => useKeychain())
+    act(() => result.current.addContent())
+
+    const added = result.current.params.contents[1]
+    expect(added.offsetY).not.toBe(0)
+    expect(added.offsetX).toBe(0)
+  })
+
   it('addContent retorna o id do novo conteúdo e null ao atingir o limite', () => {
     const { result } = renderHook(() => useKeychain())
     let firstId: string | null = null

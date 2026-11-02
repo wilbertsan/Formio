@@ -136,6 +136,7 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
         id: action.id,
         kind: 'text',
         ...TEXT_DEFAULTS,
+        offsetY: state.contents.length === 1 ? -6 : 6,
       }
       const next = { ...state, contents: [...state.contents, newItem] }
       const parsed = keychainParamsSchema.safeParse(next)

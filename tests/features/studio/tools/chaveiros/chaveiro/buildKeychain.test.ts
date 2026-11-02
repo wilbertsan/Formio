@@ -213,6 +213,13 @@ describe('buildKeychain', () => {
     expect(result.contentItems[0].geometry).toBeNull()
   })
 
+  it('texto vazio gera base válida e content nulo', () => {
+    const result = buildKeychain(makeInput({ contents: [{ ...textItem, content: '' }] }))
+    expect(result.base).toBeDefined()
+    expect(result.content).toBeNull()
+    expect(result.contentItems[0].geometry).toBeNull()
+  })
+
   it('offsetX move o content', () => {
     const centered = buildKeychain(makeInput({
       width: 80,

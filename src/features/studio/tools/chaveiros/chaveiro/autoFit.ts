@@ -137,6 +137,7 @@ export function resolveContentGeometry(
   ctx: FitContext,
 ): FittedContent | null {
   if (item.kind === 'text') {
+    if (!item.content.trim()) return null
     if (!ctx.font) return null
 
     const geometry = nameToGeometry({
@@ -198,6 +199,7 @@ export function buildContentShapes(
   referenceSize: number,
 ): Shape[] {
   if (item.kind === 'text') {
+    if (!item.content.trim()) return []
     if (!font) return []
     const shapes = font.generateShapes(normalizeName(item.content), item.fontSize)
     return centerShapes(shapes, item.offsetX, item.offsetY)

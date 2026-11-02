@@ -19,7 +19,7 @@ const contentFields = {
 export const textContentSchema = z.object({
   ...contentFields,
   kind: z.literal('text'),
-  content: z.string().trim().min(1).max(12),
+  content: z.string().trim().max(12),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   fontSize: z.number().min(6).max(15),
 })

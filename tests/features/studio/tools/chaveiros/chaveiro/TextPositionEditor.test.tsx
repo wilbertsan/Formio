@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
 import * as THREE from 'three'
 import { TextPositionEditor } from '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
+import { getUsableRegion } from '@/features/studio/tools/chaveiros/chaveiro/autoFit'
 import {
   defaultKeychainParams,
   type IconContent,
@@ -235,6 +236,58 @@ describe('TextPositionEditor', () => {
     renderEditor({ params: iconParams() })
 
     expect(screen.getByText('ícone')).toBeInTheDocument()
+  })
+
+  it('usa "Texto" como label para conteúdo vazio', () => {
+    const first = defaultKeychainParams.contents[0]
+    if (first.kind !== 'text') throw new Error('conteúdo inesperado')
+    const params: KeychainParams = {
+      ...defaultKeychainParams,
+      contents: [{ ...first, content: '' }],
+    }
+    renderEditor({ params })
+
+    expect(screen.getByText('Texto')).toBeInTheDocument()
+  })
+
+  it('coração: offset zero renderiza no centro da região e arraste commita relativo', () => {
+    const params: KeychainParams = {
+      ...defaultKeychainParams,
+      baseShape: 'heart',
+      width: 50,
+      height: 25,
+    }
+    const region = getUsableRegion(params)
+    if (!region || region.kind !== 'circle') throw new Error('região inesperada')
+
+    const geometry: BuildKeychainResult = {
+      ...mockGeometry(),
+      contentItems: [{ id: 'content-1', halfWidth: 0.5, halfHeight: 0.5, geometry: null }],
+      pieceBB: { minX: -25, maxX: 25, minY: -25, maxY: 25 },
+      hole: { x: 0, y: 22, radius: 2.5 },
+    }
+    const onMoveContent = vi.fn()
+    const { container } = renderEditor({ params, geometry, onMoveContent })
+
+    const label = screen.getByText('Meu nome')
+    expect(Number(label.getAttribute('x'))).toBeCloseTo(region.cx)
+    expect(Number(label.getAttribute('y'))).toBeCloseTo(-region.cy)
+
+    const svg = container.querySelector('svg')
+    if (!svg) throw new Error('svg não encontrado')
+    const [, , vbWidth, vbHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+    mockSvgViewport(container, vbWidth, vbHeight)
+
+    const element = screen.getByTestId('editor-content-content-1')
+    fireEvent.pointerDown(element, { clientX: 0, clientY: 0, button: 0, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 2, clientY: -2 })
+    fireEvent.pointerUp(document, { clientX: 2, clientY: -2 })
+
+    const [id, x, y] = onMoveContent.mock.calls[0]
+    expect(id).toBe('content-1')
+    expect(x).toBeCloseTo(2, 1)
+    expect(y).toBeCloseTo(2, 1)
+    expect(y).not.toBeCloseTo(2 + region.cy, 1)
   })
 
   it('move conteúdo por teclado com as setas', () => {
