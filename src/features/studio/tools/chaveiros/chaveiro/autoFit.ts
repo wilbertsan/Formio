@@ -1,9 +1,7 @@
 import { type BufferGeometry, Path, Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
-  buildSvgIconGeometry,
   buildSvgIconGeometryFromParsed,
-  buildSvgIconGeometryInBox,
   buildSvgIconGeometryInBoxFromParsed,
   parseSvg,
   scaleShape,
@@ -153,67 +151,39 @@ export function resolveContentGeometry(
     return fittedContent(geometry, item, ctx)
   }
 
-  if (parsedSvg === null) return null
-
-  const svg = item.svgIcon ?? ''
-  if (parsedSvg === undefined && item.svgIcon === null) return null
+  const parsed = resolveParsedSvg(item, parsedSvg)
+  if (!parsed) return null
 
   const region = ctx.region
   let geometry: BufferGeometry | null
   if (region?.kind === 'circle') {
-    const radius = region.radius
-    geometry = safeIconGeometry(() => parsedSvg
-      ? buildSvgIconGeometryFromParsed(parsedSvg, {
-          maxRadius: radius,
-          lineWidth: item.iconLineWidth,
-          iconScale: item.iconScale,
-          depth: CONTENT_DEPTH,
-        })
-      : buildSvgIconGeometry({
-          svg,
-          maxRadius: radius,
-          lineWidth: item.iconLineWidth,
-          iconScale: item.iconScale,
-          depth: CONTENT_DEPTH,
-        }))
+    const maxRadius = region.radius
+    geometry = safeIconGeometry(() => buildSvgIconGeometryFromParsed(parsed, {
+      maxRadius,
+      lineWidth: item.iconLineWidth,
+      iconScale: item.iconScale,
+      depth: CONTENT_DEPTH,
+    }))
   } else if (region?.kind === 'rect') {
     const maxWidth = region.maxX - region.minX
     const maxHeight = region.maxY - region.minY
-    geometry = safeIconGeometry(() => parsedSvg
-      ? buildSvgIconGeometryInBoxFromParsed(parsedSvg, {
-          maxWidth,
-          maxHeight,
-          lineWidth: item.iconLineWidth,
-          iconScale: item.iconScale,
-          depth: CONTENT_DEPTH,
-        })
-      : buildSvgIconGeometryInBox({
-          svg,
-          maxWidth,
-          maxHeight,
-          lineWidth: item.iconLineWidth,
-          iconScale: item.iconScale,
-          depth: CONTENT_DEPTH,
-        }))
+    geometry = safeIconGeometry(() => buildSvgIconGeometryInBoxFromParsed(parsed, {
+      maxWidth,
+      maxHeight,
+      lineWidth: item.iconLineWidth,
+      iconScale: item.iconScale,
+      depth: CONTENT_DEPTH,
+    }))
   } else {
     const maxWidth = ctx.referenceSize * 2
     const maxHeight = ctx.referenceSize * 2
-    geometry = safeIconGeometry(() => parsedSvg
-      ? buildSvgIconGeometryInBoxFromParsed(parsedSvg, {
-          maxWidth,
-          maxHeight,
-          lineWidth: item.iconLineWidth,
-          iconScale: item.iconScale,
-          depth: CONTENT_DEPTH,
-        })
-      : buildSvgIconGeometryInBox({
-          svg,
-          maxWidth,
-          maxHeight,
-          lineWidth: item.iconLineWidth,
-          iconScale: item.iconScale,
-          depth: CONTENT_DEPTH,
-        }))
+    geometry = safeIconGeometry(() => buildSvgIconGeometryInBoxFromParsed(parsed, {
+      maxWidth,
+      maxHeight,
+      lineWidth: item.iconLineWidth,
+      iconScale: item.iconScale,
+      depth: CONTENT_DEPTH,
+    }))
   }
 
   if (!geometry) return null
@@ -235,10 +205,7 @@ export function buildContentShapes(
     return centerShapes(shapes, item.offsetX, item.offsetY)
   }
 
-  if (parsedSvg === null) return []
-  if (parsedSvg === undefined && item.svgIcon === null) return []
-
-  const parsed = parsedSvg ?? safeParseSvg(item.svgIcon ?? '')
+  const parsed = resolveParsedSvg(item, parsedSvg)
   if (!parsed) return []
 
   const bounds = svgBoundsFromParsed(parsed)
@@ -261,6 +228,16 @@ function normalizeZ(geometry: BufferGeometry): void {
   geometry.computeBoundingBox()
   const bb = geometry.boundingBox
   if (bb) geometry.translate(0, 0, -bb.min.z)
+}
+
+function resolveParsedSvg(
+  item: ContentItem,
+  parsedSvg: ParsedSvg | null | undefined,
+): ParsedSvg | null {
+  if (parsedSvg === null) return null
+  if (parsedSvg) return parsedSvg
+  if (item.kind !== 'icon' || !item.svgIcon) return null
+  return safeParseSvg(item.svgIcon)
 }
 
 function safeParseSvg(svg: string): ParsedSvg | null {

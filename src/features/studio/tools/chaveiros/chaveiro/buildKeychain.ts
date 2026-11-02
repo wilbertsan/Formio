@@ -18,6 +18,7 @@ export interface BuildKeychainInput {
   font?: Font
   fonts?: Partial<Record<FontStyle, Font>>
   params: KeychainParams
+  /** Parsed SVGs by content id. `undefined` parses the item's SVG; `null` means parse failed and the item is skipped. */
   parsedSvgs?: Record<string, ParsedSvg | null>
   onError?: (message: string) => void
 }

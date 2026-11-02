@@ -203,10 +203,27 @@ describe('buildKeychain', () => {
   it('usa ParsedSvg fornecido sem DOMParser', () => {
     const parsed = parseSvg(SVG_RECT)!
     const result = buildKeychain(makeInput(
-      { contents: [iconItem] },
+      { contents: [{ ...iconItem, svgIcon: null }] },
       { parsedSvgs: { i1: parsed } },
     ))
     expect(result.content).not.toBeNull()
+  })
+
+  it('name: usa ParsedSvg fornecido sem svgIcon', () => {
+    const parsed = parseSvg(SVG_RECT)!
+    const result = buildKeychain(makeInput(
+      { baseShape: 'name', contents: [{ ...iconItem, svgIcon: null }] },
+      { parsedSvgs: { i1: parsed } },
+    ))
+    expect(result.content).not.toBeNull()
+  })
+
+  it('name: ignora ícone com ParsedSvg nulo', () => {
+    const result = buildKeychain(makeInput(
+      { baseShape: 'name', contents: [{ ...iconItem, svgIcon: null }] },
+      { parsedSvgs: { i1: null } },
+    ))
+    expect(result.content).toBeNull()
   })
 
   it('ignora ícone com ParsedSvg nulo', () => {
