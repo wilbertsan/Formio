@@ -1,142 +1,181 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
+import * as THREE from 'three'
 import { TextPositionEditor } from '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
-import { defaultKeychainParams } from '@/features/studio/tools/chaveiros/chaveiro/schema'
+import {
+  defaultKeychainParams,
+  type IconContent,
+  type KeychainParams,
+} from '@/features/studio/tools/chaveiros/chaveiro/schema'
+import type { BuildKeychainResult } from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
 
-function renderEditor(overrides?: {
-  selectedTextId?: string
-  onMoveText?: (id: string, x: number, y: number) => void
+if (typeof window.PointerEvent === 'undefined') {
+  Object.defineProperty(window, 'PointerEvent', {
+    value: MouseEvent,
+    configurable: true,
+    writable: true,
+  })
+}
+
+const firstContentId = defaultKeychainParams.contents[0].id
+
+function mockGeometry(): BuildKeychainResult {
+  return {
+    base: new THREE.BufferGeometry(),
+    content: new THREE.BufferGeometry(),
+    contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2, geometry: null }],
+    pieceBB: { minX: -30, maxX: 30, minY: -15, maxY: 15 },
+    hole: { x: 0, y: 10, radius: 2.5 },
+  }
+}
+
+function iconParams(): KeychainParams {
+  const icon: IconContent = {
+    id: 'content-1',
+    kind: 'icon',
+    svgIcon: null,
+    iconScale: 1,
+    iconLineWidth: 0.3,
+    offsetX: 0,
+    offsetY: 0,
+  }
+  return { ...defaultKeychainParams, contents: [icon] }
+}
+
+function renderEditor(overrides: {
+  params?: KeychainParams
+  geometry?: BuildKeychainResult | null
+  selectedContentId?: string
+  onSelectContent?: (id: string) => void
+  onMoveContent?: (id: string, x: number, y: number) => void
   onClose?: () => void
-}) {
+} = {}) {
   return render(
     <TextPositionEditor
-      params={defaultKeychainParams}
-      selectedTextId={overrides?.selectedTextId ?? defaultKeychainParams.texts[0].id}
-      onSelectText={() => undefined}
-      onMoveText={overrides?.onMoveText ?? (() => undefined)}
-      onClose={overrides?.onClose ?? (() => undefined)}
+      params={overrides.params ?? defaultKeychainParams}
+      geometry={overrides.geometry === undefined ? mockGeometry() : overrides.geometry}
+      selectedContentId={overrides.selectedContentId ?? firstContentId}
+      onSelectContent={overrides.onSelectContent ?? (() => undefined)}
+      onMoveContent={overrides.onMoveContent ?? (() => undefined)}
+      onClose={overrides.onClose ?? (() => undefined)}
     />,
   )
 }
 
+function dragContent(id: string, clientX: number, clientY: number): void {
+  const element = screen.getByTestId(`editor-content-${id}`)
+  fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+  fireEvent.pointerMove(document, { clientX, clientY })
+  fireEvent.pointerUp(document, { clientX, clientY })
+}
+
 describe('TextPositionEditor', () => {
-  it('renderiza SVG com base, furo e rects de texto', () => {
+  it('renderiza base, furo, caixa de conteúdo e label', () => {
     renderEditor()
+
     expect(screen.getByTestId('editor-base')).toBeInTheDocument()
     expect(screen.getByTestId('editor-hole')).toBeInTheDocument()
-    expect(screen.getByTestId('editor-text-text-1')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-content-content-1')).toBeInTheDocument()
+    expect(screen.getByText('Meu nome')).toBeInTheDocument()
   })
 
-  it('mostra a área válida para posicionamento de texto', () => {
+  it('usa área válida retangular para base retangular', () => {
     renderEditor()
-    expect(screen.getByTestId('editor-valid-area')).toBeInTheDocument()
+
+    const area = screen.getByTestId('editor-valid-area')
+    expect(area.tagName).toBe('rect')
+    expect(area).toHaveAttribute('stroke-dasharray', '1,0.5')
   })
 
-  it('mostra o conteúdo do texto como label', () => {
-    renderEditor()
-    expect(screen.getByText(/meu nome/i)).toBeInTheDocument()
+  it('usa área válida circular tracejada para base circular', () => {
+    const params = { ...defaultKeychainParams, baseShape: 'circle' as const }
+    renderEditor({ params })
+
+    const area = screen.getByTestId('editor-valid-area')
+    expect(area.tagName).toBe('circle')
+    expect(area).toHaveAttribute('stroke-dasharray', '1,0.5')
   })
 
-  it('dispara onMoveText ao arrastar e soltar', () => {
-    const onMoveText = vi.fn()
-    renderEditor({ onMoveText })
-    const textEl = screen.getByTestId('editor-text-text-1')
-    fireEvent.pointerDown(textEl, { clientX: 100, clientY: 100, button: 0, bubbles: true })
-    fireEvent.pointerMove(document, { clientX: 120, clientY: 140 })
-    fireEvent.pointerUp(document, { clientX: 120, clientY: 140 })
-    expect(onMoveText).toHaveBeenCalledWith('text-1', expect.any(Number), expect.any(Number))
+  it('dispara onMoveContent ao arrastar e soltar', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+
+    dragContent('content-1', 140, 140)
+
+    expect(onMoveContent).toHaveBeenCalledWith('content-1', expect.any(Number), expect.any(Number))
   })
 
-  it('seleciona texto ao clicar', () => {
-    const onSelectText = vi.fn()
-    render(
-      <TextPositionEditor
-        params={defaultKeychainParams}
-        selectedTextId=""
-        onSelectText={onSelectText}
-        onMoveText={() => undefined}
-        onClose={() => undefined}
-      />,
-    )
-    fireEvent.pointerDown(screen.getByTestId('editor-text-text-1'), { clientX: 0, clientY: 0, button: 0, bubbles: true })
-    expect(onSelectText).toHaveBeenCalledWith('text-1')
+  it('limita o conteúdo à área útil ao arrastar para fora', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+
+    dragContent('content-1', 5000, 5000)
+
+    const [id, x, y] = onMoveContent.mock.calls[0]
+    expect(id).toBe('content-1')
+    expect(x).toBeLessThanOrEqual(16)
+    expect(x).toBeGreaterThanOrEqual(-16)
+    expect(y).toBeLessThanOrEqual(6.5)
+    expect(y).toBeGreaterThanOrEqual(-6.5)
+  })
+
+  it('seleciona o conteúdo ao clicar', () => {
+    const onSelectContent = vi.fn()
+    renderEditor({ selectedContentId: '', onSelectContent })
+
+    fireEvent.pointerDown(screen.getByTestId('editor-content-content-1'), {
+      clientX: 0,
+      clientY: 0,
+      button: 0,
+      bubbles: true,
+    })
+
+    expect(onSelectContent).toHaveBeenCalledWith('content-1')
   })
 
   it('fecha ao clicar em Concluir', () => {
     const onClose = vi.fn()
     renderEditor({ onClose })
+
     fireEvent.click(screen.getByRole('button', { name: /concluir/i }))
+
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('usa params.height para calcular a base', () => {
-    const { container: tallContainer } = render(
-      <TextPositionEditor
-        params={{ ...defaultKeychainParams, width: 40, height: 60 }}
-        selectedTextId="text-1"
-        onSelectText={() => undefined}
-        onMoveText={() => undefined}
-        onClose={() => undefined}
-      />,
-    )
-    const tallSvg = tallContainer.querySelector('svg')
-    const tallViewBox = tallSvg?.getAttribute('viewBox')
+  it('expõe diálogo modal rotulado pelo título', () => {
+    renderEditor()
 
-    const { container: shortContainer } = render(
-      <TextPositionEditor
-        params={{ ...defaultKeychainParams, width: 40, height: 25 }}
-        selectedTextId="text-1"
-        onSelectText={() => undefined}
-        onMoveText={() => undefined}
-        onClose={() => undefined}
-      />,
-    )
-    const shortSvg = shortContainer.querySelector('svg')
-    const shortViewBox = shortSvg?.getAttribute('viewBox')
-
-    expect(tallViewBox).not.toBe(shortViewBox)
+    const dialog = screen.getByRole('dialog')
+    const heading = screen.getByRole('heading', { name: /posicionar conteúdos/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', heading.id)
   })
 
-  it('editor funciona com baseShape name', () => {
+  it('usa geometry.pieceBB como base no formato name', () => {
     const params = { ...defaultKeychainParams, baseShape: 'name' as const }
-    render(
-      <TextPositionEditor
-        params={params}
-        selectedTextId="text-1"
-        onSelectText={() => undefined}
-        onMoveText={() => undefined}
-        onClose={() => undefined}
-      />,
-    )
+    const { container } = renderEditor({ params })
 
     expect(screen.getByTestId('editor-base')).toBeInTheDocument()
-    expect(screen.getByTestId('editor-text-text-1')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-content-content-1')).toBeInTheDocument()
+    expect(container.querySelector('svg')).toHaveAttribute('viewBox', '-35 -20 70 40')
   })
 
-  it('calcula viewBox dinamicamente a partir do bounding box da base', () => {
-    const { container: rectContainer } = render(
-      <TextPositionEditor
-        params={{ ...defaultKeychainParams, baseShape: 'rect' }}
-        selectedTextId="text-1"
-        onSelectText={() => undefined}
-        onMoveText={() => undefined}
-        onClose={() => undefined}
-      />,
-    )
-    const rectSvg = rectContainer.querySelector('svg')
-    const rectViewBox = rectSvg?.getAttribute('viewBox')
+  it('renderiza placeholder ícone para conteúdo do tipo icon', () => {
+    renderEditor({ params: iconParams() })
 
-    const { container: heartContainer } = render(
-      <TextPositionEditor
-        params={{ ...defaultKeychainParams, baseShape: 'heart' }}
-        selectedTextId="text-1"
-        onSelectText={() => undefined}
-        onMoveText={() => undefined}
-        onClose={() => undefined}
-      />,
-    )
-    const heartSvg = heartContainer.querySelector('svg')
-    const heartViewBox = heartSvg?.getAttribute('viewBox')
+    expect(screen.getByText('ícone')).toBeInTheDocument()
+  })
+
+  it('calcula viewBox dinamicamente a partir da base', () => {
+    const { container: rectContainer } = renderEditor({
+      params: { ...defaultKeychainParams, baseShape: 'rect' },
+    })
+    const rectViewBox = rectContainer.querySelector('svg')?.getAttribute('viewBox')
+
+    const { container: heartContainer } = renderEditor({
+      params: { ...defaultKeychainParams, baseShape: 'heart' },
+    })
+    const heartViewBox = heartContainer.querySelector('svg')?.getAttribute('viewBox')
 
     expect(rectViewBox).toBeTruthy()
     expect(heartViewBox).toBeTruthy()
