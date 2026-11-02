@@ -71,6 +71,17 @@ describe('StudioPanel', () => {
     expect(props.onAddContent).toHaveBeenCalledTimes(1)
   })
 
+  it('desabilita Adicionar texto com três conteúdos', () => {
+    const contents = [
+      defaultKeychainParams.contents[0],
+      { ...defaultKeychainParams.contents[0], id: 'content-2', content: 'Outro' },
+      { ...defaultKeychainParams.contents[0], id: 'content-3', content: 'Mais' },
+    ]
+    renderPanel({ params: { ...defaultKeychainParams, contents } })
+
+    expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeDisabled()
+  })
+
   it('chama onSelectContent ao clicar em outro chip', async () => {
     const user = userEvent.setup()
     const second = { ...defaultKeychainParams.contents[0], id: 'content-2', content: 'Outro' }
@@ -121,6 +132,7 @@ describe('StudioPanel', () => {
     expect(screen.getByLabelText('Conteúdo')).toBeInTheDocument()
     expect(screen.getByLabelText('Estilo da letra')).toBeInTheDocument()
     expect(screen.getByLabelText('Tamanho da fonte')).toBeInTheDocument()
+    expect(screen.getByLabelText('Conteúdo')).toHaveAttribute('maxlength', '12')
 
     fireEvent.change(screen.getByLabelText('Conteúdo'), { target: { value: 'Novo' } })
     expect(props.onUpdateContent).toHaveBeenCalledWith(firstContentId, { content: 'Novo' })
@@ -130,6 +142,15 @@ describe('StudioPanel', () => {
 
     fireEvent.keyDown(getSlider('Tamanho da fonte'), { key: 'ArrowRight' })
     expect(props.onUpdateContent).toHaveBeenCalledWith(firstContentId, { fontSize: 11 })
+  })
+
+  it('expõe os limites dos sliders de fonte e relevo', () => {
+    renderPanel()
+
+    expect(getSlider('Tamanho da fonte')).toHaveAttribute('aria-valuemin', '6')
+    expect(getSlider('Tamanho da fonte')).toHaveAttribute('aria-valuemax', '15')
+    expect(getSlider('Profundidade do relevo')).toHaveAttribute('aria-valuemin', '0.4')
+    expect(getSlider('Profundidade do relevo')).toHaveAttribute('aria-valuemax', '2')
   })
 
   it('chama onSetContentType ao selecionar Ícone', async () => {
@@ -172,6 +193,16 @@ describe('StudioPanel', () => {
     await waitFor(() =>
       expect(props.onUpdateContent).toHaveBeenCalledWith('i1', { svgIcon: '<svg></svg>' }),
     )
+  })
+
+  it('dispara onUpdateContent ao mover os sliders do ícone', () => {
+    const props = renderPanel({ params: iconParams('<svg></svg>'), selectedContentId: 'i1' })
+
+    fireEvent.keyDown(getSlider('Escala do ícone'), { key: 'Home' })
+    expect(props.onUpdateContent).toHaveBeenCalledWith('i1', { iconScale: 0.5 })
+
+    fireEvent.keyDown(getSlider('Espessura da linha do ícone'), { key: 'End' })
+    expect(props.onUpdateContent).toHaveBeenCalledWith('i1', { iconLineWidth: 1.5 })
   })
 
   it('dispara onOpenEditor ao clicar em Posicionar textos', async () => {
@@ -229,6 +260,14 @@ describe('StudioPanel', () => {
 
     fireEvent.keyDown(getSlider('Espessura'), { key: 'ArrowRight' })
     expect(props.onUpdateParam).toHaveBeenCalledWith('thickness', 3.5)
+  })
+
+  it('dispara onUpdateParam ao alterar a borda', () => {
+    const props = renderPanel()
+
+    fireEvent.keyDown(getSlider('Borda'), { key: 'ArrowRight' })
+
+    expect(props.onUpdateParam).toHaveBeenCalledWith('borderWidth', 5)
   })
 
   it('dispara onUpdateParam ao alterar relevo', async () => {
