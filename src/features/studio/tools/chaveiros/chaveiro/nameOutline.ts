@@ -1,7 +1,7 @@
-import { BufferGeometry, ExtrudeGeometry, Shape, Path, Vector2 } from 'three'
-import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import { ExtrudeGeometry, Shape, Path, Vector2 } from 'three'
+import type { BufferGeometry } from 'three'
 import ClipperLib from 'js-clipper'
-import type { TextItem } from './schema'
+import type { BoundingBox2D } from './positioning'
 
 export interface ClipperPoint {
   X: number
@@ -110,106 +110,53 @@ export function unionShapes(shapes: Shape[]): Shape {
   return clipperPathsToShape(solution)
 }
 
-interface CreateNameOutlineInput {
-  font: Font
-  texts: TextItem[]
+export interface CreateNameOutlineInput {
+  shapes: Shape[]
   borderWidth: number
+  thickness: number
 }
 
-interface NameOutlineResult {
+export interface NameOutlineResult {
   outline: BufferGeometry
-  fill: BufferGeometry
-  boundingBox: { minX: number; maxX: number; minY: number; maxY: number }
+  boundingBox: BoundingBox2D
 }
 
 export function createNameOutline({
-  font,
-  texts,
+  shapes,
   borderWidth,
+  thickness,
 }: CreateNameOutlineInput): NameOutlineResult {
-  const letterShapes: Shape[] = []
-
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
-
-  // Processar cada texto
-  for (const text of texts) {
-    const shapes = font.generateShapes(text.content, text.height)
-    
-    for (const shape of shapes) {
-      // Usar coordenadas originais das letras
-      const points = shape.getPoints()
-      const shapePoints = points.map(p => new Vector2(
-        p.x + text.offsetX,
-        p.y + text.offsetY,
-      ))
-      const shapeObj = new Shape(shapePoints)
-      
-      // Preservar furos
-      for (const hole of shape.holes) {
-        const holePoints = hole.getPoints().map(p => new Vector2(
-          p.x + text.offsetX,
-          p.y + text.offsetY,
-        ))
-        shapeObj.holes.push(new Path(holePoints))
-      }
-      
-      letterShapes.push(shapeObj)
-      
-      // Atualizar bounding box global
-      for (const p of points) {
-        minX = Math.min(minX, p.x + text.offsetX)
-        maxX = Math.max(maxX, p.x + text.offsetX)
-        minY = Math.min(minY, p.y + text.offsetY)
-        maxY = Math.max(maxY, p.y + text.offsetY)
-      }
+  if (shapes.length === 0) {
+    const empty = new Shape()
+    return {
+      outline: new ExtrudeGeometry(empty, { depth: thickness, bevelEnabled: false }),
+      boundingBox: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
     }
   }
 
-  // Unir todas as letras em um shape (coordenadas originais)
-  const combinedTextShape = unionShapes(letterShapes)
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const shape of shapes) {
+    for (const p of shape.getPoints()) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x)
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y)
+    }
+  }
 
-  // Criar bloco retangular que contenha o texto + margem
-  const rectMinX = minX - borderWidth
-  const rectMaxX = maxX + borderWidth
-  const rectMinY = minY - borderWidth
-  const rectMaxY = maxY + borderWidth
-
+  const union = unionShapes(shapes)
+  const expanded = expandShape(union, borderWidth)
   const rectangle = new Shape([
-    new Vector2(rectMinX, rectMinY),
-    new Vector2(rectMaxX, rectMinY),
-    new Vector2(rectMaxX, rectMaxY),
-    new Vector2(rectMinX, rectMaxY),
+    new Vector2(minX - borderWidth, minY - borderWidth),
+    new Vector2(maxX + borderWidth, minY - borderWidth),
+    new Vector2(maxX + borderWidth, maxY + borderWidth),
+    new Vector2(minX - borderWidth, maxY + borderWidth),
   ])
-
-  // Expandir nome em borderWidth (4mm)
-  const expandedTextShape = expandShape(combinedTextShape, borderWidth)
-
-  // Interseção: nome expandido ∩ retângulo = base
-  const baseShape = intersectShapes(expandedTextShape, rectangle)
-
-  // Gerar geometrias
-  const relief = texts[0]?.relief ?? 1
-
-  // Fill = nome original (coordenadas originais, sem alteração)
-  const fill = new ExtrudeGeometry(combinedTextShape, {
-    depth: relief,
-    bevelEnabled: false,
-  })
-
-  // Outline = base (subtração)
-  const outline = new ExtrudeGeometry(baseShape, {
-    depth: relief,
-    bevelEnabled: false,
-  })
+  const baseShape = intersectShapes(expanded, rectangle)
 
   return {
-    outline,
-    fill,
+    outline: new ExtrudeGeometry(baseShape, { depth: thickness, bevelEnabled: false }),
     boundingBox: {
-      minX: rectMinX,
-      maxX: rectMaxX,
-      minY: rectMinY,
-      maxY: rectMaxY,
+      minX: minX - borderWidth, maxX: maxX + borderWidth,
+      minY: minY - borderWidth, maxY: maxY + borderWidth,
     },
   }
 }
