@@ -14,10 +14,19 @@ vi.mock('@/assets/fonts/helvetiker_regular.typeface.json?url', () => ({ default:
 vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({ default: '/mock-font.json' }))
 vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
 
-// As fontes nunca resolvem, mantendo a geometria nula e os testes determinísticos.
+// As fontes nunca resolvem (ou falham quando `shouldError`), mantendo os testes determinísticos.
+const fontMock = vi.hoisted(() => ({ shouldError: false }))
+
 vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
   FontLoader: class {
-    load(): void {}
+    load(
+      _url: string,
+      _onLoad?: unknown,
+      _onProgress?: unknown,
+      onError?: () => void,
+    ): void {
+      if (fontMock.shouldError) onError?.()
+    }
   },
 }))
 
@@ -60,6 +69,7 @@ function renderStudioPage() {
 
 describe('StudioPage', () => {
   beforeEach(() => {
+    fontMock.shouldError = false
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -123,6 +133,16 @@ describe('StudioPage', () => {
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Produto' }, LAZY_TIMEOUT)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeInTheDocument()
+  })
+
+  it('mostra aviso quando a fonte falha ao carregar', async () => {
+    fontMock.shouldError = true
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
+
+    expect(
+      await screen.findByText(/falha ao carregar a fonte/i, undefined, LAZY_TIMEOUT),
+    ).toBeInTheDocument()
   })
 
   it('adiciona um segundo conteúdo no Chaveiro', async () => {

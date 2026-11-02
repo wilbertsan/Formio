@@ -239,11 +239,11 @@ describe('buildKeychain', () => {
   it('offsetX move o content', () => {
     const centered = buildKeychain(makeInput({
       width: 80,
-      contents: [{ ...textItem, offsetX: 0 }],
+      contents: [{ ...textItem, fontSize: 6, offsetX: 0 }],
     }))
     const shifted = buildKeychain(makeInput({
       width: 80,
-      contents: [{ ...textItem, offsetX: 10 }],
+      contents: [{ ...textItem, fontSize: 6, offsetX: 10 }],
     }))
     expect(boundsOf(shifted.content).max.x).toBeGreaterThan(boundsOf(centered.content).max.x)
   })

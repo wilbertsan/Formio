@@ -29,7 +29,7 @@ Gera chaveiros 3D personalizados com texto ou ícone SVG elevado ou gravado, arg
 
 Cada item de `contents[]` é uma união discriminada por `kind` (`text` | `icon`) com `id`, `offsetX/Y` (-20–20mm) em comum:
 
-- `text`: `content` (1–12 chars), `fontStyle` (normal/bold/serif), `fontSize` (6–15mm)
+- `text`: `content` (0–12 chars, vazio permitido), `fontStyle` (normal/bold/serif), `fontSize` (6–15mm)
 - `icon`: `svgIcon` (string|null), `iconScale` (0.5–1.0), `iconLineWidth` (0.1–1.5mm)
 
 `reliefDepth` é global (substitui o relevo por item) e `textMode` continua global.
@@ -41,7 +41,7 @@ Quando `baseShape === 'name'`:
 - Sliders de Comprimento/Altura ocultos (tamanho controlado por `fontSize` do texto e `iconScale` do ícone)
 - `borderWidth` dilata o contorno da união (não é espessura por letra)
 - `textMode` (raised/engraved) controla o preenchimento sobre o contorno
-- Argola posicionada conforme `ringPosition` em relação à bounding box da união, recuada por margem + raio + `ringRadialOffset` + `ringEmbedding`; `ringLateralOffset` desloca ao longo da borda
+- Argola posicionada fora da bounding box de todos os conteúdos conforme `ringPosition`, recuada por margem + raio + `ringRadialOffset`; `ringEmbedding` move a argola para dentro (`- embedding`) e `ringLateralOffset` desloca ao longo da borda. O furo é subtraído da base e do conteúdo
 
 ## Arquivos
 
@@ -79,7 +79,7 @@ O helper `../../confeitaria/shared/svgToIconShape.ts` é compartilhado para pars
 
 ## Testes
 
-`tests/features/studio/tools/chaveiros/chaveiro/` — 11 arquivos, 171 testes:
+`tests/features/studio/tools/chaveiros/chaveiro/` — 11 arquivos, 173 testes:
 
 - `autoFit.test.ts`
 - `buildKeychain.test.ts`

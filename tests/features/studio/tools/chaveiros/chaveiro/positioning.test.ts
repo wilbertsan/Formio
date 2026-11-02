@@ -1,4 +1,5 @@
 import { clampTextPosition } from '@/features/studio/tools/chaveiros/chaveiro/positioning'
+import { getRingPosition } from '@/features/studio/tools/chaveiros/chaveiro/shapes'
 
 describe('clampTextPosition', () => {
   const pieceBB = { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 }
@@ -36,8 +37,27 @@ describe('clampTextPosition', () => {
       centeredHole,
     )
     expect(result.x).toBe(0)
-    expect(result.y).toBe(4)
-    expect(Math.hypot(result.x - centeredHole.x, result.y - centeredHole.y)).toBeGreaterThanOrEqual(4)
+    expect(result.y).toBe(6)
+    expect(Math.hypot(result.x - centeredHole.x, result.y - centeredHole.y)).toBeGreaterThanOrEqual(6)
+  })
+
+  it('desloca o texto para baixo quando o furo está colado na borda superior', () => {
+    const ringCenter = getRingPosition('rect', 50, 25, {
+      position: 'top',
+      innerDiameter: 5,
+      embedding: 3,
+      lateralOffset: 0,
+      radialOffset: 0,
+    })
+    const topHole = { x: ringCenter.x, y: ringCenter.y, radius: 2.5 }
+    const result = clampTextPosition(
+      { x: topHole.x, y: topHole.y, halfWidth: 8, halfHeight: 3.5 },
+      { minX: -25, maxX: 25, minY: -12.5, maxY: 12.5 },
+      topHole,
+    )
+    expect(result.y).toBeLessThan(topHole.y)
+    const distance = Math.hypot(result.x - topHole.x, result.y - topHole.y)
+    expect(distance).toBeGreaterThanOrEqual(topHole.radius + 1 + 3.5 - 0.001)
   })
 
   it('considera a extensão do conteúdo na folga do furo', () => {
