@@ -12,11 +12,13 @@ import {
 import type { BoundingBox2D, Circle2D } from './positioning'
 import { CONTENT_DEPTH, RING_EDGE_MARGIN } from './schema'
 import type { ContentItem, FontStyle, KeychainParams } from './schema'
+import type { ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
 
 export interface BuildKeychainInput {
   font?: Font
   fonts?: Partial<Record<FontStyle, Font>>
   params: KeychainParams
+  parsedSvgs?: Record<string, ParsedSvg | null>
   onError?: (message: string) => void
 }
 
@@ -158,6 +160,7 @@ function buildRegularKeychain({
   font,
   fonts,
   params,
+  parsedSvgs,
   onError,
 }: BuildKeychainInput): BuildKeychainResult {
   const ring = makeRingParams(params)
@@ -213,7 +216,7 @@ function buildRegularKeychain({
       referenceSize: 10,
       pieceBB,
       hole,
-    })
+    }, parsedSvgs?.[item.id])
 
     if (!fitted) {
       contentItems.push({ id: item.id, halfWidth: 0, halfHeight: 0, geometry: null })
@@ -245,6 +248,7 @@ function buildNameKeychain({
   font,
   fonts,
   params,
+  parsedSvgs,
   onError,
 }: BuildKeychainInput): BuildKeychainResult {
   const textReference = params.contents.find(item => item.kind === 'text')
@@ -257,7 +261,12 @@ function buildNameKeychain({
     const itemFont = item.kind === 'text' && item.content.trim()
       ? resolveFont(fonts, font, item.fontStyle)
       : undefined
-    const shapes = buildContentShapes(item, itemFont, referenceSize)
+    const shapes = buildContentShapes(
+      item,
+      itemFont,
+      referenceSize,
+      parsedSvgs?.[item.id],
+    )
     allShapes.push(...shapes)
     contentItems.push(contentItemFromShapes(item, shapes))
   }

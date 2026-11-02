@@ -10,6 +10,7 @@ import {
   type KeychainParams,
   type TextContent,
 } from '@/features/studio/tools/chaveiros/chaveiro/schema'
+import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 
 const SVG_RECT =
   '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#000"/></svg>'
@@ -197,6 +198,23 @@ describe('buildKeychain', () => {
     const result = buildKeychain(makeInput({ contents: [iconItem] }))
     expect(result.content).not.toBeNull()
     expect(result.contentItems[0].halfWidth).toBeGreaterThan(0)
+  })
+
+  it('usa ParsedSvg fornecido sem DOMParser', () => {
+    const parsed = parseSvg(SVG_RECT)!
+    const result = buildKeychain(makeInput(
+      { contents: [iconItem] },
+      { parsedSvgs: { i1: parsed } },
+    ))
+    expect(result.content).not.toBeNull()
+  })
+
+  it('ignora ícone com ParsedSvg nulo', () => {
+    const result = buildKeychain(makeInput(
+      { contents: [iconItem] },
+      { parsedSvgs: { i1: null } },
+    ))
+    expect(result.content).toBeNull()
   })
 
   it('ícone sem SVG gera content nulo e base válida', () => {
