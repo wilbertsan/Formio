@@ -104,8 +104,32 @@ describe('buildSvgIconGeometryFromParsed', () => {
       maxRadius: 10, lineWidth: 0.3, iconScale: 1, depth: 1,
     })
     expect(geo).not.toBeNull()
-    geo!.computeBoundingBox()
-    expect(geo!.boundingBox!.max.x - geo!.boundingBox!.min.x).toBeLessThanOrEqual(20.1)
+    const { w, h } = measure(geo!)
+    expect(Math.max(w, h)).toBeGreaterThan(15)
+    expect(Math.max(w, h)).toBeLessThanOrEqual(20.1)
+  })
+
+  it('retorna null para ParsedSvg vazio', () => {
+    expect(buildSvgIconGeometryFromParsed(
+      { fills: [], strokes: [] },
+      { maxRadius: 10, lineWidth: 0.3, iconScale: 1, depth: 1 },
+    )).toBeNull()
+  })
+
+  it('equivale à variante por string', () => {
+    const input = { maxRadius: 10, lineWidth: 0.3, iconScale: 1, depth: 1 }
+    const fromParsed = buildSvgIconGeometryFromParsed(parseSvg(SVG_RECT)!, input)!
+    const fromString = buildSvgIconGeometry({ svg: SVG_RECT, ...input })!
+    fromParsed.computeBoundingBox()
+    fromString.computeBoundingBox()
+    const a = fromParsed.boundingBox!
+    const b = fromString.boundingBox!
+    expect(a.min.x).toBeCloseTo(b.min.x, 3)
+    expect(a.min.y).toBeCloseTo(b.min.y, 3)
+    expect(a.min.z).toBeCloseTo(b.min.z, 3)
+    expect(a.max.x).toBeCloseTo(b.max.x, 3)
+    expect(a.max.y).toBeCloseTo(b.max.y, 3)
+    expect(a.max.z).toBeCloseTo(b.max.z, 3)
   })
 })
 
@@ -122,8 +146,34 @@ describe('buildSvgIconGeometryInBoxFromParsed', () => {
       maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
     })
     expect(geo).not.toBeNull()
-    geo!.computeBoundingBox()
-    expect(geo!.boundingBox!.max.y - geo!.boundingBox!.min.y).toBeLessThanOrEqual(20.1)
+    const { w, h } = measure(geo!)
+    const max = Math.max(w, h)
+    expect(max).toBeGreaterThan(18)
+    expect(max).toBeLessThanOrEqual(20.1)
+    expect(Math.abs(w / h - 2)).toBeLessThan(0.5)
+  })
+
+  it('retorna null para ParsedSvg vazio', () => {
+    expect(buildSvgIconGeometryInBoxFromParsed(
+      { fills: [], strokes: [] },
+      { maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1 },
+    )).toBeNull()
+  })
+
+  it('equivale à variante por string', () => {
+    const input = { maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1 }
+    const fromParsed = buildSvgIconGeometryInBoxFromParsed(parseSvg(SVG_RECT)!, input)!
+    const fromString = buildSvgIconGeometryInBox({ svg: SVG_RECT, ...input })!
+    fromParsed.computeBoundingBox()
+    fromString.computeBoundingBox()
+    const a = fromParsed.boundingBox!
+    const b = fromString.boundingBox!
+    expect(a.min.x).toBeCloseTo(b.min.x, 3)
+    expect(a.min.y).toBeCloseTo(b.min.y, 3)
+    expect(a.min.z).toBeCloseTo(b.min.z, 3)
+    expect(a.max.x).toBeCloseTo(b.max.x, 3)
+    expect(a.max.y).toBeCloseTo(b.max.y, 3)
+    expect(a.max.z).toBeCloseTo(b.max.z, 3)
   })
 })
 
