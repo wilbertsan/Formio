@@ -1,24 +1,33 @@
+import { useRef } from 'react'
 import {
   Accordion,
   Button,
   Flex,
   Heading,
+  Radio,
+  RadioGroupField,
   SelectField,
   SliderField,
-  SwitchField,
   Text,
   TextField,
   View,
 } from '@aws-amplify/ui-react'
-import { type KeychainParams, type TextItem, PLA_COLORS } from './schema'
+import {
+  type FontStyle,
+  type IconContent,
+  type KeychainParams,
+  type TextContent,
+  PLA_COLORS,
+} from './schema'
 
 interface StudioPanelProps {
   params: KeychainParams
-  selectedTextId: string
-  onSelectText: (id: string) => void
-  onUpdateText: (id: string, patch: Partial<TextItem>) => void
-  onAddText: () => void
-  onRemoveText: (id: string) => void
+  selectedContentId: string
+  onSelectContent: (id: string) => void
+  onUpdateContent: (id: string, patch: Partial<TextContent> | Partial<IconContent>) => void
+  onSetContentType: (id: string, kind: 'text' | 'icon') => void
+  onAddContent: () => void
+  onRemoveContent: (id: string) => void
   onUpdateParam: (key: keyof KeychainParams, value: number | string) => void
   onReset: () => void
   onOpenEditor: () => void
@@ -52,17 +61,32 @@ function ColorSwatches({
 
 export function StudioPanel({
   params,
-  selectedTextId,
-  onSelectText,
-  onUpdateText,
-  onAddText,
-  onRemoveText,
+  selectedContentId,
+  onSelectContent,
+  onUpdateContent,
+  onSetContentType,
+  onAddContent,
+  onRemoveContent,
   onUpdateParam,
   onReset,
   onOpenEditor,
 }: StudioPanelProps) {
-  const selectedText = params.texts.find((t) => t.id === selectedTextId) ?? params.texts[0]
-  const canAddText = params.texts.length < 3
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const selected = params.contents.find((item) => item.id === selectedContentId) ?? params.contents[0]
+  const canAddContent = params.contents.length < 3
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const contentId = selected.id
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const svgContent = e.target?.result as string
+      onUpdateContent(contentId, { svgIcon: svgContent })
+    }
+    reader.readAsText(file)
+  }
 
   return (
     <View
@@ -80,31 +104,32 @@ export function StudioPanel({
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="texto">
+        <Accordion.Item value="conteudo">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Texto
+              Conteúdo
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <Flex direction="row" gap="xs" wrap="wrap">
-                {params.texts.map((text) => (
+                {params.contents.map((item) => (
                   <Button
-                    key={text.id}
+                    key={item.id}
                     size="small"
-                    aria-pressed={text.id === selectedTextId}
-                    onClick={() => onSelectText(text.id)}
+                    aria-pressed={item.id === selected.id}
+                    onClick={() => onSelectContent(item.id)}
                   >
-                    {text.content}
+                    {item.kind === 'text' ? item.content : 'Ícone'}
                   </Button>
                 ))}
-                {selectedTextId && params.texts.length > 1 && (
+                {params.contents.length > 1 && (
                   <Button
                     size="small"
                     variation="link"
-                    onClick={() => onRemoveText(selectedTextId)}
+                    aria-label="Remover conteúdo"
+                    onClick={() => onRemoveContent(selected.id)}
                   >
                     ×
                   </Button>
@@ -113,103 +138,125 @@ export function StudioPanel({
 
               <Button
                 size="small"
-                isDisabled={!canAddText}
-                onClick={onAddText}
+                isDisabled={!canAddContent}
+                onClick={onAddContent}
               >
                 Adicionar texto
               </Button>
 
-              {selectedText && (
-                <>
-                  <Button
-                    size="small"
-                    variation="link"
-                    onClick={onOpenEditor}
-                    aria-label="Posicionar textos"
-                  >
-                    ✥ Posicionar textos
-                  </Button>
+              <RadioGroupField
+                legend="Tipo de conteúdo"
+                name="contentType"
+                value={selected.kind}
+                onChange={(e) =>
+                  onSetContentType(selected.id, e.target.value as 'text' | 'icon')
+                }
+              >
+                <Radio value="text">Texto</Radio>
+                <Radio value="icon">Ícone</Radio>
+              </RadioGroupField>
 
+              {selected.kind === 'text' ? (
+                <>
                   <TextField
                     label="Conteúdo"
                     descriptiveText="Até 12 caracteres. Acentos são removidos."
-                    value={selectedText.content}
+                    value={selected.content}
                     maxLength={12}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      onUpdateText(selectedText.id, { content: e.target.value })
+                      onUpdateContent(selected.id, { content: e.target.value })
                     }
                   />
 
                   <SelectField
                     label="Estilo da letra"
-                    value={selectedText.fontStyle}
+                    value={selected.fontStyle}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      onUpdateText(selectedText.id, { fontStyle: e.target.value as TextItem['fontStyle'] })
+                      onUpdateContent(selected.id, { fontStyle: e.target.value as FontStyle })
                     }
                   >
-                    <option value="bold">Negrito</option>
                     <option value="normal">Normal</option>
+                    <option value="bold">Negrito</option>
                     <option value="serif">Serifada</option>
                   </SelectField>
 
-                  <SwitchField
-                    label="Proporcional à peça"
-                    isChecked={selectedText.proportional}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      onUpdateText(selectedText.id, { proportional: e.target.checked })
-                    }
+                  <SliderField
+                    label=""
+                    aria-label="Tamanho da fonte"
+                    min={6} max={15} step={1}
+                    value={selected.fontSize}
+                    onChange={(value) => onUpdateContent(selected.id, { fontSize: value as number })}
+                  />
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".svg"
+                    data-testid="icon-upload"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
                   />
 
-                  {!selectedText.proportional && (
+                  {!selected.svgIcon ? (
+                    <Button
+                      size="small"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      Upload SVG
+                    </Button>
+                  ) : (
                     <>
-                      <Flex direction="row" justifyContent="space-between">
-                        <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
-                        <Text fontSize="xs" color="font.secondary">{selectedText.width} mm</Text>
-                      </Flex>
-                      <SliderField
-                        label=""
-                        aria-label="Largura do texto"
-                        min={8} max={60} step={1}
-                        value={selectedText.width}
-                        onChange={(value) => onUpdateText(selectedText.id, { width: value as number })}
-                      />
-
-                      <Flex direction="row" justifyContent="space-between">
-                        <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
-                        <Text fontSize="xs" color="font.secondary">{selectedText.height} mm</Text>
-                      </Flex>
-                      <SliderField
-                        label=""
-                        aria-label="Altura do texto"
-                        min={4} max={20} step={0.5}
-                        value={selectedText.height}
-                        onChange={(value) => onUpdateText(selectedText.id, { height: value as number })}
-                      />
+                      <Text fontSize="xs" color="font.secondary">
+                        Ícone carregado
+                      </Text>
+                      <Button
+                        size="small"
+                        variation="link"
+                        onClick={() => onUpdateContent(selected.id, { svgIcon: null })}
+                      >
+                        Remover ícone
+                      </Button>
                     </>
                   )}
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.relief} mm</Text>
-                  </Flex>
                   <SliderField
                     label=""
-                    aria-label="Altura do relevo"
-                    min={0.4} max={2} step={0.1}
-                    value={selectedText.relief}
-                    onChange={(value) => onUpdateText(selectedText.id, { relief: value as number })}
+                    aria-label="Escala do ícone"
+                    min={0.5} max={1} step={0.1}
+                    value={selected.iconScale}
+                    isDisabled={!selected.svgIcon}
+                    onChange={(value) => onUpdateContent(selected.id, { iconScale: value as number })}
                   />
 
+                  <SliderField
+                    label=""
+                    aria-label="Espessura da linha do ícone"
+                    min={0.1} max={1.5} step={0.05}
+                    value={selected.iconLineWidth}
+                    isDisabled={!selected.svgIcon}
+                    onChange={(value) => onUpdateContent(selected.id, { iconLineWidth: value as number })}
+                  />
                 </>
               )}
+
+              <Button
+                size="small"
+                variation="link"
+                onClick={onOpenEditor}
+                aria-label="Posicionar textos"
+              >
+                ✥ Posicionar textos
+              </Button>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
 
-        <Accordion.Item value="base">
+        <Accordion.Item value="formato">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Base
+              Formato
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
@@ -228,54 +275,24 @@ export function StudioPanel({
                 <option value="name">Contorno do Nome</option>
               </SelectField>
 
-              <Text fontSize="xs" color="font.tertiary">
-                Cor da base
-              </Text>
-              <ColorSwatches
-                colors={PLA_COLORS}
-                selected={params.baseColor}
-                onSelect={(color) => onUpdateParam('baseColor', color)}
-              />
-
-              <Text fontSize="xs" color="font.tertiary">
-                Cor das letras
-              </Text>
-              <ColorSwatches
-                colors={PLA_COLORS}
-                selected={params.letterColor}
-                onSelect={(color) => onUpdateParam('letterColor', color)}
-              />
-
               {params.baseShape !== 'name' && (
-                <>
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Comprimento</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Comprimento"
-                    min={20} max={80} step={1}
-                    value={params.width}
-                    onChange={(value) => onUpdateParam('width', value as number)}
-                  />
-                </>
+                <SliderField
+                  label=""
+                  aria-label="Comprimento"
+                  min={20} max={80} step={1}
+                  value={params.width}
+                  onChange={(value) => onUpdateParam('width', value as number)}
+                />
               )}
 
               {params.baseShape !== 'circle' && params.baseShape !== 'name' && (
-                <>
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura da peça</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.height} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Altura da peça"
-                    min={20} max={80} step={1}
-                    value={params.height}
-                    onChange={(value) => onUpdateParam('height', value as number)}
-                  />
-                </>
+                <SliderField
+                  label=""
+                  aria-label="Altura da peça"
+                  min={20} max={80} step={1}
+                  value={params.height}
+                  onChange={(value) => onUpdateParam('height', value as number)}
+                />
               )}
 
               {params.baseShape === 'name' && (
@@ -284,40 +301,51 @@ export function StudioPanel({
                 </Text>
               )}
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Espessura
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.thickness} mm
-                </Text>
-              </Flex>
               <SliderField
                 label=""
                 aria-label="Espessura"
-                min={2}
-                max={6}
-                step={0.5}
+                min={2} max={6} step={0.5}
                 value={params.thickness}
                 onChange={(value) => onUpdateParam('thickness', value as number)}
               />
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Borda
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.borderWidth} mm
-                </Text>
-              </Flex>
               <SliderField
                 label=""
                 aria-label="Borda"
-                min={4}
-                max={10}
-                step={1}
+                min={4} max={10} step={1}
                 value={params.borderWidth}
                 onChange={(value) => onUpdateParam('borderWidth', value as number)}
+              />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="relevo">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">
+              Relevo
+            </Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <SelectField
+                label="Modo de relevo"
+                value={params.textMode}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdateParam('textMode', e.target.value)
+                }
+              >
+                <option value="raised">Elevado</option>
+                <option value="engraved">Gravado</option>
+              </SelectField>
+
+              <SliderField
+                label=""
+                aria-label="Profundidade do relevo"
+                min={0.4} max={2} step={0.1}
+                value={params.reliefDepth}
+                onChange={(value) => onUpdateParam('reliefDepth', value as number)}
               />
             </Flex>
           </Accordion.Content>
@@ -345,40 +373,66 @@ export function StudioPanel({
                 <option value="right">Direita</option>
               </SelectField>
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Diâmetro interno
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.ringInnerDiameter} mm
-                </Text>
-              </Flex>
               <SliderField
                 label=""
                 aria-label="Diâmetro interno"
-                min={3}
-                max={10}
-                step={0.5}
+                min={3} max={10} step={0.5}
                 value={params.ringInnerDiameter}
                 onChange={(value) => onUpdateParam('ringInnerDiameter', value as number)}
               />
 
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">
-                  Embutimento
-                </Text>
-                <Text fontSize="xs" color="font.secondary">
-                  {params.ringEmbedding} mm
-                </Text>
-              </Flex>
               <SliderField
                 label=""
                 aria-label="Embutimento"
-                min={0}
-                max={3}
-                step={0.5}
+                min={0} max={3} step={0.5}
                 value={params.ringEmbedding}
                 onChange={(value) => onUpdateParam('ringEmbedding', value as number)}
+              />
+
+              <SliderField
+                label=""
+                aria-label="Deslocamento radial"
+                min={0} max={5} step={0.5}
+                value={params.ringRadialOffset}
+                onChange={(value) => onUpdateParam('ringRadialOffset', value as number)}
+              />
+
+              <SliderField
+                label=""
+                aria-label="Deslocamento lateral"
+                min={-10} max={10} step={0.5}
+                value={params.ringLateralOffset}
+                onChange={(value) => onUpdateParam('ringLateralOffset', value as number)}
+              />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="aparencia">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">
+              Aparência
+            </Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <Text fontSize="xs" color="font.tertiary">
+                Cor da base
+              </Text>
+              <ColorSwatches
+                colors={PLA_COLORS}
+                selected={params.baseColor}
+                onSelect={(color) => onUpdateParam('baseColor', color)}
+              />
+
+              <Text fontSize="xs" color="font.tertiary">
+                Cor das letras
+              </Text>
+              <ColorSwatches
+                colors={PLA_COLORS}
+                selected={params.letterColor}
+                onSelect={(color) => onUpdateParam('letterColor', color)}
               />
             </Flex>
           </Accordion.Content>
