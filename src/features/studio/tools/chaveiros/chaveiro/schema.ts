@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const TEXT_BORDER_MIN = 4
 export const RING_EDGE_MARGIN = 2
+export const CONTENT_DEPTH = 1
 
 export const PLA_COLORS = [
   '#14b8a6', '#ef4444', '#3b82f6', '#eab308', '#22c55e',
@@ -44,7 +45,6 @@ export type FontStyle = TextContent['fontStyle']
 
 export const keychainParamsSchema = z.object({
   productType: z.literal('keychain'),
-  textMode: z.enum(['raised', 'engraved']),
   baseShape: z.enum(['rect', 'circle', 'heart', 'name']),
   width: z.number().min(20).max(80),
   height: z.number().min(20).max(80),
@@ -57,13 +57,11 @@ export const keychainParamsSchema = z.object({
   ringRadialOffset: z.number().min(0).max(5),
   baseColor: z.enum(PLA_COLORS),
   letterColor: z.enum(PLA_COLORS),
-  reliefDepth: z.number().min(0.4).max(2),
   contents: z.array(contentItemSchema).min(1).max(3),
 })
 
 export type KeychainParams = z.infer<typeof keychainParamsSchema>
 export type KeychainShape = KeychainParams['baseShape']
-export type KeychainTextMode = KeychainParams['textMode']
 export type RingPosition = KeychainParams['ringPosition']
 
 const defaultContent: TextContent = {
@@ -78,7 +76,6 @@ const defaultContent: TextContent = {
 
 export const defaultKeychainParams: KeychainParams = {
   productType: 'keychain',
-  textMode: 'raised',
   baseShape: 'rect',
   width: 50,
   height: 25,
@@ -91,7 +88,6 @@ export const defaultKeychainParams: KeychainParams = {
   ringRadialOffset: 0,
   baseColor: '#14b8a6',
   letterColor: '#f5f5f5',
-  reliefDepth: 1,
   contents: [defaultContent],
 }
 

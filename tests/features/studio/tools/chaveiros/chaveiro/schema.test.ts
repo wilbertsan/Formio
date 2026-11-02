@@ -1,4 +1,5 @@
 import {
+  CONTENT_DEPTH,
   contentItemSchema,
   defaultKeychainParams,
   keychainParamsSchema,
@@ -88,9 +89,7 @@ describe('conteúdo texto/ícone', () => {
     expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 1.6 }).success).toBe(false)
   })
 
-  it('rejeita reliefDepth fora do limite e kind desconhecido', () => {
-    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 0.3 }).success).toBe(false)
-    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 2.1 }).success).toBe(false)
+  it('rejeita kind desconhecido', () => {
     const [content] = defaultKeychainParams.contents
     expect(contentItemSchema.safeParse({ ...content, kind: 'image' }).success).toBe(false)
   })
@@ -119,14 +118,14 @@ describe('conteúdo texto/ícone', () => {
     expect(contentItemSchema.safeParse({ ...icon, iconLineWidth: 1.5 }).success).toBe(true)
   })
 
-  it('aceita reliefDepth nos limites válidos', () => {
-    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 0.4 }).success).toBe(true)
-    expect(keychainParamsSchema.safeParse({ ...defaultKeychainParams, reliefDepth: 2 }).success).toBe(true)
+  it('não expõe textMode nem reliefDepth', () => {
+    expect(CONTENT_DEPTH).toBe(1)
+    expect('textMode' in defaultKeychainParams).toBe(false)
+    expect('reliefDepth' in defaultKeychainParams).toBe(false)
   })
 
-  it('defaults são válidos e incluem reliefDepth', () => {
+  it('defaults são válidos', () => {
     expect(keychainParamsSchema.parse(defaultKeychainParams)).toEqual(defaultKeychainParams)
-    expect(defaultKeychainParams.reliefDepth).toBe(1)
     expect(defaultKeychainParams.contents).toHaveLength(1)
   })
 
