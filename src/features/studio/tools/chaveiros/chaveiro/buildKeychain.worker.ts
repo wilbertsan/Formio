@@ -30,8 +30,15 @@ scope.onmessage = async (event) => {
     styles.forEach((style, index) => {
       fonts[style] = loaded[index]
     })
+    // O worker não tem DOMParser: SVGs precisam chegar já parseados pela main thread.
+    const safeParsedSvgs = { ...parsedSvgs }
+    for (const item of params.contents) {
+      if (item.kind === 'icon' && item.svgIcon && safeParsedSvgs[item.id] === undefined) {
+        safeParsedSvgs[item.id] = null
+      }
+    }
     const { data, transfer } = serializeKeychainResult(
-      buildKeychain({ params, fonts, parsedSvgs }),
+      buildKeychain({ params, fonts, parsedSvgs: safeParsedSvgs }),
     )
     scope.postMessage({ data }, transfer)
   } catch (error) {
