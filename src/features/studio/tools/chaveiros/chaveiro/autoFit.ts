@@ -10,7 +10,7 @@ import {
   type ParsedSvg,
 } from '../../confeitaria/shared/svgToIconShape'
 import { clampTextPosition, type BoundingBox2D, type Circle2D } from './positioning'
-import { normalizeName, type ContentItem, type KeychainParams } from './schema'
+import { CONTENT_DEPTH, normalizeName, type ContentItem, type KeychainParams } from './schema'
 import { createOutline } from './shapes'
 import { nameToGeometry } from './textToGeometry'
 
@@ -144,7 +144,7 @@ export function resolveContentGeometry(
       font: ctx.font,
       name: item.content,
       size: item.fontSize,
-      depth: ctx.params.reliefDepth,
+      depth: CONTENT_DEPTH,
     })
     normalizeZ(geometry)
     if (ctx.region) fitGeometryToRegion(geometry, ctx.region)
@@ -163,7 +163,7 @@ export function resolveContentGeometry(
       maxRadius: radius,
       lineWidth: item.iconLineWidth,
       iconScale: item.iconScale,
-      depth: ctx.params.reliefDepth,
+      depth: CONTENT_DEPTH,
     }))
   } else if (region?.kind === 'rect') {
     const maxWidth = region.maxX - region.minX
@@ -174,7 +174,7 @@ export function resolveContentGeometry(
       maxHeight,
       lineWidth: item.iconLineWidth,
       iconScale: item.iconScale,
-      depth: ctx.params.reliefDepth,
+      depth: CONTENT_DEPTH,
     }))
   } else {
     geometry = safeIconGeometry(() => buildSvgIconGeometryInBox({
@@ -183,7 +183,7 @@ export function resolveContentGeometry(
       maxHeight: ctx.referenceSize * 2,
       lineWidth: item.iconLineWidth,
       iconScale: item.iconScale,
-      depth: ctx.params.reliefDepth,
+      depth: CONTENT_DEPTH,
     }))
   }
 
