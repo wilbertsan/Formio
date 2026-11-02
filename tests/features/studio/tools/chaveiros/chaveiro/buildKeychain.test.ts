@@ -154,7 +154,28 @@ describe('buildKeychain', () => {
     result.content!.computeBoundingBox()
     const bb = result.content!.boundingBox!
     expect(bb.max.z - bb.min.z).toBeCloseTo(CONTENT_DEPTH, 1)
+    expect(bb.min.z).toBeCloseTo(defaultKeychainParams.thickness + 0.19, 1)
+    expect(bb.max.z).toBeCloseTo(defaultKeychainParams.thickness + 0.19 + CONTENT_DEPTH, 1)
     expect(result).not.toHaveProperty('mode')
+  })
+
+  it('ícone regular tem profundidade fixa de 1mm mais o bevel', () => {
+    const result = buildKeychain(makeInput({ contents: [iconItem] }))
+    const bb = boundsOf(result.content)
+    const iconDepth = CONTENT_DEPTH + 0.2
+    expect(bb.max.z - bb.min.z).toBeCloseTo(iconDepth, 1)
+    expect(bb.min.z).toBeCloseTo(defaultKeychainParams.thickness + 0.19, 1)
+    expect(bb.max.z).toBeCloseTo(defaultKeychainParams.thickness + 0.19 + iconDepth, 1)
+  })
+
+  it('name: content tem profundidade fixa de 1mm a partir da espessura', () => {
+    const result = buildKeychain(makeInput({
+      baseShape: 'name',
+      contents: [{ ...textItem, content: 'A' }],
+    }))
+    const bb = boundsOf(result.content)
+    expect(bb.max.z - bb.min.z).toBeCloseTo(CONTENT_DEPTH, 1)
+    expect(bb.min.z).toBeCloseTo(defaultKeychainParams.thickness - 0.01, 1)
   })
 
   it('auto-fit: content cabe em width - 2*borderWidth', () => {
