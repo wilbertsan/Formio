@@ -14,19 +14,10 @@ vi.mock('@/assets/fonts/helvetiker_regular.typeface.json?url', () => ({ default:
 vi.mock('@/assets/fonts/helvetiker_bold.typeface.json?url', () => ({ default: '/mock-font.json' }))
 vi.mock('@/assets/fonts/optimer_regular.typeface.json?url', () => ({ default: '/mock-font.json' }))
 
-// As fontes nunca resolvem (ou falham quando `shouldError`), mantendo os testes determinísticos.
-const fontMock = vi.hoisted(() => ({ shouldError: false }))
-
+// As fontes nunca resolvem, mantendo os testes determinísticos.
 vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
   FontLoader: class {
-    load(
-      _url: string,
-      _onLoad?: unknown,
-      _onProgress?: unknown,
-      onError?: () => void,
-    ): void {
-      if (fontMock.shouldError) onError?.()
-    }
+    load(): void {}
   },
 }))
 
@@ -69,7 +60,6 @@ function renderStudioPage() {
 
 describe('StudioPage', () => {
   beforeEach(() => {
-    fontMock.shouldError = false
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -157,6 +147,8 @@ describe('StudioPage', () => {
   it('mostra Gerando… ao gerar o chaveiro', async () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
-    expect(await screen.findByText('Gerando…', {}, { timeout: 3000 })).toBeInTheDocument()
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+    expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
   })
 })

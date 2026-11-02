@@ -201,11 +201,11 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
-      <div className="relative flex min-h-0 flex-1" aria-busy={isBuilding}>
+      <div className="relative flex min-h-0 flex-1">
         {error ? (
           <div
             role="alert"
-            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
           >
             {error}
           </div>
@@ -232,19 +232,21 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
             onOpenEditor={() => setEditorOpen(true)}
           />
         </Suspense>
-        <StudioViewport
-          hasGeometry={geometry !== null}
-          resetCameraSignal={resetCameraSignal}
-          onResetCamera={handleResetCamera}
-        >
-          <Suspense fallback={null}>
-            <ChaveiroPreview
-              geometry={geometry}
-              baseColor={params.baseColor}
-              letterColor={params.letterColor}
-            />
-          </Suspense>
-        </StudioViewport>
+        <div className="flex min-h-0 flex-1" aria-busy={isBuilding}>
+          <StudioViewport
+            hasGeometry={geometry !== null}
+            resetCameraSignal={resetCameraSignal}
+            onResetCamera={handleResetCamera}
+          >
+            <Suspense fallback={null}>
+              <ChaveiroPreview
+                geometry={geometry}
+                baseColor={params.baseColor}
+                letterColor={params.letterColor}
+              />
+            </Suspense>
+          </StudioViewport>
+        </div>
       </div>
       <StudioStatusBar dimensions={dimensions} />
       {isEditorOpen && (
