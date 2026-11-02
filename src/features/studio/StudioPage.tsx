@@ -154,7 +154,8 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
   const {
     params,
     geometry,
-    fontError,
+    isBuilding,
+    error,
     dimensions,
     updateParam,
     updateContent,
@@ -200,12 +201,23 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
-      {fontError && (
-        <div role="alert" className="border-b border-red-200 bg-red-50 px-3 py-1 text-xs text-red-600">
-          Falha ao carregar a fonte. Verifique a conexão e tente novamente.
-        </div>
-      )}
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1" aria-busy={isBuilding}>
+        {error ? (
+          <div
+            role="alert"
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+          >
+            {error}
+          </div>
+        ) : isBuilding ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+          >
+            Gerando…
+          </div>
+        ) : null}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <ChaveiroTool
             params={params}

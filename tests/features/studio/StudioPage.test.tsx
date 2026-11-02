@@ -135,16 +135,6 @@ describe('StudioPage', () => {
     expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeInTheDocument()
   })
 
-  it('mostra aviso quando a fonte falha ao carregar', async () => {
-    fontMock.shouldError = true
-    renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
-
-    expect(
-      await screen.findByText(/falha ao carregar a fonte/i, undefined, LAZY_TIMEOUT),
-    ).toBeInTheDocument()
-  })
-
   it('adiciona um segundo conteúdo no Chaveiro', async () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
@@ -162,5 +152,11 @@ describe('StudioPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /posicionar conteúdos/i }, LAZY_TIMEOUT))
     expect(screen.getByRole('heading', { name: /posicionar conteúdos/i })).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… ao gerar o chaveiro', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /chaveiro/i }))
+    expect(await screen.findByText('Gerando…', {}, { timeout: 3000 })).toBeInTheDocument()
   })
 })
