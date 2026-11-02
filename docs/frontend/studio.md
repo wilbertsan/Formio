@@ -4,7 +4,7 @@
 
 O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas disponíveis:
 
-- **Gerador de Chaveiros** — Chaveiros 3D personalizados com texto em relevo
+- **Gerador de Chaveiros** — Chaveiros 3D personalizados com textos e ícones SVG em relevo ou gravados, com auto-fit por formato
 - **Cartão de Visita** — Cartões de visita 3D com texto em relevo e layout personalizado
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
@@ -25,12 +25,14 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | O que | Onde |
 |---|---|
 | **Chaveiros** | |
-| 17 parâmetros e defaults | `src/features/studio/tools/chaveiros/chaveiro/schema.ts` |
+| 16 parâmetros e defaults (conteúdo texto/ícone discriminado) | `src/features/studio/tools/chaveiros/chaveiro/schema.ts` |
 | Fontes typeface.json | `src/assets/fonts/` |
 | Mapa estilo→fonte | `src/features/studio/tools/chaveiros/chaveiro/fonts.ts` |
 | Formas + furo parametrizável | `src/features/studio/tools/chaveiros/chaveiro/shapes.ts` |
-| Texto 3D + fit-to-width | `src/features/studio/tools/chaveiros/chaveiro/textToGeometry.ts` |
-| Composição {base, text} | `src/features/studio/tools/chaveiros/chaveiro/buildKeychain.ts` |
+| Região útil + auto-fit por formato | `src/features/studio/tools/chaveiros/chaveiro/autoFit.ts` |
+| Texto 3D (TextGeometry) | `src/features/studio/tools/chaveiros/chaveiro/textToGeometry.ts` |
+| União/expansão de contorno do nome | `src/features/studio/tools/chaveiros/chaveiro/nameOutline.ts` |
+| Composição {base, content, contentItems} | `src/features/studio/tools/chaveiros/chaveiro/buildKeychain.ts` |
 | Export STL (merge) | `src/features/studio/tools/chaveiros/chaveiro/exportStl.ts` |
 | Estado + fontes lazy | `src/features/studio/tools/chaveiros/chaveiro/useKeychain.ts` |
 | Painel de blocos | `src/features/studio/tools/chaveiros/chaveiro/StudioPanel.tsx` |
@@ -93,13 +95,15 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 
 Pipeline completo de geração do chaveiro 3D:
 
-**schema.ts (Zod)** → **shapes.ts (THREE.Shape + furo nativo)** → **textToGeometry.ts (TextGeometry + fit-to-width)** → **buildKeychain.ts (raised = merge, engraved = CSG)** → **exportStl.ts (STL binário + download)**
+**schema.ts (Zod)** → **autoFit.ts / shapes.ts (região útil + THREE.Shape + furo nativo)** → **textToGeometry.ts (TextGeometry)** → **buildKeychain.ts (raised = merge, engraved = CSG)** → **exportStl.ts (STL binário + download)**, com **svgToIconShape.ts** compartilhado para ícones SVG.
 
-1. **schema.ts** — Valida e normaliza parâmetros (nome 1-12 chars, forma, modo de texto, dimensões)
-2. **shapes.ts** — Gera a forma base (retângulo, círculo ou coração) com furo nativo para o aro
-3. **textToGeometry.ts** — Cria geometria 3D do texto com TextGeometry, ajusta escura para caber na base
-4. **buildKeychain.ts** — Composição: raised (rebaixado) usa merge, engraved (gravado) usa CSG subtração
-5. **exportStl.ts** — Exporta geometria final como STL binário e dispara download
+1. **schema.ts** — Valida e normaliza parâmetros (conteúdo 1–3 itens discriminados em texto/ícone, forma, modo, relevo global, dimensões)
+2. **autoFit.ts** — Define a região útil por formato (retângulo interno, círculo inscrito, círculo inscrito no coração; `name` sem região), reduz o conteúdo para caber sem ampliar e aplica clamp de borda (4mm) e folga do furo (1mm)
+3. **shapes.ts** — Gera a forma base (retângulo, círculo ou coração) com furo nativo para o aro; no formato `name`, a base é a união dos contornos de textos e ícones dilatada por `borderWidth`
+4. **textToGeometry.ts** — Cria a geometria 3D do texto com TextGeometry, normalizando o nome
+5. **svgToIconShape.ts** (compartilhado) — Converte o SVG em shapes/geometria, com escala e engrossamento de traço (`iconLineWidth`)
+6. **buildKeychain.ts** — Compõe os conteúdos com relevo global (`reliefDepth`): raised usa merge, engraved usa CSG subtração
+7. **exportStl.ts** — Exporta geometria final como STL binário e dispara download
 
 ## Decisões
 
@@ -114,23 +118,23 @@ Pipeline completo de geração do chaveiro 3D:
   drei são mockados nos testes do viewport/page.
 - **Seletor por categoria:** ferramentas agrupadas em duas faixas horizontais empilhadas (Confeitaria e Letreiros) derivadas do array `TOOLS`; cards com `flex-wrap` e largura responsiva (`w-full sm:w-56`), título da categoria na seção (não mais no card). Chaveiro pertence a Letreiros.
 - **Tema claro consistente com a landing** (painéis brancos, bordas neutral-200, ativos brand-600); componentes Amplify UI mantidos (SliderField, TextField).
-- **Gravação rasa:** o texto gravado corta apenas `textDepth` a partir da face frontal (epsilon 0.2 anti-coplanar) — o verso fica sólido e o texto nunca aparece espelhado por trás.
+- **Gravação rasa:** o conteúdo gravado corta apenas `reliefDepth` a partir da face frontal (epsilon 0.2 anti-coplanar) — o verso fica sólido e o conteúdo nunca aparece espelhado por trás.
 - **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
 - **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
-- **Regras de segurança:** texto sempre com borda ≥ 4mm (`TEXT_BORDER_MIN`); furo da argola sempre a ≥ 2mm da borda (`RING_EDGE_MARGIN`). Clamp automático.
+- **Regras de segurança:** conteúdo sempre com borda ≥ 4mm (`TEXT_BORDER_MIN`); furo da argola sempre a ≥ 2mm da borda (`RING_EDGE_MARGIN`). Clamp automático.
 - **3 fontes carregadas sob demanda:** helvetiker_regular (normal), helvetiker_bold (bold), optimer_regular (serif). Cache no hook; troca rebuilda geometria.
-- **2 cores no preview:** `buildKeychain` retorna `{base, text}`; material base = `baseColor`, material texto = `letterColor`. Troca de cor NÃO rebuilda geometria (só material).
+- **2 cores no preview:** `buildKeychain` retorna `{base, content, contentItems}`; material base = `baseColor`, material conteúdo = `letterColor`. Troca de cor NÃO rebuilda geometria (só material).
 - **Anel de reforço:** anel extrudado ao redor do furo, mergeado na base.
 - **Swatches PLA:** 10 cores fixas no schema; STL exportado não carrega cor.
 - **Painel Antigo removido:** `StudioToolbar` e `StudioParameters` mortos.
-- **Controle direto do texto:** `textWidth` (8–60mm) e `textSize` (4–20mm) no schema; escala uniforme no build limitada pela área útil (regra de 4mm preservada).
 - **Estilo em SelectField:** dropdown nativo no painel — elimina overflow do ButtonGroup anterior.
 - **Argola com SelectField:** posição da argola usa dropdown nativo (Cima/Baixo/Esquerda/Direita); embutimento e diâmetro interno mantidos como sliders.
-- **Textos múltiplos:** `texts: TextItem[]` (1–3) no schema; cada item com conteúdo, fonte, tamanho, largura, relevo, proporcional e posição X/Y próprios. Campos globais antigos (`name`, `fontStyle`, `letterHeight`, `textWidth`, `textSize`) removidos.
-- **Empilhamento automático:** textos empilhados verticalmente centrados; offsets X/Y são relativos à posição base.
-- **Toggle proporcional por texto:** ligado = escala automática; desligado = sliders manuais de largura/altura.
-- **Snap de contato:** todo texto encosta no topo interno, no furo/anel ou na base do texto anterior (fusão de 0.5mm). Aplicado no editor (pointerUp) e no build — fonte única de verdade.
-- **Sliders Posição X/Y removidos** e drag 3D removidos — posicionamento exclusivamente pelo editor 2D.
+- **Conteúdo discriminado:** `contents[]` (1–3) é uma união discriminada `TextContent | IconContent`; `kind` (`text` | `icon`) define os campos válidos. Texto tem `content`, `fontStyle` e `fontSize`; ícone tem `svgIcon`, `iconScale` e `iconLineWidth`. Ambos compartilham `offsetX/Y`.
+- **Auto-fit por formato:** `autoFit.ts` calcula a região útil (retângulo interno, círculo inscrito ou círculo inscrito no coração; `name` sem região) e reduz o conteúdo para caber, sem nunca ampliar. `clampTextPosition` mantém 4mm da borda e 1mm de folga do furo.
+- **Relevo global:** `reliefDepth` (0.4–2mm, default 1) vale para todos os conteúdos; o relevo por item foi removido.
+- **Contorno do nome:** a base é a união dos contornos de textos e ícones; `borderWidth` dilata essa união. A argola respeita `ringPosition` em relação à bounding box da união, recuada por margem + raio + offsets/embutimento.
+- **Reuso de ícone SVG:** o helper `shared/svgToIconShape.ts` é compartilhado com a confeitaria para parse, bounds, escala, engrossamento de traço e geometria; o mesmo caminho vale no formato `name`.
+- **Posicionamento por editor 2D:** offsets X/Y no schema, arrastar no editor e clamp no build; sliders de posição e drag 3D removidos.
 - **Suporte de Bolo:** Base circular com decoração geométrica (hexágonos, linhas, ondas) via ExtrudeGeometry; coluna cônica via CylinderGeometry; prato com borda opcional. 3 alturas predefinidas (40/60/80mm). Schema sem fontes (não precisa de TextGeometry).
 - **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
 - **Topo de Bolo:** Toppers decorativos para bolo com 1–3 textos independentes (modo relevo `raised` ou vazado `cut` via CSG, com fallback para relevo) e ícone SVG opcional (acima ou centro). Placa em `circle`, `rounded-rect`, `oval` ou contorno `custom` por SVG, via ExtrudeGeometry. Textos posicionados pelo editor 2D. Fixação por `haste` (cilindro integrado) ou `base` separada com canaleta de encaixe. Exportação STL binário.
