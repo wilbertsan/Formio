@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Accordion,
   Button,
@@ -35,6 +35,7 @@ interface StudioPanelProps {
 
 const MAX_SVG_BYTES = 1024 * 1024
 const SVG_ERROR_MESSAGE = 'Envie um arquivo SVG de até 1 MB.'
+const SVG_READ_ERROR_MESSAGE = 'Não foi possível ler o arquivo.'
 
 function LabeledSlider({
   label,
@@ -69,6 +70,7 @@ function LabeledSlider({
         step={step}
         value={value}
         isDisabled={isDisabled}
+        isValueHidden
         onChange={(v) => onChange(v as number)}
       />
     </>
@@ -120,6 +122,10 @@ export function StudioPanel({
   const iconItems = params.contents.filter((item) => item.kind === 'icon')
   const hasMultipleIcons = iconItems.length > 1
 
+  useEffect(() => {
+    setSvgError(null)
+  }, [selectedContentId])
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.target
     const file = input.files?.[0]
@@ -143,7 +149,7 @@ export function StudioPanel({
       input.value = ''
     }
     reader.onerror = () => {
-      setSvgError(SVG_ERROR_MESSAGE)
+      setSvgError(SVG_READ_ERROR_MESSAGE)
       input.value = ''
     }
     reader.readAsText(file)
@@ -194,7 +200,10 @@ export function StudioPanel({
                     size="small"
                     variation="link"
                     aria-label="Remover conteúdo"
-                    onClick={() => onRemoveContent(selected.id)}
+                    onClick={() => {
+                      setSvgError(null)
+                      onRemoveContent(selected.id)
+                    }}
                   >
                     ×
                   </Button>
@@ -279,7 +288,10 @@ export function StudioPanel({
                       <Button
                         size="small"
                         variation="link"
-                        onClick={() => onUpdateContent(selected.id, { svgIcon: null })}
+                        onClick={() => {
+                          setSvgError(null)
+                          onUpdateContent(selected.id, { svgIcon: null })
+                        }}
                       >
                         Remover ícone
                       </Button>

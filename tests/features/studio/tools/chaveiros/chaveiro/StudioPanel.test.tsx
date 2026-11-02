@@ -29,8 +29,8 @@ function iconParams(svgIcon: string | null = null): KeychainParams {
   }
 }
 
-function renderPanel(overrides: Partial<PanelProps> = {}) {
-  const props: PanelProps = {
+function createPanelProps(overrides: Partial<PanelProps> = {}): PanelProps {
+  return {
     params: defaultKeychainParams,
     selectedContentId: firstContentId,
     onSelectContent: vi.fn(),
@@ -43,7 +43,10 @@ function renderPanel(overrides: Partial<PanelProps> = {}) {
     onOpenEditor: vi.fn(),
     ...overrides,
   }
+}
 
+function renderPanel(overrides: Partial<PanelProps> = {}) {
+  const props = createPanelProps(overrides)
   render(<StudioPanel {...props} />)
   return props
 }
@@ -244,6 +247,64 @@ describe('StudioPanel', () => {
       expect(screen.getByRole('alert')).toHaveTextContent('Envie um arquivo SVG de até 1 MB.'),
     )
     expect(props.onUpdateContent).not.toHaveBeenCalled()
+  })
+
+  it('mostra erro de leitura quando o FileReader falha', async () => {
+    const props = renderPanel({ params: iconParams(null), selectedContentId: 'i1' })
+    class FailingFileReader {
+      onerror: ((event: ProgressEvent<FileReader>) => void) | null = null
+      readAsText() {
+        this.onerror?.(new ProgressEvent('error') as ProgressEvent<FileReader>)
+      }
+    }
+    vi.stubGlobal('FileReader', FailingFileReader)
+    try {
+      const file = new File(['<svg></svg>'], 'icon.svg', { type: 'image/svg+xml' })
+
+      fireEvent.change(screen.getByTestId('icon-upload'), { target: { files: [file] } })
+
+      await waitFor(() =>
+        expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível ler o arquivo.'),
+      )
+      expect(props.onUpdateContent).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('limpa o erro ao remover o conteúdo', async () => {
+    const user = userEvent.setup()
+    const params = {
+      ...defaultKeychainParams,
+      contents: [iconContent, defaultKeychainParams.contents[0]],
+    }
+    renderPanel({ params, selectedContentId: 'i1' })
+    const file = new File(['png'], 'icon.png', { type: 'image/png' })
+
+    fireEvent.change(screen.getByTestId('icon-upload'), { target: { files: [file] } })
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Remover conteúdo' }))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('limpa o erro ao trocar o conteúdo selecionado', async () => {
+    const params = {
+      ...defaultKeychainParams,
+      contents: [iconContent, defaultKeychainParams.contents[0]],
+    }
+    const props = createPanelProps({ params, selectedContentId: 'i1' })
+    const { rerender } = render(<StudioPanel {...props} />)
+    const file = new File(['png'], 'icon.png', { type: 'image/png' })
+
+    fireEvent.change(screen.getByTestId('icon-upload'), { target: { files: [file] } })
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+
+    rerender(<StudioPanel {...props} selectedContentId={firstContentId} />)
+    rerender(<StudioPanel {...props} selectedContentId="i1" />)
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('permite reenviar o mesmo arquivo após limpar o input', async () => {
