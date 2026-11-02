@@ -257,16 +257,23 @@ export function scaleShape(shape: Shape, factor: number): Shape {
  * 180° no eixo Z (o SVGLoader entrega o eixo Y para baixo). O posicionamento
  * final em Z é responsabilidade do chamador.
  */
-export function buildSvgIconGeometry({
-  svg,
-  maxRadius,
-  lineWidth,
-  iconScale,
-  depth,
-}: SvgIconInput): BufferGeometry | null {
-  const parsed = parseSvg(svg)
+export function buildSvgIconGeometry(
+  input: SvgIconInput,
+): BufferGeometry | null {
+  const parsed = parseSvg(input.svg)
   if (!parsed) return null
+  return buildSvgIconGeometryFromParsed(parsed, input)
+}
 
+export function buildSvgIconGeometryFromParsed(
+  parsed: ParsedSvg,
+  {
+    maxRadius,
+    lineWidth,
+    iconScale,
+    depth,
+  }: Omit<SvgIconInput, 'svg'>,
+): BufferGeometry | null {
   const bounds = svgBoundsFromParsed(parsed)
   if (!bounds) return null
 
@@ -313,17 +320,24 @@ export interface SvgIconBoxInput {
  * preservando o aspecto original. O resultado fica centralizado em X/Y,
  * extrudado em Z a partir de 0 e girado 180° no eixo Z.
  */
-export function buildSvgIconGeometryInBox({
-  svg,
-  maxWidth,
-  maxHeight,
-  lineWidth,
-  iconScale,
-  depth,
-}: SvgIconBoxInput): BufferGeometry | null {
-  const parsed = parseSvg(svg)
+export function buildSvgIconGeometryInBox(
+  input: SvgIconBoxInput,
+): BufferGeometry | null {
+  const parsed = parseSvg(input.svg)
   if (!parsed) return null
+  return buildSvgIconGeometryInBoxFromParsed(parsed, input)
+}
 
+export function buildSvgIconGeometryInBoxFromParsed(
+  parsed: ParsedSvg,
+  {
+    maxWidth,
+    maxHeight,
+    lineWidth,
+    iconScale,
+    depth,
+  }: Omit<SvgIconBoxInput, 'svg'>,
+): BufferGeometry | null {
   const bounds = svgBoundsFromParsed(parsed)
   if (!bounds || (bounds.width <= 0 && bounds.height <= 0)) return null
 

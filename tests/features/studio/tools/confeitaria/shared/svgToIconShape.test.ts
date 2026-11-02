@@ -5,6 +5,8 @@ import {
   svgToShapes,
   buildSvgIconGeometry,
   buildSvgIconGeometryInBox,
+  buildSvgIconGeometryFromParsed,
+  buildSvgIconGeometryInBoxFromParsed,
   parseSvg,
   svgBoundsFromParsed,
   svgShapesFromParsed,
@@ -95,11 +97,35 @@ describe('buildSvgIconGeometry', () => {
   })
 })
 
+describe('buildSvgIconGeometryFromParsed', () => {
+  it('gera geometria a partir de ParsedSvg', () => {
+    const parsed = parseSvg(SVG_RECT)!
+    const geo = buildSvgIconGeometryFromParsed(parsed, {
+      maxRadius: 10, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    expect(geo).not.toBeNull()
+    geo!.computeBoundingBox()
+    expect(geo!.boundingBox!.max.x - geo!.boundingBox!.min.x).toBeLessThanOrEqual(20.1)
+  })
+})
+
 function measure(geo: BufferGeometry): { w: number; h: number; minZ: number } {
   geo.computeBoundingBox()
   const bb = geo.boundingBox!
   return { w: bb.max.x - bb.min.x, h: bb.max.y - bb.min.y, minZ: bb.min.z }
 }
+
+describe('buildSvgIconGeometryInBoxFromParsed', () => {
+  it('encaixa em caixa a partir de ParsedSvg', () => {
+    const parsed = parseSvg(SVG_RECT)!
+    const geo = buildSvgIconGeometryInBoxFromParsed(parsed, {
+      maxWidth: 20, maxHeight: 20, lineWidth: 0.3, iconScale: 1, depth: 1,
+    })
+    expect(geo).not.toBeNull()
+    geo!.computeBoundingBox()
+    expect(geo!.boundingBox!.max.y - geo!.boundingBox!.min.y).toBeLessThanOrEqual(20.1)
+  })
+})
 
 describe('buildSvgIconGeometryInBox', () => {
   it('encaixa o ícone em uma caixa com proporção', () => {
