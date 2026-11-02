@@ -4,6 +4,7 @@ import {
   type BuildKeychainInput,
 } from '@/features/studio/tools/chaveiros/chaveiro/buildKeychain'
 import {
+  CONTENT_DEPTH,
   defaultKeychainParams,
   type IconContent,
   type KeychainParams,
@@ -69,24 +70,6 @@ vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   },
 }))
 
-const { csgCalls, csgState } = vi.hoisted(() => {
-  const csgCalls: Array<{ base: THREE.BufferGeometry; text: THREE.BufferGeometry }> = []
-  const csgState = { shouldThrow: false }
-  return { csgCalls, csgState }
-})
-
-vi.mock('three-bvh-csg', () => ({
-  Brush: class { constructor(public geometry: THREE.BufferGeometry) {} },
-  Evaluator: class {
-    evaluate(a: { geometry: THREE.BufferGeometry }, b: { geometry: THREE.BufferGeometry }) {
-      if (csgState.shouldThrow) throw new Error('CSG falhou')
-      csgCalls.push({ base: a.geometry, text: b.geometry })
-      return { geometry: a.geometry.clone() }
-    }
-  },
-  SUBTRACTION: 2,
-}))
-
 vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
   mergeGeometries: (geos: THREE.BufferGeometry[]) => {
     if (geos.length === 0) return null
@@ -145,11 +128,6 @@ function size(geometry: THREE.BufferGeometry | null): { width: number; height: n
 }
 
 describe('buildKeychain', () => {
-  beforeEach(() => {
-    csgCalls.length = 0
-    csgState.shouldThrow = false
-  })
-
   it('retorna base, content e contentItems', () => {
     const result = buildKeychain(makeInput())
     expect(result.base).toBeDefined()
@@ -163,26 +141,20 @@ describe('buildKeychain', () => {
     expect(boundsOf(result.content).max.z).toBeGreaterThan(defaultKeychainParams.thickness)
   })
 
-  it('engraved: exatamente um CSG com brush na faixa gravada', () => {
-    csgCalls.length = 0
-    const result = buildKeychain(makeInput({ textMode: 'engraved' }))
-    expect(result.base).toBeDefined()
-    expect(csgCalls).toHaveLength(1)
-
-    const surfaceTop = defaultKeychainParams.thickness + 0.2
-    const bb = boundsOf(csgCalls[0].text)
-    const lower = surfaceTop - defaultKeychainParams.reliefDepth - 0.21
-    const upper = surfaceTop + 0.21
-    expect(bb.min.z).toBeGreaterThanOrEqual(lower)
-    expect(bb.max.z).toBeLessThanOrEqual(upper)
-  })
-
   it('raised regular: fundo do content no topo biselado', () => {
     const result = buildKeychain(makeInput())
     expect(boundsOf(result.content).min.z).toBeCloseTo(
       defaultKeychainParams.thickness + 0.19,
       1,
     )
+  })
+
+  it('conteúdo é sempre elevado com profundidade fixa de 1mm', () => {
+    const result = buildKeychain(makeInput())
+    result.content!.computeBoundingBox()
+    const bb = result.content!.boundingBox!
+    expect(bb.max.z - bb.min.z).toBeCloseTo(CONTENT_DEPTH, 1)
+    expect(result).not.toHaveProperty('mode')
   })
 
   it('auto-fit: content cabe em width - 2*borderWidth', () => {
@@ -265,18 +237,6 @@ describe('buildKeychain', () => {
     expect(bb.max.y - bb.min.y).toBeCloseTo(30, 0)
   })
 
-  it('engraved com dois contents usa um único CSG', () => {
-    csgCalls.length = 0
-    buildKeychain(makeInput({
-      textMode: 'engraved',
-      contents: [
-        { ...textItem, offsetY: 3 },
-        { ...textItem, id: 'c2', content: 'Dois', offsetY: -3 },
-      ],
-    }))
-    expect(csgCalls).toHaveLength(1)
-  })
-
   it('name: somente texto gera base, content, pieceBB e hole', () => {
     const result = buildKeychain(makeInput({
       baseShape: 'name',
@@ -350,23 +310,6 @@ describe('buildKeychain', () => {
     expect(result.hole.y).toBeLessThan(0)
   })
 
-  it('name: engraved usa um CSG com brush na faixa gravada', () => {
-    const result = buildKeychain(makeInput({
-      baseShape: 'name',
-      textMode: 'engraved',
-      contents: [{ ...textItem, content: 'A' }],
-    }))
-
-    expect(result.base).toBeDefined()
-    expect(csgCalls).toHaveLength(1)
-    const bb = boundsOf(csgCalls[0].text)
-    const lower = defaultKeychainParams.thickness - defaultKeychainParams.reliefDepth - 0.21
-    const upper = defaultKeychainParams.thickness + 0.21
-    expect(bb.min.z).toBeGreaterThanOrEqual(lower)
-    expect(bb.max.z).toBeLessThanOrEqual(upper)
-    expect(bb.max.z).toBeCloseTo(defaultKeychainParams.thickness + 0.2, 1)
-  })
-
   it('name: somente ícone funciona sem fonte', () => {
     const result = buildKeychain(
       makeInput({ baseShape: 'name', contents: [iconItem] }, { font: undefined, fonts: {} }),
@@ -382,15 +325,6 @@ describe('buildKeychain', () => {
       contents: [{ ...textItem, content: 'A' }],
     }))
     expect(result.hole.radius).toBeCloseTo(4)
-  })
-
-  it('engraved: fallback recoloca o content em relevo e avisa', () => {
-    csgState.shouldThrow = true
-    const onError = vi.fn()
-    const result = buildKeychain(makeInput({ textMode: 'engraved' }, { onError }))
-
-    expect(onError).toHaveBeenCalledWith('Falha na gravação; usando relevo')
-    expect(boundsOf(result.content).max.z).toBeGreaterThan(defaultKeychainParams.thickness)
   })
 
   it('fontes mistas normal e bold constroem sem lançar', () => {

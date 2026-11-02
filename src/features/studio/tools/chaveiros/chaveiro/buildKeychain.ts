@@ -1,7 +1,6 @@
 import { BufferGeometry, ExtrudeGeometry, Path, Shape, Vector2 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
 import { buildContentShapes, getUsableRegion, resolveContentGeometry } from './autoFit'
 import { createNameOutline, expandShape, subtractShapes, unionShapes } from './nameOutline'
 import {
@@ -11,7 +10,7 @@ import {
   type RingParams,
 } from './shapes'
 import type { BoundingBox2D, Circle2D } from './positioning'
-import { RING_EDGE_MARGIN } from './schema'
+import { CONTENT_DEPTH, RING_EDGE_MARGIN } from './schema'
 import type { ContentItem, FontStyle, KeychainParams } from './schema'
 
 export interface BuildKeychainInput {
@@ -31,13 +30,11 @@ export interface BuildContentItem {
 export interface BuildKeychainResult {
   base: BufferGeometry
   content: BufferGeometry | null
-  mode: 'raised' | 'engraved'
   contentItems: BuildContentItem[]
   pieceBB: BoundingBox2D
   hole: Circle2D
 }
 
-const ENGRAVE_EPSILON = 0.2
 const REGULAR_SURFACE_TOP = 0.2
 
 function translatedShape(shape: Shape, x: number, y: number): Shape {
@@ -87,10 +84,8 @@ function makeRingParams(params: KeychainParams): RingParams {
   }
 }
 
-function contentZ(params: KeychainParams, surfaceTop: number): number {
-  return params.textMode === 'raised'
-    ? surfaceTop - 0.01
-    : surfaceTop - params.reliefDepth + ENGRAVE_EPSILON
+function contentZ(surfaceTop: number): number {
+  return surfaceTop - 0.01
 }
 
 function computeBaseBB(geometry: BufferGeometry, hole: Circle2D): {
@@ -204,7 +199,7 @@ function buildRegularKeychain({
 
   const surfaceTop = params.thickness + REGULAR_SURFACE_TOP
   const region = getUsableRegion(params)
-  const z = contentZ(params, surfaceTop)
+  const z = contentZ(surfaceTop)
   const contentGeometries: BufferGeometry[] = []
   const contentItems: BuildContentItem[] = []
 
@@ -242,30 +237,9 @@ function buildRegularKeychain({
   disposeAll(contentGeometries, content ?? undefined)
   for (const item of contentItems) item.geometry = null
 
-  if (params.textMode === 'raised') {
-    mergedBase.computeVertexNormals()
-    content?.computeVertexNormals()
-    return { base: mergedBase, content, mode: 'raised', contentItems, pieceBB, hole }
-  }
-
-  if (!content) {
-    mergedBase.computeVertexNormals()
-    return { base: mergedBase, content: null, mode: 'engraved', contentItems, pieceBB, hole }
-  }
-
-  try {
-    const evaluator = new Evaluator()
-    const result = evaluator.evaluate(new Brush(mergedBase), new Brush(content), SUBTRACTION)
-    result.geometry.computeVertexNormals()
-    mergedBase.dispose()
-    return { base: result.geometry, content, mode: 'engraved', contentItems, pieceBB, hole }
-  } catch {
-    onError?.('Falha na gravação; usando relevo')
-    content.translate(0, 0, surfaceTop - 0.01 - z)
-    content.computeVertexNormals()
-    mergedBase.computeVertexNormals()
-    return { base: mergedBase, content, mode: 'raised', contentItems, pieceBB, hole }
-  }
+  mergedBase.computeVertexNormals()
+  content?.computeVertexNormals()
+  return { base: mergedBase, content, contentItems, pieceBB, hole }
 }
 
 function buildNameKeychain({
@@ -331,7 +305,7 @@ function buildNameKeychain({
   const contentShapesWithHole = unionShapes(allShapes)
     .flatMap(shape => subtractShapes(shape, holeShape))
   const contentGeometries = contentShapesWithHole.map(shape => new ExtrudeGeometry(shape, {
-    depth: params.reliefDepth,
+    depth: CONTENT_DEPTH,
     bevelEnabled: false,
   }))
   const content = contentGeometries.length > 0
@@ -343,41 +317,12 @@ function buildNameKeychain({
   disposeAll([outline, reinforcementGeometry], base)
 
   const surfaceTop = params.thickness
-  const z = contentZ(params, surfaceTop)
+  const z = contentZ(surfaceTop)
 
-  if (params.textMode === 'raised') {
-    content?.translate(0, 0, z)
-    content?.computeVertexNormals()
-    base.computeVertexNormals()
-    return { base, content, mode: 'raised', contentItems, ...computeBaseBB(base, hole) }
-  }
-
-  if (!content) {
-    base.computeVertexNormals()
-    return { base, content: null, mode: 'engraved', contentItems, ...computeBaseBB(base, hole) }
-  }
-
-  content.translate(0, 0, z)
-
-  try {
-    const evaluator = new Evaluator()
-    const result = evaluator.evaluate(new Brush(base), new Brush(content), SUBTRACTION)
-    result.geometry.computeVertexNormals()
-    base.dispose()
-    return {
-      base: result.geometry,
-      content,
-      mode: 'engraved',
-      contentItems,
-      ...computeBaseBB(result.geometry, hole),
-    }
-  } catch {
-    onError?.('Falha na gravação; usando relevo')
-    content.translate(0, 0, surfaceTop - 0.01 - z)
-    content.computeVertexNormals()
-    base.computeVertexNormals()
-    return { base, content, mode: 'raised', contentItems, ...computeBaseBB(base, hole) }
-  }
+  content?.translate(0, 0, z)
+  base.computeVertexNormals()
+  content?.computeVertexNormals()
+  return { base, content, contentItems, ...computeBaseBB(base, hole) }
 }
 
 export function buildKeychain(input: BuildKeychainInput): BuildKeychainResult {
