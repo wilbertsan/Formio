@@ -152,9 +152,21 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
   }
 }
 
+const PARSE_CACHE_LIMIT = 20
+
 // O parse do SVG usa DOMParser (só na main thread) e é cacheado por conteúdo.
 function parseSvgCached(cache: Map<string, ParsedSvg | null>, svg: string): ParsedSvg | null {
-  if (!cache.has(svg)) cache.set(svg, parseSvg(svg))
+  if (!cache.has(svg)) {
+    try {
+      cache.set(svg, parseSvg(svg))
+    } catch {
+      cache.set(svg, null)
+    }
+    if (cache.size > PARSE_CACHE_LIMIT) {
+      const oldest = cache.keys().next().value
+      if (oldest !== undefined) cache.delete(oldest)
+    }
+  }
   return cache.get(svg) ?? null
 }
 
@@ -170,7 +182,12 @@ export function useKeychain(options: UseKeychainOptions = {}) {
   const [error, setError] = useState<string | null>(null)
   const geometryRef = useRef<BuildKeychainResult | null>(null)
   const workerRef = useRef<KeychainWorker | null>(null)
+  const workerFactoryRef = useRef(workerFactory)
   const parseCacheRef = useRef<Map<string, ParsedSvg | null>>(new Map())
+
+  useEffect(() => {
+    workerFactoryRef.current = workerFactory
+  }, [workerFactory])
 
   const styleKey = useMemo(() => {
     const styles = new Set<FontStyle>()
@@ -182,10 +199,6 @@ export function useKeychain(options: UseKeychainOptions = {}) {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Cancela o build anterior (termina o worker) e inicia um novo.
-      workerRef.current?.terminate()
-      workerRef.current = null
-
       // SVG precisa ser achatado na main thread (o worker não tem DOMParser).
       const parsedSvgs: Record<string, ParsedSvg | null> = {}
       for (const item of params.contents) {
@@ -201,11 +214,14 @@ export function useKeychain(options: UseKeychainOptions = {}) {
       setError(null)
 
       const styles = styleKey.length > 0 ? (styleKey.split(',') as FontStyle[]) : []
-      const worker = workerFactory()
+      const worker = workerFactoryRef.current()
       workerRef.current = worker
       setIsBuilding(true)
 
       worker.build({ params, parsedSvgs, styles }, (data: SerializedKeychainResult) => {
+        if (workerRef.current !== worker) return
+        workerRef.current = null
+        worker.terminate()
         const next = deserializeKeychainResult(data)
         const prev = geometryRef.current
         geometryRef.current = next
@@ -215,12 +231,19 @@ export function useKeychain(options: UseKeychainOptions = {}) {
         setIsBuilding(false)
         setError(null)
       }, (message) => {
+        if (workerRef.current !== worker) return
+        workerRef.current = null
+        worker.terminate()
         setIsBuilding(false)
         setError(message)
       })
     }, 200)
-    return () => clearTimeout(timer)
-  }, [params, styleKey, workerFactory])
+    return () => {
+      clearTimeout(timer)
+      workerRef.current?.terminate()
+      workerRef.current = null
+    }
+  }, [params, styleKey])
 
   useEffect(() => {
     return () => {

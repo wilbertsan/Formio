@@ -17,25 +17,36 @@ function serialized(): SerializedKeychainResult {
   }).data
 }
 
-// Worker falso controlável: guarda os callbacks e só responde quando o teste mandar.
+interface WorkerRecord {
+  pending: ((data: SerializedKeychainResult) => void) | null
+  fail: ((message: string) => void) | null
+  terminate: ReturnType<typeof vi.fn>
+}
+
+// Worker falso controlável: guarda os callbacks de cada worker e só responde
+// quando o teste mandar (inclusive permitindo responder um worker obsoleto).
 function makeWorkerFixture() {
-  let pending: ((data: SerializedKeychainResult) => void) | null = null
-  let fail: ((message: string) => void) | null = null
+  const workers: WorkerRecord[] = []
   let lastRequest: KeychainWorkerRequest | null = null
-  const terminate = vi.fn()
-  const factory = (): KeychainWorker => ({
-    build: (request, onResult, onError) => {
-      lastRequest = request
-      pending = onResult
-      fail = onError ?? null
-    },
-    terminate,
-  })
+  const factory = (): KeychainWorker => {
+    const record: WorkerRecord = { pending: null, fail: null, terminate: vi.fn() }
+    workers.push(record)
+    return {
+      build: (request, onResult, onError) => {
+        lastRequest = request
+        record.pending = onResult
+        record.fail = onError ?? null
+      },
+      terminate: record.terminate,
+    }
+  }
+  const current = () => workers[workers.length - 1]
   return {
     factory,
-    terminate,
-    respond: () => pending?.(serialized()),
-    fail: (m = 'Falha ao gerar a peça') => fail?.(m),
+    workers,
+    current,
+    respond: (index = workers.length - 1) => workers[index]?.pending?.(serialized()),
+    fail: (message = 'Falha ao gerar a peça', index = workers.length - 1) => workers[index]?.fail?.(message),
     getRequest: () => lastRequest,
   }
 }
@@ -256,7 +267,7 @@ describe('useKeychain', () => {
   })
 
   it('expõe erro e encerra o build quando o worker falha', () => {
-    const { factory, fail } = makeWorkerFixture()
+    const { factory, fail, workers } = makeWorkerFixture()
     const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => {
       vi.advanceTimersByTime(250)
@@ -267,6 +278,29 @@ describe('useKeychain', () => {
     })
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.error).toBe('Falha ao gerar a peça')
+    expect(workers[0].terminate).toHaveBeenCalledTimes(1)
+  })
+
+  it('limpa o erro no próximo resultado bem-sucedido', () => {
+    const { factory, fail, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      fail()
+    })
+    expect(result.current.error).toBe('Falha ao gerar a peça')
+
+    act(() => result.current.updateParam('width', 60))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(result.current.error).toBeNull()
+    expect(result.current.geometry).not.toBeNull()
   })
 
   it('parseia o SVG na main thread e envia ao worker', () => {
@@ -319,21 +353,70 @@ describe('useKeychain', () => {
   })
 
   it('encerra o worker ao reconstruir e ao desmontar', () => {
-    const { factory, terminate } = makeWorkerFixture()
+    const { factory, workers } = makeWorkerFixture()
     const { result, unmount } = renderHook(() => useKeychain({ workerFactory: factory }))
     act(() => {
       vi.advanceTimersByTime(250)
     })
-    expect(terminate).not.toHaveBeenCalled()
+    expect(workers).toHaveLength(1)
+    expect(workers[0].terminate).not.toHaveBeenCalled()
 
     act(() => result.current.updateParam('width', 60))
     act(() => {
       vi.advanceTimersByTime(250)
     })
-    expect(terminate).toHaveBeenCalledTimes(1)
+    expect(workers).toHaveLength(2)
+    expect(workers[0].terminate).toHaveBeenCalledTimes(1)
 
     unmount()
-    expect(terminate).toHaveBeenCalledTimes(2)
+    expect(workers[1].terminate).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignora o resultado de um worker obsoleto', () => {
+    const { factory, workers } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => result.current.updateParam('width', 60))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(workers).toHaveLength(2)
+
+    act(() => {
+      workers[0].pending?.(serialized())
+    })
+    expect(result.current.geometry).toBeNull()
+
+    act(() => {
+      workers[1].pending?.(serialized())
+    })
+    expect(result.current.geometry).not.toBeNull()
+  })
+
+  it('descarta a geometria anterior ao trocar pela nova', () => {
+    const disposeSpy = vi.spyOn(THREE.BufferGeometry.prototype, 'dispose')
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(result.current.geometry).not.toBeNull()
+
+    disposeSpy.mockClear()
+    act(() => result.current.updateParam('width', 60))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(disposeSpy).toHaveBeenCalled()
+    disposeSpy.mockRestore()
   })
 
   it('dimensions inclui width, height e thickness para retângulo após a resposta', () => {
