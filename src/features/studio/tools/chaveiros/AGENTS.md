@@ -13,7 +13,7 @@ Itens pequenos e finos com furo/argola para pendurar — chaveiros e marcadores.
 
 - Espessura típica: 2–6mm
 - Furo para argola: diâmetro interno 3–10mm, margem mínima de 2mm da borda
-- Texto ou ícone SVG elevado/gravado, com relevo global de 0.4–2mm
+- Texto ou ícone SVG sempre elevado em 1mm
 - Conteúdo 1–3 itens (texto ou ícone SVG), com upload de SVG e auto-fit por formato
 - Argola reforçada: anel extrudado ao redor do furo
 - Margem mínima entre conteúdo e borda: 4mm

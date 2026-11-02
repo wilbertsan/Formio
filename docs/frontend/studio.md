@@ -4,7 +4,7 @@
 
 O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas disponíveis:
 
-- **Gerador de Chaveiros** — Chaveiros 3D personalizados com textos e ícones SVG em relevo ou gravados, com auto-fit por formato
+- **Gerador de Chaveiros** — Chaveiros 3D personalizados com textos e ícones SVG sempre elevados em 1mm, com auto-fit por formato
 - **Cartão de Visita** — Cartões de visita 3D com texto em relevo e layout personalizado
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
@@ -25,7 +25,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | O que | Onde |
 |---|---|
 | **Chaveiros** | |
-| 16 parâmetros e defaults (conteúdo texto/ícone discriminado) | `src/features/studio/tools/chaveiros/chaveiro/schema.ts` |
+| 14 parâmetros e defaults (conteúdo texto/ícone discriminado) | `src/features/studio/tools/chaveiros/chaveiro/schema.ts` |
 | Fontes typeface.json | `src/assets/fonts/` |
 | Mapa estilo→fonte | `src/features/studio/tools/chaveiros/chaveiro/fonts.ts` |
 | Formas + furo parametrizável | `src/features/studio/tools/chaveiros/chaveiro/shapes.ts` |
@@ -95,14 +95,14 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 
 Pipeline completo de geração do chaveiro 3D:
 
-**schema.ts (Zod)** → **autoFit.ts / shapes.ts (região útil + THREE.Shape + furo nativo)** → **textToGeometry.ts (TextGeometry)** → **buildKeychain.ts (raised = merge, engraved = CSG)** → **exportStl.ts (STL binário + download)**, com **svgToIconShape.ts** compartilhado para ícones SVG.
+**schema.ts (Zod)** → **autoFit.ts / shapes.ts (região útil + THREE.Shape + furo nativo)** → **textToGeometry.ts (TextGeometry)** → **buildKeychain.ts (merge base + conteúdo)** → **exportStl.ts (STL binário + download)**, com **svgToIconShape.ts** compartilhado para ícones SVG.
 
-1. **schema.ts** — Valida e normaliza parâmetros (conteúdo 1–3 itens discriminados em texto/ícone, forma, modo, relevo global, dimensões)
+1. **schema.ts** — Valida e normaliza parâmetros (conteúdo 1–3 itens discriminados em texto/ícone, forma, dimensões)
 2. **autoFit.ts** — Define a região útil por formato (retângulo interno, círculo inscrito, círculo inscrito no coração; `name` sem região), reduz o conteúdo para caber sem ampliar e aplica clamp de borda (4mm) e folga do furo (1mm)
 3. **shapes.ts** — Gera a forma base (retângulo, círculo ou coração) com furo nativo para o aro; no formato `name`, a base é a união dos contornos de textos e ícones dilatada por `borderWidth`
 4. **textToGeometry.ts** — Cria a geometria 3D do texto com TextGeometry, normalizando o nome
 5. **svgToIconShape.ts** (compartilhado) — Converte o SVG em shapes/geometria, com escala e engrossamento de traço (`iconLineWidth`)
-6. **buildKeychain.ts** — Compõe os conteúdos com relevo global (`reliefDepth`): raised usa merge, engraved usa CSG subtração
+6. **buildKeychain.ts** — Compõe os conteúdos sempre elevados em 1mm (`CONTENT_DEPTH`) e mescla as geometrias de conteúdo
 7. **exportStl.ts** — Exporta geometria final como STL binário e dispara download
 
 ## Decisões
@@ -118,7 +118,6 @@ Pipeline completo de geração do chaveiro 3D:
   drei são mockados nos testes do viewport/page.
 - **Seletor por categoria:** ferramentas agrupadas em duas faixas horizontais empilhadas (Confeitaria e Letreiros) derivadas do array `TOOLS`; cards com `flex-wrap` e largura responsiva (`w-full sm:w-56`), título da categoria na seção (não mais no card). Chaveiro pertence a Letreiros.
 - **Tema claro consistente com a landing** (painéis brancos, bordas neutral-200, ativos brand-600); componentes Amplify UI mantidos (SliderField, TextField).
-- **Gravação rasa:** o conteúdo gravado corta apenas `reliefDepth` a partir da face frontal (epsilon 0.2 anti-coplanar) — o verso fica sólido e o conteúdo nunca aparece espelhado por trás.
 - **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
 - **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
 - **Regras de segurança:** conteúdo sempre com borda ≥ 4mm (`TEXT_BORDER_MIN`); furo da argola sempre a ≥ 2mm da borda (`RING_EDGE_MARGIN`). Clamp automático.
@@ -131,7 +130,7 @@ Pipeline completo de geração do chaveiro 3D:
 - **Argola com SelectField:** posição da argola usa dropdown nativo (Cima/Baixo/Esquerda/Direita); embutimento e diâmetro interno mantidos como sliders.
 - **Conteúdo discriminado:** `contents[]` (1–3) é uma união discriminada `TextContent | IconContent`; `kind` (`text` | `icon`) define os campos válidos. Texto tem `content`, `fontStyle` e `fontSize`; ícone tem `svgIcon`, `iconScale` e `iconLineWidth`. Ambos compartilham `offsetX/Y`.
 - **Auto-fit por formato:** `autoFit.ts` calcula a região útil (retângulo interno, círculo inscrito ou círculo inscrito no coração; `name` sem região) e reduz o conteúdo para caber, sem nunca ampliar. `clampTextPosition` mantém 4mm da borda e 1mm de folga do furo.
-- **Relevo global:** `reliefDepth` (0.4–2mm, default 1) vale para todos os conteúdos; o relevo por item foi removido.
+- **Conteúdo elevado fixo em 1mm (`CONTENT_DEPTH`):** todos os conteúdos usam a mesma profundidade; não há modo gravado nem relevo configurável.
 - **Contorno do nome:** a base é a união dos contornos de textos e ícones; `borderWidth` dilata essa união. A argola fica fora da bounding box de todos os conteúdos, posicionada por `ringPosition` e recuada por margem + raio + `ringRadialOffset`; `ringEmbedding` move a argola para dentro (`- embedding`) e `ringLateralOffset` desloca ao longo da borda. O furo é subtraído da base e do conteúdo.
 - **Reuso de ícone SVG:** o helper `shared/svgToIconShape.ts` é compartilhado com a confeitaria para parse, bounds, escala, engrossamento de traço e geometria; o mesmo caminho vale no formato `name`.
 - **Posicionamento por editor 2D:** offsets X/Y no schema, arrastar no editor e clamp no build; sliders de posição e drag 3D removidos.
