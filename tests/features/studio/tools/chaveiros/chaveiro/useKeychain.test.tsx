@@ -45,7 +45,8 @@ function makeWorkerFixture() {
     factory,
     workers,
     current,
-    respond: (index = workers.length - 1) => workers[index]?.pending?.(serialized()),
+    respond: (data: SerializedKeychainResult = serialized(), index = workers.length - 1) =>
+      workers[index]?.pending?.(data),
     fail: (message = 'Falha ao gerar a peça', index = workers.length - 1) => workers[index]?.fail?.(message),
     getRequest: () => lastRequest,
   }
@@ -249,6 +250,42 @@ describe('useKeychain', () => {
     })
     expect(result.current.isBuilding).toBe(true)
     expect(getRequest()).not.toBeNull()
+  })
+
+  it('envia os estilos de texto não vazios ao worker', () => {
+    const { factory, getRequest } = makeWorkerFixture()
+    renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(getRequest()?.styles).toEqual(['bold'])
+  })
+
+  it('expõe erro quando não consegue iniciar o worker', () => {
+    const factory = (): KeychainWorker => {
+      throw new Error('boom')
+    }
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    expect(result.current.isBuilding).toBe(false)
+    expect(result.current.error).toBe('Não foi possível iniciar a geração')
+  })
+
+  it('expõe erro quando a resposta do worker é inválida', () => {
+    const { factory, respond, workers } = makeWorkerFixture()
+    const { result } = renderHook(() => useKeychain({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond({} as SerializedKeychainResult)
+    })
+    expect(result.current.isBuilding).toBe(false)
+    expect(result.current.error).toBe('Falha ao gerar a peça')
+    expect(result.current.geometry).toBeNull()
+    expect(workers[0].terminate).toHaveBeenCalledTimes(1)
   })
 
   it('define a geometria quando o worker responde', () => {

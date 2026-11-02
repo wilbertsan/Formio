@@ -214,29 +214,52 @@ export function useKeychain(options: UseKeychainOptions = {}) {
       setError(null)
 
       const styles = styleKey.length > 0 ? (styleKey.split(',') as FontStyle[]) : []
-      const worker = workerFactoryRef.current()
+      let worker: KeychainWorker
+      try {
+        worker = workerFactoryRef.current()
+      } catch {
+        setIsBuilding(false)
+        setError('Não foi possível iniciar a geração')
+        return
+      }
       workerRef.current = worker
       setIsBuilding(true)
 
-      worker.build({ params, parsedSvgs, styles }, (data: SerializedKeychainResult) => {
-        if (workerRef.current !== worker) return
-        workerRef.current = null
+      try {
+        worker.build({ params, parsedSvgs, styles }, (data: SerializedKeychainResult) => {
+          if (workerRef.current !== worker) return
+          let next: BuildKeychainResult
+          try {
+            next = deserializeKeychainResult(data)
+          } catch {
+            workerRef.current = null
+            worker.terminate()
+            setIsBuilding(false)
+            setError('Falha ao gerar a peça')
+            return
+          }
+          workerRef.current = null
+          worker.terminate()
+          const prev = geometryRef.current
+          geometryRef.current = next
+          setGeometry(next)
+          prev?.base.dispose()
+          prev?.content?.dispose()
+          setIsBuilding(false)
+          setError(null)
+        }, (message) => {
+          if (workerRef.current !== worker) return
+          workerRef.current = null
+          worker.terminate()
+          setIsBuilding(false)
+          setError(message)
+        })
+      } catch {
         worker.terminate()
-        const next = deserializeKeychainResult(data)
-        const prev = geometryRef.current
-        geometryRef.current = next
-        setGeometry(next)
-        prev?.base.dispose()
-        prev?.content?.dispose()
+        if (workerRef.current === worker) workerRef.current = null
         setIsBuilding(false)
-        setError(null)
-      }, (message) => {
-        if (workerRef.current !== worker) return
-        workerRef.current = null
-        worker.terminate()
-        setIsBuilding(false)
-        setError(message)
-      })
+        setError('Falha ao gerar a peça')
+      }
     }, 200)
     return () => {
       clearTimeout(timer)
