@@ -26,14 +26,45 @@ describe('createNameOutline', () => {
       new Vector2(10, 5), new Vector2(2, 5),
     ])
     const result = createNameOutline({ shapes: [a, b], borderWidth: 2, thickness: 3 })
+    result.outline.computeBoundingBox()
     expect(result.boundingBox.minX).toBeCloseTo(-12)
     expect(result.boundingBox.maxX).toBeCloseTo(12)
+    expect(result.outline.boundingBox!.min.x).toBeCloseTo(-12)
+    expect(result.outline.boundingBox!.max.x).toBeCloseTo(12)
+    expect(result.boundingBox.maxX - result.boundingBox.minX).toBeCloseTo(24)
+  })
+
+  it('gera geometria cobrindo múltiplas regiões disjuntas', () => {
+    const a = new Shape([
+      new Vector2(-10, -5), new Vector2(-2, -5),
+      new Vector2(-2, 5), new Vector2(-10, 5),
+    ])
+    const b = new Shape([
+      new Vector2(2, -5), new Vector2(10, -5),
+      new Vector2(10, 5), new Vector2(2, 5),
+    ])
+    const single = createNameOutline({ shapes: [a], borderWidth: 2, thickness: 3 })
+    const multiple = createNameOutline({ shapes: [a, b], borderWidth: 2, thickness: 3 })
+
+    expect(multiple.outline.getAttribute('position').count).toBeGreaterThan(single.outline.getAttribute('position').count)
+  })
+
+  it('aplica offset de borderWidth em milímetros', () => {
+    const shape = new Shape([
+      new Vector2(-5, -5), new Vector2(5, -5),
+      new Vector2(5, 5), new Vector2(-5, 5),
+    ])
+    const result = createNameOutline({ shapes: [shape], borderWidth: 4, thickness: 3 })
+    result.outline.computeBoundingBox()
+    const width = result.outline.boundingBox!.max.x - result.outline.boundingBox!.min.x
+    expect(width).toBeCloseTo(18, 1)
   })
 
   it('lida com lista vazia', () => {
     const result = createNameOutline({ shapes: [], borderWidth: 4, thickness: 3 })
     expect(result.outline).toBeDefined()
     expect(result.boundingBox).toEqual({ minX: 0, maxX: 0, minY: 0, maxY: 0 })
+    expect(result.outline.getAttribute('position')?.count ?? 0).toBe(0)
   })
 
   it('converte Shape do Three.js para paths do Clipper', () => {
@@ -87,7 +118,7 @@ describe('createNameOutline', () => {
 
     const union = unionShapes([shape1, shape2])
 
-    const box = new Box2().setFromPoints(union.getPoints())
+    const box = new Box2().setFromPoints(union.flatMap(s => s.getPoints()))
     const width = box.max.x - box.min.x
 
     // Union of overlapping shapes should span from 0 to 18
@@ -111,8 +142,9 @@ describe('createNameOutline', () => {
     const union = unionShapes([shape1])
 
     // Should have one outer contour and one hole
-    expect(union.getPoints().length).toBeGreaterThan(0)
-    expect(union.holes).toHaveLength(1)
+    expect(union).toHaveLength(1)
+    expect(union[0].getPoints().length).toBeGreaterThan(0)
+    expect(union[0].holes).toHaveLength(1)
   })
 
   it('expande shape usando offset externo', () => {
@@ -125,11 +157,25 @@ describe('createNameOutline', () => {
 
     const expanded = expandShape(shape, 2)
 
-    const box = new Box2().setFromPoints(expanded.getPoints())
+    const box = new Box2().setFromPoints(expanded.flatMap(s => s.getPoints()))
     const expandedWidth = box.max.x - box.min.x
     const originalWidth = 10
 
     expect(expandedWidth).toBeGreaterThan(originalWidth)
+  })
+
+  it('offset externo de 4mm em quadrado de 10mm tem largura 18mm', () => {
+    const shape = new Shape([
+      new Vector2(0, 0),
+      new Vector2(10, 0),
+      new Vector2(10, 10),
+      new Vector2(0, 10),
+    ])
+
+    const expanded = expandShape(shape, 4)
+
+    const box = new Box2().setFromPoints(expanded.flatMap(s => s.getPoints()))
+    expect(box.max.x - box.min.x).toBeCloseTo(18, 1)
   })
 
   it('offset externo mantém forma aproximada', () => {
@@ -142,7 +188,7 @@ describe('createNameOutline', () => {
 
     const expanded = expandShape(shape, 1)
 
-    const box = new Box2().setFromPoints(expanded.getPoints())
+    const box = new Box2().setFromPoints(expanded.flatMap(s => s.getPoints()))
     const width = box.max.x - box.min.x
     const height = box.max.y - box.min.y
 
