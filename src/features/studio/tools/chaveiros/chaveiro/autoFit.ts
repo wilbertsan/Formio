@@ -125,11 +125,11 @@ export function clampOffset(
   const dy = offset.y - region.cy
   const distance = Math.hypot(dx, dy)
   if (distance <= maxCenter || distance === 0) {
-    return { x: offset.x, y: offset.y }
+    return { x: dx, y: dy }
   }
 
   const scale = maxCenter / distance
-  return { x: region.cx + dx * scale, y: region.cy + dy * scale }
+  return { x: dx * scale, y: dy * scale }
 }
 
 export function resolveContentGeometry(
@@ -194,10 +194,11 @@ export function resolveContentGeometry(
 
 export function buildContentShapes(
   item: ContentItem,
-  font: Font,
+  font: Font | undefined,
   referenceSize: number,
 ): Shape[] {
   if (item.kind === 'text') {
+    if (!font) return []
     const shapes = font.generateShapes(normalizeName(item.content), item.fontSize)
     return centerShapes(shapes, item.offsetX, item.offsetY)
   }
@@ -303,21 +304,31 @@ function placeContent(
   halfHeight: number,
   ctx: FitContext,
 ): { x: number; y: number } {
-  let offset = clampOffset(ctx.region, halfWidth, halfHeight, {
+  const desired = toAbsoluteOffset(ctx.region, {
     x: item.offsetX,
     y: item.offsetY,
   })
+  let offset = clampOffset(ctx.region, halfWidth, halfHeight, desired)
 
   if (ctx.pieceBB && ctx.hole) {
-    offset = clampTextPosition(
-      { ...offset, halfWidth, halfHeight },
+    const absolute = toAbsoluteOffset(ctx.region, offset)
+    const adjusted = clampTextPosition(
+      { ...absolute, halfWidth, halfHeight },
       ctx.pieceBB,
       ctx.hole,
     )
-    offset = clampOffset(ctx.region, halfWidth, halfHeight, offset)
+    offset = clampOffset(ctx.region, halfWidth, halfHeight, adjusted)
   }
 
   return offset
+}
+
+function toAbsoluteOffset(
+  region: UsableRegion | null,
+  offset: { x: number; y: number },
+): { x: number; y: number } {
+  if (region?.kind !== 'circle') return offset
+  return { x: region.cx + offset.x, y: region.cy + offset.y }
 }
 
 function translateShape(shape: Shape, x: number, y: number): Shape {

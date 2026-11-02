@@ -175,17 +175,36 @@ describe('clampOffset', () => {
     expect(result).toEqual({ x: 8, y: -4 })
   })
 
-  it('limita radialmente e respeita o centro do círculo', () => {
-    const result = clampOffset(
-      { kind: 'circle', cx: 5, cy: -2, radius: 10 },
-      0,
-      0,
-      { x: 25, y: -2 },
-    )
-    expect(result.x).toBeCloseTo(15)
-    expect(result.y).toBeCloseTo(-2)
-    expect(Math.hypot(result.x - 5, result.y + 2)).toBeCloseTo(10)
+  it('retorna delta em relação ao centro do círculo', () => {
+    const region = { kind: 'circle' as const, cx: 5, cy: -2, radius: 10 }
+    const result = clampOffset(region, 0, 0, { x: 25, y: -2 })
+    expect(result.x).toBeCloseTo(10)
+    expect(result.y).toBeCloseTo(0)
+    expect(Math.hypot(result.x, result.y)).toBeLessThanOrEqual(10)
   })
+
+  it('delta clampado cabe no raio descontando o conteúdo', () => {
+    const region = { kind: 'circle' as const, cx: 5, cy: -2, radius: 10 }
+    const halfWidth = 4
+    const halfHeight = 3
+    const result = clampOffset(region, halfWidth, halfHeight, { x: 100, y: 100 })
+    const maxCenter = region.radius - Math.hypot(halfWidth, halfHeight)
+    expect(Math.hypot(result.x, result.y)).toBeLessThanOrEqual(maxCenter + 1e-9)
+  })
+})
+
+it('compõe centro do coração sem duplicar deslocamento', () => {
+  const region = getUsableRegion({
+    ...defaultKeychainParams, baseShape: 'heart', width: 50, height: 25, borderWidth: 4,
+  })!
+  if (region.kind !== 'circle') throw new Error('região inesperada')
+
+  const fitted = resolveContentGeometry(textItem, baseContext({ region }))!
+  fitted.geometry.translate(fitted.x, fitted.y, 0)
+
+  const bb = boundingBox(fitted.geometry)
+  expect((bb.min.x + bb.max.x) / 2).toBeCloseTo(region.cx)
+  expect((bb.min.y + bb.max.y) / 2).toBeCloseTo(region.cy)
 })
 
 describe('resolveContentGeometry', () => {
@@ -240,5 +259,14 @@ describe('buildContentShapes', () => {
     const bb = shapeBounds(shapes)
     expect((bb.minX + bb.maxX) / 2).toBeCloseTo(3)
     expect((bb.minY + bb.maxY) / 2).toBeCloseTo(-2)
+  })
+
+  it('ícone funciona sem fonte', () => {
+    const shapes = buildContentShapes(iconItem, undefined, 10)
+    expect(shapes.length).toBeGreaterThan(0)
+  })
+
+  it('texto sem fonte retorna vazio', () => {
+    expect(buildContentShapes(textItem, undefined, 10)).toEqual([])
   })
 })
