@@ -11,7 +11,6 @@ vi.mock('@/features/studio/tools/chaveiros/chaveiro/buildKeychain', () => ({
   buildKeychain: vi.fn(() => ({
     base: new THREE.BufferGeometry(),
     content: new THREE.BufferGeometry(),
-    mode: 'raised' as const,
     contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2, geometry: null }],
     pieceBB: { minX: -30, maxX: 30, minY: -15, maxY: 15 },
     hole: { x: 0, y: 10, radius: 4.5 },

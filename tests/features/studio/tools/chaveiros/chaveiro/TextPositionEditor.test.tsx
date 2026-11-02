@@ -24,7 +24,6 @@ function mockGeometry(): BuildKeychainResult {
   return {
     base: new THREE.BufferGeometry(),
     content: new THREE.BufferGeometry(),
-    mode: 'raised',
     contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2, geometry: null }],
     pieceBB: { minX: -30, maxX: 30, minY: -15, maxY: 15 },
     hole: { x: 0, y: 10, radius: 2.5 },

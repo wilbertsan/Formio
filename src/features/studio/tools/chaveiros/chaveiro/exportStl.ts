@@ -19,8 +19,9 @@ function normalizeForMerge(geometry: BufferGeometry): BufferGeometry {
 }
 
 export function exportStl(geometry: BuildKeychainResult, projectName: string): void {
-  const includesContent = geometry.mode === 'raised' && geometry.content !== null
-  const geometries = includesContent ? [geometry.base, geometry.content!] : [geometry.base]
+  const geometries = geometry.content
+    ? [geometry.base, geometry.content]
+    : [geometry.base]
   const normalized = geometries.map(normalizeForMerge)
   const merged = mergeGeometries(normalized) ?? normalized[0]
   normalized.forEach((g) => {
