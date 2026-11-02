@@ -1,27 +1,40 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js'
 import { fontUrls } from './fonts'
-import { defaultKeychainParams, keychainParamsSchema, textItemSchema, type KeychainParams, type FontStyle, type TextItem } from './schema'
+import {
+  defaultKeychainParams,
+  keychainParamsSchema,
+  type ContentItem,
+  type FontStyle,
+  type IconContent,
+  type KeychainParams,
+  type TextContent,
+} from './schema'
 import { buildKeychain, type BuildKeychainResult } from './buildKeychain'
 
-const TEXT_ITEM_DEFAULTS = {
+const TEXT_DEFAULTS = {
   content: 'Novo texto',
   fontStyle: 'bold' as const,
-  width: 30,
-  height: 8,
-  relief: 1,
-  proportional: false,
+  fontSize: 10,
+  offsetX: 0,
+  offsetY: 0,
+}
+
+const ICON_DEFAULTS = {
+  svgIcon: null as string | null,
+  iconScale: 1,
+  iconLineWidth: 0.3,
   offsetX: 0,
   offsetY: 0,
 }
 
 type KeychainAction =
   | { type: 'update'; key: keyof KeychainParams; value: number | string }
-  | { type: 'updateText'; textKey: string; value: number | string }
-  | { type: 'addText' }
-  | { type: 'removeText'; id: string }
-  | { type: 'updateTextById'; id: string; patch: Partial<TextItem> }
+  | { type: 'updateContent'; id: string; patch: Partial<TextContent> | Partial<IconContent> }
+  | { type: 'setContentType'; id: string; kind: 'text' | 'icon' }
+  | { type: 'addContent' }
+  | { type: 'removeContent'; id: string }
   | { type: 'reset' }
 
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
@@ -29,17 +42,37 @@ const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   height: { min: 20, max: 80 },
   borderWidth: { min: 4, max: 10 },
   thickness: { min: 2, max: 6 },
-  letterHeight: { min: 0.4, max: 2 },
+  reliefDepth: { min: 0.4, max: 2 },
   ringInnerDiameter: { min: 3, max: 10 },
   ringEmbedding: { min: 0, max: 3 },
   ringLateralOffset: { min: -10, max: 10 },
   ringRadialOffset: { min: 0, max: 5 },
 }
 
+const CONTENT_NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
+  fontSize: { min: 6, max: 15 },
+  iconScale: { min: 0.5, max: 1 },
+  iconLineWidth: { min: 0.1, max: 1.5 },
+  offsetX: { min: -20, max: 20 },
+  offsetY: { min: -20, max: 20 },
+}
+
 function clampValue(key: string, value: number): number {
   const range = NUMERIC_RANGES[key]
   if (!range) return value
   return Math.min(range.max, Math.max(range.min, value))
+}
+
+function clampContentPatch(
+  patch: Partial<TextContent> | Partial<IconContent>,
+): Partial<TextContent> | Partial<IconContent> {
+  const result: Record<string, unknown> = { ...patch }
+  for (const [key, value] of Object.entries(patch)) {
+    if (typeof value !== 'number') continue
+    const range = CONTENT_NUMERIC_RANGES[key]
+    if (range) result[key] = Math.min(range.max, Math.max(range.min, value))
+  }
+  return result as Partial<TextContent> | Partial<IconContent>
 }
 
 function keychainReducer(state: KeychainParams, action: KeychainAction): KeychainParams {
@@ -52,36 +85,55 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
       const parsed = keychainParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
-    case 'updateText': {
-      const clamped = typeof action.value === 'number'
-        ? clampValue(action.textKey, action.value)
-        : action.value
-      const nextTexts = [...state.texts]
-      nextTexts[0] = { ...nextTexts[0], [action.textKey]: clamped }
-      const next = { ...state, texts: nextTexts }
-      const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
-    }
-    case 'addText': {
-      if (state.texts.length >= 3) return state
-      const newItem: TextItem = { id: crypto.randomUUID(), ...TEXT_ITEM_DEFAULTS }
-      const next = { ...state, texts: [...state.texts, newItem] }
-      const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
-    }
-    case 'removeText': {
-      if (state.texts.length <= 1) return state
-      const next = { ...state, texts: state.texts.filter((t) => t.id !== action.id) }
-      const parsed = keychainParamsSchema.safeParse(next)
-      return parsed.success ? next : state
-    }
-    case 'updateTextById': {
-      const patchResult = textItemSchema.partial().safeParse(action.patch)
-      if (!patchResult.success) return state
-      const nextTexts = state.texts.map((t) =>
-        t.id === action.id ? { ...t, ...action.patch } : t,
+    case 'updateContent': {
+      const patch = clampContentPatch(action.patch)
+      const nextContents = state.contents.map((item) =>
+        item.id === action.id ? ({ ...item, ...patch } as ContentItem) : item,
       )
-      const next = { ...state, texts: nextTexts }
+      const next = { ...state, contents: nextContents }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
+    case 'setContentType': {
+      const nextContents = state.contents.map((item) => {
+        if (item.id !== action.id) return item
+        if (action.kind === 'text') {
+          const replacement: TextContent = {
+            id: item.id,
+            kind: 'text',
+            ...TEXT_DEFAULTS,
+            offsetX: item.offsetX,
+            offsetY: item.offsetY,
+          }
+          return replacement
+        }
+        const replacement: IconContent = {
+          id: item.id,
+          kind: 'icon',
+          ...ICON_DEFAULTS,
+          offsetX: item.offsetX,
+          offsetY: item.offsetY,
+        }
+        return replacement
+      })
+      const next = { ...state, contents: nextContents }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
+    case 'addContent': {
+      if (state.contents.length >= 3) return state
+      const newItem: TextContent = {
+        id: crypto.randomUUID(),
+        kind: 'text',
+        ...TEXT_DEFAULTS,
+      }
+      const next = { ...state, contents: [...state.contents, newItem] }
+      const parsed = keychainParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
+    case 'removeContent': {
+      if (state.contents.length <= 1) return state
+      const next = { ...state, contents: state.contents.filter((item) => item.id !== action.id) }
       const parsed = keychainParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
@@ -90,18 +142,19 @@ function keychainReducer(state: KeychainParams, action: KeychainAction): Keychai
   }
 }
 
-
 export function useKeychain() {
   const [params, dispatch] = useReducer(keychainReducer, defaultKeychainParams)
   const [fontCache, setFontCache] = useState<Map<FontStyle, Font>>(new Map())
   const [fontError, setFontError] = useState(false)
   const [geometry, setGeometry] = useState<BuildKeychainResult | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const uniqueStyles = useMemo(() => {
-    const styles = new Set(params.texts.map((t) => t.fontStyle))
+    const styles = new Set<FontStyle>()
+    for (const item of params.contents) {
+      if (item.kind === 'text') styles.add(item.fontStyle)
+    }
     return Array.from(styles)
-  }, [params.texts])
+  }, [params.contents])
 
   useEffect(() => {
     for (const style of uniqueStyles) {
@@ -118,39 +171,46 @@ export function useKeychain() {
     }
   }, [uniqueStyles, fontCache])
 
-  const font = fontCache.get(params.texts[0]?.fontStyle ?? 'bold') ?? null
+  const fonts = useMemo(
+    () => Object.fromEntries(fontCache) as Partial<Record<FontStyle, Font>>,
+    [fontCache],
+  )
+
+  const ready = uniqueStyles.every((style) => fontCache.has(style))
 
   useEffect(() => {
-    if (!font) return
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
+    if (!ready) return
+    const timer = setTimeout(() => {
       setGeometry((prev) => {
         prev?.base.dispose()
-        prev?.text.dispose()
-        return buildKeychain({ font, params, onError: () => undefined })
+        prev?.content?.dispose()
+        return buildKeychain({ fonts, params, onError: () => undefined })
       })
     }, 200)
-    return () => clearTimeout(debounceRef.current)
-  }, [font, params])
+    return () => clearTimeout(timer)
+  }, [ready, fonts, params])
 
   const updateParam = useCallback((key: keyof KeychainParams, value: number | string) => {
     dispatch({ type: 'update', key, value })
   }, [])
 
-  const updateName = useCallback((content: string) => {
-    dispatch({ type: 'updateText', textKey: 'content', value: content })
+  const updateContent = useCallback(
+    (id: string, patch: Partial<TextContent> | Partial<IconContent>) => {
+      dispatch({ type: 'updateContent', id, patch })
+    },
+    [],
+  )
+
+  const setContentType = useCallback((id: string, kind: 'text' | 'icon') => {
+    dispatch({ type: 'setContentType', id, kind })
   }, [])
 
-  const addText = useCallback(() => {
-    dispatch({ type: 'addText' })
+  const addContent = useCallback(() => {
+    dispatch({ type: 'addContent' })
   }, [])
 
-  const removeText = useCallback((id: string) => {
-    dispatch({ type: 'removeText', id })
-  }, [])
-
-  const updateText = useCallback((id: string, patch: Partial<TextItem>) => {
-    dispatch({ type: 'updateTextById', id, patch })
+  const removeContent = useCallback((id: string) => {
+    dispatch({ type: 'removeContent', id })
   }, [])
 
   const reset = useCallback(() => {
@@ -159,15 +219,28 @@ export function useKeychain() {
 
   const dimensions = useMemo(() => {
     if (params.baseShape === 'name') {
-      const text = params.texts[0]
-      return {
-        width: text.width,
-        height: text.height,
-        thickness: params.thickness,
+      if (geometry) {
+        return {
+          width: geometry.pieceBB.maxX - geometry.pieceBB.minX,
+          height: geometry.pieceBB.maxY - geometry.pieceBB.minY,
+          thickness: params.thickness,
+        }
       }
+      return { width: 0, height: 0, thickness: params.thickness }
     }
     return { width: params.width, height: params.height, thickness: params.thickness }
-  }, [params.width, params.height, params.thickness, params.baseShape, params.texts])
+  }, [params, geometry])
 
-  return { params, geometry, fontError, dimensions, updateParam, updateName, addText, removeText, updateText, reset }
+  return {
+    params,
+    geometry,
+    fontError,
+    dimensions,
+    updateParam,
+    updateContent,
+    setContentType,
+    addContent,
+    removeContent,
+    reset,
+  }
 }
