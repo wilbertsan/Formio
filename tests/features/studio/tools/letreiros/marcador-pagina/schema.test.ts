@@ -19,6 +19,7 @@ describe('bookmark schema', () => {
     expect(defaultBookmarkParams.thickness).toBe(1)
     expect(defaultBookmarkParams.text.content).toBe('Meu nome')
     expect(defaultBookmarkParams.text.fontStyle).toBe('bold')
+    expect(defaultBookmarkParams.text.relief).toBe(1)
   })
 
   it('aceita um texto único, sem limite de caracteres', () => {

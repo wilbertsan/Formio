@@ -40,16 +40,18 @@ Coordenadas locais (mm):
 - **Texto**
   - Parede de texto em pé, correndo em Y, subindo em Z.
   - Face traseira em `x = 0`; centro em `x = relief / 2`.
-  - Base do texto em `z = 0`.
+  - Texto centrado na borda da base: centro em `z = thickness/2` (metade acima,
+    metade abaixo).
   - Duas barras em U na traseira, começando na metade da espessura do texto
     (`relief/2`) e indo para trás:
     - **barra inferior**: `x` de `-JOINT_BAR_DEPTH` a `relief/2`, `z` de
-      `-JOINT_BAR_HEIGHT` a `0` (sob o fundo da base);
+      `-JOINT_CLEARANCE/2 - JOINT_BAR_HEIGHT` a `-JOINT_CLEARANCE/2`;
     - **barra superior**: `x` de `-JOINT_BAR_DEPTH` a `relief/2`, `z` de
-      `thickness + JOINT_CLEARANCE` a
-      `thickness + JOINT_CLEARANCE + JOINT_BAR_HEIGHT`;
+      `thickness + JOINT_CLEARANCE/2` a
+      `thickness + JOINT_CLEARANCE/2 + JOINT_BAR_HEIGHT`;
     - ambas com `y` de `-textWidth/2` a `+textWidth/2`.
-  - O vão entre as barras é `thickness + JOINT_CLEARANCE` (0,2mm de folga).
+  - O vão entre as barras é `thickness + JOINT_CLEARANCE` (0,2mm de folga),
+    centrado em `z = thickness/2` (meio da altura do texto).
   - As barras são sólidas atrás do texto; podem atravessar os vãos entre letras.
 
 - **Montagem**
@@ -58,8 +60,8 @@ Coordenadas locais (mm):
     superior (topo).
   - Folga de 0,2mm no vão entre as barras e 0,2mm entre a borda da base e a
     traseira do texto; cola/fricção fixam.
-  - A barra inferior passa sob a base; a peça montada passa a apoiar na barra
-    inferior do texto.
+  - O texto fica centrado na borda da base (metade acima/abaixo); a peça montada
+    apoia no fundo do texto, na metade inferior.
 
 - **Exportação**
   - Base: geometria como está (plana).
@@ -73,7 +75,7 @@ Coordenadas locais (mm):
 - `positioning.ts` — constantes do encaixe e posições `splitBaseCenterX` /
   `splitTextCenterX`.
 - `shapes.ts` — base com borda direita em `-JOINT_CLEARANCE`.
-- `buildBookmark.ts` — texto com traseira em 0, base em z = 0, barras em U
+- `buildBookmark.ts` — texto com traseira em 0, centrado em z = thickness/2, barras em U
   mesclado ao texto.
 - `patterns.ts` — área da textura recuada da faixa do encaixe.
 - `exportStl.ts` — `prepareTextForPrint` e exportação de dois STLs.
@@ -85,7 +87,7 @@ Coordenadas locais (mm):
 ## Testes
 
 - Base: borda direita em `-0,2`, largura nominal preservada, centro correto.
-- Texto: traseira em `x=0`, base em `z=0`, barras com as dimensões/posição.
+- Texto: traseira em `x=0`, centro em `z=thickness/2`, barras com as dimensões/posição.
 - Textura: não invade a faixa de 2,5mm do encaixe.
 - Export: dois downloads, nomes `-base`/`-texto`, dois blobs; texto deitado
   (min Z = 0 e altura de impressão = relief + lipDepth).

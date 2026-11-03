@@ -37,14 +37,20 @@ export function createJointBars(
   const barWidth = JOINT_BAR_DEPTH + barFrontX
   const barCenterX = (barFrontX - JOINT_BAR_DEPTH) / 2
 
+  // O vão é centrado no meio da base (thickness/2), que também é o centro
+  // vertical do texto; a distância entre as barras fica thickness + folga.
   const lower = box(barWidth, textWidth, JOINT_BAR_HEIGHT)
-  lower.translate(barCenterX, 0, -JOINT_BAR_HEIGHT / 2)
+  lower.translate(
+    barCenterX,
+    0,
+    -JOINT_CLEARANCE / 2 - JOINT_BAR_HEIGHT / 2,
+  )
 
   const upper = box(barWidth, textWidth, JOINT_BAR_HEIGHT)
   upper.translate(
     barCenterX,
     0,
-    thickness + JOINT_CLEARANCE + JOINT_BAR_HEIGHT / 2,
+    thickness + JOINT_CLEARANCE / 2 + JOINT_BAR_HEIGHT / 2,
   )
 
   const merged = mergeGeometries([lower, upper])

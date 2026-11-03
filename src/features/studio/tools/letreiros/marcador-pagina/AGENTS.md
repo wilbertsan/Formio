@@ -53,8 +53,12 @@ O objeto `pattern` tem:
 - Encaixe em U na traseira do texto: **duas barras** de 1,5mm de profundidade ×
   0,8mm de altura, começando na **metade da espessura do texto** (`relief/2`) e
   indo para trás, com vão entre elas igual à espessura da base + 0,2mm de folga.
-  A barra inferior passa por baixo do texto e da base; a superior fica acima da
-  base. A base desliza pela lateral entre as barras.
+  A profundidade das barras é 1,5mm.
+  O par de barras é centrado no meio da altura do texto, que coincide com o meio
+  da espessura da base; o texto fica centrado na borda da base (metade acima,
+  metade abaixo). A barra inferior fica abaixo do fundo da base e a superior
+  acima do topo; a base desliza pela lateral entre as barras. A peça montada
+  apoia no fundo do texto, na metade inferior.
 - O texto é exportado **deitado** para impressão (face frontal na mesa); a base
   já sai plana. São gerados dois STLs: `-base.stl` e `-texto.stl`.
 - Texto com margem mínima de 3mm em relação às bordas (`TEXT_MARGIN`).

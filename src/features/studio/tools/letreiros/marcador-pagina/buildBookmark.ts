@@ -75,8 +75,8 @@ export function buildBookmark({
   const x = splitTextCenterX(params.text.relief)
   const y = 0
 
-  // O texto começa no fundo da base (z = 0) e sobe no eixo Z.
-  textGeometry.translate(x, y, -bb.min.z)
+  // O texto é centrado na borda da base: metade acima, metade abaixo.
+  textGeometry.translate(x, y, params.thickness / 2)
 
   const barsGeometry = createJointBars(textWidth, params.thickness, params.text.relief)
   const mergedText = mergeGeometries([textGeometry, barsGeometry])

@@ -12,8 +12,9 @@
 
 > **Atualização pós-execução:** o encaixe final usa **duas barras**
 > (`createJointBars`), com vão = espessura da base + 0,2mm, começando na metade
-> da espessura do texto; a barra inferior passa sob a base e a superior acima.
-> As referências a `createJointLip` abaixo são históricas.
+> da espessura do texto e centradas na altura do texto; o texto fica centrado na
+> borda da base (metade acima/abaixo). As referências a `createJointLip` abaixo
+> são históricas.
 
 ---
 

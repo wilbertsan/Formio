@@ -28,15 +28,15 @@ describe('encaixe em U com barras', () => {
     expect(box.max.x).toBeCloseTo(0.5)
     expect(box.min.y).toBeCloseTo(-20)
     expect(box.max.y).toBeCloseTo(20)
-    expect(box.min.z).toBeCloseTo(-0.8)
-    expect(box.max.z).toBeCloseTo(2)
+    expect(box.min.z).toBeCloseTo(-0.9)
+    expect(box.max.z).toBeCloseTo(1.9)
 
     const positions = bars.getAttribute('position').array as Float32Array
     const zs = new Set<number>()
     for (let i = 0; i < positions.length; i += 3) {
       zs.add(Math.round(positions[i + 2] * 1000) / 1000)
     }
-    expect(zs).toContain(0)
-    expect(zs).toContain(1.2)
+    expect(zs).toContain(-0.1)
+    expect(zs).toContain(1.1)
   })
 })
