@@ -23,7 +23,7 @@ import {
 
 const SLIDER_LIMITS = {
   textWidth: { min: 8, max: 60, step: 1 },
-  textHeight: { min: 4, max: 20, step: 0.5 },
+  textHeight: { min: 4, max: 40, step: 0.5 },
   relief: { min: 0.4, max: 2, step: 0.1 },
   length: { min: 50, max: 150, step: 1 },
   width: { min: 30, max: 50, step: 1 },

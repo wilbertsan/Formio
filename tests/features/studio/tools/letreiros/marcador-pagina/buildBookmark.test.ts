@@ -47,8 +47,8 @@ describe('buildBookmark', () => {
 
     expect(box.max.x - box.min.x).toBeCloseTo(2.5)
     expect(box.max.y - box.min.y).toBeCloseTo(40)
-    expect(box.max.z - box.min.z).toBeCloseTo(8.333, 3)
-    expect(box.min.z).toBeCloseTo(-3.6667, 3)
+    expect(box.max.z - box.min.z).toBeCloseTo(10, 3)
+    expect(box.min.z).toBeCloseTo(-4.5, 3)
     expect((box.min.z + box.max.z) / 2).toBeCloseTo(0.5)
   })
 

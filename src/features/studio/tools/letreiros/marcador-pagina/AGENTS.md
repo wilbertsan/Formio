@@ -27,8 +27,8 @@ O objeto `text` tem:
 
 - `content` (texto, mínimo 1 após trim, **sem máximo de caracteres**)
 - `fontStyle` (`normal`/`bold`/`serif`)
-- `width` (8–60mm) e `height` (4–20mm): o texto é reduzido para caber na largura
-  alvo, sem ampliar
+- `width` (8–60mm) e `height` (4–40mm): a largura é reduzida para caber no alvo,
+  sem ampliar; a altura é preservada e independente da largura
 - `relief` (0.4–2mm): espessura da parede de texto
 
 O objeto `pattern` tem:
@@ -78,7 +78,7 @@ tools/letreiros/marcador-pagina/
   schema.ts              — validação Zod + defaults + sanitizeFilename
   shapes.ts              — contorno retangular em pé + ExtrudeGeometry
   patterns.ts            — motivos, tiling e relevo da textura da base
-  autoFit.ts             — reduz a largura do texto ao alvo (nunca amplia)
+  autoFit.ts             — reduz a largura do texto ao alvo (preserva a altura)
   positioning.ts         — rotação do texto e margem
   joint.ts               — constantes e barras do encaixe em U
   textToGeometry.ts      — TextGeometry do conteúdo

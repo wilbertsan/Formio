@@ -128,7 +128,7 @@ Pipeline completo de geração do marcador:
 2. **useBookmark.ts** — Calcula o estilo de fonte do texto, parseia o SVG da textura (com cache), aplica debounce de 200ms e envia `{ params, styles, parsedSvg }` ao Worker; `isBuilding` alimenta “Gerando…” e `error` aparece no overlay. A peça anterior permanece visível durante o rebuild; respostas de worker obsoleto são ignoradas
 3. **shapes.ts** — Cria o contorno retangular em pé (largura no X, comprimento no Y) e o extruda em `thickness`; a borda direita da base fica em `x = -0,2mm`
 4. **patterns.ts** — Gera os motivos (triângulos, quadrados, círculos, losangos ou SVG) repetidos em grade, recorta na base e extruda o relevo; a faixa de 2,5mm do encaixe fica lisa
-5. **autoFit.ts** — Reduz o texto para caber na largura alvo, sem ampliar
+5. **autoFit.ts** — Reduz apenas a largura do texto para caber no alvo (preserva a altura), sem ampliar
 6. **positioning.ts** — Define a rotação do texto em pé (`TEXT_ROTATION`) e a margem (`TEXT_MARGIN`)
 7. **joint.ts** — Define as duas barras do U (1,5 × 0,8mm), centradas na altura do texto, com vão igual à espessura da base + 0,2mm e as posições da base/texto
 8. **textToGeometry.ts** — Gera a geometria 3D do texto

@@ -63,12 +63,12 @@ describe('bookmark schema', () => {
     expect('proportional' in defaultBookmarkParams.text).toBe(false)
   })
 
-  it('height tem range 4-20', () => {
+  it('height tem range 4-40', () => {
     const text = defaultBookmarkParams.text
     expect(textSchema.safeParse({ ...text, height: 3 }).success).toBe(false)
-    expect(textSchema.safeParse({ ...text, height: 21 }).success).toBe(false)
+    expect(textSchema.safeParse({ ...text, height: 41 }).success).toBe(false)
     expect(textSchema.safeParse({ ...text, height: 4 }).success).toBe(true)
-    expect(textSchema.safeParse({ ...text, height: 20 }).success).toBe(true)
+    expect(textSchema.safeParse({ ...text, height: 40 }).success).toBe(true)
   })
 
   it('width tem range 8-60', () => {

@@ -11,7 +11,7 @@ export const textSchema = z.object({
   content: z.string().trim().min(1),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   width: z.number().min(8).max(60),
-  height: z.number().min(4).max(20),
+  height: z.number().min(4).max(40),
   relief: z.number().min(0.4).max(2),
 })
 
