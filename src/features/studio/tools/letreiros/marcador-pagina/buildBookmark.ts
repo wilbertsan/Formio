@@ -1,25 +1,31 @@
-import { BufferGeometry, ExtrudeGeometry, Path, Shape } from 'three'
+import { BufferGeometry } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { Evaluator, SUBTRACTION, Brush } from 'three-bvh-csg'
+import type { ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
 import { nameToGeometry } from './textToGeometry'
-import type { BookmarkParams, FontStyle, TextItem } from './schema'
+import { fitGeometryWidth } from './autoFit'
+import {
+  TEXT_MARGIN,
+  TEXT_ROTATION,
+  TEXT_Z_OFFSET,
+  bookmarkBaseCenterX,
+  fixedTextX,
+} from './positioning'
+import { buildBookmarkBase } from './shapes'
+import { buildPatternGeometry } from './patterns'
+import type { BookmarkParams, FontStyle } from './schema'
 
 export interface BuildBookmarkInput {
   font?: Font
   fonts?: Partial<Record<FontStyle, Font>>
   params: BookmarkParams
-  onError?: (message: string) => void
+  parsedSvg?: ParsedSvg | null
 }
 
 export interface BuildBookmarkResult {
   base: BufferGeometry
   text: BufferGeometry
-  textItems: Array<{ id: string; geometry: BufferGeometry }>
 }
-
-const TEXT_MARGIN = 3
-const TEXT_Z_OFFSET = 0.01
 
 function resolveFont(
   fonts: Partial<Record<FontStyle, Font>> | undefined,
@@ -31,152 +37,57 @@ function resolveFont(
   throw new Error(`No font provided for style "${style}"`)
 }
 
-function buildScaledText({
-  font,
-  name,
-  textSize,
-  targetWidth,
-  depth,
-}: {
-  font: Font
-  name: string
-  textSize: number
-  targetWidth: number
-  depth: number
-}): BufferGeometry {
-  const geometry = nameToGeometry({ font, name, size: textSize, depth })
-  geometry.computeBoundingBox()
-  const naturalWidth = geometry.boundingBox
-    ? geometry.boundingBox.max.x - geometry.boundingBox.min.x
-    : 0
-  if (naturalWidth > targetWidth && naturalWidth > 0) {
-    const scale = targetWidth / naturalWidth
-    geometry.scale(scale, scale, 1)
-    geometry.center()
-  }
-  return geometry
-}
-
-// Note: proportional scaling is handled in the UI/panel, not here
-// The build function uses the width/height values directly
-function buildItemGeometry(
-  item: TextItem,
-  resolvedFont: Font,
-  availableWidth: number,
-): BufferGeometry {
-  const targetWidth = Math.min(item.width, availableWidth)
-  return buildScaledText({
-    font: resolvedFont,
-    name: item.content,
-    textSize: item.height,
-    targetWidth,
-    depth: item.relief,
-  })
-}
-
 export function buildBookmark({
   font,
   fonts,
   params,
-  onError,
+  parsedSvg,
 }: BuildBookmarkInput): BuildBookmarkResult {
-  // Criar base retangular
-  const baseShape = new Shape()
-  const halfLength = params.length / 2
-  const halfWidth = params.width / 2
-  
-  baseShape.moveTo(-halfLength, -halfWidth)
-  baseShape.lineTo(halfLength, -halfWidth)
-  baseShape.lineTo(halfLength, halfWidth)
-  baseShape.lineTo(-halfLength, halfWidth)
-  baseShape.lineTo(-halfLength, -halfWidth)
+  const baseCenterX = bookmarkBaseCenterX(params.width, params.text.relief)
+  let baseGeometry = buildBookmarkBase({ ...params, centerX: baseCenterX })
+  const patternGeometry = buildPatternGeometry(params, parsedSvg ?? null)
+  if (patternGeometry) {
+    const mergedBase = mergeGeometries([baseGeometry, patternGeometry])
+    patternGeometry.dispose()
+    if (mergedBase) {
+      baseGeometry.dispose()
+      baseGeometry = mergedBase
+    }
+  }
 
-  // Criar furo circular no topo
-  const holeCenter = { x: 0, y: halfWidth - params.holeMargin }
-  const holePath = new Path()
-  holePath.absarc(holeCenter.x, holeCenter.y, params.holeDiameter / 2, 0, Math.PI * 2, false)
-  baseShape.holes.push(holePath)
+  const availableLength = params.length - 2 * TEXT_MARGIN
+  const resolvedFont = resolveFont(fonts, font, params.text.fontStyle)
 
-  const baseGeometry = new ExtrudeGeometry(baseShape, {
-    depth: params.thickness,
-    bevelEnabled: false,
+  const textGeometry = nameToGeometry({
+    font: resolvedFont,
+    name: params.text.content,
+    size: params.text.height,
+    depth: params.text.relief,
   })
 
-  // Gerar textos
-  const availableLength = params.length - 2 * TEXT_MARGIN
-  const availableWidth = params.width - 2 * TEXT_MARGIN
+  fitGeometryWidth(textGeometry, Math.min(params.text.width, availableLength))
+  // Texto em pé, perpendicular à base: a largura local passa a correr no
+  // comprimento (Y), a altura sobe em Z e a profundidade vira a espessura
+  // da parede no eixo X.
+  textGeometry.rotateZ(TEXT_ROTATION)
+  textGeometry.rotateY(TEXT_ROTATION)
 
-  const textGeometries: BufferGeometry[] = []
-  const textItems: Array<{ id: string; geometry: BufferGeometry }> = []
+  textGeometry.computeBoundingBox()
+  const bb = textGeometry.boundingBox!
+  const x = fixedTextX(params.width, params.text.relief)
+  const y = 0
 
-  for (let i = 0; i < params.texts.length; i++) {
-    const item = params.texts[i]
-    const resolvedFont = resolveFont(fonts, font, item.fontStyle)
-    const textGeometry = buildItemGeometry(item, resolvedFont, availableLength)
+  // O texto começa no fundo da base (z = 0) e sobe no eixo Z, com uma pequena
+  // sobreposição para garantir a fusão das peças na impressão.
+  textGeometry.translate(x, y, -TEXT_Z_OFFSET - bb.min.z)
 
-    textGeometry.computeBoundingBox()
-    const bb = textGeometry.boundingBox!
-    const halfTextWidth = (bb.max.x - bb.min.x) / 2
-    const halfTextHeight = (bb.max.y - bb.min.y) / 2
+  textGeometry.computeVertexNormals()
+  baseGeometry.computeVertexNormals()
 
-    // Clamp para respeitar margens
-    const maxOffsetX = availableLength / 2 - halfTextWidth
-    const maxOffsetY = availableWidth / 2 - halfTextHeight
-    const clampedX = Math.max(-maxOffsetX, Math.min(maxOffsetX, item.offsetX))
-    const clampedY = Math.max(-maxOffsetY, Math.min(maxOffsetY, item.offsetY))
-
-    textGeometry.translate(clampedX, clampedY, params.thickness - TEXT_Z_OFFSET)
-    textGeometries.push(textGeometry)
-    textItems.push({ id: item.id, geometry: textGeometry })
-  }
-
-  if (textGeometries.length === 0) {
-    return {
-      base: baseGeometry,
-      text: new BufferGeometry(),
-      textItems: [],
-    }
-  }
-
-  if (params.textMode === 'raised') {
-    const merged = mergeGeometries(textGeometries) ?? textGeometries[0]
-    merged.computeVertexNormals()
-    baseGeometry.computeVertexNormals()
-    return {
-      base: baseGeometry,
-      text: merged,
-      textItems,
-    }
-  }
-
-  // Modo engraved - usar CSG
-  try {
-    const mergedText = mergeGeometries(textGeometries) ?? textGeometries[0]
-    const displayText = mergedText.clone()
-    displayText.translate(0, 0, params.thickness - TEXT_Z_OFFSET)
-    const evaluator = new Evaluator()
-    const result = evaluator.evaluate(new Brush(baseGeometry), new Brush(mergedText), SUBTRACTION)
-    result.geometry.computeVertexNormals()
-    return {
-      base: result.geometry,
-      text: displayText,
-      textItems,
-    }
-  } catch {
-    onError?.('Falha na gravação; usando relevo')
-    const fallbackMerged = mergeGeometries(textGeometries) ?? textGeometries[0]
-    fallbackMerged.computeVertexNormals()
-    baseGeometry.computeVertexNormals()
-    return {
-      base: baseGeometry,
-      text: fallbackMerged,
-      textItems,
-    }
-  }
+  return { base: baseGeometry, text: textGeometry }
 }
 
 export function disposeBookmarkResult(result: BuildBookmarkResult): void {
   result.base.dispose()
   result.text.dispose()
-  result.textItems.forEach((item) => item.geometry.dispose())
 }

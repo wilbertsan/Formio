@@ -74,7 +74,7 @@ const TOOLS: ToolCard[] = [
   {
     id: 'marcador-pagina',
     name: 'Marcador de Página',
-    description: 'Marcadores 3D personalizados com texto em relevo e furo para fita',
+    description: 'Marcadores 3D personalizados com texto em pé',
     icon: '📖',
     category: 'Letreiros',
   },

@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react'
 import {
   Accordion,
   Button,
@@ -9,7 +10,16 @@ import {
   TextField,
   View,
 } from '@aws-amplify/ui-react'
-import { type BookmarkParams, type TextItem, PLA_COLORS } from './schema'
+import {
+  PATTERN_DENSITIES,
+  PATTERN_TYPES,
+  PLA_COLORS,
+  type BookmarkParams,
+  type PatternDensity,
+  type PatternParams,
+  type PatternType,
+  type TextParams,
+} from './schema'
 
 const SLIDER_LIMITS = {
   textWidth: { min: 8, max: 60, step: 1 },
@@ -17,20 +27,31 @@ const SLIDER_LIMITS = {
   relief: { min: 0.4, max: 2, step: 0.1 },
   length: { min: 50, max: 150, step: 1 },
   width: { min: 30, max: 50, step: 1 },
-  holeDiameter: { min: 3, max: 8, step: 0.5 },
-  holeMargin: { min: 5, max: 15, step: 1 },
+  thickness: { min: 1, max: 2, step: 0.5 },
+  patternDepth: { min: 0.4, max: 1.5, step: 0.1 },
 } as const
+
+const PATTERN_LABELS: Record<PatternType, string> = {
+  none: 'Nenhuma',
+  triangles: 'Triângulos',
+  squares: 'Quadrados',
+  circles: 'Círculos',
+  diamonds: 'Losangos',
+  svg: 'SVG personalizado',
+}
+
+const DENSITY_LABELS: Record<PatternDensity, string> = {
+  low: 'Baixa',
+  medium: 'Média',
+  high: 'Alta',
+}
 
 interface StudioPanelProps {
   params: BookmarkParams
-  selectedTextId: string
-  onSelectText: (id: string) => void
-  onUpdateText: (id: string, patch: Partial<TextItem>) => void
-  onAddText: () => void
-  onRemoveText: (id: string) => void
+  onUpdateText: (patch: Partial<TextParams>) => void
+  onUpdatePattern: (patch: Partial<PatternParams>) => void
   onUpdateParam: (key: keyof BookmarkParams, value: number | string) => void
   onReset: () => void
-  onOpenEditor: () => void
 }
 
 function ColorSwatches({
@@ -61,17 +82,44 @@ function ColorSwatches({
 
 export function StudioPanel({
   params,
-  selectedTextId,
-  onSelectText,
   onUpdateText,
-  onAddText,
-  onRemoveText,
+  onUpdatePattern,
   onUpdateParam,
   onReset,
-  onOpenEditor,
 }: StudioPanelProps) {
-  const selectedText = params.texts.find((t) => t.id === selectedTextId) ?? params.texts[0]
-  const canAddText = params.texts.length < 3
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [svgError, setSvgError] = useState<string | null>(null)
+
+  const handleSvgUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.svg')) {
+      setSvgError('Envie um arquivo SVG')
+      input.value = ''
+      return
+    }
+    if (file.size > 1024 * 1024) {
+      setSvgError('O SVG deve ter no máximo 1MB')
+      input.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const text = e.target?.result
+      if (typeof text === 'string' && text.trim()) {
+        setSvgError(null)
+        onUpdatePattern({ svg: text })
+      } else {
+        setSvgError('Não foi possível ler o SVG')
+      }
+    }
+    reader.onerror = () => setSvgError('Não foi possível ler o SVG')
+    reader.readAsText(file)
+    input.value = ''
+  }
 
   return (
     <View
@@ -98,114 +146,155 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <Flex direction="row" gap="xs" wrap="wrap">
-                {params.texts.map((text) => (
-                  <Flex key={text.id} direction="row" gap="xs" alignItems="center">
-                    <Button
-                      size="small"
-                      aria-pressed={text.id === selectedTextId}
-                      onClick={() => onSelectText(text.id)}
-                    >
-                      {text.content}
-                    </Button>
-                    <Button
-                      size="small"
-                      variation="link"
-                      onClick={() => onRemoveText(text.id)}
-                      aria-label={`Remover texto ${text.content}`}
-                      isDisabled={params.texts.length <= 1}
-                    >
-                      ×
-                    </Button>
-                  </Flex>
-                ))}
-              </Flex>
+              <TextField
+                label="Conteúdo"
+                value={params.text.content}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdateText({ content: e.target.value })
+                }
+              />
 
-              <Button
-                size="small"
-                isDisabled={!canAddText}
-                onClick={onAddText}
+              <SelectField
+                label="Estilo da letra"
+                value={params.text.fontStyle}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdateText({ fontStyle: e.target.value as TextParams['fontStyle'] })
+                }
               >
-                Adicionar texto
-              </Button>
+                <option value="bold">Negrito</option>
+                <option value="normal">Normal</option>
+                <option value="serif">Serifada</option>
+              </SelectField>
 
-              {selectedText && (
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
+                <Text fontSize="xs" color="font.secondary">{params.text.width} mm</Text>
+              </Flex>
+              <SliderField
+                label="Largura do texto"
+                labelHidden
+                aria-label="Largura do texto"
+                min={SLIDER_LIMITS.textWidth.min}
+                max={SLIDER_LIMITS.textWidth.max}
+                step={SLIDER_LIMITS.textWidth.step}
+                value={params.text.width}
+                onChange={(value) => onUpdateText({ width: value as number })}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
+                <Text fontSize="xs" color="font.secondary">{params.text.height} mm</Text>
+              </Flex>
+              <SliderField
+                label="Altura do texto"
+                labelHidden
+                aria-label="Altura do texto"
+                min={SLIDER_LIMITS.textHeight.min}
+                max={SLIDER_LIMITS.textHeight.max}
+                step={SLIDER_LIMITS.textHeight.step}
+                value={params.text.height}
+                onChange={(value) => onUpdateText({ height: value as number })}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Espessura da parede</Text>
+                <Text fontSize="xs" color="font.secondary">{params.text.relief} mm</Text>
+              </Flex>
+              <SliderField
+                label="Espessura da parede"
+                labelHidden
+                aria-label="Espessura da parede"
+                min={SLIDER_LIMITS.relief.min}
+                max={SLIDER_LIMITS.relief.max}
+                step={SLIDER_LIMITS.relief.step}
+                value={params.text.relief}
+                onChange={(value) => onUpdateText({ relief: value as number })}
+              />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="textura">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">
+              Textura
+            </Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <SelectField
+                label="Tipo de textura"
+                value={params.pattern.type}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  onUpdatePattern({ type: e.target.value as PatternType })
+                }
+              >
+                {PATTERN_TYPES.map((type) => (
+                  <option key={type} value={type}>{PATTERN_LABELS[type]}</option>
+                ))}
+              </SelectField>
+
+              {params.pattern.type !== 'none' && (
                 <>
-                  <Button
-                    size="small"
-                    variation="link"
-                    onClick={onOpenEditor}
-                    aria-label="Posicionar textos"
-                  >
-                    ✥ Posicionar textos
-                  </Button>
-
-                  <TextField
-                    label="Conteúdo"
-                    descriptiveText="Até 12 caracteres"
-                    value={selectedText.content}
-                    maxLength={12}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      onUpdateText(selectedText.id, { content: e.target.value })
-                    }
-                  />
-
                   <SelectField
-                    label="Estilo da letra"
-                    value={selectedText.fontStyle}
+                    label="Densidade"
+                    value={params.pattern.density}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      onUpdateText(selectedText.id, { fontStyle: e.target.value as TextItem['fontStyle'] })
+                      onUpdatePattern({ density: e.target.value as PatternDensity })
                     }
                   >
-                    <option value="bold">Negrito</option>
-                    <option value="normal">Normal</option>
-                    <option value="serif">Serifada</option>
+                    {PATTERN_DENSITIES.map((density) => (
+                      <option key={density} value={density}>{DENSITY_LABELS[density]}</option>
+                    ))}
                   </SelectField>
 
                   <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Largura do texto</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.width} mm</Text>
+                    <Text fontSize="xs" color="font.tertiary">Profundidade</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.pattern.depth} mm</Text>
                   </Flex>
                   <SliderField
-                    label="Largura do texto"
+                    label="Profundidade da textura"
                     labelHidden
-                    aria-label="Largura do texto"
-                    min={SLIDER_LIMITS.textWidth.min}
-                    max={SLIDER_LIMITS.textWidth.max}
-                    step={SLIDER_LIMITS.textWidth.step}
-                    value={selectedText.width}
-                    onChange={(value) => onUpdateText(selectedText.id, { width: value as number })}
+                    aria-label="Profundidade da textura"
+                    min={SLIDER_LIMITS.patternDepth.min}
+                    max={SLIDER_LIMITS.patternDepth.max}
+                    step={SLIDER_LIMITS.patternDepth.step}
+                    value={params.pattern.depth}
+                    onChange={(value) => onUpdatePattern({ depth: value as number })}
+                  />
+                </>
+              )}
+
+              {params.pattern.type === 'svg' && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".svg"
+                    onChange={handleSvgUpload}
+                    style={{ display: 'none' }}
                   />
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura do texto</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.height} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Altura do texto"
-                    labelHidden
-                    aria-label="Altura do texto"
-                    min={SLIDER_LIMITS.textHeight.min}
-                    max={SLIDER_LIMITS.textHeight.max}
-                    step={SLIDER_LIMITS.textHeight.step}
-                    value={selectedText.height}
-                    onChange={(value) => onUpdateText(selectedText.id, { height: value as number })}
-                  />
+                  {params.pattern.svg ? (
+                    <Button size="small" variation="link" onClick={() => onUpdatePattern({ svg: null })}>
+                      Remover SVG
+                    </Button>
+                  ) : (
+                    <Button size="small" onClick={() => fileInputRef.current?.click()}>
+                      Enviar SVG
+                    </Button>
+                  )}
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedText.relief} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Altura do relevo"
-                    labelHidden
-                    aria-label="Altura do relevo"
-                    min={SLIDER_LIMITS.relief.min}
-                    max={SLIDER_LIMITS.relief.max}
-                    step={SLIDER_LIMITS.relief.step}
-                    value={selectedText.relief}
-                    onChange={(value) => onUpdateText(selectedText.id, { relief: value as number })}
-                  />
+                  <Text fontSize="xs" color="font.secondary">
+                    O SVG é repetido como motivo, mantendo a proporção.
+                  </Text>
+
+                  {svgError && (
+                    <Text fontSize="xs" className="text-red-600" role="alert">
+                      {svgError}
+                    </Text>
+                  )}
                 </>
               )}
             </Flex>
@@ -221,17 +310,6 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <SelectField
-                label="Modo de texto"
-                value={params.textMode}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateParam('textMode', e.target.value)
-                }
-              >
-                <option value="raised">Relevo</option>
-                <option value="engraved">Gravado</option>
-              </SelectField>
-
               <Text fontSize="xs" color="font.tertiary">
                 Cor da base
               </Text>
@@ -279,47 +357,20 @@ export function StudioPanel({
                 value={params.width}
                 onChange={(value) => onUpdateParam('width', value as number)}
               />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="furo">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Furo
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Diâmetro</Text>
-                <Text fontSize="xs" color="font.secondary">{params.holeDiameter} mm</Text>
-              </Flex>
-              <SliderField
-                label="Diâmetro"
-                labelHidden
-                aria-label="Diâmetro"
-                min={SLIDER_LIMITS.holeDiameter.min}
-                max={SLIDER_LIMITS.holeDiameter.max}
-                step={SLIDER_LIMITS.holeDiameter.step}
-                value={params.holeDiameter}
-                onChange={(value) => onUpdateParam('holeDiameter', value as number)}
-              />
 
               <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Margem do topo</Text>
-                <Text fontSize="xs" color="font.secondary">{params.holeMargin} mm</Text>
+                <Text fontSize="xs" color="font.tertiary">Espessura</Text>
+                <Text fontSize="xs" color="font.secondary">{params.thickness} mm</Text>
               </Flex>
               <SliderField
-                label="Margem do topo"
+                label="Espessura"
                 labelHidden
-                aria-label="Margem do topo"
-                min={SLIDER_LIMITS.holeMargin.min}
-                max={SLIDER_LIMITS.holeMargin.max}
-                step={SLIDER_LIMITS.holeMargin.step}
-                value={params.holeMargin}
-                onChange={(value) => onUpdateParam('holeMargin', value as number)}
+                aria-label="Espessura"
+                min={SLIDER_LIMITS.thickness.min}
+                max={SLIDER_LIMITS.thickness.max}
+                step={SLIDER_LIMITS.thickness.step}
+                value={params.thickness}
+                onChange={(value) => onUpdateParam('thickness', value as number)}
               />
             </Flex>
           </Accordion.Content>

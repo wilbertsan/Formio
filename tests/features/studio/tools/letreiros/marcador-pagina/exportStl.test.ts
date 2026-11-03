@@ -35,7 +35,7 @@ describe('exportStl', () => {
 
     const base = new THREE.BoxGeometry(10, 10, 10)
     const text = new THREE.BoxGeometry(5, 5, 5)
-    exportStl({ base, text, textItems: [] }, 'Meu Marcador! @#')
+    exportStl({ base, text }, 'Meu Marcador! @#')
 
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     const blob = (createObjectURL.mock.calls as unknown[][])[0]![0] as Blob

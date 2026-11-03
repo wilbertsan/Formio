@@ -7,6 +7,7 @@ import '@/features/studio/tools/confeitaria/topo-bolo/StudioPanel'
 import '@/features/studio/tools/confeitaria/rolo-textura/StudioPanel'
 import '@/features/studio/tools/chaveiros/chaveiro/StudioPanel'
 import '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
+import '@/features/studio/tools/letreiros/marcador-pagina/StudioPanel'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -150,5 +151,27 @@ describe('StudioPage', () => {
     const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
     expect(status).toHaveTextContent('Gerando…')
     expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
+  })
+
+  it('abre a ferramenta Marcador de Página com a seção Textura', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /marcador de página/i }))
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Marcador de Página' }, LAZY_TIMEOUT),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Textura' })).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… ao gerar o marcador de página', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /marcador de página/i }))
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+  })
+
+  it('mostra as dimensões 50 × 100 × 1 mm no marcador', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /marcador de página/i }))
+    expect(await screen.findByText('50 × 100 × 1 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
   })
 })

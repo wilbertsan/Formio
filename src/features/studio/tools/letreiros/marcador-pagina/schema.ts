@@ -7,60 +7,72 @@ export const PLA_COLORS = [
 
 export type PlaColor = (typeof PLA_COLORS)[number]
 
-export const textItemSchema = z.object({
-  id: z.string().min(1),
-  content: z.string().trim().min(1).max(12),
+export const textSchema = z.object({
+  content: z.string().trim().min(1),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   width: z.number().min(8).max(60),
   height: z.number().min(4).max(20),
   relief: z.number().min(0.4).max(2),
-  proportional: z.boolean(),
-  offsetX: z.number().min(-20).max(20),
-  offsetY: z.number().min(-20).max(20),
 })
 
-export type TextItem = z.infer<typeof textItemSchema>
+export type TextParams = z.infer<typeof textSchema>
+
+export const PATTERN_TYPES = [
+  'none', 'triangles', 'squares', 'circles', 'diamonds', 'svg',
+] as const
+export type PatternType = (typeof PATTERN_TYPES)[number]
+
+export const PATTERN_DENSITIES = ['low', 'medium', 'high'] as const
+export type PatternDensity = (typeof PATTERN_DENSITIES)[number]
+export const PATTERN_CELL_MM: Record<PatternDensity, number> = {
+  low: 12,
+  medium: 8,
+  high: 5,
+}
+
+export const patternSchema = z.object({
+  type: z.enum(PATTERN_TYPES),
+  density: z.enum(PATTERN_DENSITIES),
+  depth: z.number().min(0.4).max(1.5),
+  svg: z.string().nullable(),
+})
+
+export type PatternParams = z.infer<typeof patternSchema>
 
 export const bookmarkParamsSchema = z.object({
   productType: z.literal('bookmark'),
   length: z.number().min(50).max(150),
   width: z.number().min(30).max(50),
-  thickness: z.literal(2),
-  holeDiameter: z.number().min(3).max(8),
-  holeMargin: z.number().min(5).max(15),
+  thickness: z.number().min(1).max(2),
   baseColor: z.enum(PLA_COLORS),
   letterColor: z.enum(PLA_COLORS),
-  textMode: z.enum(['raised', 'engraved']),
-  texts: z.array(textItemSchema).min(1).max(3),
+  text: textSchema,
+  pattern: patternSchema,
 })
 
 export type BookmarkParams = z.infer<typeof bookmarkParamsSchema>
-export type BookmarkTextMode = BookmarkParams['textMode']
-export type FontStyle = TextItem['fontStyle']
-
-export const defaultText: TextItem = {
-  id: 'text-1',
-  content: 'Meu nome',
-  fontStyle: 'bold',
-  width: 40,
-  height: 10,
-  relief: 1,
-  proportional: false,
-  offsetX: 0,
-  offsetY: 0,
-}
+export type FontStyle = TextParams['fontStyle']
 
 export const defaultBookmarkParams: BookmarkParams = {
   productType: 'bookmark',
-  length: 120,
-  width: 40,
-  thickness: 2,
-  holeDiameter: 5,
-  holeMargin: 10,
+  length: 100,
+  width: 50,
+  thickness: 1,
   baseColor: '#14b8a6',
   letterColor: '#f5f5f5',
-  textMode: 'raised',
-  texts: [defaultText],
+  text: {
+    content: 'Meu nome',
+    fontStyle: 'bold',
+    width: 40,
+    height: 10,
+    relief: 1,
+  },
+  pattern: {
+    type: 'none',
+    density: 'medium',
+    depth: 0.8,
+    svg: null,
+  },
 }
 
 export function sanitizeFilename(name: string): string {

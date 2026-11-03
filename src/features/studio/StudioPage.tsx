@@ -16,7 +16,6 @@ import { exportStampStl } from './tools/confeitaria/carimbo-brigadeiro/exportSta
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 import { useBookmark } from './tools/letreiros/marcador-pagina/useBookmark'
 import { exportStl as exportBookmarkStl } from './tools/letreiros/marcador-pagina/exportStl'
-import { TextPositionEditor as BookmarkTextPositionEditor } from './tools/letreiros/marcador-pagina/TextPositionEditor'
 import { usePlacaLoja } from './tools/letreiros/placa-loja/usePlacaLoja'
 import { exportStl as exportPlacaLojaStl } from './tools/letreiros/placa-loja/exportStl'
 import { TextPositionEditor as PlacaLojaTextPositionEditor } from './tools/letreiros/placa-loja/TextPositionEditor'
@@ -744,17 +743,16 @@ function RoloTexturaToolWrapper({ onBack }: { onBack: () => void }) {
 function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
-  const [selectedTextId, setSelectedTextId] = useState<string>('')
-  const [isEditorOpen, setEditorOpen] = useState(false)
 
   const {
     params,
     geometry,
+    isBuilding,
+    error,
     dimensions,
     updateParam,
-    updateTextById,
-    addText,
-    removeText,
+    updateText,
+    updatePattern,
     reset,
   } = useBookmark()
 
@@ -768,22 +766,6 @@ function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
     }
   }, [geometry, projectName])
 
-  const handleSelectText = useCallback((id: string) => {
-    setSelectedTextId(id)
-  }, [])
-
-  const handleAddText = useCallback(() => {
-    addText()
-    if (params.texts.length < 3) {
-      const next = params.texts[params.texts.length]
-      if (next) setSelectedTextId(next.id)
-    }
-  }, [addText, params.texts])
-
-  const handleMoveText = useCallback((id: string, x: number, y: number) => {
-    updateTextById(id, { offsetX: x, offsetY: y })
-  }, [updateTextById])
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
       <StudioTopbar
@@ -793,18 +775,31 @@ function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1" aria-busy={isBuilding}>
+        {isBuilding && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+          >
+            Gerando…
+          </div>
+        )}
+        {error && (
+          <div
+            role="alert"
+            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+          >
+            {error}
+          </div>
+        )}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <MarcadorPaginaTool
             params={params}
-            selectedTextId={selectedTextId}
-            onSelectText={handleSelectText}
-            onUpdateText={updateTextById}
-            onAddText={handleAddText}
-            onRemoveText={removeText}
+            onUpdateText={updateText}
+            onUpdatePattern={updatePattern}
             onUpdateParam={updateParam}
             onReset={reset}
-            onOpenEditor={() => setEditorOpen(true)}
           />
         </Suspense>
         <StudioViewport
@@ -821,18 +816,7 @@ function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
           </Suspense>
         </StudioViewport>
       </div>
-      <StudioStatusBar dimensions={{ width: dimensions.length, height: dimensions.width, thickness: dimensions.thickness }} />
-      {isEditorOpen && (
-        <Suspense fallback={null}>
-          <BookmarkTextPositionEditor
-            params={params}
-            selectedTextId={selectedTextId}
-            onSelectText={setSelectedTextId}
-            onMoveText={handleMoveText}
-            onClose={() => setEditorOpen(false)}
-          />
-        </Suspense>
-      )}
+      <StudioStatusBar dimensions={{ width: dimensions.width, height: dimensions.length, thickness: dimensions.thickness }} />
     </div>
   )
 }
