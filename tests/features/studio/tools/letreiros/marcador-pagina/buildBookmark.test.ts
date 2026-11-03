@@ -19,7 +19,9 @@ vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
           3,
         ),
       )
-      this.setIndex([0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1, 2, 6, 7, 2, 7, 3])
+      // TextGeometry real é não indexado; o mock também precisa ser.
+      this.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(8 * 3).fill(0), 3))
+      this.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(8 * 2).fill(0), 2))
     }
   },
 }))
@@ -43,11 +45,10 @@ describe('buildBookmark', () => {
     result.text.computeBoundingBox()
     const box = result.text.boundingBox!
 
-    expect(box.max.x - box.min.x).toBeCloseTo(1)
+    expect(box.max.x - box.min.x).toBeCloseTo(2.5)
     expect(box.max.y - box.min.y).toBeCloseTo(40)
-    expect(box.max.z - box.min.z).toBeCloseTo(8.333, 3)
-    expect(box.min.z).toBeCloseTo(-0.01, 2)
-    expect(box.max.z).toBeCloseTo(8.323, 3)
+    expect(box.max.z - box.min.z).toBeCloseTo(9.133, 3)
+    expect(box.min.z).toBeCloseTo(-0.8)
   })
 
   it('centraliza o nome ao longo do comprimento', () => {
@@ -55,13 +56,12 @@ describe('buildBookmark', () => {
     result.text.computeBoundingBox()
     const box = result.text.boundingBox!
 
-    expect((box.min.x + box.max.x) / 2).toBeCloseTo(21.5)
     expect((box.min.y + box.max.y) / 2).toBeCloseTo(0)
     expect(box.min.y).toBeCloseTo(-20)
     expect(box.max.y).toBeCloseTo(20)
   })
 
-  it('faz a lateral da base entrar metade na parede de texto', () => {
+  it('separa a base na traseira do texto com folga de 0,2mm', () => {
     const result = buildBookmark({ font, params: defaultBookmarkParams })
     result.base.computeBoundingBox()
     result.text.computeBoundingBox()
@@ -69,9 +69,9 @@ describe('buildBookmark', () => {
     const textBox = result.text.boundingBox!
 
     expect(baseBox.max.x - baseBox.min.x).toBeCloseTo(50)
-    expect(baseBox.max.x).toBeCloseTo(21.5)
-    expect(textBox.min.x).toBeCloseTo(21)
-    expect(baseBox.max.x - textBox.min.x).toBeCloseTo(0.5)
+    expect(baseBox.max.x).toBeCloseTo(-0.2)
+    expect(textBox.min.x).toBeCloseTo(-1.5)
+    expect(baseBox.max.x - textBox.min.x).toBeCloseTo(1.3)
   })
 
   it('reduz textos longos para a largura alvo', () => {

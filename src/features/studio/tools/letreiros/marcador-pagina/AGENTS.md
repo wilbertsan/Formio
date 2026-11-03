@@ -6,12 +6,10 @@ Implementada — build em Web Worker, gera e exporta STL localmente no navegador
 
 ## O que faz
 
-Gera marcadores de página 3D finos e retangulares (50mm de largura por 100mm de
-comprimento), com **um único texto, sem limite de caracteres**, em pé e
-perpendicular à base, formando um perfil em “L”: o marcador é a aba horizontal e
-o texto é uma parede vertical ao longo do comprimento. A base pode receber
-**texturas em relevo** com motivos repetidos (triângulos, quadrados, círculos,
-losangos) ou um **SVG repetido como motivo**.
+Gera marcadores de página 3D em **duas peças**: uma base plana e um texto em pé
+com **encaixe em U na traseira**. Duas barras atrás do texto abraçam a borda da
+base. A base pode receber **texturas em relevo** com motivos repetidos
+(triângulos, quadrados, círculos, losangos) ou um **SVG repetido como motivo**.
 
 ## Parâmetros
 
@@ -47,16 +45,23 @@ O objeto `pattern` tem:
 - Texto em pé, formando 90° com a base: corre ao longo do comprimento (Y) e
   sobe em Z (`TEXT_ROTATION`). `height` é a altura da parede e `relief` a
   espessura da parede.
-- Posição fixa: a parede fica na borda direita (`fixedTextX`) e o texto é
-  **centralizado no comprimento**; a base é deslocada (`bookmarkBaseCenterX`)
-  para a lateral entrar **metade da espessura da parede**, formando o perfil em
-  “L”.
-- O texto começa no **fundo da base** (z = 0) e sobe no eixo Z; há uma pequena
-  sobreposição (`TEXT_Z_OFFSET`) para fundir as peças.
+- Duas peças: base separada e texto separado.
+- Base: borda direita em `x = -JOINT_CLEARANCE` (0,2mm da traseira do texto);
+  centro em `splitBaseCenterX(width)`.
+- Texto: traseira em `x = 0`, centro em `splitTextCenterX(relief)`, base em
+  `z = 0`.
+- Encaixe em U na traseira do texto: **duas barras** de 1,5mm de profundidade ×
+  0,8mm de altura, começando na **metade da espessura do texto** (`relief/2`) e
+  indo para trás, com vão entre elas igual à espessura da base + 0,2mm de folga.
+  A barra inferior passa por baixo do texto e da base; a superior fica acima da
+  base. A base desliza pela lateral entre as barras.
+- O texto é exportado **deitado** para impressão (face frontal na mesa); a base
+  já sai plana. São gerados dois STLs: `-base.stl` e `-texto.stl`.
 - Texto com margem mínima de 3mm em relação às bordas (`TEXT_MARGIN`).
 - Não há adicionar/remover textos nem editor de posicionamento.
-- Textura em relevo, repetida em grade com 1mm de margem da base; o SVG é
-  repetido como motivo, com escala uniforme dentro da célula (sem distorção).
+- Textura em relevo, repetida em grade com 1mm de margem da base, recuada
+  2,5mm da borda direita para não colidir com as barras; o SVG é repetido como
+  motivo, com escala uniforme dentro da célula (sem distorção).
 - A textura usa a cor da base e é mesclada na geometria da base.
 - Apenas parede em relevo; o modo gravado foi removido.
 - STL sempre manifold, fechado, pronto para impressão.
@@ -70,13 +75,14 @@ tools/letreiros/marcador-pagina/
   shapes.ts              — contorno retangular em pé + ExtrudeGeometry
   patterns.ts            — motivos, tiling e relevo da textura da base
   autoFit.ts             — reduz a largura do texto ao alvo (nunca amplia)
-  positioning.ts         — rotação para texto em pé, margem, offset Z e posição fixa
+  positioning.ts         — rotação do texto e margem
+  joint.ts               — constantes e barras do encaixe em U
   textToGeometry.ts      — TextGeometry do conteúdo
-  buildBookmark.ts       — composição base + textura + parede de texto
+  buildBookmark.ts       — base + textura + texto com barras
   buildBookmark.worker.ts — build em Web Worker
   workerClient.ts        — client do Worker
   workerGeometry.ts      — serialização do resultado (shared helper)
-  exportStl.ts           — STL binário + download
+  exportStl.ts           — dois STLs (base e texto deitado) + download
   fonts.ts               — mapa estilo → typeface.json
   useBookmark.ts         — estado + worker + debounce + isBuilding/error
   StudioPanel.tsx        — painel de parâmetros
@@ -90,7 +96,8 @@ Os helpers `../../confeitaria/shared/workerGeometry.ts` (serialização),
 ## Pipeline de geração
 
 `schema.ts` → `shapes.ts`/`patterns.ts`/`autoFit.ts`/`positioning.ts`/
-`textToGeometry.ts` → `buildBookmark.ts` → `workerGeometry.ts` → `exportStl.ts`.
+`joint.ts`/`textToGeometry.ts` → `buildBookmark.ts` → `workerGeometry.ts` →
+`exportStl.ts`.
 
 O `buildBookmark` roda em Web Worker:
 
@@ -100,7 +107,10 @@ O `buildBookmark` roda em Web Worker:
 - **Worker** (`buildBookmark.worker.ts`) carrega a fonte necessária e chama
   `buildBookmark`, que gera a textura, aplica o auto-fit, coloca o texto em pé
   (parede perpendicular à base) e o posiciona na borda direita.
-- `buildBookmark` mescla a textura na base e devolve `{ base, text }`.
+- `buildBookmark` mescla a textura na base, gera as barras em U no texto e
+  devolve `{ base, text }` (peças separadas).
+- `exportStlParts` baixa `-base.stl` e `-texto.stl`; o texto é rotacionado para
+  imprimir deitado.
 - `workerGeometry.ts` serializa `{ base, text }` de volta para a main thread.
 - `isBuilding` controla o aviso “Gerando…” e `error` aparece no overlay da UI; a
   geometria anterior permanece visível durante o rebuild.
@@ -111,11 +121,12 @@ O `BookmarkPreview` deita a base no plano e vira o texto para a frente com
 
 ## Testes
 
-`tests/features/studio/tools/letreiros/marcador-pagina/` — 10 arquivos, 86 testes:
+`tests/features/studio/tools/letreiros/marcador-pagina/` — 11 arquivos, 88 testes:
 
 - `autoFit.test.ts`
 - `buildBookmark.test.ts`
 - `exportStl.test.ts`
+- `joint.test.ts`
 - `patterns.test.ts`
 - `positioning.test.ts`
 - `schema.test.ts`
@@ -128,4 +139,4 @@ O `BookmarkPreview` deita a base no plano e vira o texto para a frente com
 
 Persistência, geração via CadQuery/Lambda, pagamentos, autenticação, novos
 formatos (redondo/personalizado), textura gravada, motivos adicionais,
-decorações e laço.
+decorações, laço, encaixe com trava/dovetail e exportação em peça única.

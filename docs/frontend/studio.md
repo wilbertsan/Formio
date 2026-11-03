@@ -11,7 +11,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Topo de Bolo** — Toppers com texto em relevo ou vazado, ícone SVG e fixação por haste ou base
 - **Cortador + Carimbo** — Cortador e carimbo no formato do texto, em duas peças
 - **Rolo de Textura** — Rolos cilíndricos fechados (sem cabos) com padrão em relevo (geométrico, ondulado, floral ou SVG)
-- **Marcador de Página** — Marcadores 3D com texto em pé e textura na base
+- **Marcador de Página** — Marcadores 3D em duas peças (base + texto com encaixe em U)
 
 ### Componentes Genéricos
 
@@ -91,15 +91,16 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Textura da base (motivos e SVG) | `src/features/studio/tools/letreiros/marcador-pagina/patterns.ts` |
 | Helper SVG → motivo (compartilhado) | `src/features/studio/tools/confeitaria/shared/svgPattern.ts` |
 | Auto-fit de largura | `src/features/studio/tools/letreiros/marcador-pagina/autoFit.ts` |
-| Posição fixa da parede | `src/features/studio/tools/letreiros/marcador-pagina/positioning.ts` |
-| Composição base + textos | `src/features/studio/tools/letreiros/marcador-pagina/buildBookmark.ts` |
+| Rotação do texto e margem | `src/features/studio/tools/letreiros/marcador-pagina/positioning.ts` |
+| Encaixe em U | `src/features/studio/tools/letreiros/marcador-pagina/joint.ts` |
+| Composição base + texto com barras | `src/features/studio/tools/letreiros/marcador-pagina/buildBookmark.ts` |
 | Worker + serialização | `src/features/studio/tools/letreiros/marcador-pagina/buildBookmark.worker.ts` |
 | Interface do worker | `src/features/studio/tools/letreiros/marcador-pagina/workerClient.ts` |
 | Serialização da geometria | `src/features/studio/tools/letreiros/marcador-pagina/workerGeometry.ts` |
 | Hook de estado | `src/features/studio/tools/letreiros/marcador-pagina/useBookmark.ts` |
 | Painel de parâmetros | `src/features/studio/tools/letreiros/marcador-pagina/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/letreiros/marcador-pagina/BookmarkPreview.tsx` |
-| Export STL | `src/features/studio/tools/letreiros/marcador-pagina/exportStl.ts` |
+| Exportar dois STLs | `src/features/studio/tools/letreiros/marcador-pagina/exportStl.ts` |
 
 ## Gerador de chaveiros
 
@@ -125,14 +126,15 @@ Pipeline completo de geração do marcador:
 
 1. **schema.ts** — Valida parâmetros (dimensões, cores PLA, um único `text` sem limite de caracteres e `pattern` com tipo/densidade/profundidade/SVG)
 2. **useBookmark.ts** — Calcula o estilo de fonte do texto, parseia o SVG da textura (com cache), aplica debounce de 200ms e envia `{ params, styles, parsedSvg }` ao Worker; `isBuilding` alimenta “Gerando…” e `error` aparece no overlay. A peça anterior permanece visível durante o rebuild; respostas de worker obsoleto são ignoradas
-3. **shapes.ts** — Cria o contorno retangular em pé (largura no X, comprimento no Y) e o extruda em `thickness`; a base é deslocada para a lateral entrar metade da parede
-4. **patterns.ts** — Gera os motivos (triângulos, quadrados, círculos, losangos ou SVG) repetidos em grade, recorta na base e extruda o relevo
+3. **shapes.ts** — Cria o contorno retangular em pé (largura no X, comprimento no Y) e o extruda em `thickness`; a borda direita da base fica em `x = -0,2mm`
+4. **patterns.ts** — Gera os motivos (triângulos, quadrados, círculos, losangos ou SVG) repetidos em grade, recorta na base e extruda o relevo; a faixa de 2,5mm do encaixe fica lisa
 5. **autoFit.ts** — Reduz o texto para caber na largura alvo, sem ampliar
-6. **positioning.ts** — Define a rotação do texto em pé (`TEXT_ROTATION`), a margem nominal de 3mm (`TEXT_MARGIN`), o apoio no topo da base (`TEXT_Z_OFFSET`) e a posição fixa (`fixedTextX`: borda direita; texto centralizado no comprimento)
-7. **textToGeometry.ts** — Gera a geometria 3D do texto
-8. **buildBookmark.worker.ts** — Carrega as fontes necessárias e chama `buildBookmark` fora da main thread; `workerGeometry.ts` serializa o resultado com `shared/workerGeometry.ts`
-9. **buildBookmark.ts** — Gera a textura, mescla na base, aplica auto-fit e coloca o texto em pé, perpendicular à base (largura no comprimento Y, altura em Z, `relief` como espessura da parede), começando no fundo da base (z = 0); devolve `{ base, text }`
-10. **exportStl.ts** — Exporta `base + text` como STL binário e dispara download
+6. **positioning.ts** — Define a rotação do texto em pé (`TEXT_ROTATION`) e a margem (`TEXT_MARGIN`)
+7. **joint.ts** — Define as duas barras do U (1,5 × 0,8mm), o vão igual à espessura da base + 0,2mm e as posições da base/texto
+8. **textToGeometry.ts** — Gera a geometria 3D do texto
+9. **buildBookmark.worker.ts** — Carrega as fontes necessárias e chama `buildBookmark` fora da main thread; `workerGeometry.ts` serializa o resultado com `shared/workerGeometry.ts`
+10. **buildBookmark.ts** — Gera a textura, aplica auto-fit, coloca o texto em pé com a traseira em `x = 0`, base em `z = 0`, e mescla as duas barras do U; devolve `{ base, text }` (peças separadas)
+11. **exportStl.ts** — Baixa `-base.stl` e `-texto.stl`; o texto é rotacionado para imprimir deitado
 
 ## Decisões
 
@@ -167,7 +169,7 @@ Pipeline completo de geração do marcador:
 - **Suporte de Bolo:** Base circular com decoração geométrica (hexágonos, linhas, ondas) via ExtrudeGeometry; coluna cônica via CylinderGeometry; prato com borda opcional. 3 alturas predefinidas (40/60/80mm). Schema sem fontes (não precisa de TextGeometry).
 - **Suporte para Foto:** Texto 3D dividido em duas partes com slot centralizado para encaixar fotos. Divisão inteligente respeita espaços entre palavras. Slot inclinado a 75° para fotos em tamanhos padrão (10×15, 13×18, 15×20cm). Base de apoio conecta as partes.
 - **Topo de Bolo:** Toppers decorativos para bolo com 1–3 textos independentes (modo relevo `raised` ou vazado `cut` via CSG, com fallback para relevo) e ícone SVG opcional (acima ou centro). Placa em `circle`, `rounded-rect`, `oval` ou contorno `custom` por SVG, via ExtrudeGeometry. Textos posicionados pelo editor 2D. Fixação por `haste` (cilindro integrado) ou `base` separada com canaleta de encaixe. Exportação STL binário.
-- **Marcador de Página:** Marcadores retangulares, com padrão de 50mm de largura × 100mm de comprimento × 1mm de espessura, ajustáveis (comprimento 50–150mm, largura 30–50mm, espessura 1–2mm). Um único texto, sem limite de caracteres, em pé e perpendicular à base, formando um perfil em “L”: o texto é centralizado no comprimento, começa no fundo da base (z = 0), corre ao longo dos 100mm (Y) e sobe em Z pela altura e usa `relief` como espessura da parede; a base é deslocada (`bookmarkBaseCenterX`) para a lateral entrar metade da espessura da parede. Não há adicionar/remover textos nem editor de posicionamento. A base pode receber textura em relevo com motivos repetidos (triângulos, quadrados, círculos, losangos) ou SVG repetido como motivo, com densidade 12/8/5mm e profundidade 0,4–1,5mm; a textura usa a cor da base e é mesclada na geometria. Apenas parede em relevo; o modo gravado foi removido. Exportação STL binário. O build roda em Web Worker (`buildBookmark.worker.ts`): `useBookmark` envia `{ params, styles, parsedSvg }` após debounce, o Worker carrega as fontes e devolve a geometria serializada por `workerGeometry.ts` (reutilizando `shared/workerGeometry.ts`). `isBuilding` alimenta “Gerando…”, `error` aparece no overlay e a peça anterior permanece visível durante o rebuild; respostas de worker obsoleto são ignoradas.
+- **Marcador de Página:** Marcadores retangulares, com padrão de 50mm de largura × 100mm de comprimento × 1mm de espessura, ajustáveis (comprimento 50–150mm, largura 30–50mm, espessura 1–2mm). **Duas peças**: base plana e texto em pé com encaixe em U na traseira. A base termina a 0,2mm da traseira do texto e desliza entre **duas barras** (1,5 × 0,8mm) que começam na metade da espessura do texto, com vão igual à espessura da base + 0,2mm; a barra inferior passa por baixo da base e a superior acima. A textura da base é recuada 2,5mm da borda direita para não colidir com as barras. O texto é centralizado no comprimento, começa no fundo da base (z = 0) e usa `relief` como espessura da parede. Não há adicionar/remover textos nem editor de posicionamento. Exportação em **dois STLs**: a base plana e o texto deitado para impressão. Apenas parede em relevo; o modo gravado foi removido. O build roda em Web Worker (`buildBookmark.worker.ts`): `useBookmark` envia `{ params, styles, parsedSvg }` após debounce, o Worker carrega as fontes e devolve a geometria serializada por `workerGeometry.ts` (reutilizando `shared/workerGeometry.ts`). `isBuilding` alimenta “Gerando…”, `error` aparece no overlay e a peça anterior permanece visível durante o rebuild; respostas de worker obsoleto são ignoradas.
 - **Cortador + Carimbo:** Gera duas peças separadas num único STL, a partir de **texto ou ícone SVG** (mutuamente exclusivos), lado a lado. Os contornos vêm de `font.generateShapes` (texto) ou `SVGLoader`+Clipper (SVG, via `shared/svgToIconShape.ts`, com engrossamento de traços finos até `iconLineWidth`). O **cortador** recorta o contorno com margem (`baseMargin`), unindo os elementos — parede de espessura `wallThickness` em volta de `expand(forma, +margem)`, em peça única (sem paredes internas). O **carimbo** (sem cabo) tem **base única** `expand(forma, +margem − folga)` (0.4mm/lado) e a **forma em alto relevo** (`reliefHeight`, 1–3mm) na face de contato. Forma reduzida se exceder `MAX_SHAPE_WIDTH_MM` (150mm). Exportação STL binário das peças mescladas.
 - **Rolo de Textura:** Rolo cilíndrico fechado, com tampas planas e filetes de 1mm (sem cabos laterais), e relevo saliente contínuo. O padrão vem de três famílias (geométrico: losangos/bolinhas/grade; ondulado: ondas/chevrons/escamas; floral: flor/folha/roseta) ou de um SVG personalizado repetido como motivo, sem alterações nas formas ou no traço. A densidade define células de 12/8/5mm; a profundidade do relevo é 0.5–2mm. O corpo forma uma única malha fechada por revolução, com tampas planas e filetes de 1mm; o relevo é um campo de altura com resolução de 0.3mm e chanfro de 0.2mm, exibido com `flatShading` para preservar a definição. A repetição fecha exatamente em 360° e no comprimento (sem costura). Build em Web Worker. Exportação STL binário.
 - **Carimbo Brigadeiro:** Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; relevo fixo de 1mm. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.

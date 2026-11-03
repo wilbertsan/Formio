@@ -4,7 +4,7 @@ import {
   buildPatternShapes,
   buildPatternGeometry,
 } from '@/features/studio/tools/letreiros/marcador-pagina/patterns'
-import { bookmarkBaseCenterX } from '@/features/studio/tools/letreiros/marcador-pagina/positioning'
+import { splitBaseCenterX } from '@/features/studio/tools/letreiros/marcador-pagina/joint'
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 
 const SVG_RECT =
@@ -39,9 +39,9 @@ describe('buildPatternShapes', () => {
     expect(shapes.length).toBeGreaterThan(0)
 
     const xs = shapes.flatMap((shape) => shape.getPoints().map((p) => p.x))
-    const baseCenterX = bookmarkBaseCenterX(params.width, params.text.relief)
+    const baseCenterX = splitBaseCenterX(params.width)
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(baseCenterX - params.width / 2)
-    expect(Math.max(...xs)).toBeLessThanOrEqual(baseCenterX + params.width / 2)
+    expect(Math.max(...xs)).toBeLessThanOrEqual(-2.5)
   })
 
   it('gera textura a partir de um SVG', () => {

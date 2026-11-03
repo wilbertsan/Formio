@@ -15,7 +15,7 @@ import { useStamp } from './tools/confeitaria/carimbo-brigadeiro/useStamp'
 import { exportStampStl } from './tools/confeitaria/carimbo-brigadeiro/exportStampStl'
 import { usePhotoStand } from './tools/letreiros/suporte-foto/usePhotoStand'
 import { useBookmark } from './tools/letreiros/marcador-pagina/useBookmark'
-import { exportStl as exportBookmarkStl } from './tools/letreiros/marcador-pagina/exportStl'
+import { exportStlParts } from './tools/letreiros/marcador-pagina/exportStl'
 import { usePlacaLoja } from './tools/letreiros/placa-loja/usePlacaLoja'
 import { exportStl as exportPlacaLojaStl } from './tools/letreiros/placa-loja/exportStl'
 import { TextPositionEditor as PlacaLojaTextPositionEditor } from './tools/letreiros/placa-loja/TextPositionEditor'
@@ -762,7 +762,7 @@ function MarcadorPaginaToolWrapper({ onBack }: { onBack: () => void }) {
 
   const handleExport = useCallback(() => {
     if (geometry) {
-      exportBookmarkStl(geometry, projectName)
+      exportStlParts(geometry, projectName)
     }
   }, [geometry, projectName])
 

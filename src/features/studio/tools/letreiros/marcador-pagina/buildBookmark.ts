@@ -4,15 +4,10 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
 import { nameToGeometry } from './textToGeometry'
 import { fitGeometryWidth } from './autoFit'
-import {
-  TEXT_MARGIN,
-  TEXT_ROTATION,
-  TEXT_Z_OFFSET,
-  bookmarkBaseCenterX,
-  fixedTextX,
-} from './positioning'
+import { TEXT_MARGIN, TEXT_ROTATION } from './positioning'
 import { buildBookmarkBase } from './shapes'
 import { buildPatternGeometry } from './patterns'
+import { createJointBars, splitBaseCenterX, splitTextCenterX } from './joint'
 import type { BookmarkParams, FontStyle } from './schema'
 
 export interface BuildBookmarkInput {
@@ -43,8 +38,10 @@ export function buildBookmark({
   params,
   parsedSvg,
 }: BuildBookmarkInput): BuildBookmarkResult {
-  const baseCenterX = bookmarkBaseCenterX(params.width, params.text.relief)
-  let baseGeometry = buildBookmarkBase({ ...params, centerX: baseCenterX })
+  let baseGeometry = buildBookmarkBase({
+    ...params,
+    centerX: splitBaseCenterX(params.width),
+  })
   const patternGeometry = buildPatternGeometry(params, parsedSvg ?? null)
   if (patternGeometry) {
     const mergedBase = mergeGeometries([baseGeometry, patternGeometry])
@@ -74,17 +71,25 @@ export function buildBookmark({
 
   textGeometry.computeBoundingBox()
   const bb = textGeometry.boundingBox!
-  const x = fixedTextX(params.width, params.text.relief)
+  const textWidth = bb.max.y - bb.min.y
+  const x = splitTextCenterX(params.text.relief)
   const y = 0
 
-  // O texto começa no fundo da base (z = 0) e sobe no eixo Z, com uma pequena
-  // sobreposição para garantir a fusão das peças na impressão.
-  textGeometry.translate(x, y, -TEXT_Z_OFFSET - bb.min.z)
+  // O texto começa no fundo da base (z = 0) e sobe no eixo Z.
+  textGeometry.translate(x, y, -bb.min.z)
 
-  textGeometry.computeVertexNormals()
+  const barsGeometry = createJointBars(textWidth, params.thickness, params.text.relief)
+  const mergedText = mergeGeometries([textGeometry, barsGeometry])
+  barsGeometry.dispose()
+  if (mergedText) {
+    textGeometry.dispose()
+  }
+  const text = mergedText ?? textGeometry
+
+  text.computeVertexNormals()
   baseGeometry.computeVertexNormals()
 
-  return { base: baseGeometry, text: textGeometry }
+  return { base: baseGeometry, text }
 }
 
 export function disposeBookmarkResult(result: BuildBookmarkResult): void {

@@ -28,9 +28,9 @@ describe('buildBookmarkBase', () => {
   })
 
   it('desloca o contorno conforme centerX', () => {
-    const shape = createBookmarkShape({ ...input, centerX: -3.5 })
+    const shape = createBookmarkShape({ ...input, centerX: -25.2 })
     const points = shape.getPoints(4)
-    expect(Math.min(...points.map((p) => p.x))).toBeCloseTo(-28.5)
-    expect(Math.max(...points.map((p) => p.x))).toBeCloseTo(21.5)
+    expect(Math.min(...points.map((p) => p.x))).toBeCloseTo(-50.2)
+    expect(Math.max(...points.map((p) => p.x))).toBeCloseTo(-0.2)
   })
 })
