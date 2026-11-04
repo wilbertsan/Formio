@@ -30,4 +30,20 @@ describe('App', () => {
     })
     window.history.pushState({}, '', '/')
   })
+
+  it('renderiza os Termos de Uso na rota /termos', () => {
+    window.history.pushState({}, '', '/termos')
+    render(<App />)
+    expect(screen.getByRole('heading', { level: 1, name: /termos de uso/i })).toBeInTheDocument()
+    window.history.pushState({}, '', '/')
+  })
+
+  it('renderiza a Política de Privacidade na rota /privacidade', () => {
+    window.history.pushState({}, '', '/privacidade')
+    render(<App />)
+    expect(
+      screen.getByRole('heading', { level: 1, name: /política de privacidade/i }),
+    ).toBeInTheDocument()
+    window.history.pushState({}, '', '/')
+  })
 })

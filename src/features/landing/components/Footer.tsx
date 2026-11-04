@@ -1,10 +1,13 @@
 import { Flex, Text, View } from '@aws-amplify/ui-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 
 const footerLinkClassName =
   'text-sm text-neutral-600 no-underline transition-colors hover:text-neutral-900'
 
 export function Footer() {
+  const { pathname } = useLocation()
+  const sectionHref = (hash: string) => (pathname === '/' ? hash : `/${hash}`)
+
   return (
     <View as="footer" padding="xxl" backgroundColor="background.secondary">
       <Flex
@@ -21,10 +24,10 @@ export function Footer() {
           </Text>
         </Flex>
         <Flex direction="row" gap="xl">
-          <a href="#precos" className={footerLinkClassName}>
+          <a href={sectionHref('#precos')} className={footerLinkClassName}>
             Preços
           </a>
-          <a href="#faq" className={footerLinkClassName}>
+          <a href={sectionHref('#faq')} className={footerLinkClassName}>
             FAQ
           </a>
           <Link to="/termos" className={footerLinkClassName}>

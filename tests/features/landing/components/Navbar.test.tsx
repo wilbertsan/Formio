@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Navbar } from '@/features/landing/components/Navbar'
 
-function renderNavbar() {
+function renderNavbar(initialEntries: string[] = ['/']) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <Navbar />
     </MemoryRouter>,
   )
@@ -30,5 +30,11 @@ describe('Navbar', () => {
   it('exibe link de acesso ao Studio 3D', () => {
     renderNavbar()
     expect(screen.getByRole('link', { name: 'Studio 3D' })).toHaveAttribute('href', '/studio')
+  })
+
+  it('usa rotas absolutas para as âncoras fora da home', () => {
+    renderNavbar(['/termos'])
+    expect(screen.getByRole('link', { name: 'Preços' })).toHaveAttribute('href', '/#precos')
+    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/#faq')
   })
 })

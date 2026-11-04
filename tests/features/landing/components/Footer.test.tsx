@@ -2,9 +2,9 @@ import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { Footer } from '@/features/landing/components/Footer'
 
-function renderFooter() {
+function renderFooter(initialEntries: string[] = ['/']) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <Footer />
     </MemoryRouter>,
   )
@@ -30,5 +30,11 @@ describe('Footer', () => {
     renderFooter()
     const year = new Date().getFullYear()
     expect(screen.getByText(new RegExp(`© ${year} 3DFormio`))).toBeInTheDocument()
+  })
+
+  it('usa rotas absolutas para as âncoras fora da home', () => {
+    renderFooter(['/termos'])
+    expect(screen.getByRole('link', { name: 'Preços' })).toHaveAttribute('href', '/#precos')
+    expect(screen.getByRole('link', { name: 'FAQ' })).toHaveAttribute('href', '/#faq')
   })
 })

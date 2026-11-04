@@ -10,8 +10,12 @@ Porta de entrada do 3DFormio (`/`), em PT-BR, composta por:
 4. **FAQ** (`#faq`) — Accordion com 6 perguntas
 5. **Footer** — marca, links de seção e rotas legais (`/termos`, `/privacidade`)
 
-Rotas auxiliares: `/cadastro`, `/termos`, `/privacidade` e `*` usam
-`PlaceholderPage` até o Sprint 1 implementar as páginas reais.
+Rotas auxiliares: `/termos` e `/privacidade` têm páginas próprias em
+`src/features/legal/`. `/cadastro` e `*` continuam usando `PlaceholderPage` até a
+implementação.
+
+Os links de âncora da `Navbar` e do `Footer` usam `#precos`/`#faq` na home e
+`/#precos`/`/#faq` nas demais rotas, evitando âncoras quebradas.
 
 ## Como editar
 

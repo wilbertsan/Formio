@@ -1,10 +1,13 @@
 import { Flex, View } from '@aws-amplify/ui-react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 
 const anchorLinkClassName =
   'text-sm font-medium text-neutral-600 no-underline transition-colors hover:text-neutral-900'
 
 export function Navbar() {
+  const { pathname } = useLocation()
+  const sectionHref = (hash: string) => (pathname === '/' ? hash : `/${hash}`)
+
   return (
     <View
       as="header"
@@ -26,10 +29,10 @@ export function Navbar() {
           3DFormio
         </NavLink>
         <Flex direction="row" gap="xl" alignItems="center">
-          <a href="#precos" className={anchorLinkClassName}>
+          <a href={sectionHref('#precos')} className={anchorLinkClassName}>
             Preços
           </a>
-          <a href="#faq" className={anchorLinkClassName}>
+          <a href={sectionHref('#faq')} className={anchorLinkClassName}>
             FAQ
           </a>
           <Link to="/studio" className={anchorLinkClassName}>

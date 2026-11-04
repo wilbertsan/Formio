@@ -30,6 +30,7 @@ Ao trabalhar em, leia o AGENTS.md do segmento:
 | Segmento | Caminho |
 |---|---|
 | Landing page | `src/features/landing/AGENTS.md` |
+| Termos de Uso / Privacidade / reembolso | `src/features/legal/AGENTS.md` |
 | Cadastro / auth | `src/features/cadastro/AGENTS.md` |
 | Studio 3D (shell) | `src/features/studio/AGENTS.md` |
 | Ferramenta: confeitaria | `src/features/studio/tools/confeitaria/AGENTS.md` |
