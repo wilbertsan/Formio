@@ -19,7 +19,7 @@ describe('bookmark schema', () => {
     expect(defaultBookmarkParams.thickness).toBe(1)
     expect(defaultBookmarkParams.text.content).toBe('Meu nome')
     expect(defaultBookmarkParams.text.fontStyle).toBe('bold')
-    expect(defaultBookmarkParams.text.relief).toBe(1)
+    expect(defaultBookmarkParams.text.relief).toBe(3)
   })
 
   it('aceita um texto único, sem limite de caracteres', () => {
@@ -79,12 +79,12 @@ describe('bookmark schema', () => {
     expect(textSchema.safeParse({ ...text, width: 60 }).success).toBe(true)
   })
 
-  it('relief (espessura da parede) tem range 0.4-2', () => {
+  it('relief (espessura da parede) tem range 3-5', () => {
     const text = defaultBookmarkParams.text
-    expect(textSchema.safeParse({ ...text, relief: 0.3 }).success).toBe(false)
-    expect(textSchema.safeParse({ ...text, relief: 2.1 }).success).toBe(false)
-    expect(textSchema.safeParse({ ...text, relief: 0.4 }).success).toBe(true)
-    expect(textSchema.safeParse({ ...text, relief: 2 }).success).toBe(true)
+    expect(textSchema.safeParse({ ...text, relief: 2.9 }).success).toBe(false)
+    expect(textSchema.safeParse({ ...text, relief: 5.1 }).success).toBe(false)
+    expect(textSchema.safeParse({ ...text, relief: 3 }).success).toBe(true)
+    expect(textSchema.safeParse({ ...text, relief: 5 }).success).toBe(true)
   })
 
   it('fontStyle aceita normal, bold e serif', () => {

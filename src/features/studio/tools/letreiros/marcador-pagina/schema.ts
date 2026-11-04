@@ -12,7 +12,7 @@ export const textSchema = z.object({
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   width: z.number().min(8).max(60),
   height: z.number().min(4).max(40),
-  relief: z.number().min(0.4).max(2),
+  relief: z.number().min(3).max(5),
 })
 
 export type TextParams = z.infer<typeof textSchema>
@@ -65,7 +65,7 @@ export const defaultBookmarkParams: BookmarkParams = {
     fontStyle: 'bold',
     width: 40,
     height: 10,
-    relief: 1,
+    relief: 3,
   },
   pattern: {
     type: 'none',

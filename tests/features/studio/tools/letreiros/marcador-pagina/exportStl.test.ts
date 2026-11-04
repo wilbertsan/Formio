@@ -14,8 +14,8 @@ vi.mock('three/examples/jsm/exporters/STLExporter.js', () => ({
 
 describe('prepareTextForPrint', () => {
   it('deita o texto com a face frontal na mesa', () => {
-    const text = new THREE.BoxGeometry(2.5, 40, 10)
-    text.translate(-0.25, 0, 0.5)
+    const text = new THREE.BoxGeometry(4.5, 40, 10)
+    text.translate(0.75, 0, 0.5)
 
     const prepared = prepareTextForPrint(text)
     prepared.computeBoundingBox()
@@ -26,7 +26,7 @@ describe('prepareTextForPrint', () => {
     expect(box.min.y).toBeCloseTo(-20)
     expect(box.max.y).toBeCloseTo(20)
     expect(box.min.z).toBeCloseTo(0)
-    expect(box.max.z).toBeCloseTo(2.5)
+    expect(box.max.z).toBeCloseTo(4.5)
 
     text.computeBoundingBox()
     expect(text.boundingBox!.max.z).toBeCloseTo(5.5, 3)

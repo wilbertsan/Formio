@@ -20,12 +20,12 @@ describe('encaixe em U com barras', () => {
   })
 
   it('cria duas barras com vão igual à espessura da base + folga', () => {
-    const bars = createJointBars(40, 1, 1)
+    const bars = createJointBars(40, 1, 3)
     bars.computeBoundingBox()
     const box = bars.boundingBox!
 
     expect(box.min.x).toBeCloseTo(-1.5)
-    expect(box.max.x).toBeCloseTo(0.5)
+    expect(box.max.x).toBeCloseTo(1.5)
     expect(box.min.y).toBeCloseTo(-20)
     expect(box.max.y).toBeCloseTo(20)
     expect(box.min.z).toBeCloseTo(-0.9)

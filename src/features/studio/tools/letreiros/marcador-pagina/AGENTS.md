@@ -29,7 +29,7 @@ O objeto `text` tem:
 - `fontStyle` (`normal`/`bold`/`serif`)
 - `width` (8–60mm) e `height` (4–40mm): a largura é reduzida para caber no alvo,
   sem ampliar; a altura é preservada e independente da largura
-- `relief` (0.4–2mm): espessura da parede de texto
+- `relief` (3–5mm, default 3mm): espessura da parede de texto
 
 O objeto `pattern` tem:
 
