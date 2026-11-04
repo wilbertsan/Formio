@@ -71,12 +71,12 @@ describe('bookmark schema', () => {
     expect(textSchema.safeParse({ ...text, height: 40 }).success).toBe(true)
   })
 
-  it('width tem range 8-60', () => {
+  it('width tem range 8-100', () => {
     const text = defaultBookmarkParams.text
     expect(textSchema.safeParse({ ...text, width: 7 }).success).toBe(false)
-    expect(textSchema.safeParse({ ...text, width: 61 }).success).toBe(false)
+    expect(textSchema.safeParse({ ...text, width: 101 }).success).toBe(false)
     expect(textSchema.safeParse({ ...text, width: 8 }).success).toBe(true)
-    expect(textSchema.safeParse({ ...text, width: 60 }).success).toBe(true)
+    expect(textSchema.safeParse({ ...text, width: 100 }).success).toBe(true)
   })
 
   it('relief (espessura da parede) tem range 3-5', () => {

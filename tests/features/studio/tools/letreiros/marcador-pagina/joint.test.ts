@@ -2,6 +2,7 @@ import {
   JOINT_BAR_DEPTH,
   JOINT_BAR_HEIGHT,
   JOINT_CLEARANCE,
+  JOINT_PATTERN_MARGIN_MM,
   createJointBars,
   splitBaseCenterX,
   splitTextCenterX,
@@ -9,9 +10,10 @@ import {
 
 describe('encaixe em U com barras', () => {
   it('define as constantes do encaixe', () => {
-    expect(JOINT_BAR_DEPTH).toBe(1.5)
-    expect(JOINT_BAR_HEIGHT).toBe(0.8)
+    expect(JOINT_BAR_DEPTH).toBe(2)
+    expect(JOINT_BAR_HEIGHT).toBe(1.2)
     expect(JOINT_CLEARANCE).toBe(0.2)
+    expect(JOINT_PATTERN_MARGIN_MM).toBe(0.2)
   })
 
   it('recua a borda direita da base 0,2mm da traseira do texto', () => {
@@ -24,12 +26,12 @@ describe('encaixe em U com barras', () => {
     bars.computeBoundingBox()
     const box = bars.boundingBox!
 
-    expect(box.min.x).toBeCloseTo(-1.5)
+    expect(box.min.x).toBeCloseTo(-2)
     expect(box.max.x).toBeCloseTo(1.5)
     expect(box.min.y).toBeCloseTo(-20)
     expect(box.max.y).toBeCloseTo(20)
-    expect(box.min.z).toBeCloseTo(-0.9)
-    expect(box.max.z).toBeCloseTo(1.9)
+    expect(box.min.z).toBeCloseTo(-1.3)
+    expect(box.max.z).toBeCloseTo(2.3)
 
     const positions = bars.getAttribute('position').array as Float32Array
     const zs = new Set<number>()

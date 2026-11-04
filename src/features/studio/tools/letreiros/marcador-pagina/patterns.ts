@@ -10,7 +10,7 @@ import {
   type ClipperPoint,
 } from '../../confeitaria/shared/textOutline'
 import { PATTERN_CELL_MM, type BookmarkParams, type PatternType } from './schema'
-import { JOINT_BAR_DEPTH, splitBaseCenterX } from './joint'
+import { JOINT_BAR_DEPTH, JOINT_PATTERN_MARGIN_MM, splitBaseCenterX } from './joint'
 
 export const PATTERN_MARGIN_MM = 1
 export const PATTERN_EMBED_MM = 0.1
@@ -71,7 +71,7 @@ export function buildPatternShapes(
   const baseCenterX = splitBaseCenterX(params.width)
   const areaLeft = baseCenterX - params.width / 2 + PATTERN_MARGIN_MM
   // A faixa do encaixe (lábio do texto + margem) fica lisa.
-  const areaRight = -JOINT_BAR_DEPTH - PATTERN_MARGIN_MM
+  const areaRight = -JOINT_BAR_DEPTH - JOINT_PATTERN_MARGIN_MM
   const areaBottom = -params.length / 2 + PATTERN_MARGIN_MM
   const areaTop = params.length / 2 - PATTERN_MARGIN_MM
   const areaWidth = areaRight - areaLeft

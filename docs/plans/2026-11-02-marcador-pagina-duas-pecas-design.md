@@ -18,7 +18,7 @@ deitado; depois as peças se encaixam e podem ser coladas.
 | Entrega | Dois STLs: `nome-base.stl` e `nome-texto.stl` |
 | Encaixe | U horizontal na traseira do texto, ao longo de toda a largura |
 | Fechamento do U | Duas barras no texto (inferior + superior); a base desliza entre elas |
-| Barras | 1,5mm de profundidade × 0,8mm de altura |
+| Barras | 2,0mm de profundidade × 1,2mm de altura |
 | Folga | 0,2mm; vão entre as barras = espessura da base + 0,2mm |
 | Orientação de impressão | Base plana; texto exportado deitado (face frontal na mesa) |
 | Textura | Permanece só na base; faixa do encaixe fica lisa |
@@ -35,7 +35,7 @@ Coordenadas locais (mm):
   - Base de `x = -JOINT_CLEARANCE - width` até `-JOINT_CLEARANCE`.
   - Centro: `splitBaseCenterX(width) = -JOINT_CLEARANCE - width / 2`.
   - Textura recuada da borda direita em `JOINT_LIP_DEPTH + PATTERN_MARGIN`
-    (1,5 + 1 = 2,5mm), para não colidir com as barras.
+    (2,0 + 0,2 = 2,2mm), ficando 0,2mm antes das barras.
 
 - **Texto**
   - Parede de texto em pé, correndo em Y, subindo em Z.
@@ -88,7 +88,7 @@ Coordenadas locais (mm):
 
 - Base: borda direita em `-0,2`, largura nominal preservada, centro correto.
 - Texto: traseira em `x=0`, centro em `z=thickness/2`, barras com as dimensões/posição.
-- Textura: não invade a faixa de 2,5mm do encaixe.
+- Textura: fica 0,2mm antes das barras (recuo de 2,2mm).
 - Export: dois downloads, nomes `-base`/`-texto`, dois blobs; texto deitado
   (min Z = 0 e altura de impressão = relief + lipDepth).
 - Preview continua montado; status bar mantém a largura nominal da base.

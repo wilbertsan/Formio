@@ -10,7 +10,7 @@ export type PlaColor = (typeof PLA_COLORS)[number]
 export const textSchema = z.object({
   content: z.string().trim().min(1),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
-  width: z.number().min(8).max(60),
+  width: z.number().min(8).max(100),
   height: z.number().min(4).max(40),
   relief: z.number().min(3).max(5),
 })

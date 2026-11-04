@@ -1,10 +1,12 @@
 import { BoxGeometry, type BufferGeometry } from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
-export const JOINT_BAR_DEPTH = 1.5
-export const JOINT_BAR_HEIGHT = 0.8
+export const JOINT_BAR_DEPTH = 2.0
+export const JOINT_BAR_HEIGHT = 1.2
 /** Folga de impressão: o vão entre as barras é thickness + clearance. */
 export const JOINT_CLEARANCE = 0.2
+/** Distância entre a textura da base e a barra traseira. */
+export const JOINT_PATTERN_MARGIN_MM = 0.2
 
 /** Centro da base: borda direita recuada 0,2mm da traseira do texto. */
 export function splitBaseCenterX(width: number): number {

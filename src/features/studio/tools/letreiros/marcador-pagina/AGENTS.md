@@ -27,8 +27,9 @@ O objeto `text` tem:
 
 - `content` (texto, mínimo 1 após trim, **sem máximo de caracteres**)
 - `fontStyle` (`normal`/`bold`/`serif`)
-- `width` (8–60mm) e `height` (4–40mm): a largura é reduzida para caber no alvo,
-  sem ampliar; a altura é preservada e independente da largura
+- `width` (8–100mm) e `height` (4–40mm): a largura é reduzida para caber no alvo
+  (limitada pelo comprimento útil da base), sem ampliar; a altura é preservada e
+  independente da largura
 - `relief` (3–5mm, default 3mm): espessura da parede de texto
 
 O objeto `pattern` tem:
@@ -50,10 +51,10 @@ O objeto `pattern` tem:
   centro em `splitBaseCenterX(width)`.
 - Texto: traseira em `x = 0`, centro em `splitTextCenterX(relief)`, base em
   `z = 0`.
-- Encaixe em U na traseira do texto: **duas barras** de 1,5mm de profundidade ×
-  0,8mm de altura, começando na **metade da espessura do texto** (`relief/2`) e
+- Encaixe em U na traseira do texto: **duas barras** de 2,0mm de profundidade ×
+  1,2mm de altura, começando na **metade da espessura do texto** (`relief/2`) e
   indo para trás, com vão entre elas igual à espessura da base + 0,2mm de folga.
-  A profundidade das barras é 1,5mm.
+  A profundidade das barras é 2,0mm.
   O par de barras é centrado no meio da altura do texto, que coincide com o meio
   da espessura da base; o texto fica centrado na borda da base (metade acima,
   metade abaixo). A barra inferior fica abaixo do fundo da base e a superior
@@ -63,8 +64,8 @@ O objeto `pattern` tem:
   já sai plana. São gerados dois STLs: `-base.stl` e `-texto.stl`.
 - Texto com margem mínima de 3mm em relação às bordas (`TEXT_MARGIN`).
 - Não há adicionar/remover textos nem editor de posicionamento.
-- Textura em relevo, repetida em grade com 1mm de margem da base, recuada
-  2,5mm da borda direita para não colidir com as barras; o SVG é repetido como
+- Textura em relevo, repetida em grade com 1mm de margem nas bordas e recuada
+  2,2mm da traseira do texto, ficando 0,2mm antes das barras; o SVG é repetido como
   motivo, com escala uniforme dentro da célula (sem distorção).
 - A textura usa a cor da base e é mesclada na geometria da base.
 - Apenas parede em relevo; o modo gravado foi removido.

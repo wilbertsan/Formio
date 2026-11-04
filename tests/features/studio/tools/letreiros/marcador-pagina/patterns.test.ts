@@ -41,7 +41,7 @@ describe('buildPatternShapes', () => {
     const xs = shapes.flatMap((shape) => shape.getPoints().map((p) => p.x))
     const baseCenterX = splitBaseCenterX(params.width)
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(baseCenterX - params.width / 2)
-    expect(Math.max(...xs)).toBeLessThanOrEqual(-2.5)
+    expect(Math.max(...xs)).toBeLessThanOrEqual(-2.2)
   })
 
   it('gera textura a partir de um SVG', () => {
