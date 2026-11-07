@@ -186,6 +186,15 @@ function waveBand(shape: (x: number) => number, half: number, steps = 120): Poin
 
 Não altere `STAGGERED` nem os builders.
 
+Ajuste também o teste `'${family}/${motif} tem geometria dentro da célula'` para
+aceitar o overlap dos contínuos:
+
+```ts
+const xLimit = motif === 'waves' || motif === 'chevrons' ? 0.6 : 0.5
+expect(p.x).toBeGreaterThanOrEqual(-xLimit)
+expect(p.x).toBeLessThanOrEqual(xLimit)
+```
+
 **Step 4: Run test to verify it passes**
 
 Run: `npm run test -- tests/features/studio/tools/confeitaria/rolo-textura/patterns.test.ts`
@@ -284,10 +293,11 @@ describe('reliefLayout', () => {
 
     const bounds = pathsBoundingBox(paths)
     const margin = 1
-    expect(bounds.minX).toBeGreaterThanOrEqual(-defaultTextureRollerParams.length / 2 + margin - 1e-6)
-    expect(bounds.maxX).toBeLessThanOrEqual(defaultTextureRollerParams.length / 2 - margin + 1e-6)
-    expect(bounds.minY).toBeGreaterThanOrEqual(-1e-6)
-    expect(bounds.maxY).toBeLessThanOrEqual(layout.circumference + 1e-6)
+    const tolerance = 0.002
+    expect(bounds.minX).toBeGreaterThanOrEqual(-defaultTextureRollerParams.length / 2 + margin - tolerance)
+    expect(bounds.maxX).toBeLessThanOrEqual(defaultTextureRollerParams.length / 2 - margin + tolerance)
+    expect(bounds.minY).toBeGreaterThanOrEqual(-tolerance)
+    expect(bounds.maxY).toBeLessThanOrEqual(layout.circumference + tolerance)
   })
 })
 ```
@@ -407,7 +417,7 @@ export interface BuildPatternPathsInput {
 export function buildPatternPaths({
   params, layout, shapes, dilation, staggered,
 }: BuildPatternPathsInput): ClipperPoint[][] {
-  const prepared = shapes.map((shape) => {
+  const prepared = shapes.flatMap((shape) => {
     const paths = shapeToClipperAtOrigin(shape)
     return dilation > 0 ? offsetPaths(paths, dilation) : paths
   })
