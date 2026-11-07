@@ -110,11 +110,11 @@ describe('StudioPage', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Rolo de Textura' }, LAZY_TIMEOUT)).toBeInTheDocument()
   })
 
-  it('abre o editor ao clicar em Posicionar textos na ferramenta Topo de Bolo', async () => {
+  it('abre o editor ao clicar em Posicionar conteúdo na ferramenta Topo de Bolo', async () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /topo de bolo/i }))
 
-    fireEvent.click(await screen.findByRole('button', { name: /posicionar textos/i }, LAZY_TIMEOUT))
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar conteúdo/i }, LAZY_TIMEOUT))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
   })
 
