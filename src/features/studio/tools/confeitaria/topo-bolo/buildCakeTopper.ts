@@ -20,12 +20,11 @@ import { shapesToGeometry, textToShapes } from '../shared/textOutline'
 import { ICON_MARGIN } from './iconLayout'
 import {
   clampToOutline,
-  containsCorner,
   fitScaleToOutline,
   outlineSpec,
   type PlateBounds,
 } from './placement'
-import type { CakeTopperParams, FontStyle, TextMode } from './schema'
+import type { CakeTopperParams, FontStyle } from './schema'
 
 export interface BuildCakeTopperInput {
   params: CakeTopperParams
@@ -42,8 +41,6 @@ export interface BuildCakeTopperResult {
 
 const TEXT_MARGIN = 4
 const TEXT_Z_OFFSET = 0.01
-const CUT_BORDER = 4
-const CUT_Z_OFFSET = -0.5
 const ICON_DEPTH = 1
 const CUSTOM_MIN_FEATURE = 0.5
 const STEM_EMBED = 2
@@ -71,10 +68,6 @@ function mergeAll(geometries: BufferGeometry[], onError?: (message: string) => v
   const [first, ...rest] = geometries
   rest.forEach((geometry) => geometry.dispose())
   return first
-}
-
-function disposeAll(geometries: BufferGeometry[]): void {
-  geometries.forEach((geometry) => geometry.dispose())
 }
 
 function circleShape(params: CakeTopperParams): Shape {
@@ -203,7 +196,6 @@ function plateBoundsOf(plate: BufferGeometry, params: CakeTopperParams): PlateBo
 
 function buildTextGeometries(
   input: BuildCakeTopperInput,
-  mode: TextMode,
   plate: PlateBounds,
 ): BufferGeometry[] {
   const { params, fonts, font, onError } = input
@@ -218,8 +210,7 @@ function buildTextGeometries(
     const shapes = textToShapes(resolved, item.content, item.height)
     if (shapes.length === 0) continue
 
-    const depth = mode === 'cut' ? params.thickness + 1 : item.relief
-    const geometry = shapesToGeometry(shapes, depth, mode === 'raised')
+    const geometry = shapesToGeometry(shapes, item.relief, true)
 
     geometry.computeBoundingBox()
     const naturalBox = geometry.boundingBox
@@ -244,7 +235,7 @@ function buildTextGeometries(
       item.offsetY,
       TEXT_MARGIN,
     )
-    const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
+    const z = params.thickness - TEXT_Z_OFFSET
     geometry.translate(placed.x, placed.y, z)
 
     geometries.push(geometry)
@@ -255,7 +246,6 @@ function buildTextGeometries(
 
 function buildIconGeometry(
   params: CakeTopperParams,
-  mode: TextMode,
   plate: PlateBounds,
 ): BufferGeometry | null {
   if (!params.svgIcon) return null
@@ -267,7 +257,7 @@ function buildIconGeometry(
     maxRadius,
     lineWidth: 1,
     iconScale: 1,
-    depth: mode === 'cut' ? params.thickness + 1 : ICON_DEPTH,
+    depth: ICON_DEPTH,
   })
   if (!geometry) return null
 
@@ -296,35 +286,20 @@ function buildIconGeometry(
     params.iconOffsetY,
     ICON_MARGIN,
   )
-  const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
+  const z = params.thickness - TEXT_Z_OFFSET
   geometry.translate(placed.x, placed.y, z)
   return geometry
 }
 
 function buildRelief(
   input: BuildCakeTopperInput,
-  mode: TextMode,
   plate: PlateBounds,
 ): BufferGeometry | null {
-  const textGeometries = buildTextGeometries(input, mode, plate)
-  const icon = buildIconGeometry(input.params, mode, plate)
+  const textGeometries = buildTextGeometries(input, plate)
+  const icon = buildIconGeometry(input.params, plate)
   const parts = icon ? [...textGeometries, icon] : textGeometries
   if (parts.length === 0) return null
   return mergeAll(parts, input.onError)
-}
-
-function cutFits(params: CakeTopperParams, plate: PlateBounds, cuts: BufferGeometry[]): boolean {
-  const spec = outlineSpec(params, plate, CUT_BORDER)
-  return cuts.every((geometry) => {
-    geometry.computeBoundingBox()
-    const box = geometry.boundingBox
-    if (!box) return false
-    const halfWidth = (box.max.x - box.min.x) / 2
-    const halfHeight = (box.max.y - box.min.y) / 2
-    const centerX = (box.min.x + box.max.x) / 2
-    const centerY = (box.min.y + box.max.y) / 2
-    return containsCorner(spec, halfWidth, halfHeight, centerX, centerY)
-  })
 }
 
 function buildBase(
@@ -428,42 +403,9 @@ export function buildCakeTopper(input: BuildCakeTopperInput): BuildCakeTopperRes
   const plate = extrudePlate(plateShapes(params, onError), params.thickness, onError)
   const plateBounds = plateBoundsOf(plate, params)
 
-  if (params.textMode === 'raised') {
-    return {
-      plate,
-      relief: buildRelief(input, 'raised', plateBounds),
-      support: buildSupport(params, plate, onError),
-    }
-  }
-
-  const cutText = buildTextGeometries(input, 'cut', plateBounds)
-  const cutIcon = buildIconGeometry(params, 'cut', plateBounds)
-  const cuts = cutIcon ? [...cutText, cutIcon] : cutText
-
-  if (cuts.length > 0) {
-    if (cutFits(params, plateBounds, cuts)) {
-      const cutGeometry = mergeAll(cuts, onError)
-      try {
-        const result = new Evaluator()
-          .evaluate(new Brush(plate), new Brush(cutGeometry), SUBTRACTION)
-          .geometry
-        result.computeVertexNormals()
-        plate.dispose()
-        cutGeometry.dispose()
-        return { plate: result, relief: null, support: buildSupport(params, result, onError) }
-      } catch {
-        onError?.('Falha no corte; usando relevo')
-        cutGeometry.dispose()
-      }
-    } else {
-      onError?.('Corte alcançaria a borda; usando relevo')
-      disposeAll(cuts)
-    }
-  }
-
   return {
     plate,
-    relief: buildRelief(input, 'raised', plateBounds),
+    relief: buildRelief(input, plateBounds),
     support: buildSupport(params, plate, onError),
   }
 }

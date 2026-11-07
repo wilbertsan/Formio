@@ -192,13 +192,6 @@ describe('StudioPanel', () => {
     expect(screen.queryByTestId('text-editor')).not.toBeInTheDocument()
   })
 
-  it('dispara onUpdateParam ao mudar o modo do conteúdo', () => {
-    const props = createMockProps()
-    render(<StudioPanel {...props} />)
-    fireEvent.change(screen.getByLabelText('Modo do conteúdo'), { target: { value: 'cut' } })
-    expect(props.onUpdateParam).toHaveBeenCalledWith('textMode', 'cut')
-  })
-
   it('desabilita a escala sem ícone e habilita após carregar', () => {
     const props = createMockProps()
     const { rerender } = render(<StudioPanel {...props} />)

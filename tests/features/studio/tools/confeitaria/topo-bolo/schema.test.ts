@@ -19,12 +19,6 @@ describe('cakeTopperParamsSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects invalid textMode', () => {
-    const invalid = { ...defaultCakeTopperParams, textMode: 'x' }
-    const result = cakeTopperParamsSchema.safeParse(invalid)
-    expect(result.success).toBe(false)
-  })
-
   it('rejects invalid supportType', () => {
     const invalid = { ...defaultCakeTopperParams, supportType: 'x' }
     const result = cakeTopperParamsSchema.safeParse(invalid)
@@ -106,6 +100,11 @@ describe('cakeTopperParamsSchema', () => {
   it('does not expose iconPosition anymore', () => {
     expect('iconPosition' in cakeTopperParamsSchema.shape).toBe(false)
     expect('iconPosition' in defaultCakeTopperParams).toBe(false)
+  })
+
+  it('does not expose textMode anymore', () => {
+    expect('textMode' in cakeTopperParamsSchema.shape).toBe(false)
+    expect('textMode' in defaultCakeTopperParams).toBe(false)
   })
 })
 

@@ -156,15 +156,6 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <SelectField
-                label="Modo do conteúdo"
-                value={params.textMode}
-                onChange={(event) => onUpdateParam('textMode', event.target.value)}
-              >
-                <option value="raised">Relevo</option>
-                <option value="cut">Corte vazado</option>
-              </SelectField>
-
               <Flex direction="row" gap="xs" wrap="wrap">
                 {params.texts.map((text) => (
                   <Flex key={text.id} direction="row" gap="xs" alignItems="center">

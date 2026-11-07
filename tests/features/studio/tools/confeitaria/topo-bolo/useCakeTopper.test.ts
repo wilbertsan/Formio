@@ -71,12 +71,6 @@ describe('useCakeTopper', () => {
     expect(result.current.params.width).toBe(120)
   })
 
-  it('updateParam atualiza textMode', () => {
-    const { result } = renderHook(() => useCakeTopper())
-    act(() => result.current.updateParam('textMode', 'cut'))
-    expect(result.current.params.textMode).toBe('cut')
-  })
-
   it('updateParam atualiza supportType', () => {
     const { result } = renderHook(() => useCakeTopper())
     act(() => result.current.updateParam('supportType', 'base'))
