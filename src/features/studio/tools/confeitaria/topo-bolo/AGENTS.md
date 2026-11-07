@@ -15,7 +15,8 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Altura: 30–80mm
 - Espessura: 2–4mm
 - Conteúdo único no painel: 1–3 textos independentes e um ícone SVG opcional
-- Textos: cada um com conteúdo, fonte (`normal`/`bold`/`serif`), largura, altura, relevo e offset X/Y próprios
+- Textos: cada um com conteúdo (padrão `Texto`), fonte (`normal`/`bold`/`serif`), largura, altura, relevo e offset X/Y próprios
+- Largura e altura são independentes: `height` é o tamanho da fonte; `width` é um limite máximo que comprime apenas o eixo X quando excedido, preservando a altura
 - Ícone SVG: SVG opcional, escala 0.5–2 e offset X/Y próprio (posicionado livremente no editor 2D)
 - Acabamento: sempre relevo alto (texto usa `relief`; ícone usa 1mm)
 - Fixação: `haste` (cilindro integrado) ou `base` (peça separada com encaixe)
