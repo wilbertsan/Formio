@@ -186,6 +186,47 @@ describe('buildRelief', () => {
     }
   })
 
+  it('relevo tem normais para fora (volume assinado positivo)', () => {
+    const geometry = buildRelief(dotsParams)
+    expect(geometry).not.toBeNull()
+
+    const position = geometry!.getAttribute('position')
+    const normal = geometry!.getAttribute('normal')
+    const index = geometry!.getIndex()!
+    const radius = dotsParams.diameter / 2
+    const topThreshold = radius + 0.9 * dotsParams.reliefDepth
+
+    let volume = 0
+    for (let i = 0; i < index.count; i += 3) {
+      const ia = index.getX(i)
+      const ib = index.getX(i + 1)
+      const ic = index.getX(i + 2)
+      const ax = position.getX(ia), ay = position.getY(ia), az = position.getZ(ia)
+      const bx = position.getX(ib), by = position.getY(ib), bz = position.getZ(ib)
+      const cx = position.getX(ic), cy = position.getY(ic), cz = position.getZ(ic)
+      volume += (
+        ax * (by * cz - bz * cy)
+        - ay * (bx * cz - bz * cx)
+        + az * (bx * cy - by * cx)
+      ) / 6
+    }
+    expect(volume).toBeGreaterThan(0)
+
+    let outward = 0
+    let inward = 0
+    for (let i = 0; i < position.count; i++) {
+      const y = position.getY(i)
+      const z = position.getZ(i)
+      const r = Math.hypot(y, z)
+      if (r < topThreshold) continue
+      const dot = normal.getY(i) * (y / r) + normal.getZ(i) * (z / r)
+      if (dot > 0.5) outward++
+      else if (dot < -0.5) inward++
+    }
+    expect(outward).toBeGreaterThan(0)
+    expect(inward).toBe(0)
+  })
+
   it('não produz NaN nas posições', () => {
     const geometry = buildRelief(dotsParams)
     expect(geometry).not.toBeNull()

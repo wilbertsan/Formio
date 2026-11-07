@@ -1,4 +1,4 @@
-import { ExtrudeGeometry, type BufferGeometry } from 'three'
+import { BufferAttribute, ExtrudeGeometry, type BufferGeometry } from 'three'
 import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { svgPatternShapes } from '../shared/svgPattern'
 import type { ParsedSvg } from '../shared/svgToIconShape'
@@ -15,6 +15,37 @@ import {
 } from './schema'
 
 const EMBED_MM = 0.1
+
+/**
+ * A curvatura (X, arco, raio) inverte a orientação do plano desenrolado.
+ * Restaura o winding para que tampas e paredes do relevo apontem para fora.
+ */
+function flipWinding(geometry: BufferGeometry): void {
+  const index = geometry.getIndex()
+  if (index) {
+    for (let i = 0; i < index.count; i += 3) {
+      const b = index.getX(i + 1)
+      index.setX(i + 1, index.getX(i + 2))
+      index.setX(i + 2, b)
+    }
+    index.needsUpdate = true
+    return
+  }
+
+  const position = geometry.getAttribute('position')
+  if (!(position instanceof BufferAttribute)) return
+  const array = position.array as Float32Array
+  for (let i = 0; i + 8 < array.length; i += 9) {
+    for (let k = 0; k < 3; k++) {
+      const second = i + 3 + k
+      const third = i + 6 + k
+      const temp = array[second]
+      array[second] = array[third]
+      array[third] = temp
+    }
+  }
+  position.needsUpdate = true
+}
 
 export function buildRelief(
   params: TextureRollerParams,
@@ -88,6 +119,8 @@ export function buildRelief(
     position.setXYZ(i, x, r * Math.cos(angle), r * Math.sin(angle))
   }
   position.needsUpdate = true
+
+  flipWinding(merged)
 
   const creased = toCreasedNormals(merged, Math.PI / 6)
   merged.dispose()
