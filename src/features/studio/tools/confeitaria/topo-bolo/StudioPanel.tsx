@@ -39,6 +39,7 @@ interface StudioPanelProps {
   onSetSvgIcon: (svg: string | null) => void
   onSetContourSvg: (svg: string | null) => void
   onReset: () => void
+  onMoveIcon: (x: number, y: number) => void
 }
 
 function ColorSwatches({
@@ -91,6 +92,7 @@ export function StudioPanel({
   onSetSvgIcon,
   onSetContourSvg,
   onReset,
+  onMoveIcon,
 }: StudioPanelProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedTextId, setSelectedTextId] = useState(params.texts[0]?.id ?? '')
@@ -145,15 +147,24 @@ export function StudioPanel({
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="texto">
+        <Accordion.Item value="conteudo">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Texto
+              Conteúdo
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
+              <SelectField
+                label="Modo do conteúdo"
+                value={params.textMode}
+                onChange={(event) => onUpdateParam('textMode', event.target.value)}
+              >
+                <option value="raised">Relevo</option>
+                <option value="cut">Corte vazado</option>
+              </SelectField>
+
               <Flex direction="row" gap="xs" wrap="wrap">
                 {params.texts.map((text) => (
                   <Flex key={text.id} direction="row" gap="xs" alignItems="center">
@@ -183,14 +194,6 @@ export function StudioPanel({
 
               {selectedText && (
                 <>
-                  <Button
-                    size="small"
-                    variation="link"
-                    onClick={() => setEditorOpen(true)}
-                  >
-                    ✥ Posicionar textos
-                  </Button>
-
                   <TextField
                     label="Conteúdo"
                     descriptiveText="Até 40 caracteres"
@@ -259,16 +262,73 @@ export function StudioPanel({
                     value={selectedText.relief}
                     onChange={(value) => onUpdateTextById(selectedText.id, { relief: value as number })}
                   />
-
-                  <SelectField
-                    label="Modo do texto"
-                    value={params.textMode}
-                    onChange={(event) => onUpdateParam('textMode', event.target.value)}
-                  >
-                    <option value="raised">Relevo</option>
-                    <option value="cut">Corte vazado</option>
-                  </SelectField>
                 </>
+              )}
+
+              <hr aria-hidden="true" className="my-1 border-neutral-200" />
+
+              <Heading level={4} fontSize="small">
+                Ícone SVG
+              </Heading>
+
+              <input
+                ref={iconInputRef}
+                type="file"
+                accept=".svg"
+                aria-label="Carregar ícone SVG"
+                onChange={handleIconUpload}
+                style={{ display: 'none' }}
+              />
+              <Button size="small" onClick={() => iconInputRef.current?.click()}>
+                Carregar ícone SVG
+              </Button>
+              {iconUploadError && (
+                <Text role="alert" fontSize="xs" className="text-red-600">
+                  Falha ao ler o arquivo SVG
+                </Text>
+              )}
+              {params.svgIcon && (
+                <>
+                  <Text fontSize="xs" color="font.secondary">Ícone carregado</Text>
+                  <Button
+                    size="small"
+                    variation="link"
+                    onClick={() => onSetSvgIcon(null)}
+                  >
+                    Remover ícone
+                  </Button>
+                </>
+              )}
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Escala do ícone</Text>
+                <Text fontSize="xs" color="font.secondary">{params.iconScale.toFixed(1)}x</Text>
+              </Flex>
+              <SliderField
+                label="Escala do ícone"
+                labelHidden
+                aria-label="Escala do ícone"
+                min={SLIDER_LIMITS.iconScale.min}
+                max={SLIDER_LIMITS.iconScale.max}
+                step={SLIDER_LIMITS.iconScale.step}
+                value={params.iconScale}
+                isDisabled={!params.svgIcon}
+                onChange={(value) => onUpdateParam('iconScale', value as number)}
+              />
+              {params.svgIcon && (
+                <Text fontSize="xs" color="font.secondary">
+                  Arraste no editor para posicionar o ícone.
+                </Text>
+              )}
+
+              {selectedText && (
+                <Button
+                  size="small"
+                  variation="link"
+                  onClick={() => setEditorOpen(true)}
+                >
+                  ✥ Posicionar conteúdo
+                </Button>
               )}
             </Flex>
           </Accordion.Content>
@@ -308,7 +368,7 @@ export function StudioPanel({
                     Carregar contorno SVG
                   </Button>
                   {contourUploadError && (
-                    <Text fontSize="xs" className="text-red-600">
+                    <Text role="alert" fontSize="xs" className="text-red-600">
                       Falha ao ler o arquivo SVG
                     </Text>
                   )}
@@ -385,73 +445,6 @@ export function StudioPanel({
                 step={SLIDER_LIMITS.cornerRadius.step}
                 value={params.cornerRadius}
                 onChange={(value) => onUpdateParam('cornerRadius', value as number)}
-              />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="icone">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Ícone
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <input
-                ref={iconInputRef}
-                type="file"
-                accept=".svg"
-                aria-label="Carregar ícone SVG"
-                onChange={handleIconUpload}
-                style={{ display: 'none' }}
-              />
-              <Button size="small" onClick={() => iconInputRef.current?.click()}>
-                Carregar ícone SVG
-              </Button>
-              {iconUploadError && (
-                <Text fontSize="xs" className="text-red-600">
-                  Falha ao ler o arquivo SVG
-                </Text>
-              )}
-              {params.svgIcon && (
-                <>
-                  <Text fontSize="xs" color="font.secondary">Ícone carregado</Text>
-                  <Button
-                    size="small"
-                    variation="link"
-                    onClick={() => onSetSvgIcon(null)}
-                  >
-                    Remover ícone
-                  </Button>
-                </>
-              )}
-
-              <SelectField
-                label="Posição do ícone"
-                value={params.iconPosition}
-                isDisabled={!params.svgIcon}
-                onChange={(event) => onUpdateParam('iconPosition', event.target.value)}
-              >
-                <option value="above">Acima</option>
-                <option value="center">Centro</option>
-              </SelectField>
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Escala do ícone</Text>
-                <Text fontSize="xs" color="font.secondary">{params.iconScale.toFixed(1)}x</Text>
-              </Flex>
-              <SliderField
-                label="Escala do ícone"
-                labelHidden
-                aria-label="Escala do ícone"
-                min={SLIDER_LIMITS.iconScale.min}
-                max={SLIDER_LIMITS.iconScale.max}
-                step={SLIDER_LIMITS.iconScale.step}
-                value={params.iconScale}
-                isDisabled={!params.svgIcon}
-                onChange={(value) => onUpdateParam('iconScale', value as number)}
               />
             </Flex>
           </Accordion.Content>
@@ -611,6 +604,7 @@ export function StudioPanel({
           selectedTextId={selectedText.id}
           onSelectText={setSelectedTextId}
           onMoveText={(id, x, y) => onUpdateTextById(id, { offsetX: x, offsetY: y })}
+          onMoveIcon={onMoveIcon}
           onClose={() => setEditorOpen(false)}
         />
       )}

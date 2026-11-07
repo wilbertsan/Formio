@@ -205,11 +205,46 @@ describe('buildCakeTopper - relevo (raised)', () => {
       shape: 'circle' as const,
       svgIcon: SVG_RECT,
       iconScale: 2,
-      iconPosition: 'center' as const,
       texts: [],
     }
     const result = buildCakeTopper({ params })
     expect(result.relief).not.toBeNull()
+    const bb = bounds(result.relief!)
+    const corner = Math.hypot(Math.abs(bb.cx) + bb.hw, Math.abs(bb.cy) + bb.hh)
+    expect(corner).toBeLessThanOrEqual(25 + 0.5)
+  })
+
+  it('posiciona o ícone pelos offsets informados', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'rounded-rect' as const,
+      width: 120,
+      height: 80,
+      svgIcon: SVG_RECT,
+      iconScale: 1,
+      iconOffsetX: 30,
+      iconOffsetY: 20,
+      texts: [],
+    }
+    const result = buildCakeTopper({ params })
+    const bb = bounds(result.relief!)
+    expect(bb.cx).toBeCloseTo(30, 0)
+    expect(bb.cy).toBeCloseTo(20, 0)
+  })
+
+  it('limita o ícone ao contorno da placa', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'circle' as const,
+      width: 80,
+      height: 50,
+      svgIcon: SVG_RECT,
+      iconScale: 2,
+      iconOffsetX: 100,
+      iconOffsetY: 100,
+      texts: [],
+    }
+    const result = buildCakeTopper({ params })
     const bb = bounds(result.relief!)
     const corner = Math.hypot(Math.abs(bb.cx) + bb.hw, Math.abs(bb.cy) + bb.hh)
     expect(corner).toBeLessThanOrEqual(25 + 0.5)
@@ -252,7 +287,6 @@ describe('buildCakeTopper - corte (cut)', () => {
       ...base,
       textMode: 'cut' as const,
       svgIcon: SVG_RECT,
-      iconPosition: 'center' as const,
       texts: [],
     }
     const cut = buildCakeTopper({ params })

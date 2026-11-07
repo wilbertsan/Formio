@@ -21,6 +21,7 @@ describe('StudioPanel', () => {
     onSetSvgIcon: vi.fn(),
     onSetContourSvg: vi.fn(),
     onReset: vi.fn(),
+    onMoveIcon: vi.fn(),
   })
 
   it('renderiza o cabeçalho', () => {
@@ -30,11 +31,17 @@ describe('StudioPanel', () => {
 
   it('renderiza as seções do accordion', () => {
     render(<StudioPanel {...createMockProps()} />)
-    expect(screen.getByRole('heading', { name: 'Texto' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Conteúdo' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Formato' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Ícone' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Fixação' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Aparência' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Ícone SVG' })).toBeInTheDocument()
+  })
+
+  it('não renderiza mais as seções separadas de Texto e Ícone', () => {
+    render(<StudioPanel {...createMockProps()} />)
+    expect(screen.queryByRole('heading', { name: 'Texto' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Ícone' })).not.toBeInTheDocument()
   })
 
   it('dispara onUpdateParam ao mudar a forma', () => {
@@ -100,9 +107,9 @@ describe('StudioPanel', () => {
     expect(props.onUpdateParam).toHaveBeenCalledWith('baseColor', '#ef4444')
   })
 
-  it('abre o editor de posição ao clicar em Posicionar textos', () => {
+  it('abre o editor de posição ao clicar em Posicionar conteúdo', () => {
     render(<StudioPanel {...createMockProps()} />)
-    fireEvent.click(screen.getByText(/posicionar textos/i))
+    fireEvent.click(screen.getByText(/posicionar conteúdo/i))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
   })
 
@@ -179,9 +186,41 @@ describe('StudioPanel', () => {
 
   it('fecha o editor ao pressionar Escape', () => {
     render(<StudioPanel {...createMockProps()} />)
-    fireEvent.click(screen.getByText(/posicionar textos/i))
+    fireEvent.click(screen.getByText(/posicionar conteúdo/i))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByTestId('text-editor')).not.toBeInTheDocument()
+  })
+
+  it('dispara onUpdateParam ao mudar o modo do conteúdo', () => {
+    const props = createMockProps()
+    render(<StudioPanel {...props} />)
+    fireEvent.change(screen.getByLabelText('Modo do conteúdo'), { target: { value: 'cut' } })
+    expect(props.onUpdateParam).toHaveBeenCalledWith('textMode', 'cut')
+  })
+
+  it('desabilita a escala sem ícone e habilita após carregar', () => {
+    const props = createMockProps()
+    const { rerender } = render(<StudioPanel {...props} />)
+    const sliderWithoutIcon = screen.getByRole('slider', { name: /escala do ícone/i })
+    expect(sliderWithoutIcon).toHaveAttribute('data-disabled')
+
+    const withIcon = { ...defaultCakeTopperParams, svgIcon: '<svg></svg>' }
+    rerender(<StudioPanel {...props} params={withIcon} />)
+    const sliderWithIcon = screen.getByRole('slider', { name: /escala do ícone/i })
+    expect(sliderWithIcon).not.toHaveAttribute('data-disabled')
+  })
+
+  it('remove o ícone ao clicar em Remover ícone', () => {
+    const props = createMockProps()
+    render(
+      <StudioPanel
+        {...props}
+        params={{ ...defaultCakeTopperParams, svgIcon: '<svg></svg>' }}
+      />,
+    )
+    expect(screen.getByText('Ícone carregado')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Remover ícone'))
+    expect(props.onSetSvgIcon).toHaveBeenCalledWith(null)
   })
 })

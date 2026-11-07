@@ -1,21 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CakeTopperParams, TextItem } from './schema'
+import { clampToOutline } from './placement'
+import {
+  fitIconHalfSize,
+  iconGeometryHalfSize,
+  ICON_MARGIN,
+  type HalfSize,
+} from './iconLayout'
 
 interface TextPositionEditorProps {
   params: CakeTopperParams
   selectedTextId: string
   onSelectText: (id: string) => void
   onMoveText: (id: string, x: number, y: number) => void
+  onMoveIcon: (x: number, y: number) => void
   onClose: () => void
 }
 
 const TEXT_MARGIN = 3
 const SCALE = 2
-
-interface HalfSize {
-  halfWidth: number
-  halfHeight: number
-}
+const ICON_ID = '__icon__'
 
 function plateHalfExtents(params: CakeTopperParams): HalfSize {
   if (params.shape === 'circle') {
@@ -33,11 +37,6 @@ function effectiveHalfSize(item: TextItem, plate: HalfSize): HalfSize {
     halfWidth: Math.min(item.width / 2, usableHalfWidth),
     halfHeight: Math.min(item.height / 2, usableHalfHeight),
   }
-}
-
-function clampOffset(value: number, plateHalf: number, itemHalf: number): number {
-  const maxOffset = Math.max(0, plateHalf - itemHalf - TEXT_MARGIN)
-  return Math.max(-maxOffset, Math.min(maxOffset, value))
 }
 
 function roundRect(
@@ -64,6 +63,7 @@ export function TextPositionEditor({
   selectedTextId,
   onSelectText,
   onMoveText,
+  onMoveIcon,
   onClose,
 }: TextPositionEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -74,6 +74,20 @@ export function TextPositionEditor({
   const canvasWidth = params.width * SCALE
   const canvasHeight = params.height * SCALE
   const plate = plateHalfExtents(params)
+
+  const [iconSelected, setIconSelected] = useState(false)
+  const rawIconHalf = useMemo(
+    () => iconGeometryHalfSize(params.svgIcon, params.width, params.height, params.iconScale),
+    [params.svgIcon, params.width, params.height, params.iconScale],
+  )
+  const iconHalf = fitIconHalfSize(rawIconHalf, params, plate)
+
+  useEffect(() => {
+    if (!iconHalf) {
+      setIconSelected(false)
+      setDragging((current) => (current === ICON_ID ? null : current))
+    }
+  }, [iconHalf])
 
   useEffect(() => {
     closeButtonRef.current?.focus()
@@ -125,12 +139,12 @@ export function TextPositionEditor({
     ctx.stroke()
 
     for (const text of params.texts) {
-      const isSelected = text.id === selectedTextId
+      const isSelected = !iconSelected && text.id === selectedTextId
       const half = effectiveHalfSize(text, plate)
       const textWidth = half.halfWidth * 2 * SCALE
       const textHeight = half.halfHeight * 2 * SCALE
       const x = centerX + text.offsetX * SCALE - textWidth / 2
-      const y = centerY + text.offsetY * SCALE - textHeight / 2
+      const y = centerY - text.offsetY * SCALE - textHeight / 2
 
       ctx.fillStyle = isSelected ? '#14b8a6' : '#a1a1aa'
       ctx.fillRect(x, y, textWidth, textHeight)
@@ -145,7 +159,27 @@ export function TextPositionEditor({
       ctx.textBaseline = 'middle'
       ctx.fillText(text.content, x + textWidth / 2, y + textHeight / 2)
     }
-  }, [params, selectedTextId, canvasWidth, canvasHeight, plate])
+
+    if (iconHalf) {
+      const iconWidth = iconHalf.halfWidth * 2 * SCALE
+      const iconHeight = iconHalf.halfHeight * 2 * SCALE
+      const x = centerX + params.iconOffsetX * SCALE - iconWidth / 2
+      const y = centerY - params.iconOffsetY * SCALE - iconHeight / 2
+
+      ctx.fillStyle = iconSelected ? '#f59e0b' : '#d4d4d8'
+      ctx.fillRect(x, y, iconWidth, iconHeight)
+
+      ctx.strokeStyle = iconSelected ? '#d97706' : '#71717a'
+      ctx.lineWidth = iconSelected ? 2 : 1
+      ctx.strokeRect(x, y, iconWidth, iconHeight)
+
+      ctx.fillStyle = '#fff'
+      ctx.font = '12px sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('Ícone', x + iconWidth / 2, y + iconHeight / 2)
+    }
+  }, [params, selectedTextId, canvasWidth, canvasHeight, plate, iconHalf, iconSelected])
 
   useEffect(() => {
     draw()
@@ -159,14 +193,29 @@ export function TextPositionEditor({
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
 
+    if (iconHalf) {
+      const iconWidth = iconHalf.halfWidth * 2 * SCALE
+      const iconHeight = iconHalf.halfHeight * 2 * SCALE
+      const iconX = canvasWidth / 2 + params.iconOffsetX * SCALE - iconWidth / 2
+      const iconY = canvasHeight / 2 - params.iconOffsetY * SCALE - iconHeight / 2
+
+      if (x >= iconX && x <= iconX + iconWidth && y >= iconY && y <= iconY + iconHeight) {
+        setIconSelected(true)
+        setDragging(ICON_ID)
+        setDragStart({ x: event.clientX, y: event.clientY })
+        return
+      }
+    }
+
     for (const text of params.texts) {
       const half = effectiveHalfSize(text, plate)
       const textWidth = half.halfWidth * 2 * SCALE
       const textHeight = half.halfHeight * 2 * SCALE
       const textX = canvasWidth / 2 + text.offsetX * SCALE - textWidth / 2
-      const textY = canvasHeight / 2 + text.offsetY * SCALE - textHeight / 2
+      const textY = canvasHeight / 2 - text.offsetY * SCALE - textHeight / 2
 
       if (x >= textX && x <= textX + textWidth && y >= textY && y <= textY + textHeight) {
+        setIconSelected(false)
         onSelectText(text.id)
         setDragging(text.id)
         setDragStart({ x: event.clientX, y: event.clientY })
@@ -177,16 +226,38 @@ export function TextPositionEditor({
 
   const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!dragging) return
-    const text = params.texts.find((item) => item.id === dragging)
-    if (!text) return
-
     const dx = (event.clientX - dragStart.x) / SCALE
     const dy = (event.clientY - dragStart.y) / SCALE
-    const half = effectiveHalfSize(text, plate)
-    const newX = clampOffset(text.offsetX + dx, plate.halfWidth, half.halfWidth)
-    const newY = clampOffset(text.offsetY + dy, plate.halfHeight, half.halfHeight)
 
-    onMoveText(dragging, newX, newY)
+    if (dragging === ICON_ID) {
+      if (!iconHalf) return
+      const placed = clampToOutline(
+        params,
+        plate,
+        iconHalf.halfWidth,
+        iconHalf.halfHeight,
+        params.iconOffsetX + dx,
+        params.iconOffsetY - dy,
+        ICON_MARGIN,
+      )
+      onMoveIcon(placed.x, placed.y)
+      setDragStart({ x: event.clientX, y: event.clientY })
+      return
+    }
+
+    const text = params.texts.find((item) => item.id === dragging)
+    if (!text) return
+    const half = effectiveHalfSize(text, plate)
+    const placed = clampToOutline(
+      params,
+      plate,
+      half.halfWidth,
+      half.halfHeight,
+      text.offsetX + dx,
+      text.offsetY - dy,
+      TEXT_MARGIN,
+    )
+    onMoveText(dragging, placed.x, placed.y)
     setDragStart({ x: event.clientX, y: event.clientY })
   }
 
@@ -199,12 +270,12 @@ export function TextPositionEditor({
       data-testid="text-editor"
       role="dialog"
       aria-modal="true"
-      aria-label="Posicionamento de textos"
+      aria-label="Posicionamento de conteúdo"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
       <div className="rounded-lg bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Posicionar Textos</h2>
+          <h2 className="text-lg font-semibold">Posicionar Conteúdo</h2>
           <button
             ref={closeButtonRef}
             onClick={onClose}
@@ -218,14 +289,14 @@ export function TextPositionEditor({
           ref={canvasRef}
           width={canvasWidth}
           height={canvasHeight}
-          aria-label="Área de posicionamento de textos"
+          aria-label="Área de posicionamento de conteúdo"
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
           className="cursor-move border border-neutral-200"
         />
-        <p className="mt-2 text-sm text-neutral-500">Arraste os textos para reposicionar</p>
+        <p className="mt-2 text-sm text-neutral-500">Arraste os textos e o ícone para reposicionar</p>
       </div>
     </div>
   )

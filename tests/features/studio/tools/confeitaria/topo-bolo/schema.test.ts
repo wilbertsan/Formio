@@ -85,6 +85,28 @@ describe('cakeTopperParamsSchema', () => {
     const result = cakeTopperParamsSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })
+
+  it('defaults icon offsets to the plate center', () => {
+    expect(defaultCakeTopperParams.iconOffsetX).toBe(0)
+    expect(defaultCakeTopperParams.iconOffsetY).toBe(0)
+  })
+
+  it('rejects iconOffsetX out of range', () => {
+    const invalid = { ...defaultCakeTopperParams, iconOffsetX: 56 }
+    const result = cakeTopperParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects iconOffsetY out of range', () => {
+    const invalid = { ...defaultCakeTopperParams, iconOffsetY: -36 }
+    const result = cakeTopperParamsSchema.safeParse(invalid)
+    expect(result.success).toBe(false)
+  })
+
+  it('does not expose iconPosition anymore', () => {
+    expect('iconPosition' in cakeTopperParamsSchema.shape).toBe(false)
+    expect('iconPosition' in defaultCakeTopperParams).toBe(false)
+  })
 })
 
 describe('PLA_COLORS', () => {
