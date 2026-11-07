@@ -108,6 +108,12 @@ describe('cakeTopperParamsSchema', () => {
   })
 })
 
+describe('defaultText', () => {
+  it('defaults the content to Texto', () => {
+    expect(defaultText.content).toBe('Texto')
+  })
+})
+
 describe('PLA_COLORS', () => {
   it('has exactly 10 valid hex colors', () => {
     expect(PLA_COLORS.length).toBe(10)

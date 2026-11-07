@@ -172,6 +172,28 @@ describe('buildCakeTopper - relevo (raised)', () => {
     expect(result.plate.attributes.position.count).toBe(plain.plate.attributes.position.count)
   })
 
+  it('comprime apenas a largura e preserva a altura', () => {
+    const wide = buildCakeTopper({
+      params: {
+        ...defaultCakeTopperParams,
+        texts: [text({ content: 'AB', width: 20, height: 10 })],
+      },
+      fonts: { bold: mockFont('AB') },
+    })
+    const narrow = buildCakeTopper({
+      params: {
+        ...defaultCakeTopperParams,
+        texts: [text({ content: 'AB', width: 10, height: 10 })],
+      },
+      fonts: { bold: mockFont('AB') },
+    })
+
+    const wideBb = bounds(wide.relief!)
+    const narrowBb = bounds(narrow.relief!)
+    expect(narrowBb.hw).toBeLessThan(wideBb.hw)
+    expect(narrowBb.hh).toBeCloseTo(wideBb.hh, 5)
+  })
+
   it('relief é null sem fonte disponível', () => {
     const result = buildCakeTopper({ params: defaultCakeTopperParams })
     expect(result.relief).toBeNull()

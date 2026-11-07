@@ -218,7 +218,9 @@ function buildTextGeometries(
     const targetWidth = Math.min(item.width, params.width - 2 * TEXT_MARGIN)
     if (naturalWidth > targetWidth && naturalWidth > 0) {
       const factor = targetWidth / naturalWidth
-      geometry.scale(factor, factor, 1)
+      // `height` é o tamanho da fonte; a largura é um limite máximo e comprime
+      // apenas X, preservando a altura (mesmo comportamento do marcador de página).
+      geometry.scale(factor, 1, 1)
     }
     centerXY(geometry)
 
