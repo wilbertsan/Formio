@@ -265,7 +265,7 @@ export function StudioPanel({
                 </>
               )}
 
-              <hr className="my-1 border-neutral-200" />
+              <hr aria-hidden="true" className="my-1 border-neutral-200" />
 
               <Heading level={4} fontSize="small">
                 Ícone SVG
@@ -283,7 +283,7 @@ export function StudioPanel({
                 Carregar ícone SVG
               </Button>
               {iconUploadError && (
-                <Text fontSize="xs" className="text-red-600">
+                <Text role="alert" fontSize="xs" className="text-red-600">
                   Falha ao ler o arquivo SVG
                 </Text>
               )}
@@ -315,9 +315,11 @@ export function StudioPanel({
                 isDisabled={!params.svgIcon}
                 onChange={(value) => onUpdateParam('iconScale', value as number)}
               />
-              <Text fontSize="xs" color="font.secondary">
-                Arraste no editor para posicionar o ícone.
-              </Text>
+              {params.svgIcon && (
+                <Text fontSize="xs" color="font.secondary">
+                  Arraste no editor para posicionar o ícone.
+                </Text>
+              )}
 
               {selectedText && (
                 <Button
