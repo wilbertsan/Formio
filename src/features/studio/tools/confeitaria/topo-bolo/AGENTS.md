@@ -14,9 +14,10 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Largura: 50–120mm
 - Altura: 30–80mm
 - Espessura: 2–4mm
-- Textos: 1–3 itens independentes, cada um com conteúdo, fonte (`normal`/`bold`/`serif`), largura, altura, relevo e offset X/Y próprios
-- Ícone SVG: SVG opcional, posição acima ou centro, escala 0.5–2
-- Modo de texto: `raised` (relevo) ou `cut` (vazado via CSG com fallback)
+- Conteúdo único no painel: 1–3 textos independentes e um ícone SVG opcional
+- Textos: cada um com conteúdo, fonte (`normal`/`bold`/`serif`), largura, altura, relevo e offset X/Y próprios
+- Ícone SVG: SVG opcional, escala 0.5–2 e offset X/Y próprio (posicionado livremente no editor 2D)
+- Modo do conteúdo: `raised` (relevo) ou `cut` (vazado via CSG com fallback)
 - Fixação: `haste` (cilindro integrado) ou `base` (peça separada com encaixe)
 - Cores de preview: cor da placa e das letras (10 cores PLA)
 
@@ -26,6 +27,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Texto em relevo (`raised`) ou vazado (`cut`) — o vazado usa subtração CSG; se o corte alcançar a borda ou a operação falhar, cai para relevo
 - Fixação `haste`: cilindro embutido na placa (corpo único); `base`: peça separada com canaleta de encaixe, impressa ao lado da placa
 - Textos encaixados no contorno da placa com margem de 4mm; ícone com margem de 1mm
+- Textos e ícone são posicionados livremente no editor 2D; o ícone usa `iconOffsetX`/`iconOffsetY` com margem de 1mm
 - Peso leve para não tombar o bolo
 
 ## Estrutura de arquivos
@@ -35,11 +37,12 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - `exportStl.ts` — Exportação STL binário (partes mescladas)
 - `useCakeTopper.ts` — Hook de estado (reducer + Zod + debounce + fontes lazy)
 - `StudioPanel.tsx` — Painel de parâmetros
-- `TextPositionEditor.tsx` — Editor 2D de posição dos textos
+- `TextPositionEditor.tsx` — Editor 2D de posição de textos e ícone
 - `CakeTopperPreview.tsx` — Preview R3F
 
-Helpers compartilhados: `../shared/textOutline.ts` (texto → contornos → geometria)
-e `../shared/svgToIconShape.ts` (SVG → contornos/ícone).
+Helpers compartilhados: `../shared/textOutline.ts` (texto → contornos → geometria),
+`../shared/svgToIconShape.ts` (SVG → contornos/ícone), `placement.ts` (contorno e
+clamp de posição) e `iconLayout.ts` (dimensões reais do ícone no editor).
 
 ## Fora de escopo
 
