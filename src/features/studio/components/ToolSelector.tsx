@@ -46,7 +46,7 @@ const TOOLS: ToolCard[] = [
   {
     id: 'topo-bolo',
     name: 'Topo de Bolo',
-    description: 'Toppers com texto em relevo ou vazado, ícone SVG e fixação por haste ou base',
+    description: 'Toppers com texto em relevo alto, ícone SVG e fixação por haste ou base',
     icon: '🎂',
     category: 'Confeitaria',
   },
