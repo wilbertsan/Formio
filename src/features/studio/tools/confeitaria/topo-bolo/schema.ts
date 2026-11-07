@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+const OFFSET_X_RANGE = { min: -55, max: 55 } as const
+const OFFSET_Y_RANGE = { min: -35, max: 35 } as const
+
 export const PLA_COLORS = [
   '#14b8a6', '#ef4444', '#3b82f6', '#eab308', '#22c55e',
   '#f97316', '#ec4899', '#8b5cf6', '#171717', '#f5f5f5',
@@ -14,8 +17,8 @@ export const textItemSchema = z.object({
   height: z.number().min(5).max(50),
   relief: z.number().min(0.4).max(3),
   proportional: z.boolean(),
-  offsetX: z.number().min(-55).max(55),
-  offsetY: z.number().min(-35).max(35),
+  offsetX: z.number().min(OFFSET_X_RANGE.min).max(OFFSET_X_RANGE.max),
+  offsetY: z.number().min(OFFSET_Y_RANGE.min).max(OFFSET_Y_RANGE.max),
 })
 export type TextItem = z.infer<typeof textItemSchema>
 
@@ -29,8 +32,8 @@ export const cakeTopperParamsSchema = z.object({
   contourSvg: z.string().nullable(),
   svgIcon: z.string().nullable(),
   iconScale: z.number().min(0.5).max(2),
-  iconOffsetX: z.number().min(-55).max(55),
-  iconOffsetY: z.number().min(-35).max(35),
+  iconOffsetX: z.number().min(OFFSET_X_RANGE.min).max(OFFSET_X_RANGE.max),
+  iconOffsetY: z.number().min(OFFSET_Y_RANGE.min).max(OFFSET_Y_RANGE.max),
   textMode: z.enum(['raised', 'cut']),
   supportType: z.enum(['haste', 'base']),
   stemDiameter: z.number().min(3).max(8),

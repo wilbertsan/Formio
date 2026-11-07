@@ -104,6 +104,7 @@ describe('cakeTopperParamsSchema', () => {
   })
 
   it('does not expose iconPosition anymore', () => {
+    expect('iconPosition' in cakeTopperParamsSchema.shape).toBe(false)
     expect('iconPosition' in defaultCakeTopperParams).toBe(false)
   })
 })
