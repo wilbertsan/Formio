@@ -183,7 +183,7 @@ describe('buildCakeTopper - relevo (raised)', () => {
     const narrow = buildCakeTopper({
       params: {
         ...defaultCakeTopperParams,
-        texts: [text({ content: 'AB', width: 6, height: 10 })],
+        texts: [text({ content: 'AB', width: 10, height: 10 })],
       },
       fonts: { bold: mockFont('AB') },
     })
