@@ -16,6 +16,7 @@ type TextureRollerAction =
 const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   length: { min: 50, max: 150 },
   diameter: { min: 20, max: 40 },
+  patternScale: { min: 0.4, max: 1 },
   reliefDepth: { min: 0.5, max: 2 },
 }
 
@@ -86,7 +87,7 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
 
   const {
     productType, length, diameter, patternFamily, patternMotif,
-    patternSource, svgIcon, reliefDepth, density,
+    patternSource, svgIcon, reliefDepth, density, patternScale,
   } = params
 
   const buildParams = useMemo<TextureRollerParams>(
@@ -98,12 +99,13 @@ export function useTextureRoller(options: UseTextureRollerOptions = {}) {
       patternMotif,
       patternSource,
       svgIcon,
+      patternScale,
       reliefDepth,
       density,
       rollerColor: defaultTextureRollerParams.rollerColor,
       reliefColor: defaultTextureRollerParams.reliefColor,
     }),
-    [productType, length, diameter, patternFamily, patternMotif, patternSource, svgIcon, reliefDepth, density],
+    [productType, length, diameter, patternFamily, patternMotif, patternSource, svgIcon, patternScale, reliefDepth, density],
   )
 
   useEffect(() => {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { BoxGeometry } from 'three'
 import { useTextureRoller } from '@/features/studio/tools/confeitaria/rolo-textura/useTextureRoller'
-import { defaultTextureRollerParams } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
+import { defaultTextureRollerParams, type TextureRollerParams } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 import { serializeBuildResult, type SerializedBuildResult } from '@/features/studio/tools/confeitaria/rolo-textura/workerGeometry'
 import type { GeometryWorker } from '@/features/studio/tools/confeitaria/rolo-textura/workerClient'
 import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
@@ -17,12 +17,14 @@ function makeWorkerFixture() {
   let pending: ((data: SerializedBuildResult) => void) | null = null
   let fail: (() => void) | null = null
   let lastParsed: ParsedSvg | null | undefined
+  let lastParams: TextureRollerParams | null = null
   let calls = 0
   const terminate = vi.fn()
   const factory = (): GeometryWorker => {
     calls++
     return {
-      build: (_params, parsedSvg, onResult, onError) => {
+      build: (params, parsedSvg, onResult, onError) => {
+        lastParams = params
         lastParsed = parsedSvg
         pending = onResult
         fail = onError ?? null
@@ -30,7 +32,13 @@ function makeWorkerFixture() {
       terminate,
     }
   }
-  return { factory, terminate, getCalls: () => calls, respond: () => pending?.(serializedResult()), fail: () => fail?.(), getParsed: () => lastParsed }
+  return {
+    factory, terminate, getCalls: () => calls,
+    respond: () => pending?.(serializedResult()),
+    fail: () => fail?.(),
+    getParsed: () => lastParsed,
+    getParams: () => lastParams,
+  }
 }
 
 beforeEach(() => { vi.useFakeTimers() })
@@ -61,6 +69,28 @@ describe('useTextureRoller', () => {
     expect(result.current.params.length).toBe(150)
     expect(result.current.params.diameter).toBe(20)
     expect(result.current.params.reliefDepth).toBe(2)
+  })
+
+  it('faz clamp de patternScale', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { result.current.updateParam('patternScale', 9) })
+    expect(result.current.params.patternScale).toBe(1)
+    act(() => { result.current.updateParam('patternScale', 0.1) })
+    expect(result.current.params.patternScale).toBe(0.4)
+  })
+
+  it('envia patternScale ao worker e rebuilda', () => {
+    const { factory, getParams, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useTextureRoller({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(250) })
+    const callsAfterInitial = getCalls()
+
+    act(() => { result.current.updateParam('patternScale', 0.6) })
+    act(() => { vi.advanceTimersByTime(250) })
+
+    expect(getCalls()).toBeGreaterThan(callsAfterInitial)
+    expect(getParams()?.patternScale).toBe(0.6)
   })
 
   it('troca a família e ajusta o motivo', () => {
