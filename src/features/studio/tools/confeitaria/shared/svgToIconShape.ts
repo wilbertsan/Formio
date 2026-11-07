@@ -150,7 +150,7 @@ function toClipperPath(points: Point2[]): ClipperPoint[] {
 }
 
 // Silhueta de um path de linha (stroke) como Shape fechado, com a largura dada.
-function strokeToShape(points: Vector2[], factor: number, halfWidth: number): Shape | null {
+export function strokeToShape(points: Vector2[], factor: number, halfWidth: number): Shape | null {
   if (points.length < 2) return null
 
   const path = points.map(p => ({ X: Math.round(p.x * factor * 1000), Y: Math.round(p.y * factor * 1000) }))
