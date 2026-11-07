@@ -26,6 +26,7 @@ type CakeTopperAction =
   | { type: 'addText' }
   | { type: 'removeText'; id: string }
   | { type: 'updateTextById'; id: string; patch: Partial<TextItem> }
+  | { type: 'moveIcon'; x: number; y: number }
   | { type: 'reset' }
 
 type NumericRanges = Record<string, { min: number; max: number }>
@@ -36,6 +37,8 @@ const NUMERIC_RANGES: NumericRanges = {
   thickness: { min: 2, max: 4 },
   cornerRadius: { min: 3, max: 15 },
   iconScale: { min: 0.5, max: 2 },
+  iconOffsetX: { min: -55, max: 55 },
+  iconOffsetY: { min: -35, max: 35 },
   stemDiameter: { min: 3, max: 8 },
   stemLength: { min: 20, max: 60 },
   slotWidth: { min: 2.4, max: 4.5 },
@@ -98,6 +101,13 @@ function cakeTopperReducer(state: CakeTopperParams, action: CakeTopperAction): C
       if (!patchResult.success) return state
       const nextTexts = state.texts.map((t) => (t.id === action.id ? { ...t, ...patch } : t))
       const next = { ...state, texts: nextTexts }
+      const parsed = cakeTopperParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
+    case 'moveIcon': {
+      const x = clampWith(NUMERIC_RANGES, 'iconOffsetX', action.x)
+      const y = clampWith(NUMERIC_RANGES, 'iconOffsetY', action.y)
+      const next = { ...state, iconOffsetX: x, iconOffsetY: y }
       const parsed = cakeTopperParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
@@ -194,6 +204,10 @@ export function useCakeTopper() {
     dispatch({ type: 'updateTextById', id, patch })
   }, [])
 
+  const moveIcon = useCallback((x: number, y: number) => {
+    dispatch({ type: 'moveIcon', x, y })
+  }, [])
+
   const setSvgIcon = useCallback((svg: string | null) => {
     dispatch({ type: 'update', key: 'svgIcon', value: svg })
   }, [])
@@ -234,6 +248,7 @@ export function useCakeTopper() {
     addText,
     removeText,
     updateTextById,
+    moveIcon,
     setSvgIcon,
     setContourSvg,
     reset,

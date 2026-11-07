@@ -137,6 +137,20 @@ describe('useCakeTopper', () => {
     expect(result.current.params.texts[0].content).toBe(defaultText.content)
   })
 
+  it('moveIcon atualiza os dois offsets', () => {
+    const { result } = renderHook(() => useCakeTopper())
+    act(() => result.current.moveIcon(10, -12))
+    expect(result.current.params.iconOffsetX).toBe(10)
+    expect(result.current.params.iconOffsetY).toBe(-12)
+  })
+
+  it('moveIcon clampa os offsets aos limites', () => {
+    const { result } = renderHook(() => useCakeTopper())
+    act(() => result.current.moveIcon(999, -999))
+    expect(result.current.params.iconOffsetX).toBe(55)
+    expect(result.current.params.iconOffsetY).toBe(-35)
+  })
+
   it('setSvgIcon define o ícone SVG', () => {
     const { result } = renderHook(() => useCakeTopper())
     const svg = '<svg><path d="M0,0"/></svg>'
