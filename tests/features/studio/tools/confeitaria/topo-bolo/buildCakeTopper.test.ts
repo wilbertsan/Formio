@@ -151,14 +151,25 @@ describe('buildCakeTopper - relevo (raised)', () => {
     expect(result.relief!.attributes.position).toBeDefined()
   })
 
-  it('sempre gera relevo, sem modo de corte', () => {
+  it('sempre gera relevo sobre a placa, sem alterar a placa', () => {
+    const relief = 2
     const params = {
       ...defaultCakeTopperParams,
-      texts: [text({ content: 'A', width: 20, height: 10 })],
+      texts: [text({ content: 'A', width: 20, height: 10, relief })],
     }
+    const plain = buildCakeTopper({ params: { ...params, texts: [] } })
     const result = buildCakeTopper({ params, fonts: { bold: mockFont('A') } })
+
     expect(result.relief).not.toBeNull()
-    expect(result.relief!.attributes.position).toBeDefined()
+    result.relief!.computeBoundingBox()
+    const bb = result.relief!.boundingBox!
+    // O bevel padrão do ExtrudeGeometry (0.2mm) estende a geometria 0.2mm
+    // além de [0, depth]; por isso a base do relevo fica em thickness - 0.01 - 0.2.
+    const BEVEL_THICKNESS = 0.2
+    const TEXT_Z_OFFSET = 0.01
+    expect(bb.min.z).toBeCloseTo(params.thickness - TEXT_Z_OFFSET - BEVEL_THICKNESS, 5)
+    expect(bb.max.z).toBeGreaterThan(params.thickness)
+    expect(result.plate.attributes.position.count).toBe(plain.plate.attributes.position.count)
   })
 
   it('relief é null sem fonte disponível', () => {
