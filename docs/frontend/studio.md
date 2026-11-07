@@ -59,7 +59,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Preview R3F | `src/features/studio/tools/letreiros/suporte-foto/PhotoStandPreview.tsx` |
 | **Topo de Bolo** | |
 | Schema + tipos | `src/features/studio/tools/confeitaria/topo-bolo/schema.ts` |
-| Geometria multi-texto (placa, relevo/CSG, ícone, fixação) | `src/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper.ts` |
+| Geometria multi-texto (placa, relevo alto, ícone, base, fixação) | `src/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper.ts` |
 | Hook de estado | `src/features/studio/tools/confeitaria/topo-bolo/useCakeTopper.ts` |
 | Painel de parâmetros | `src/features/studio/tools/confeitaria/topo-bolo/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/confeitaria/topo-bolo/CakeTopperPreview.tsx` |

@@ -33,7 +33,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 ## Estrutura de arquivos
 
 - `schema.ts` — Schema Zod, defaults e cores PLA
-- `buildCakeTopper.ts` — Geometria da placa, relevo/vazado (CSG), ícone e fixação
+- `buildCakeTopper.ts` — Geometria da placa, relevo alto (texto + ícone), canaleta da base (CSG) e fixação
 - `exportStl.ts` — Exportação STL binário (partes mescladas)
 - `useCakeTopper.ts` — Hook de estado (reducer + Zod + debounce + fontes lazy)
 - `StudioPanel.tsx` — Painel de parâmetros
