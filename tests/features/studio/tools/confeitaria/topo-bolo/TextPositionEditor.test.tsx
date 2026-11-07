@@ -2,7 +2,11 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { vi } from 'vitest'
 import { TextPositionEditor } from '@/features/studio/tools/confeitaria/topo-bolo/TextPositionEditor'
 import { defaultCakeTopperParams, type CakeTopperParams } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
-import { svgBounds } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
+import { clampToOutline } from '@/features/studio/tools/confeitaria/topo-bolo/placement'
+import {
+  fitIconHalfSize,
+  iconGeometryHalfSize,
+} from '@/features/studio/tools/confeitaria/topo-bolo/iconLayout'
 
 const SVG_RECT = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
 
@@ -37,15 +41,12 @@ function renderEditor(
   )
 }
 
-function expectedIconMaxOffsets(params: CakeTopperParams): { x: number; y: number } {
-  const bounds = svgBounds(params.svgIcon!)
-  if (!bounds) throw new Error('SVG inválido')
-  const maxRadius = (Math.min(params.width, params.height) / 3) * params.iconScale
-  const scale = (maxRadius - 0.5) / bounds.farthest
-  const halfWidth = (bounds.width / 2) * scale + 0.5
-  const halfHeight = (bounds.height / 2) * scale + 0.5
-  const radius = Math.min(params.width, params.height) / 2
-  return { x: radius - halfWidth - 1, y: radius - halfHeight - 1 }
+function placedIconOffset(params: CakeTopperParams): { x: number; y: number } {
+  const plate = { halfWidth: 25, halfHeight: 25 }
+  const raw = iconGeometryHalfSize(params.svgIcon, params.width, params.height, params.iconScale)
+  const half = fitIconHalfSize(raw, params, plate)
+  if (!half) throw new Error('Ícone sem geometria')
+  return clampToOutline(params, plate, half.halfWidth, half.halfHeight, 160, 175, 1)
 }
 
 describe('TextPositionEditor', () => {
@@ -96,8 +97,18 @@ describe('TextPositionEditor', () => {
     const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
     fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
     fireEvent.mouseMove(canvas, { clientX: 300, clientY: 300 })
-    // placa circular 80x50 (raio 25), texto 30x10, margem 3 → offsets máximos 7 e 17.
-    expect(onMoveText).toHaveBeenCalledWith('text-1', 7, 17)
+    const [, x, y] = onMoveText.mock.calls[0] as [string, number, number]
+    const placed = clampToOutline(
+      clampParams,
+      { halfWidth: 25, halfHeight: 25 },
+      15,
+      5,
+      110,
+      125,
+      3,
+    )
+    expect(x).toBeCloseTo(placed.x, 5)
+    expect(y).toBeCloseTo(placed.y, 5)
   })
 
   it('permite arraste dentro do limite', () => {
@@ -156,7 +167,7 @@ describe('TextPositionEditor', () => {
     fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
     fireEvent.mouseMove(canvas, { clientX: 400, clientY: 400 })
     const [x, y] = onMoveIcon.mock.calls[0] as [number, number]
-    const max = expectedIconMaxOffsets(params)
+    const max = placedIconOffset(params)
     expect(x).toBeCloseTo(max.x, 5)
     expect(y).toBeCloseTo(max.y, 5)
   })

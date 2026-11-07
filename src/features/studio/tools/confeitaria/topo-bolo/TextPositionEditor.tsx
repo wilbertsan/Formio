@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { CakeTopperParams, TextItem } from './schema'
-import { svgBounds } from '../shared/svgToIconShape'
+import { clampToOutline } from './placement'
+import {
+  fitIconHalfSize,
+  iconGeometryHalfSize,
+  ICON_MARGIN,
+  type HalfSize,
+} from './iconLayout'
 
 interface TextPositionEditorProps {
   params: CakeTopperParams
@@ -13,13 +19,7 @@ interface TextPositionEditorProps {
 
 const TEXT_MARGIN = 3
 const SCALE = 2
-const ICON_MARGIN = 1
 const ICON_ID = '__icon__'
-
-interface HalfSize {
-  halfWidth: number
-  halfHeight: number
-}
 
 function plateHalfExtents(params: CakeTopperParams): HalfSize {
   if (params.shape === 'circle') {
@@ -37,35 +37,6 @@ function effectiveHalfSize(item: TextItem, plate: HalfSize): HalfSize {
     halfWidth: Math.min(item.width / 2, usableHalfWidth),
     halfHeight: Math.min(item.height / 2, usableHalfHeight),
   }
-}
-
-// Mesma escala do builder: o ícone encaixa pelo vértice mais distante.
-function iconHalfSize(
-  svgIcon: string | null,
-  width: number,
-  height: number,
-  iconScale: number,
-): HalfSize | null {
-  if (!svgIcon) return null
-  const bounds = svgBounds(svgIcon)
-  const maxRadius = (Math.min(width, height) / 3) * iconScale
-  if (!bounds || maxRadius <= 0) return null
-  const scale = (maxRadius - 0.5) / bounds.farthest
-  if (!(scale > 0)) return null
-  return {
-    halfWidth: (bounds.width / 2) * scale + 0.5,
-    halfHeight: (bounds.height / 2) * scale + 0.5,
-  }
-}
-
-function clampOffset(
-  value: number,
-  plateHalf: number,
-  itemHalf: number,
-  margin: number = TEXT_MARGIN,
-): number {
-  const maxOffset = Math.max(0, plateHalf - itemHalf - margin)
-  return Math.max(-maxOffset, Math.min(maxOffset, value))
 }
 
 function roundRect(
@@ -105,10 +76,18 @@ export function TextPositionEditor({
   const plate = plateHalfExtents(params)
 
   const [iconSelected, setIconSelected] = useState(false)
-  const iconHalf = useMemo(
-    () => iconHalfSize(params.svgIcon, params.width, params.height, params.iconScale),
+  const rawIconHalf = useMemo(
+    () => iconGeometryHalfSize(params.svgIcon, params.width, params.height, params.iconScale),
     [params.svgIcon, params.width, params.height, params.iconScale],
   )
+  const iconHalf = fitIconHalfSize(rawIconHalf, params, plate)
+
+  useEffect(() => {
+    if (!iconHalf) {
+      setIconSelected(false)
+      setDragging((current) => (current === ICON_ID ? null : current))
+    }
+  }, [iconHalf])
 
   useEffect(() => {
     closeButtonRef.current?.focus()
@@ -247,38 +226,38 @@ export function TextPositionEditor({
 
   const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
     if (!dragging) return
+    const dx = (event.clientX - dragStart.x) / SCALE
+    const dy = (event.clientY - dragStart.y) / SCALE
 
     if (dragging === ICON_ID) {
       if (!iconHalf) return
-      const dx = (event.clientX - dragStart.x) / SCALE
-      const dy = (event.clientY - dragStart.y) / SCALE
-      const newX = clampOffset(
-        params.iconOffsetX + dx,
-        plate.halfWidth,
+      const placed = clampToOutline(
+        params,
+        plate,
         iconHalf.halfWidth,
-        ICON_MARGIN,
-      )
-      const newY = clampOffset(
-        params.iconOffsetY + dy,
-        plate.halfHeight,
         iconHalf.halfHeight,
+        params.iconOffsetX + dx,
+        params.iconOffsetY + dy,
         ICON_MARGIN,
       )
-      onMoveIcon(newX, newY)
+      onMoveIcon(placed.x, placed.y)
       setDragStart({ x: event.clientX, y: event.clientY })
       return
     }
 
     const text = params.texts.find((item) => item.id === dragging)
     if (!text) return
-
-    const dx = (event.clientX - dragStart.x) / SCALE
-    const dy = (event.clientY - dragStart.y) / SCALE
     const half = effectiveHalfSize(text, plate)
-    const newX = clampOffset(text.offsetX + dx, plate.halfWidth, half.halfWidth)
-    const newY = clampOffset(text.offsetY + dy, plate.halfHeight, half.halfHeight)
-
-    onMoveText(dragging, newX, newY)
+    const placed = clampToOutline(
+      params,
+      plate,
+      half.halfWidth,
+      half.halfHeight,
+      text.offsetX + dx,
+      text.offsetY + dy,
+      TEXT_MARGIN,
+    )
+    onMoveText(dragging, placed.x, placed.y)
     setDragStart({ x: event.clientX, y: event.clientY })
   }
 
