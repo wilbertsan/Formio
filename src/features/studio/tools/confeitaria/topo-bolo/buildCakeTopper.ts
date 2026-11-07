@@ -36,7 +36,6 @@ const TEXT_MARGIN = 4
 const TEXT_Z_OFFSET = 0.01
 const CUT_BORDER = 4
 const CUT_Z_OFFSET = -0.5
-const ICON_GAP = 2
 const ICON_MARGIN = 1
 const ICON_DEPTH = 1
 const CUSTOM_MIN_FEATURE = 0.5
@@ -299,10 +298,9 @@ function buildTextGeometries(
   input: BuildCakeTopperInput,
   mode: TextMode,
   plate: PlateBounds,
-): { geometries: BufferGeometry[]; maxY: number | null } {
+): BufferGeometry[] {
   const { params, fonts, font, onError } = input
   const geometries: BufferGeometry[] = []
-  let maxY: number | null = null
 
   for (const item of params.texts) {
     const resolved = fonts?.[item.fontStyle] ?? font
@@ -342,21 +340,15 @@ function buildTextGeometries(
     const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
     geometry.translate(placed.x, placed.y, z)
 
-    geometry.computeBoundingBox()
-    if (geometry.boundingBox) {
-      const top = geometry.boundingBox.max.y
-      maxY = maxY === null ? top : Math.max(maxY, top)
-    }
     geometries.push(geometry)
   }
 
-  return { geometries, maxY }
+  return geometries
 }
 
 function buildIconGeometry(
   params: CakeTopperParams,
   mode: TextMode,
-  textMaxY: number | null,
   plate: PlateBounds,
 ): BufferGeometry | null {
   if (!params.svgIcon) return null
@@ -388,13 +380,15 @@ function buildIconGeometry(
     halfHeight = box ? (box.max.y - box.min.y) / 2 : 0
   }
 
-  let desiredY = 0
-  if (params.iconPosition === 'above') {
-    const anchor = textMaxY ?? params.height / 4
-    desiredY = anchor + ICON_GAP + halfHeight
-  }
-
-  const placed = clampToOutline(params, plate, halfWidth, halfHeight, 0, desiredY, ICON_MARGIN)
+  const placed = clampToOutline(
+    params,
+    plate,
+    halfWidth,
+    halfHeight,
+    params.iconOffsetX,
+    params.iconOffsetY,
+    ICON_MARGIN,
+  )
   const z = mode === 'cut' ? CUT_Z_OFFSET : params.thickness - TEXT_Z_OFFSET
   geometry.translate(placed.x, placed.y, z)
   return geometry
@@ -405,9 +399,9 @@ function buildRelief(
   mode: TextMode,
   plate: PlateBounds,
 ): BufferGeometry | null {
-  const textBuild = buildTextGeometries(input, mode, plate)
-  const icon = buildIconGeometry(input.params, mode, textBuild.maxY, plate)
-  const parts = icon ? [...textBuild.geometries, icon] : textBuild.geometries
+  const textGeometries = buildTextGeometries(input, mode, plate)
+  const icon = buildIconGeometry(input.params, mode, plate)
+  const parts = icon ? [...textGeometries, icon] : textGeometries
   if (parts.length === 0) return null
   return mergeAll(parts, input.onError)
 }
@@ -536,8 +530,8 @@ export function buildCakeTopper(input: BuildCakeTopperInput): BuildCakeTopperRes
   }
 
   const cutText = buildTextGeometries(input, 'cut', plateBounds)
-  const cutIcon = buildIconGeometry(params, 'cut', cutText.maxY, plateBounds)
-  const cuts = cutIcon ? [...cutText.geometries, cutIcon] : cutText.geometries
+  const cutIcon = buildIconGeometry(params, 'cut', plateBounds)
+  const cuts = cutIcon ? [...cutText, cutIcon] : cutText
 
   if (cuts.length > 0) {
     if (cutFits(params, plateBounds, cuts)) {
