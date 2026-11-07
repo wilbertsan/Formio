@@ -368,7 +368,7 @@ export function StudioPanel({
                     Carregar contorno SVG
                   </Button>
                   {contourUploadError && (
-                    <Text fontSize="xs" className="text-red-600">
+                    <Text role="alert" fontSize="xs" className="text-red-600">
                       Falha ao ler o arquivo SVG
                     </Text>
                   )}
