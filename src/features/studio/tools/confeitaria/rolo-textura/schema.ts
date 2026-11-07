@@ -12,6 +12,8 @@ export const END_FILLET_MM = 1
 export const MESH_STEP_MM = 0.3
 export const RELIEF_BEVEL_MM = 0.2
 export const MIN_FEATURE_MM = 0.8
+/** Fração da célula ocupada pelo SVG antes da escala do usuário. */
+export const PATTERN_FILL_RATIO = 0.88
 export const EDGE_MARGIN_MM = 1
 
 export const PATTERN_FAMILIES = ['geometric', 'wave', 'floral'] as const
@@ -44,6 +46,7 @@ export const textureRollerParamsSchema = z.object({
   patternMotif: z.string(),
   patternSource: z.enum(PATTERN_SOURCES),
   svgIcon: z.string().nullable(),
+  patternScale: z.number().min(0.4).max(1),
   reliefDepth: z.number().min(0.5).max(2),
   density: z.enum(DENSITIES),
   rollerColor: z.enum(PLA_COLORS),
@@ -70,6 +73,7 @@ export const defaultTextureRollerParams: TextureRollerParams = {
   patternMotif: defaultMotifForFamily('geometric'),
   patternSource: 'motif',
   svgIcon: null,
+  patternScale: 1,
   reliefDepth: 1,
   density: 'medium',
   rollerColor: '#22c55e',

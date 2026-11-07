@@ -21,6 +21,21 @@ describe('rolo-textura schema', () => {
     const bad = { ...defaultTextureRollerParams, patternSource: 'svg' as const, svgIcon: null }
     expect(textureRollerParamsSchema.safeParse(bad).success).toBe(false)
   })
+  it('aceita patternScale de 0,4 a 1 e usa 1 como default', () => {
+    expect(defaultTextureRollerParams.patternScale).toBe(1)
+    expect(textureRollerParamsSchema.safeParse({
+      ...defaultTextureRollerParams, patternScale: 0.4,
+    }).success).toBe(true)
+    expect(textureRollerParamsSchema.safeParse({
+      ...defaultTextureRollerParams, patternScale: 1,
+    }).success).toBe(true)
+    expect(textureRollerParamsSchema.safeParse({
+      ...defaultTextureRollerParams, patternScale: 0.39,
+    }).success).toBe(false)
+    expect(textureRollerParamsSchema.safeParse({
+      ...defaultTextureRollerParams, patternScale: 1.01,
+    }).success).toBe(false)
+  })
   it('limita dimensões e profundidade', () => {
     expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, length: 49 }).success).toBe(false)
     expect(textureRollerParamsSchema.safeParse({ ...defaultTextureRollerParams, diameter: 41 }).success).toBe(false)
