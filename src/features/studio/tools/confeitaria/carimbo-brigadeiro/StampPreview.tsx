@@ -11,10 +11,7 @@ export function StampPreview({ geometry, baseColor, reliefColor }: StampPreviewP
 
   return (
     <group>
-      <mesh geometry={geometry.base} castShadow receiveShadow>
-        <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
-      </mesh>
-      <mesh geometry={geometry.handle} castShadow receiveShadow>
+      <mesh geometry={geometry.body} castShadow receiveShadow>
         <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
       </mesh>
       {geometry.text && (

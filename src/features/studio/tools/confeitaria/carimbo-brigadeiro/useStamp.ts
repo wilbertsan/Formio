@@ -18,6 +18,7 @@ const NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   fontSize: { min: 6, max: 15 },
   diameter: { min: 10, max: 30 },
   height: { min: 15, max: 25 },
+  reliefElevation: { min: 0.5, max: 3.0 },
   iconScale: { min: 0.5, max: 1.0 },
   iconLineWidth: { min: 0.1, max: 1.5 },
 }
@@ -68,8 +69,7 @@ export function useStamp() {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setGeometry((prev) => {
-        prev?.base.dispose()
-        prev?.handle.dispose()
+        prev?.body.dispose()
         prev?.text?.dispose()
         prev?.icon?.dispose()
         return buildStamp({ params, font })

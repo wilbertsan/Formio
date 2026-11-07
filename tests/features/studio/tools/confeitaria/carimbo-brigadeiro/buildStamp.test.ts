@@ -4,16 +4,15 @@ import { buildStamp } from '@/features/studio/tools/confeitaria/carimbo-brigadei
 import { defaultStampParams } from '@/features/studio/tools/confeitaria/carimbo-brigadeiro/schema'
 
 describe('buildStamp', () => {
-  it('builds base geometry', () => {
+  it('builds body geometry', () => {
     const result = buildStamp({ params: defaultStampParams, font: null })
-    expect(result.base).toBeDefined()
-    expect(result.base.attributes.position).toBeDefined()
+    expect(result.body).toBeDefined()
+    expect(result.body.attributes.position).toBeDefined()
   })
 
-  it('builds handle geometry', () => {
+  it('body is non-indexed to merge with text/icon in the STL export', () => {
     const result = buildStamp({ params: defaultStampParams, font: null })
-    expect(result.handle).toBeDefined()
-    expect(result.handle.attributes.position).toBeDefined()
+    expect(result.body.index).toBeNull()
   })
 
   it('returns null for text when font is null', () => {
@@ -26,26 +25,54 @@ describe('buildStamp', () => {
     expect(result.icon).toBeNull()
   })
 
-  it('base height is 40% of total height', () => {
+  it('body spans the full height', () => {
     const params = { ...defaultStampParams, height: 20 }
     const result = buildStamp({ params, font: null })
 
-    result.base.computeBoundingBox()
-    const bb = result.base.boundingBox!
-    const baseHeight = bb.max.z - bb.min.z
+    result.body.computeBoundingBox()
+    const bb = result.body.boundingBox!
 
-    expect(baseHeight).toBeCloseTo(8, 0) // 20 * 0.4 = 8mm + bevel
+    expect(bb.min.z).toBeCloseTo(0, 1)
+    expect(bb.max.z).toBeCloseTo(20, 1)
   })
 
-  it('handle height is 60% of total height', () => {
-    const params = { ...defaultStampParams, height: 20 }
+  it('body has the stamp diameter at the face and a narrower waist in the middle', () => {
+    const params = { ...defaultStampParams, diameter: 20, height: 20 }
     const result = buildStamp({ params, font: null })
 
-    result.handle.computeBoundingBox()
-    const bb = result.handle.boundingBox!
-    const handleHeight = bb.max.z - bb.min.z
+    const position = result.body.attributes.position
+    let baseRadius = 0
+    let waistRadius = 0
+    let topRadius = 0
+    for (let i = 0; i < position.count; i++) {
+      const z = position.getZ(i)
+      const radius = Math.hypot(position.getX(i), position.getY(i))
+      if (z <= 0.01 && radius > baseRadius) baseRadius = radius
+      if (Math.abs(z - params.height / 2) <= 0.01 && radius > waistRadius) waistRadius = radius
+      if (z >= params.height - 0.01 && radius > topRadius) topRadius = radius
+    }
 
-    expect(handleHeight).toBeCloseTo(12, 0) // 20 * 0.6 = 12mm + bevel
+    expect(baseRadius).toBeCloseTo(10, 1) // diameter / 2
+    expect(waistRadius).toBeCloseTo(3.6, 1) // diameter * 0.18
+    expect(topRadius).toBeCloseTo(6, 1) // diameter * 0.3
+    expect(waistRadius).toBeLessThan(baseRadius)
+    expect(waistRadius).toBeLessThan(topRadius)
+  })
+
+  it('uses the minimum waist radius for small diameters', () => {
+    const params = { ...defaultStampParams, diameter: 10, height: 15 }
+    const result = buildStamp({ params, font: null })
+
+    const position = result.body.attributes.position
+    let waistRadius = 0
+    for (let i = 0; i < position.count; i++) {
+      if (Math.abs(position.getZ(i) - params.height / 2) <= 0.01) {
+        const radius = Math.hypot(position.getX(i), position.getY(i))
+        if (radius > waistRadius) waistRadius = radius
+      }
+    }
+
+    expect(waistRadius).toBeCloseTo(2.5, 1) // mínimo de 2.5mm
   })
 })
 
@@ -87,9 +114,9 @@ describe('buildStamp - text', () => {
     expect(result.text).toBeNull()
   })
 
-  it('text depth is RELIEF_DEPTH (1mm) + bevel', () => {
+  it('text depth equals reliefElevation + bevel', () => {
     const mockFont = new Font(mockFontData)
-    const result = buildStamp({ params: { ...defaultStampParams, text: 'Teste' }, font: mockFont })
+    const result = buildStamp({ params: { ...defaultStampParams, text: 'Teste', reliefElevation: 1.0 }, font: mockFont })
 
     if (result.text) {
       result.text.computeBoundingBox()
@@ -97,6 +124,30 @@ describe('buildStamp - text', () => {
       const depth = bb.max.z - bb.min.z
       expect(depth).toBeCloseTo(1.2, 0)
     }
+  })
+
+  it('text relief protrudes below the contact face', () => {
+    const mockFont = new Font(mockFontData)
+    const result = buildStamp({ params: { ...defaultStampParams, text: 'Teste', reliefElevation: 1.0 }, font: mockFont })
+
+    result.text!.computeBoundingBox()
+    const bb = result.text!.boundingBox!
+
+    expect(bb.min.z).toBeLessThan(0)
+    expect(bb.max.z).toBeLessThanOrEqual(0.2)
+  })
+
+  it('increases text relief depth with reliefElevation', () => {
+    const mockFont = new Font(mockFontData)
+    const shallow = buildStamp({ params: { ...defaultStampParams, text: 'Teste', reliefElevation: 0.5 }, font: mockFont })
+    const deep = buildStamp({ params: { ...defaultStampParams, text: 'Teste', reliefElevation: 2.0 }, font: mockFont })
+
+    shallow.text!.computeBoundingBox()
+    deep.text!.computeBoundingBox()
+    const shallowDepth = shallow.text!.boundingBox!.max.z - shallow.text!.boundingBox!.min.z
+    const deepDepth = deep.text!.boundingBox!.max.z - deep.text!.boundingBox!.min.z
+
+    expect(deepDepth).toBeGreaterThan(shallowDepth)
   })
 
   it('shrinks long text to fit inside the stamp circle', () => {
@@ -273,5 +324,18 @@ describe('buildStamp - icon', () => {
     const size2 = result2.icon!.boundingBox!.max.x - result2.icon!.boundingBox!.min.x
 
     expect(size2).toBeGreaterThan(size1)
+  })
+
+  it('applies reliefElevation to the icon depth', () => {
+    const params = { ...defaultStampParams, contentType: 'svg' as const, svgIcon: svgString, reliefElevation: 2.0 }
+    const result = buildStamp({ params, font: null })
+
+    result.icon!.computeBoundingBox()
+    const bb = result.icon!.boundingBox!
+    const depth = bb.max.z - bb.min.z
+
+    expect(depth).toBeGreaterThan(2.0)
+    expect(bb.min.z).toBeLessThan(0)
+    expect(bb.max.z).toBeLessThanOrEqual(0.2)
   })
 })

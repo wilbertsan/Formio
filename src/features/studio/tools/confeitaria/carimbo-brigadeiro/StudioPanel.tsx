@@ -192,6 +192,18 @@ export function StudioPanel({
                   />
                 </>
               )}
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Elevação do relevo</Text>
+                <Text fontSize="xs" color="font.secondary">{params.reliefElevation.toFixed(1)} mm</Text>
+              </Flex>
+              <SliderField
+                label=""
+                aria-label="Elevação do relevo"
+                min={0.5} max={3.0} step={0.1}
+                value={params.reliefElevation}
+                onChange={(value) => onUpdateParam('reliefElevation', value as number)}
+              />
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
@@ -228,27 +240,6 @@ export function StudioPanel({
                 value={params.height}
                 onChange={(value) => onUpdateParam('height', value as number)}
               />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="relevo">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Relevo
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <SelectField
-                label="Tipo de relevo"
-                value={params.reliefType}
-                onChange={(e) => onUpdateParam('reliefType', e.target.value)}
-              >
-                <option value="negative">Negativo (gravado)</option>
-                <option value="positive">Positivo (elevado)</option>
-              </SelectField>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>

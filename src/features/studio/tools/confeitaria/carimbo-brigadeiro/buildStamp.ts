@@ -1,9 +1,9 @@
-import { type BufferGeometry, ExtrudeGeometry, Shape } from 'three'
+import { type BufferGeometry, LatheGeometry, Vector2 } from 'three'
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { buildSvgIconGeometry } from '../shared/svgToIconShape'
 import type { StampParams } from './schema'
-import { CONTENT_MARGIN_MM, HANDLE_HEIGHT_RATIO, RELIEF_DEPTH } from './schema'
+import { BODY_MIN_WAIST_RADIUS_MM, BODY_TOP_RADIUS_RATIO, BODY_WAIST_POSITION_RATIO, BODY_WAIST_RADIUS_RATIO, CONTENT_MARGIN_MM } from './schema'
 
 export interface BuildStampInput {
   params: StampParams
@@ -11,59 +11,56 @@ export interface BuildStampInput {
 }
 
 export interface BuildStampResult {
-  base: BufferGeometry
-  handle: BufferGeometry
+  body: BufferGeometry
   text: BufferGeometry | null
   icon: BufferGeometry | null
 }
 
-function createCircleShape(radius: number): Shape {
-  const shape = new Shape()
-  shape.absarc(0, 0, radius, 0, Math.PI * 2, false)
-  return shape
-}
+// Segmentos do perfil (por lóbulo) e da revolução (circunferência) do corpo.
+const BODY_PROFILE_SEGMENTS = 16
+const BODY_RADIAL_SEGMENTS = 64
 
-function buildBase(params: StampParams): BufferGeometry {
+function buildBody(params: StampParams): BufferGeometry {
   const radius = params.diameter / 2
-  const shape = createCircleShape(radius)
-  const baseHeight = params.height * (1 - HANDLE_HEIGHT_RATIO)
+  const height = params.height
+  const waistRadius = Math.max(BODY_MIN_WAIST_RADIUS_MM, params.diameter * BODY_WAIST_RADIUS_RATIO)
+  const topRadius = Math.max(waistRadius + 0.5, params.diameter * BODY_TOP_RADIUS_RATIO)
+  const waistZ = height * BODY_WAIST_POSITION_RATIO
 
-  const geometry = new ExtrudeGeometry(shape, {
-    depth: baseHeight,
-    bevelEnabled: true,
-    bevelThickness: 0.1,
-    bevelSize: 0.1,
-    bevelSegments: 2,
-  })
+  // Corpo com cintura central: dois lóbulos hiperbólicos
+  // r(u) = waistRadius * sqrt(1 + (u/c)²), unidos na cintura (z = waistZ).
+  const cLow = waistZ / Math.sqrt((radius / waistRadius) ** 2 - 1)
+  const cUp = (height - waistZ) / Math.sqrt((topRadius / waistRadius) ** 2 - 1)
 
-  geometry.computeBoundingBox()
-  const bb = geometry.boundingBox!
-  const cx = (bb.min.x + bb.max.x) / 2
-  const cy = (bb.min.y + bb.max.y) / 2
-  geometry.translate(-cx, -cy, 0)
+  const points: Vector2[] = [new Vector2(0, 0)]
 
-  return geometry
-}
+  // Lóbulo inferior: face de contato (z=0, radius) → cintura.
+  for (let i = 0; i <= BODY_PROFILE_SEGMENTS; i++) {
+    const z = (waistZ * i) / BODY_PROFILE_SEGMENTS
+    const u = waistZ - z
+    const r = waistRadius * Math.sqrt(1 + (u / cLow) ** 2)
+    points.push(new Vector2(r, z))
+  }
 
-function buildHandle(params: StampParams): BufferGeometry {
-  const handleRadius = params.diameter * 0.3
-  const shape = createCircleShape(handleRadius)
-  const handleHeight = params.height * HANDLE_HEIGHT_RATIO
-  const baseHeight = params.height * (1 - HANDLE_HEIGHT_RATIO)
+  // Lóbulo superior: cintura → topo (z=height, topRadius).
+  for (let i = 1; i <= BODY_PROFILE_SEGMENTS; i++) {
+    const z = waistZ + ((height - waistZ) * i) / BODY_PROFILE_SEGMENTS
+    const u = z - waistZ
+    const r = waistRadius * Math.sqrt(1 + (u / cUp) ** 2)
+    points.push(new Vector2(r, z))
+  }
 
-  const geometry = new ExtrudeGeometry(shape, {
-    depth: handleHeight,
-    bevelEnabled: true,
-    bevelThickness: 0.1,
-    bevelSize: 0.1,
-    bevelSegments: 2,
-  })
+  points.push(new Vector2(0, height))
 
-  geometry.computeBoundingBox()
-  const bb = geometry.boundingBox!
-  const cx = (bb.min.x + bb.max.x) / 2
-  const cy = (bb.min.y + bb.max.y) / 2
-  geometry.translate(-cx, -cy, baseHeight)
+  // LatheGeometry revolve em torno de Y; rotateX alinha o eixo em Z
+  // (face de contato em z=0, topo em z=height).
+  const indexed = new LatheGeometry(points, BODY_RADIAL_SEGMENTS)
+  indexed.rotateX(Math.PI / 2)
+
+  // Não-indexado para ser compatível com texto/ícone (ExtrudeGeometry) no
+  // mergeGeometries da exportação STL.
+  const geometry = indexed.toNonIndexed()
+  indexed.dispose()
 
   return geometry
 }
@@ -74,7 +71,7 @@ function buildText(params: StampParams, font: Font | null): BufferGeometry | nul
   const textGeometry = new TextGeometry(params.text, {
     font: font,
     size: params.fontSize,
-    depth: RELIEF_DEPTH,
+    depth: params.reliefElevation,
     curveSegments: 8,
     bevelEnabled: true,
     bevelThickness: 0.1,
@@ -102,8 +99,8 @@ function buildText(params: StampParams, font: Font | null): BufferGeometry | nul
   const cx = (fitted.min.x + fitted.max.x) / 2
   const cy = (fitted.min.y + fitted.max.y) / 2
 
-  const zOffset = params.reliefType === 'negative' ? -RELIEF_DEPTH : 0
-  textGeometry.translate(-cx, -cy, zOffset)
+  // O relevo sobressai abaixo da face de contato (z = 0).
+  textGeometry.translate(-cx, -cy, -params.reliefElevation)
 
   return textGeometry
 }
@@ -116,22 +113,20 @@ function buildIcon(params: StampParams): BufferGeometry | null {
     maxRadius: params.diameter / 2 - CONTENT_MARGIN_MM,
     lineWidth: params.iconLineWidth,
     iconScale: params.iconScale,
-    depth: RELIEF_DEPTH,
+    depth: params.reliefElevation,
   })
   if (!iconGeometry) return null
 
-  // Relevo negativo afunda o ícone para dentro da base.
-  const zOffset = params.reliefType === 'negative' ? -RELIEF_DEPTH : 0
-  iconGeometry.translate(0, 0, zOffset)
+  // O relevo sobressai abaixo da face de contato (z = 0).
+  iconGeometry.translate(0, 0, -params.reliefElevation)
 
   return iconGeometry
 }
 
 export function buildStamp({ params, font }: BuildStampInput): BuildStampResult {
-  const base = buildBase(params)
-  const handle = buildHandle(params)
+  const body = buildBody(params)
   const text = params.contentType === 'text' ? buildText(params, font) : null
   const icon = params.contentType === 'svg' ? buildIcon(params) : null
 
-  return { base, handle, text, icon }
+  return { body, text, icon }
 }

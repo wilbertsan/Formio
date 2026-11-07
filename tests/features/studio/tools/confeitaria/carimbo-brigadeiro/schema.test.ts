@@ -49,17 +49,19 @@ describe('stampParamsSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('validates reliefType as negative or positive', () => {
-    const valid1 = { ...defaultStampParams, reliefType: 'negative' }
-    const valid2 = { ...defaultStampParams, reliefType: 'positive' }
-    expect(stampParamsSchema.safeParse(valid1).success).toBe(true)
-    expect(stampParamsSchema.safeParse(valid2).success).toBe(true)
+  it('accepts reliefElevation within 0.5–3.0mm', () => {
+    expect(stampParamsSchema.safeParse({ ...defaultStampParams, reliefElevation: 0.5 }).success).toBe(true)
+    expect(stampParamsSchema.safeParse({ ...defaultStampParams, reliefElevation: 3.0 }).success).toBe(true)
   })
 
-  it('rejects invalid reliefType', () => {
-    const invalid = { ...defaultStampParams, reliefType: 'invalid' }
-    const result = stampParamsSchema.safeParse(invalid)
-    expect(result.success).toBe(false)
+  it('rejects reliefElevation below 0.5mm', () => {
+    const invalid = { ...defaultStampParams, reliefElevation: 0.4 }
+    expect(stampParamsSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('rejects reliefElevation above 3.0mm', () => {
+    const invalid = { ...defaultStampParams, reliefElevation: 3.1 }
+    expect(stampParamsSchema.safeParse(invalid).success).toBe(false)
   })
 
   it('rejects empty text', () => {

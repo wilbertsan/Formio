@@ -5,11 +5,11 @@ import { sanitizeFilename } from './schema'
 import type { BuildStampResult } from './buildStamp'
 
 export function exportStampStl(geometry: BuildStampResult, projectName: string): void {
-  const geometries = [geometry.base, geometry.handle]
+  const geometries = [geometry.body]
   if (geometry.text) geometries.push(geometry.text)
   if (geometry.icon) geometries.push(geometry.icon)
 
-  const merged = mergeGeometries(geometries) ?? geometry.base
+  const merged = mergeGeometries(geometries) ?? geometry.body
   const scene = new Scene()
   scene.add(new Mesh(merged))
   const exporter = new STLExporter()

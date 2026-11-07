@@ -13,8 +13,11 @@ export const CONTENT_TYPES = ['text', 'svg'] as const
 export type ContentType = (typeof CONTENT_TYPES)[number]
 
 // Constantes fixas
-export const RELIEF_DEPTH = 1
-export const HANDLE_HEIGHT_RATIO = 0.6
+// Corpo em hiperboloide com cintura central (duas "folhas" visuais, peça única)
+export const BODY_WAIST_RADIUS_RATIO = 0.18
+export const BODY_MIN_WAIST_RADIUS_MM = 2.5
+export const BODY_TOP_RADIUS_RATIO = 0.3
+export const BODY_WAIST_POSITION_RATIO = 0.5
 // Margem interna entre o conteúdo (texto ou ícone) e a borda do carimbo (mm)
 export const CONTENT_MARGIN_MM = 1.5
 
@@ -27,7 +30,7 @@ export const stampParamsSchema = z.object({
   fontSize: z.number().min(6).max(15),
   diameter: z.number().min(10).max(30),
   height: z.number().min(15).max(25),
-  reliefType: z.enum(['negative', 'positive']),
+  reliefElevation: z.number().min(0.5).max(3.0),
   svgIcon: z.string().nullable(),
   iconScale: z.number().min(0.5).max(1.0),
   iconLineWidth: z.number().min(0.1).max(1.5),
@@ -36,7 +39,6 @@ export const stampParamsSchema = z.object({
 })
 
 export type StampParams = z.infer<typeof stampParamsSchema>
-export type ReliefType = StampParams['reliefType']
 
 export function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50) || 'carimbo'
@@ -51,7 +53,7 @@ export const defaultStampParams: StampParams = {
   fontSize: 10,
   diameter: 20,
   height: 20,
-  reliefType: 'negative',
+  reliefElevation: 1.0,
   svgIcon: null,
   iconScale: 1.0,
   iconLineWidth: 0.3,
