@@ -122,13 +122,13 @@ describe('StudioPanel', () => {
 
   it('remove desabilitado quando há apenas 1 texto', () => {
     render(<StudioPanel {...createMockProps()} />)
-    expect(screen.getByLabelText('Remover texto Feliz Aniversário')).toBeDisabled()
+    expect(screen.getByLabelText('Remover texto Texto')).toBeDisabled()
   })
 
   it('seleciona automaticamente o texto recém-adicionado', () => {
     const props = createMockProps()
     const { rerender } = render(<StudioPanel {...props} />)
-    expect(screen.getByText('Feliz Aniversário')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Texto')).toHaveAttribute('aria-pressed', 'true')
 
     const params = {
       ...defaultCakeTopperParams,
@@ -139,7 +139,7 @@ describe('StudioPanel', () => {
     }
     rerender(<StudioPanel {...props} params={params} />)
     expect(screen.getByText('Texto 2')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('Feliz Aniversário')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByText('Texto')).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('dispara onUpdateTextById ao mover o slider de largura', () => {

@@ -106,6 +106,10 @@ describe('cakeTopperParamsSchema', () => {
     expect('textMode' in cakeTopperParamsSchema.shape).toBe(false)
     expect('textMode' in defaultCakeTopperParams).toBe(false)
   })
+
+  it('defaults the text content to Texto', () => {
+    expect(defaultText.content).toBe('Texto')
+  })
 })
 
 describe('PLA_COLORS', () => {

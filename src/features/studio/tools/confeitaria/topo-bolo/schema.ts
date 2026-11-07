@@ -51,7 +51,7 @@ export type SupportType = CakeTopperParams['supportType']
 export type FontStyle = TextItem['fontStyle']
 
 export const defaultText: TextItem = {
-  id: 'text-1', content: 'Feliz Aniversário', fontStyle: 'bold',
+  id: 'text-1', content: 'Texto', fontStyle: 'bold',
   width: 90, height: 14, relief: 1, proportional: false, offsetX: 0, offsetY: 0,
 }
 
