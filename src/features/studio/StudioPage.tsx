@@ -455,6 +455,7 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
     addText,
     removeText,
     updateTextById,
+    moveIcon,
     setSvgIcon,
     setContourSvg,
     reset,
@@ -487,6 +488,7 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
             onAddText={addText}
             onRemoveText={removeText}
             onUpdateTextById={updateTextById}
+            onMoveIcon={moveIcon}
             onSetSvgIcon={setSvgIcon}
             onSetContourSvg={setContourSvg}
             onReset={reset}
