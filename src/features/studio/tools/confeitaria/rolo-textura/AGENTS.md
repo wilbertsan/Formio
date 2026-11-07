@@ -19,8 +19,9 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
 - Motivo do padrão: `diamonds`, `dots`, `grid`; `waves`, `chevrons`, `scales`;
   `flower`, `leaf`, `rosette`
 - Origem do padrão: `patternSource` `motif` (motivo interno) ou `svg` (SVG
-  personalizado, repetido como motivo, **sem alterações** nas formas/traço)
+  personalizado, repetido como motivo; traços finos são engrossados até 0,8mm)
 - Profundidade do relevo: 0.5–2mm (padrão: 1mm)
+- Escala do padrão: 40–100% (padrão: 100%)
 - Densidade do padrão: `low`, `medium`, `high` (células de 12/8/5mm;
   padrão: `medium`)
 - Cores de preview: cor do rolo e cor do relevo (10 cores PLA)
@@ -29,16 +30,21 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
 
 - Contato com alimento: arestas arredondadas, sem furos internos que prendam massa
 - Relevo **somente externo (saliente)** — sem modo gravado
-- Malha única manifold (cilindro fechado com tampas) gerada por revolução; sem booleans
+- Corpo e relevo são cascas fechadas mescladas em grupos 0 (corpo) e 1 (relevo);
+  sem operações booleanas
 - Sem cabos/eixos laterais: o comprimento total é igual ao comprimento do rolo
-- Relevo gerado por **campo de altura** sobre a superfície do cilindro
-- SVG aplicado exatamente como enviado: sem engrossar traço, dilatar ou unir formas;
-  apenas escala uniforme para caber na célula
+- Relevo vetorial extrudado e curvado sobre o cilindro; sem rasterização
+- Escala uniforme por `min(cellW, cellH)`; motivos e SVG não são esticados
+- Mínimo de 0,8mm aplicado por dilatação/deficit nos motivos e por engrossamento
+  de traço no SVG (sem alterar a centerline)
+- Motivos contínuos (`waves`, `chevrons`) ultrapassam a célula em X para emendar
+  entre colunas
+- SVG sem chanfro para preservar o traço; motivos internos com chanfro de 0,2mm
+- Furos de motivos podem reduzir em escalas pequenas para manter a parede mínima
 - Periodicidade exata do padrão em 360° e ao longo do comprimento, sem costura
   nem overlap (número de repetições arredondado)
 - Chanfro do relevo: 0.2mm
-- Resolução da malha: 0.3mm (`MESH_STEP_MM`), garantindo ≥3 células no traço mínimo
-- Preview do relevo com `flatShading` para preservar a definição das bordas
+- Resolução da malha do corpo: 0.3mm (`MESH_STEP_MM`)
 - Traço mínimo de relevo: 0.8mm (evita fusão no FDM)
 - Margem axial nas extremidades do corpo: 1mm
 - Profundidade mínima imprimível: 0.5mm (FDM)
@@ -51,8 +57,9 @@ de borda, pronto para uso, com um padrão repetido em toda a superfície de cont
 src/features/studio/tools/confeitaria/rolo-textura/
 ├── AGENTS.md
 ├── schema.ts                    # Schema Zod, constantes, defaults e cores PLA
-├── patterns.ts                  # 9 motivos por família (geométrico, ondulado, floral)
-├── buildTextureRoller.ts        # Campo de altura + malha de revolução (corpo + cabos + relevo)
+├── patterns.ts                  # 9 motivos + espessura mínima por motivo
+├── reliefLayout.ts              # Grade, escala uniforme, mínimo, repetição e recorte
+├── buildTextureRoller.ts        # Orquestração corpo + relevo
 ├── buildTextureRoller.worker.ts # Build em Web Worker
 ├── workerClient.ts              # Interface tipada do worker (request/response)
 ├── workerGeometry.ts            # Serialização da geometria para o worker
@@ -63,8 +70,8 @@ src/features/studio/tools/confeitaria/rolo-textura/
 ```
 
 Helpers compartilhados: `../shared/textOutline.ts` (união/offset de contornos e
-conversão de paths) e `../shared/svgToIconShape.ts` (parse e contornos a partir
-de SVG).
+conversão de paths), `../shared/svgToIconShape.ts` (parse e contornos a partir
+de SVG) e `../shared/svgPattern.ts` (SVG → motivo com escala e traço mínimo).
 
 ## Integração
 
@@ -78,7 +85,9 @@ de SVG).
 
 - `schema.test.ts`
 - `patterns.test.ts`
-- `buildHeightField.test.ts`
+- `reliefLayout.test.ts`
+- `buildBody.test.ts`
+- `buildRelief.test.ts`
 - `buildTextureRoller.test.ts`
 - `workerGeometry.test.ts`
 - `useTextureRoller.test.ts`
