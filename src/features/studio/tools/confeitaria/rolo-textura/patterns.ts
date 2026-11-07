@@ -4,6 +4,19 @@ import type { PatternFamily, PatternMotif } from './schema'
 export interface Point2 { x: number; y: number }
 export interface MotifShape { outer: Point2[]; holes: Point2[][] }
 
+/** Espessura local mais fina de cada motivo, em unidades de célula. */
+export const MOTIF_MIN_THICKNESS: Record<PatternMotif, number> = {
+  diamonds: 0.59,
+  dots: 0.76,
+  grid: 0.18,
+  waves: 0.32,
+  chevrons: 0.28,
+  scales: 0.4,
+  flower: 0.16,
+  leaf: 0.1,
+  rosette: 0.15,
+}
+
 const circle = (radius: number, cx = 0, cy = 0, segments = 48): Point2[] =>
   Array.from({ length: segments }, (_, i) => {
     const a = (i / segments) * Math.PI * 2
@@ -17,11 +30,13 @@ const rose = (base: number, amp: number, lobes: number, segments = 96): Point2[]
     return { x: r * Math.cos(a), y: r * Math.sin(a) }
   })
 
-function waveBand(shape: (x: number) => number, half: number, steps = 96): Point2[] {
+function waveBand(shape: (x: number) => number, half: number, steps = 120): Point2[] {
   const top: Point2[] = []
   const bottom: Point2[] = []
+  const minX = -0.6
+  const maxX = 0.6
   for (let i = 0; i <= steps; i++) {
-    const x = -0.5 + i / steps
+    const x = minX + ((maxX - minX) * i) / steps
     const y = shape(x)
     top.push({ x, y: y + half })
     bottom.push({ x, y: y - half })

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { motifShapes, isStaggered } from '@/features/studio/tools/confeitaria/rolo-textura/patterns'
+import { motifShapes, isStaggered, MOTIF_MIN_THICKNESS } from '@/features/studio/tools/confeitaria/rolo-textura/patterns'
 import type { Point2 } from '@/features/studio/tools/confeitaria/rolo-textura/patterns'
 import { MOTIFS_BY_FAMILY } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 import type { PatternFamily, PatternMotif } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
@@ -24,7 +24,7 @@ const hasDuplicateVertices = (points: Point2[]): boolean =>
   })
 
 const ysAtX = (points: Point2[], x: number): number[] =>
-  points.filter((p) => p.x === x).map((p) => p.y).sort((a, b) => a - b)
+  points.filter((p) => Math.abs(p.x - x) < 1e-6).map((p) => p.y).sort((a, b) => a - b)
 
 describe('patterns', () => {
   for (const [family, motifs] of Object.entries(MOTIFS_BY_FAMILY)) {
@@ -32,9 +32,10 @@ describe('patterns', () => {
       it(`${family}/${motif} tem geometria dentro da célula`, () => {
         const shapes = motifShapes(family as PatternFamily, motif as PatternMotif)
         expect(shapes.length).toBeGreaterThan(0)
+        const xLimit = motif === 'waves' || motif === 'chevrons' ? 0.6 : 0.5
         for (const p of allPoints(shapes)) {
-          expect(p.x).toBeGreaterThanOrEqual(-0.5)
-          expect(p.x).toBeLessThanOrEqual(0.5)
+          expect(p.x).toBeGreaterThanOrEqual(-xLimit)
+          expect(p.x).toBeLessThanOrEqual(xLimit)
           expect(p.y).toBeGreaterThanOrEqual(-0.5)
           expect(p.y).toBeLessThanOrEqual(0.5)
         }
@@ -71,17 +72,26 @@ describe('patterns', () => {
     expect(motifShapes('floral', 'grid')).toEqual([])
   })
 
-  it('ondas e chevrons tocam a borda em X (continuidade)', () => {
+  it('ondas e chevrons ultrapassam a célula e continuam alinhados em X', () => {
     for (const m of ['waves', 'chevrons'] as const) {
       const points = allPoints(motifShapes('wave', m))
       const xs = points.map((p) => p.x)
-      expect(Math.min(...xs)).toBeCloseTo(-0.5, 5)
-      expect(Math.max(...xs)).toBeCloseTo(0.5, 5)
+      expect(Math.min(...xs)).toBeCloseTo(-0.6, 5)
+      expect(Math.max(...xs)).toBeCloseTo(0.6, 5)
 
       const left = ysAtX(points, -0.5)
       const right = ysAtX(points, 0.5)
+      expect(left.length).toBeGreaterThan(0)
       expect(left).toHaveLength(right.length)
       left.forEach((y, i) => expect(y).toBeCloseTo(right[i], 5))
+    }
+  })
+
+  it('declara espessura mínima para todos os motivos', () => {
+    for (const motifs of Object.values(MOTIFS_BY_FAMILY)) {
+      for (const motif of motifs) {
+        expect(MOTIF_MIN_THICKNESS[motif as PatternMotif]).toBeGreaterThan(0)
+      }
     }
   })
 
