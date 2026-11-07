@@ -28,8 +28,9 @@ export const cakeTopperParamsSchema = z.object({
   cornerRadius: z.number().min(3).max(15),
   contourSvg: z.string().nullable(),
   svgIcon: z.string().nullable(),
-  iconPosition: z.enum(['above', 'center']),
   iconScale: z.number().min(0.5).max(2),
+  iconOffsetX: z.number().min(-55).max(55),
+  iconOffsetY: z.number().min(-35).max(35),
   textMode: z.enum(['raised', 'cut']),
   supportType: z.enum(['haste', 'base']),
   stemDiameter: z.number().min(3).max(8),
@@ -55,7 +56,8 @@ export const defaultText: TextItem = {
 
 export const defaultCakeTopperParams: CakeTopperParams = {
   productType: 'cake-topper', shape: 'circle', width: 80, height: 50, thickness: 3,
-  cornerRadius: 6, contourSvg: null, svgIcon: null, iconPosition: 'above', iconScale: 1,
+  cornerRadius: 6, contourSvg: null, svgIcon: null, iconScale: 1,
+  iconOffsetX: 0, iconOffsetY: 0,
   textMode: 'raised', supportType: 'haste', stemDiameter: 4, stemLength: 40,
   slotWidth: 3.4, slotDepth: 10, baseWidth: 50, baseDepth: 30,
   baseColor: '#14b8a6', letterColor: '#f5f5f5', texts: [defaultText],
