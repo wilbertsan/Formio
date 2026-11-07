@@ -47,22 +47,6 @@ export function outlineSpec(
   }
 }
 
-// Retângulo (meia-largura/altura `hw,hh`) centrado em (cx,cy) cabe no contorno?
-// Usa a condição do canto mais distante, acoplando os eixos em elipses.
-export function containsCorner(
-  spec: OutlineSpec,
-  hw: number,
-  hh: number,
-  cx: number,
-  cy: number,
-): boolean {
-  const ax = Math.abs(cx) + hw
-  const ay = Math.abs(cy) + hh
-  if (spec.box) return ax <= spec.rx && ay <= spec.ry
-  if (spec.rx <= 0 || spec.ry <= 0) return false
-  return (ax / spec.rx) ** 2 + (ay / spec.ry) ** 2 <= 1 + 1e-9
-}
-
 /**
  * Encaixa o centro (dx,dy) de um retângulo `hw × hh` no contorno recuado de
  * `margin`. Nos contornos elípticos os eixos são acoplados: limita X e depois

@@ -17,14 +17,14 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Conteúdo único no painel: 1–3 textos independentes e um ícone SVG opcional
 - Textos: cada um com conteúdo, fonte (`normal`/`bold`/`serif`), largura, altura, relevo e offset X/Y próprios
 - Ícone SVG: SVG opcional, escala 0.5–2 e offset X/Y próprio (posicionado livremente no editor 2D)
-- Modo do conteúdo: `raised` (relevo) ou `cut` (vazado via CSG com fallback)
+- Acabamento: sempre relevo alto (texto usa `relief`; ícone usa 1mm)
 - Fixação: `haste` (cilindro integrado) ou `base` (peça separada com encaixe)
 - Cores de preview: cor da placa e das letras (10 cores PLA)
 
 ## Regras do domínio
 
 - Peça plana com suporte vertical para fixação
-- Texto em relevo (`raised`) ou vazado (`cut`) — o vazado usa subtração CSG; se o corte alcançar a borda ou a operação falhar, cai para relevo
+- Texto e ícone são sempre gerados em relevo alto; não há modo de corte vazado
 - Fixação `haste`: cilindro embutido na placa (corpo único); `base`: peça separada com canaleta de encaixe, impressa ao lado da placa
 - Textos encaixados no contorno da placa com margem de 4mm; ícone com margem de 1mm
 - Textos e ícone são posicionados livremente no editor 2D; o ícone usa `iconOffsetX`/`iconOffsetY` com margem de 1mm
@@ -33,7 +33,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 ## Estrutura de arquivos
 
 - `schema.ts` — Schema Zod, defaults e cores PLA
-- `buildCakeTopper.ts` — Geometria da placa, relevo/vazado (CSG), ícone e fixação
+- `buildCakeTopper.ts` — Geometria da placa, relevo alto (texto + ícone), canaleta da base (CSG) e fixação
 - `exportStl.ts` — Exportação STL binário (partes mescladas)
 - `useCakeTopper.ts` — Hook de estado (reducer + Zod + debounce + fontes lazy)
 - `StudioPanel.tsx` — Painel de parâmetros

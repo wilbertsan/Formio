@@ -151,6 +151,27 @@ describe('buildCakeTopper - relevo (raised)', () => {
     expect(result.relief!.attributes.position).toBeDefined()
   })
 
+  it('sempre gera relevo sobre a placa, sem alterar a placa', () => {
+    const relief = 2
+    const params = {
+      ...defaultCakeTopperParams,
+      texts: [text({ content: 'A', width: 20, height: 10, relief })],
+    }
+    const plain = buildCakeTopper({ params: { ...params, texts: [] } })
+    const result = buildCakeTopper({ params, fonts: { bold: mockFont('A') } })
+
+    expect(result.relief).not.toBeNull()
+    result.relief!.computeBoundingBox()
+    const bb = result.relief!.boundingBox!
+    // O bevel padrão do ExtrudeGeometry (0.2mm) estende a geometria 0.2mm
+    // além de [0, depth]; por isso a base do relevo fica em thickness - 0.01 - 0.2.
+    const BEVEL_THICKNESS = 0.2
+    const TEXT_Z_OFFSET = 0.01
+    expect(bb.min.z).toBeCloseTo(params.thickness - TEXT_Z_OFFSET - BEVEL_THICKNESS, 5)
+    expect(bb.max.z).toBeGreaterThan(params.thickness)
+    expect(result.plate.attributes.position.count).toBe(plain.plate.attributes.position.count)
+  })
+
   it('relief é null sem fonte disponível', () => {
     const result = buildCakeTopper({ params: defaultCakeTopperParams })
     expect(result.relief).toBeNull()
@@ -248,69 +269,6 @@ describe('buildCakeTopper - relevo (raised)', () => {
     const bb = bounds(result.relief!)
     const corner = Math.hypot(Math.abs(bb.cx) + bb.hw, Math.abs(bb.cy) + bb.hh)
     expect(corner).toBeLessThanOrEqual(25 + 0.5)
-  })
-})
-
-describe('buildCakeTopper - corte (cut)', () => {
-  it('subtrai o texto da placa em modo corte', () => {
-    const params = {
-      ...defaultCakeTopperParams,
-      shape: 'rounded-rect' as const,
-      textMode: 'cut' as const,
-      texts: [text({ content: 'A', width: 20, height: 10 })],
-    }
-    const result = buildCakeTopper({ params, fonts: { bold: mockFont('A') } })
-    expect(result.relief).toBeNull()
-    expect(result.plate.attributes.position).toBeDefined()
-  })
-
-  it('corte remove material da placa', () => {
-    const base = { ...defaultCakeTopperParams, shape: 'rounded-rect' as const }
-    const plain = buildCakeTopper({ params: base })
-    const params = {
-      ...base,
-      textMode: 'cut' as const,
-      texts: [text({ content: 'AB', width: 30, height: 12 })],
-    }
-    const cut = buildCakeTopper({ params, fonts: { bold: mockFont('AB') } })
-    expect(cut.relief).toBeNull()
-    const plainCount = plain.plate.attributes.position.count
-    const cutCount = cut.plate.attributes.position.count
-    expect(cutCount).toBeGreaterThan(0)
-    expect(cutCount).not.toBe(plainCount)
-  })
-
-  it('ícone em modo corte reduz o material da placa', () => {
-    const base = { ...defaultCakeTopperParams, shape: 'rounded-rect' as const }
-    const plain = buildCakeTopper({ params: base })
-    const params = {
-      ...base,
-      textMode: 'cut' as const,
-      svgIcon: SVG_RECT,
-      texts: [],
-    }
-    const cut = buildCakeTopper({ params })
-    expect(cut.relief).toBeNull()
-    expect(cut.plate.attributes.position.count).not.toBe(plain.plate.attributes.position.count)
-  })
-
-  it('sem geometria de corte mantém a placa intacta', () => {
-    const params = { ...defaultCakeTopperParams, textMode: 'cut' as const }
-    const result = buildCakeTopper({ params })
-    expect(result.plate.attributes.position).toBeDefined()
-    expect(result.relief).toBeNull()
-  })
-
-  it('corte que alcança a borda cai para relevo', () => {
-    const onError = vi.fn()
-    const params = {
-      ...defaultCakeTopperParams,
-      textMode: 'cut' as const,
-      texts: [text({ content: 'AAAAA', width: 90, height: 40 })],
-    }
-    const result = buildCakeTopper({ params, fonts: { bold: mockFont('AAAAA') }, onError })
-    expect(onError).toHaveBeenCalled()
-    expect(result.relief).not.toBeNull()
   })
 })
 
