@@ -69,6 +69,7 @@ function LabeledSlider({
   max,
   step,
   suffix = 'mm',
+  format,
   onChange,
 }: {
   label: string
@@ -77,9 +78,12 @@ function LabeledSlider({
   max: number
   step: number
   suffix?: string
+  format?: (value: number) => string
   onChange: (value: number) => void
 }) {
-  const display = step < 1 ? value.toFixed(step < 0.1 ? 2 : 1) : value
+  const display = format
+    ? format(value)
+    : step < 1 ? value.toFixed(step < 0.1 ? 2 : 1) : value
   return (
     <>
       <Flex direction="row" justifyContent="space-between">
@@ -181,6 +185,19 @@ export function StudioPanel({ params, onUpdateParam, onSetSvgIcon, onReset }: St
                 min={0.5} max={2} step={0.1}
                 onChange={(value) => onUpdateParam('reliefDepth', value)}
               />
+
+              <LabeledSlider
+                label="Escala do padrão"
+                value={params.patternScale}
+                min={0.4} max={1} step={0.05}
+                format={(value) => `${Math.round(value * 100)}`}
+                suffix="%"
+                onChange={(value) => onUpdateParam('patternScale', value)}
+              />
+
+              <Text fontSize="xs" color="font.secondary">
+                Traços finos são engrossados até 0,8 mm para impressão.
+              </Text>
 
               <RadioGroupField
                 legend="Origem do padrão"

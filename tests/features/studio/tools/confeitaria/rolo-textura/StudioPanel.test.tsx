@@ -34,6 +34,12 @@ describe('StudioPanel (rolo-textura)', () => {
     expect(screen.getByText('Losangos')).toBeDefined()
   })
 
+  it('renderiza a escala do padrão e o aviso de mínimo', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByLabelText('Escala do padrão')).toBeDefined()
+    expect(screen.getByText(/0,8 mm/)).toBeDefined()
+  })
+
   it('lista apenas motivos da família atual', () => {
     const params = { ...defaultTextureRollerParams, patternFamily: 'floral' as const, patternMotif: 'flower' as const }
     render(<StudioPanel {...defaultProps} params={params} />)
