@@ -801,6 +801,7 @@ it('mantém o SVG circular sem distorção quando cellW != cellH', () => {
     ...defaultTextureRollerParams,
     patternSource: 'svg',
     svgIcon: '<svg/>',
+    density: 'low',
   }
   const parsed: ParsedSvg = {
     fills: [{
@@ -823,7 +824,7 @@ it('mantém o SVG circular sem distorção quando cellW != cellH', () => {
   for (const group of groups) {
     const axial = Math.max(...group.axialOffsets) - Math.min(...group.axialOffsets)
     const arc = Math.max(...group.arcOffsets) - Math.min(...group.arcOffsets)
-    expect(Math.abs(axial - arc)).toBeLessThan(0.08 * Math.max(axial, arc))
+    expect(Math.abs(axial - arc)).toBeLessThan(0.03 * Math.max(axial, arc))
   }
 })
 ```

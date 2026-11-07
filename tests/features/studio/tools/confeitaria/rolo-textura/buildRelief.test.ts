@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { BufferGeometry } from 'three'
 import { buildRelief } from '@/features/studio/tools/confeitaria/rolo-textura/buildRelief'
+import { computeReliefLayout } from '@/features/studio/tools/confeitaria/rolo-textura/reliefLayout'
 import {
-  DENSITY_CELL_MM, defaultTextureRollerParams, type TextureRollerParams,
+  defaultTextureRollerParams, type TextureRollerParams,
 } from '@/features/studio/tools/confeitaria/rolo-textura/schema'
 import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 
@@ -13,26 +14,7 @@ interface CellGroup {
   arcCenter: number
   distances: number[]
   arcOffsets: number[]
-}
-
-function cellGrid(params: TextureRollerParams): {
-  circumference: number
-  cellCols: number
-  cellRows: number
-  cellW: number
-  cellH: number
-} {
-  const circumference = Math.PI * params.diameter
-  const cellMm = DENSITY_CELL_MM[params.density]
-  const cellCols = Math.max(3, Math.round(circumference / cellMm))
-  const cellRows = Math.max(2, Math.round(params.length / cellMm))
-  return {
-    circumference,
-    cellCols,
-    cellRows,
-    cellW: circumference / cellCols,
-    cellH: params.length / cellRows,
-  }
+  axialOffsets: number[]
 }
 
 function wrapDelta(value: number, period: number): number {
@@ -41,14 +23,14 @@ function wrapDelta(value: number, period: number): number {
 }
 
 // Desfaz a curvatura do cilindro e agrupa os vértices de topo pela célula
-// mais próxima, devolvendo a distância radial dentro do plano desenrolado.
+// mais próxima, devolvendo as distâncias no plano desenrolado.
 function topGroups(
   geometry: BufferGeometry,
   params: TextureRollerParams,
   staggered: boolean,
   minRadius: number,
 ): CellGroup[] {
-  const { circumference, cellCols, cellRows, cellW, cellH } = cellGrid(params)
+  const { circumference, cellCols, cellRows, cellW, cellH } = computeReliefLayout(params)
   const halfLength = params.length / 2
   const radius = params.diameter / 2
   const position = geometry.getAttribute('position')
@@ -83,9 +65,12 @@ function topGroups(
     const arcOffset = staggered && bestRow % 2 === 1 ? cellW / 2 : 0
     const arcCenter = (bestCol + 0.5) * cellW + arcOffset
     const key = `${bestRow}:${bestCol}`
-    const group = groups.get(key) ?? { axialCenter, arcCenter, distances: [], arcOffsets: [] }
+    const group = groups.get(key) ?? {
+      axialCenter, arcCenter, distances: [], arcOffsets: [], axialOffsets: [],
+    }
     group.distances.push(bestDistance)
     group.arcOffsets.push(wrapDelta(arc - arcCenter, circumference))
+    group.axialOffsets.push(x - axialCenter)
     groups.set(key, group)
   }
 
@@ -93,7 +78,7 @@ function topGroups(
 }
 
 function isInteriorRow(group: CellGroup, params: TextureRollerParams): boolean {
-  return Math.abs(group.axialCenter) <= params.length / 2 - cellGrid(params).cellH
+  return Math.abs(group.axialCenter) <= params.length / 2 - computeReliefLayout(params).cellH
 }
 
 const dotsParams: TextureRollerParams = {
@@ -137,7 +122,7 @@ describe('buildRelief', () => {
     }
   })
 
-  it('preserva a largura do traço SVG sem inflar para a espessura mínima', () => {
+  it('engrossa traço SVG fino até 0,8mm e mantém traço grosso maior', () => {
     const params: TextureRollerParams = {
       ...defaultTextureRollerParams,
       patternSource: 'svg',
@@ -163,12 +148,42 @@ describe('buildRelief', () => {
     }
 
     const thin = measureWidth(0.02)
-    expect(thin).toBeGreaterThan(0.05)
-    expect(thin).toBeLessThan(0.5)
-    expect(thin).toBeLessThan(0.8)
+    expect(thin).toBeGreaterThanOrEqual(0.75)
 
-    const thick = measureWidth(0.1)
+    const thick = measureWidth(0.3)
     expect(thick).toBeGreaterThan(thin)
+  })
+
+  it('mantém o SVG circular sem distorção quando cellW != cellH', () => {
+    const params: TextureRollerParams = {
+      ...defaultTextureRollerParams,
+      patternSource: 'svg',
+      svgIcon: '<svg/>',
+      density: 'low',
+    }
+    const parsed: ParsedSvg = {
+      fills: [{
+        outer: Array.from({ length: 64 }, (_, i) => {
+          const a = (i / 64) * Math.PI * 2
+          return { x: Math.cos(a) * 0.5, y: Math.sin(a) * 0.5 }
+        }),
+        holes: [],
+      }],
+      strokes: [],
+    }
+    const geometry = buildRelief(params, parsed)
+    expect(geometry).not.toBeNull()
+
+    const radius = params.diameter / 2
+    const groups = topGroups(geometry!, params, false, radius + 0.95 * params.reliefDepth)
+      .filter((group) => isInteriorRow(group, params) && group.distances.length >= 16)
+    expect(groups.length).toBeGreaterThan(0)
+
+    for (const group of groups) {
+      const axial = Math.max(...group.axialOffsets) - Math.min(...group.axialOffsets)
+      const arc = Math.max(...group.arcOffsets) - Math.min(...group.arcOffsets)
+      expect(Math.abs(axial - arc)).toBeLessThan(0.03 * Math.max(axial, arc))
+    }
   })
 
   it('não produz NaN nas posições', () => {
