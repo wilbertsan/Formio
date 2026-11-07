@@ -46,7 +46,7 @@ function placedIconOffset(params: CakeTopperParams): { x: number; y: number } {
   const raw = iconGeometryHalfSize(params.svgIcon, params.width, params.height, params.iconScale)
   const half = fitIconHalfSize(raw, params, plate)
   if (!half) throw new Error('Ícone sem geometria')
-  return clampToOutline(params, plate, half.halfWidth, half.halfHeight, 160, 175, 1)
+  return clampToOutline(params, plate, half.halfWidth, half.halfHeight, 160, -175, 1)
 }
 
 describe('TextPositionEditor', () => {
@@ -104,7 +104,7 @@ describe('TextPositionEditor', () => {
       15,
       5,
       110,
-      125,
+      -125,
       3,
     )
     expect(x).toBeCloseTo(placed.x, 5)
@@ -117,7 +117,7 @@ describe('TextPositionEditor', () => {
     const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
     fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
     fireEvent.mouseMove(canvas, { clientX: 84, clientY: 54 })
-    expect(onMoveText).toHaveBeenCalledWith('text-1', 2, 2)
+    expect(onMoveText).toHaveBeenCalledWith('text-1', 2, -2)
   })
 
   it('fecha ao clicar no botão Fechar', () => {
@@ -147,7 +147,7 @@ describe('TextPositionEditor', () => {
     const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
     fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
     fireEvent.mouseMove(canvas, { clientX: 84, clientY: 54 })
-    expect(onMoveIcon).toHaveBeenCalledWith(2, 2)
+    expect(onMoveIcon).toHaveBeenCalledWith(2, -2)
   })
 
   it('limita o arraste do ícone à área útil da placa', () => {

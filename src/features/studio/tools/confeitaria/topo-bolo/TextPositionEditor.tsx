@@ -144,7 +144,7 @@ export function TextPositionEditor({
       const textWidth = half.halfWidth * 2 * SCALE
       const textHeight = half.halfHeight * 2 * SCALE
       const x = centerX + text.offsetX * SCALE - textWidth / 2
-      const y = centerY + text.offsetY * SCALE - textHeight / 2
+      const y = centerY - text.offsetY * SCALE - textHeight / 2
 
       ctx.fillStyle = isSelected ? '#14b8a6' : '#a1a1aa'
       ctx.fillRect(x, y, textWidth, textHeight)
@@ -164,7 +164,7 @@ export function TextPositionEditor({
       const iconWidth = iconHalf.halfWidth * 2 * SCALE
       const iconHeight = iconHalf.halfHeight * 2 * SCALE
       const x = centerX + params.iconOffsetX * SCALE - iconWidth / 2
-      const y = centerY + params.iconOffsetY * SCALE - iconHeight / 2
+      const y = centerY - params.iconOffsetY * SCALE - iconHeight / 2
 
       ctx.fillStyle = iconSelected ? '#f59e0b' : '#d4d4d8'
       ctx.fillRect(x, y, iconWidth, iconHeight)
@@ -197,7 +197,7 @@ export function TextPositionEditor({
       const iconWidth = iconHalf.halfWidth * 2 * SCALE
       const iconHeight = iconHalf.halfHeight * 2 * SCALE
       const iconX = canvasWidth / 2 + params.iconOffsetX * SCALE - iconWidth / 2
-      const iconY = canvasHeight / 2 + params.iconOffsetY * SCALE - iconHeight / 2
+      const iconY = canvasHeight / 2 - params.iconOffsetY * SCALE - iconHeight / 2
 
       if (x >= iconX && x <= iconX + iconWidth && y >= iconY && y <= iconY + iconHeight) {
         setIconSelected(true)
@@ -212,7 +212,7 @@ export function TextPositionEditor({
       const textWidth = half.halfWidth * 2 * SCALE
       const textHeight = half.halfHeight * 2 * SCALE
       const textX = canvasWidth / 2 + text.offsetX * SCALE - textWidth / 2
-      const textY = canvasHeight / 2 + text.offsetY * SCALE - textHeight / 2
+      const textY = canvasHeight / 2 - text.offsetY * SCALE - textHeight / 2
 
       if (x >= textX && x <= textX + textWidth && y >= textY && y <= textY + textHeight) {
         setIconSelected(false)
@@ -237,7 +237,7 @@ export function TextPositionEditor({
         iconHalf.halfWidth,
         iconHalf.halfHeight,
         params.iconOffsetX + dx,
-        params.iconOffsetY + dy,
+        params.iconOffsetY - dy,
         ICON_MARGIN,
       )
       onMoveIcon(placed.x, placed.y)
@@ -254,7 +254,7 @@ export function TextPositionEditor({
       half.halfWidth,
       half.halfHeight,
       text.offsetX + dx,
-      text.offsetY + dy,
+      text.offsetY - dy,
       TEXT_MARGIN,
     )
     onMoveText(dragging, placed.x, placed.y)
