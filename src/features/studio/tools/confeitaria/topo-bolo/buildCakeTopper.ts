@@ -1,7 +1,8 @@
 import {
-  type BufferGeometry,
+  BufferGeometry,
   DoubleSide,
   ExtrudeGeometry,
+  Float32BufferAttribute,
   LatheGeometry,
   Mesh,
   MeshBasicMaterial,
@@ -12,7 +13,7 @@ import {
   Vector3,
 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { buildSvgIconGeometry, parseSvg, svgShapesFromParsed } from '../shared/svgToIconShape'
 import { shapesToGeometry, textToShapes } from '../shared/textOutline'
 import { ICON_MARGIN } from './iconLayout'
@@ -341,7 +342,9 @@ function createPlateBottomSampler(
 }
 
 // X onde a placa "pisa": o fundo mais baixo (empate → mais próximo de 0).
-function plateBottomAnchorX(sampler: PlateBottomSampler): number {
+function plateBottomAnchor(
+  sampler: PlateBottomSampler,
+): { x: number; bottom: number } {
   let bestX = 0
   let bestBottom = Infinity
   const step = 0.5
@@ -355,19 +358,88 @@ function plateBottomAnchorX(sampler: PlateBottomSampler): number {
       bestX = x
     }
   }
-  return bestX
+  return {
+    x: bestX,
+    bottom: Number.isFinite(bestBottom) ? bestBottom : sampler.minY,
+  }
 }
 
-// Move X em direção ao centro até encontrar material da placa.
-function resolveStemX(sampler: PlateBottomSampler, candidateX: number): number {
+// X da haste é válido se o topo (círculo inteiro) estiver sob a placa.
+function isStemXValid(
+  sampler: PlateBottomSampler,
+  x: number,
+  radius: number,
+): boolean {
+  const bottom = sampler.sample(x)
+  if (bottom === null) return false
+
+  const topY = bottom + STEM_EMBED
+  const leftBottom = sampler.sample(x - radius)
+  const rightBottom = sampler.sample(x + radius)
+  return (
+    leftBottom !== null &&
+    rightBottom !== null &&
+    leftBottom <= topY &&
+    rightBottom <= topY
+  )
+}
+
+// Move X em direção ao centro até o círculo inteiro da haste caber na placa.
+function resolveStemX(
+  sampler: PlateBottomSampler,
+  candidateX: number,
+  radius: number,
+): number {
   const step = 0.5
   const direction = Math.sign(candidateX) || 1
   const maxSteps = Math.ceil(Math.abs(candidateX) / step)
   for (let i = 0; i <= maxSteps; i++) {
     const x = candidateX - direction * i * step
-    if (sampler.sample(x) !== null) return x
+    if (isStemXValid(sampler, x, radius)) return x
   }
   return 0
+}
+
+// Remove triângulos de área zero dos polos e solda vértices duplicados.
+function cleanStemGeometry(geometry: BufferGeometry): BufferGeometry {
+  const source = geometry.index ? geometry.toNonIndexed() : geometry
+  const pos = source.getAttribute('position')
+  const kept: number[] = []
+
+  for (let i = 0; i < pos.count; i += 3) {
+    const ax = pos.getX(i)
+    const ay = pos.getY(i)
+    const az = pos.getZ(i)
+    const bx = pos.getX(i + 1)
+    const by = pos.getY(i + 1)
+    const bz = pos.getZ(i + 1)
+    const cx = pos.getX(i + 2)
+    const cy = pos.getY(i + 2)
+    const cz = pos.getZ(i + 2)
+
+    const abx = bx - ax
+    const aby = by - ay
+    const abz = bz - az
+    const acx = cx - ax
+    const acy = cy - ay
+    const acz = cz - az
+
+    const crossX = aby * acz - abz * acy
+    const crossY = abz * acx - abx * acz
+    const crossZ = abx * acy - aby * acx
+    if (crossX * crossX + crossY * crossY + crossZ * crossZ > 1e-18) {
+      kept.push(ax, ay, az, bx, by, bz, cx, cy, cz)
+    }
+  }
+
+  const filtered = new BufferGeometry()
+  filtered.setAttribute('position', new Float32BufferAttribute(kept, 3))
+  const welded = mergeVertices(filtered)
+  filtered.dispose()
+  if (source !== geometry) source.dispose()
+  geometry.dispose()
+  welded.computeVertexNormals()
+  return welded
 }
 
 function buildStem(
@@ -391,7 +463,8 @@ function buildStem(
     new Vector2(0, 0),
   ]
 
-  const geometry = new LatheGeometry(points, STEM_SEGMENTS)
+  const raw = new LatheGeometry(points, STEM_SEGMENTS)
+  const geometry = cleanStemGeometry(raw)
   geometry.translate(centerX, topY, params.thickness / 2)
   return geometry
 }
@@ -405,15 +478,17 @@ function buildSupport(
   if (!sampler) return null
 
   try {
+    const radius = params.stemDiameter / 2
     if (params.supportType === 'haste') {
-      const anchorX = plateBottomAnchorX(sampler)
-      const topY = (sampler.sample(anchorX) ?? sampler.minY) + STEM_EMBED
-      return buildStem(params, anchorX, topY)
+      const anchor = plateBottomAnchor(sampler)
+      const x = resolveStemX(sampler, anchor.x, radius)
+      const topY = (sampler.sample(x) ?? anchor.bottom) + STEM_EMBED
+      return buildStem(params, x, topY)
     }
 
     const halfSpacing = params.stemSpacing / 2
     const stems = [-halfSpacing, halfSpacing].map((candidateX) => {
-      const x = resolveStemX(sampler, candidateX)
+      const x = resolveStemX(sampler, candidateX, radius)
       const topY = (sampler.sample(x) ?? sampler.minY) + STEM_EMBED
       return buildStem(params, x, topY)
     })

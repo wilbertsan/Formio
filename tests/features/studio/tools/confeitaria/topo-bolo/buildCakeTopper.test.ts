@@ -318,13 +318,15 @@ describe('buildCakeTopper - fixação (support)', () => {
     const pb = result.plate.boundingBox!
     result.support!.computeBoundingBox()
     const sb = result.support!.boundingBox!
-    const stemX = (sb.min.x + sb.max.x) / 2
+    const stemRadius = (sb.max.x - sb.min.x) / 2
 
-    // O fundo real do triângulo é um bico deslocado (não em x=0); a haste deve
-    // ficar sob esse fundo, dentro do intervalo de X da faixa inferior da placa.
+    // O fundo real do triângulo é um bico deslocado (não em x=0); a borda da
+    // haste deve ficar sob esse fundo, dentro do intervalo de X da faixa
+    // inferior da placa (o círculo inteiro precisa caber na placa).
     const band = xIntervalInBand(result.plate, pb.min.y, pb.min.y + 1)!
-    expect(stemX).toBeGreaterThanOrEqual(band.min - 0.25)
-    expect(stemX).toBeLessThanOrEqual(band.max + 0.25)
+    expect(sb.min.x).toBeGreaterThanOrEqual(band.min - 0.25)
+    expect(sb.min.x).toBeLessThanOrEqual(band.max + 0.25)
+    expect(stemRadius).toBeCloseTo(params.stemDiameter / 2, 5)
   })
 
   it('haste permanece centralizada em formas simétricas', () => {
@@ -345,21 +347,48 @@ describe('buildCakeTopper - fixação (support)', () => {
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
+    const geometry = support.toNonIndexed()
+    const pos = geometry.getAttribute('position')
     const centerX = (bb.min.x + bb.max.x) / 2
     const centerZ = (bb.min.z + bb.max.z) / 2
-    const pos = support.getAttribute('position')
 
     let maxRadiusAtBottom = 0
     let maxRadiusAtTop = 0
-    for (let i = 0; i < pos.count; i++) {
-      const y = pos.getY(i)
-      const radius = Math.hypot(pos.getX(i) - centerX, pos.getZ(i) - centerZ)
-      if (y <= bb.min.y + 1e-6) maxRadiusAtBottom = Math.max(maxRadiusAtBottom, radius)
-      if (y >= bb.max.y - 1e-6) maxRadiusAtTop = Math.max(maxRadiusAtTop, radius)
+    let degenerate = 0
+    for (let i = 0; i < pos.count; i += 3) {
+      const ax = pos.getX(i)
+      const ay = pos.getY(i)
+      const az = pos.getZ(i)
+      const bx = pos.getX(i + 1)
+      const by = pos.getY(i + 1)
+      const bz = pos.getZ(i + 1)
+      const cx = pos.getX(i + 2)
+      const cy = pos.getY(i + 2)
+      const cz = pos.getZ(i + 2)
+
+      const abx = bx - ax
+      const aby = by - ay
+      const abz = bz - az
+      const acx = cx - ax
+      const acy = cy - ay
+      const acz = cz - az
+      const crossX = aby * acz - abz * acy
+      const crossY = abz * acx - abx * acz
+      const crossZ = abx * acy - aby * acx
+      if (crossX * crossX + crossY * crossY + crossZ * crossZ <= 1e-18) degenerate++
+
+      if (ay <= bb.min.y + 1e-6) {
+        maxRadiusAtBottom = Math.max(maxRadiusAtBottom, Math.hypot(ax - centerX, az - centerZ))
+      }
+      if (ay >= bb.max.y - 1e-6) {
+        maxRadiusAtTop = Math.max(maxRadiusAtTop, Math.hypot(ax - centerX, az - centerZ))
+      }
     }
+    geometry.dispose()
 
     expect(maxRadiusAtBottom).toBeCloseTo(0.4, 1)
     expect(maxRadiusAtTop).toBeCloseTo(params.stemDiameter / 2, 1)
+    expect(degenerate).toBe(0)
   })
 
   it('haste dupla gera duas hastes com o espaçamento configurado', () => {
@@ -374,9 +403,45 @@ describe('buildCakeTopper - fixação (support)', () => {
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
+    const plate = result.plate
+    plate.computeBoundingBox()
+    const plateMinY = plate.boundingBox!.min.y
 
     expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.stemDiameter, 1)
     expect(bb.max.y - bb.min.y).toBeCloseTo(params.stemLength, 5)
+    expect(bb.max.y).toBeCloseTo(plateMinY + 2, 5)
+
+    const nonIndexed = support.toNonIndexed()
+    const pos = nonIndexed.getAttribute('position')
+    let minAbsX = Infinity
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i)
+      if (Math.abs(x) > 1e-6) minAbsX = Math.min(minAbsX, Math.abs(x))
+    }
+    nonIndexed.dispose()
+
+    expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.stemDiameter / 2 - 0.1)
+  })
+
+  it('aproxima as hastes quando o espaçamento excede a placa', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'circle' as const,
+      width: 50,
+      height: 30,
+      supportType: 'haste-dupla' as const,
+      stemSpacing: 40,
+      stemDiameter: 8,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    support.computeBoundingBox()
+    const sb = support.boundingBox!
+    result.plate.computeBoundingBox()
+    const pb = result.plate.boundingBox!
+
+    expect(sb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
+    expect(sb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
   })
 })
 
