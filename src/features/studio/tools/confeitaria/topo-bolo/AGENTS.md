@@ -20,7 +20,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Ícone SVG: SVG opcional, escala 0.5–2 e offset X/Y próprio (posicionado livremente no editor 2D)
 - Acabamento: sempre relevo alto (texto usa `relief`; ícone usa 1mm)
 - Fixação: `haste` (uma haste) ou `haste-dupla` (duas hastes paralelas)
-- Hastes: largura 3–8mm, espessura igual à da placa, comprimento 20–60mm e ponta chanfrada plana de 0,8mm
+- Hastes: seção quadrada com lado igual à espessura da placa, comprimento 20–60mm e ponta chanfrada plana de 0,8mm
 - Espaçamento da haste dupla: 10–40mm (padrão 20mm)
 - Cores de preview: cor da placa e das letras (10 cores PLA)
 
@@ -28,7 +28,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 
 - Peça plana com suporte vertical para fixação
 - Texto e ícone são sempre gerados em relevo alto; não há modo de corte vazado
-- `haste`: haste plana de espessura igual à placa, embutida 2mm, com ponta chanfrada no plano X/Y
+- `haste`: haste de seção quadrada (lado = espessura da placa), embutida 2mm, com ponta chanfrada no plano X/Y
 - `haste-dupla`: duas hastes verticais paralelas, simétricas em X, cada uma ancorada no fundo local da placa; o espaçamento é ajustável
 - Em contornos estreitos ou irregulares, a haste dupla aproxima as hastes; se não houver par válido, usa haste simples e sinaliza o aviso
 - Textos encaixados no contorno da placa com margem de 4mm; ícone com margem de 1mm
