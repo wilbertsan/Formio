@@ -39,7 +39,6 @@ const NUMERIC_RANGES: NumericRanges = {
   iconScale: { min: 0.5, max: 2 },
   iconOffsetX: { min: -55, max: 55 },
   iconOffsetY: { min: -35, max: 35 },
-  stemWidth: { min: 3, max: 8 },
   stemLength: { min: 20, max: 60 },
   stemSpacing: { min: 10, max: 40 },
 }

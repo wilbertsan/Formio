@@ -35,7 +35,6 @@ export const cakeTopperParamsSchema = z.object({
   iconOffsetX: z.number().min(OFFSET_X_RANGE.min).max(OFFSET_X_RANGE.max),
   iconOffsetY: z.number().min(OFFSET_Y_RANGE.min).max(OFFSET_Y_RANGE.max),
   supportType: z.enum(['haste', 'haste-dupla']),
-  stemWidth: z.number().min(3).max(8),
   stemLength: z.number().min(20).max(60),
   stemSpacing: z.number().min(10).max(40),
   baseColor: z.enum(PLA_COLORS),
@@ -56,7 +55,7 @@ export const defaultCakeTopperParams: CakeTopperParams = {
   productType: 'cake-topper', shape: 'rounded-rect', width: 80, height: 50, thickness: 3,
   cornerRadius: 6, contourSvg: null, svgIcon: null, iconScale: 1,
   iconOffsetX: 0, iconOffsetY: 0,
-  supportType: 'haste', stemWidth: 4, stemLength: 40, stemSpacing: 20,
+  supportType: 'haste', stemLength: 40, stemSpacing: 20,
   baseColor: '#14b8a6', letterColor: '#f5f5f5', texts: [defaultText],
 }
 

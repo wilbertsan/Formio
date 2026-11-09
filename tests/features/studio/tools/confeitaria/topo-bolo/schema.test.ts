@@ -125,6 +125,11 @@ describe('cakeTopperParamsSchema', () => {
     const invalid = { ...defaultCakeTopperParams, stemSpacing: 9 }
     expect(cakeTopperParamsSchema.safeParse(invalid).success).toBe(false)
   })
+
+  it('does not expose stemWidth anymore', () => {
+    expect('stemWidth' in cakeTopperParamsSchema.shape).toBe(false)
+    expect('stemWidth' in defaultCakeTopperParams).toBe(false)
+  })
 })
 
 describe('defaultText', () => {

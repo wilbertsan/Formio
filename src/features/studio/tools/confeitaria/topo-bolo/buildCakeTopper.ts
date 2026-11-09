@@ -495,15 +495,16 @@ function buildStem(
   centerX: number,
   topY: number,
 ): BufferGeometry {
-  const halfWidth = params.stemWidth / 2
+  const halfWidth = params.thickness / 2
   const tipHalfWidth = STEM_TIP_FLAT_WIDTH / 2
   const tipLength = Math.min(
-    params.stemWidth * STEM_TIP_RATIO,
+    params.thickness * STEM_TIP_RATIO,
     params.stemLength * STEM_MAX_TIP_LENGTH_RATIO,
   )
   const bodyLength = params.stemLength - tipLength
 
-  // Haste plana: mesma espessura da placa, com ponta chanfrada no plano X/Y.
+  // Haste de seção quadrada: lado igual à espessura da placa, com ponta
+  // chanfrada no plano X/Y.
   const shape = new Shape()
   shape.moveTo(-halfWidth, 0)
   shape.lineTo(-halfWidth, -bodyLength)
@@ -530,7 +531,7 @@ function buildSupport(
   if (!sampler) return null
 
   try {
-    const halfWidth = params.stemWidth / 2
+    const halfWidth = params.thickness / 2
     if (params.supportType === 'haste') {
       return buildSingleStem(params, sampler, halfWidth, onError)
     }
