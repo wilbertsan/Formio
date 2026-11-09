@@ -56,7 +56,7 @@ export const defaultText: TextItem = {
 }
 
 export const defaultCakeTopperParams: CakeTopperParams = {
-  productType: 'cake-topper', shape: 'circle', width: 80, height: 50, thickness: 3,
+  productType: 'cake-topper', shape: 'rounded-rect', width: 80, height: 50, thickness: 3,
   cornerRadius: 6, contourSvg: null, svgIcon: null, iconScale: 1,
   iconOffsetX: 0, iconOffsetY: 0,
   supportType: 'haste', stemDiameter: 4, stemLength: 40,

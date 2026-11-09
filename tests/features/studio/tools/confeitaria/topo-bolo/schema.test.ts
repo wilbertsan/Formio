@@ -114,6 +114,12 @@ describe('defaultText', () => {
   })
 })
 
+describe('defaultCakeTopperParams', () => {
+  it('defaults the shape to rounded-rect', () => {
+    expect(defaultCakeTopperParams.shape).toBe('rounded-rect')
+  })
+})
+
 describe('PLA_COLORS', () => {
   it('has exactly 10 valid hex colors', () => {
     expect(PLA_COLORS.length).toBe(10)
