@@ -73,8 +73,8 @@ describe('useCakeTopper', () => {
 
   it('updateParam atualiza supportType', () => {
     const { result } = renderHook(() => useCakeTopper())
-    act(() => result.current.updateParam('supportType', 'base'))
-    expect(result.current.params.supportType).toBe('base')
+    act(() => result.current.updateParam('supportType', 'haste-dupla'))
+    expect(result.current.params.supportType).toBe('haste-dupla')
   })
 
   it('addText adiciona textos até o máximo de 3', () => {
@@ -176,10 +176,18 @@ describe('useCakeTopper', () => {
     )
   })
 
-  it('dimensions usa apenas height para base', () => {
+  it('updateParam atualiza stemSpacing', () => {
     const { result } = renderHook(() => useCakeTopper())
-    act(() => result.current.updateParam('supportType', 'base'))
-    expect(result.current.dimensions.height).toBe(defaultCakeTopperParams.height)
+    act(() => result.current.updateParam('stemSpacing', 30))
+    expect(result.current.params.stemSpacing).toBe(30)
+  })
+
+  it('dimensions inclui stemLength para haste dupla', () => {
+    const { result } = renderHook(() => useCakeTopper())
+    act(() => result.current.updateParam('supportType', 'haste-dupla'))
+    expect(result.current.dimensions.height).toBe(
+      defaultCakeTopperParams.height + defaultCakeTopperParams.stemLength,
+    )
   })
 
   it('gera geometria após carregar a fonte (debounce)', async () => {

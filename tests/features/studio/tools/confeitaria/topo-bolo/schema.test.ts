@@ -106,6 +106,25 @@ describe('cakeTopperParamsSchema', () => {
     expect('textMode' in cakeTopperParamsSchema.shape).toBe(false)
     expect('textMode' in defaultCakeTopperParams).toBe(false)
   })
+
+  it('accepts haste-dupla as support type', () => {
+    const valid = { ...defaultCakeTopperParams, supportType: 'haste-dupla' as const }
+    expect(cakeTopperParamsSchema.safeParse(valid).success).toBe(true)
+  })
+
+  it('rejects the removed base support type', () => {
+    const invalid = { ...defaultCakeTopperParams, supportType: 'base' }
+    expect(cakeTopperParamsSchema.safeParse(invalid).success).toBe(false)
+  })
+
+  it('defaults stemSpacing to 20mm', () => {
+    expect(defaultCakeTopperParams.stemSpacing).toBe(20)
+  })
+
+  it('rejects stemSpacing out of range', () => {
+    const invalid = { ...defaultCakeTopperParams, stemSpacing: 9 }
+    expect(cakeTopperParamsSchema.safeParse(invalid).success).toBe(false)
+  })
 })
 
 describe('defaultText', () => {

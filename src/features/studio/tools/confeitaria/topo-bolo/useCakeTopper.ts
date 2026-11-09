@@ -41,10 +41,7 @@ const NUMERIC_RANGES: NumericRanges = {
   iconOffsetY: { min: -35, max: 35 },
   stemDiameter: { min: 3, max: 8 },
   stemLength: { min: 20, max: 60 },
-  slotWidth: { min: 2.4, max: 4.5 },
-  slotDepth: { min: 5, max: 20 },
-  baseWidth: { min: 30, max: 60 },
-  baseDepth: { min: 20, max: 40 },
+  stemSpacing: { min: 10, max: 40 },
 }
 
 const TEXT_NUMERIC_RANGES: NumericRanges = {
@@ -221,8 +218,8 @@ export function useCakeTopper() {
   }, [])
 
   const totalHeight = useMemo(
-    () => params.height + (params.supportType === 'haste' ? params.stemLength : 0),
-    [params.height, params.supportType, params.stemLength],
+    () => params.height + params.stemLength,
+    [params.height, params.stemLength],
   )
 
   const dimensions = useMemo(() => {

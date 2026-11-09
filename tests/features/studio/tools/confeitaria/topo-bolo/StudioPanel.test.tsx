@@ -54,8 +54,8 @@ describe('StudioPanel', () => {
   it('dispara onUpdateParam ao mudar o tipo de fixação', () => {
     const props = createMockProps()
     render(<StudioPanel {...props} />)
-    fireEvent.change(screen.getByLabelText('Tipo de fixação'), { target: { value: 'base' } })
-    expect(props.onUpdateParam).toHaveBeenCalledWith('supportType', 'base')
+    fireEvent.change(screen.getByLabelText('Tipo de fixação'), { target: { value: 'haste-dupla' } })
+    expect(props.onUpdateParam).toHaveBeenCalledWith('supportType', 'haste-dupla')
   })
 
   it('dispara onAddText ao clicar em Adicionar texto', () => {
@@ -157,15 +157,20 @@ describe('StudioPanel', () => {
     expect(props.onUpdateParam).toHaveBeenCalledWith('letterColor', '#3b82f6')
   })
 
-  it('mostra sliders de base quando supportType é base', () => {
+  it('mostra o espaçamento apenas para haste dupla', () => {
     const props = createMockProps()
-    render(
-      <StudioPanel {...props} params={{ ...defaultCakeTopperParams, supportType: 'base' }} />,
+    const { rerender } = render(<StudioPanel {...props} />)
+    expect(
+      screen.queryByRole('slider', { name: /espaçamento das hastes/i }),
+    ).not.toBeInTheDocument()
+
+    rerender(
+      <StudioPanel
+        {...props}
+        params={{ ...defaultCakeTopperParams, supportType: 'haste-dupla' }}
+      />,
     )
-    expect(screen.getByRole('slider', { name: /largura da base/i })).toBeInTheDocument()
-    expect(screen.getByRole('slider', { name: /profundidade do encaixe/i })).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText('Tipo de fixação'), { target: { value: 'base' } })
-    expect(props.onUpdateParam).toHaveBeenCalledWith('supportType', 'base')
+    expect(screen.getByRole('slider', { name: /espaçamento das hastes/i })).toBeInTheDocument()
   })
 
   it('carrega ícone SVG e chama onSetSvgIcon', async () => {

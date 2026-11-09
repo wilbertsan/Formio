@@ -1,9 +1,9 @@
 import {
-  type BufferGeometry,
-  BoxGeometry,
-  CylinderGeometry,
+  BufferGeometry,
   DoubleSide,
   ExtrudeGeometry,
+  Float32BufferAttribute,
+  LatheGeometry,
   Mesh,
   MeshBasicMaterial,
   Path,
@@ -13,8 +13,7 @@ import {
   Vector3,
 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg'
+import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { buildSvgIconGeometry, parseSvg, svgShapesFromParsed } from '../shared/svgToIconShape'
 import { shapesToGeometry, textToShapes } from '../shared/textOutline'
 import { ICON_MARGIN } from './iconLayout'
@@ -45,9 +44,10 @@ const ICON_DEPTH = 1
 const CUSTOM_MIN_FEATURE = 0.5
 const STEM_EMBED = 2
 const STEM_SEGMENTS = 24
-const BASE_FLOOR = 3
-const SLOT_CLEARANCE = 2
-const BASE_GAP = 10
+const STEM_TIP_RATIO = 2.5
+const STEM_TIP_FLAT_DIAMETER = 0.8
+const STEM_MAX_TIP_LENGTH_RATIO = 0.5
+const STEM_MIN_GAP = 0.5
 
 // Translada apenas em X/Y, preservando a faixa de extrusão em Z (0..depth).
 function centerXY(geometry: BufferGeometry): void {
@@ -304,63 +304,52 @@ function buildRelief(
   return mergeAll(parts, input.onError)
 }
 
-function buildBase(
-  params: CakeTopperParams,
-  plateMinY: number,
-  onError?: (message: string) => void,
-): BufferGeometry {
-  // Bloco tem piso: y ∈ [plateMinY - (slotDepth + BASE_FLOOR), plateMinY].
-  const blockHeight = params.slotDepth + BASE_FLOOR
-  const block = new BoxGeometry(params.baseWidth, blockHeight, params.baseDepth)
-  block.translate(0, plateMinY - blockHeight / 2, params.thickness / 2)
-
-  // Canal aberto no topo que para acima do piso (y ∈ [plateMinY - slotDepth, plateMinY + clearance]).
-  const slotHeight = params.slotDepth + SLOT_CLEARANCE
-  const slot = new BoxGeometry(params.baseWidth + SLOT_CLEARANCE, slotHeight, params.slotWidth)
-  slot.translate(0, plateMinY - params.slotDepth / 2 + SLOT_CLEARANCE / 2, params.thickness / 2)
-
-  let base: BufferGeometry
-  try {
-    const result = new Evaluator().evaluate(new Brush(block), new Brush(slot), SUBTRACTION).geometry
-    result.computeVertexNormals()
-    base = result
-  } catch {
-    onError?.('Falha ao abrir encaixe; usando base sólida')
-    base = block
-  }
-  slot.dispose()
-  if (base !== block) block.dispose()
-
-  // Transladado para imprimir ao lado da placa.
-  base.translate(params.width / 2 + BASE_GAP + params.baseWidth / 2, 0, 0)
-  return base
+interface PlateBottomSampler {
+  minX: number
+  maxX: number
+  minY: number
+  sample: (x: number) => number | null
+  dispose: () => void
 }
 
-// X onde a placa "pisa": dispara raios verticais para baixo ao longo de X e
-// devolve o X cujo fundo é o mais baixo (empate → mais próximo de 0). Mantém a
-// haste centrada em formas simétricas e a move para baixo do fundo em contornos
-// irregulares, garantindo o contato com a placa.
-function plateBottomAnchorX(plate: BufferGeometry, thickness: number): number {
+function createPlateBottomSampler(
+  plate: BufferGeometry,
+  thickness: number,
+): PlateBottomSampler | null {
   plate.computeBoundingBox()
   const bb = plate.boundingBox
-  if (!bb) return 0
+  if (!bb) return null
 
   const material = new MeshBasicMaterial({ side: DoubleSide })
   const mesh = new Mesh(plate, material)
   const raycaster = new Raycaster()
   const dir = new Vector3(0, -1, 0)
   const fromY = bb.max.y + 1
-  const z = thickness / 2
 
+  return {
+    minX: bb.min.x,
+    maxX: bb.max.x,
+    minY: bb.min.y,
+    sample: (x: number) => {
+      raycaster.set(new Vector3(x, fromY, thickness / 2), dir)
+      const hits = raycaster.intersectObject(mesh, false)
+      if (hits.length === 0) return null
+      let bottom = Infinity
+      for (const hit of hits) if (hit.point.y < bottom) bottom = hit.point.y
+      return Number.isFinite(bottom) ? bottom : null
+    },
+    dispose: () => material.dispose(),
+  }
+}
+
+// X onde a placa "pisa": o fundo mais baixo (empate → mais próximo de 0).
+function plateBottomAnchor(sampler: PlateBottomSampler): number {
   let bestX = 0
   let bestBottom = Infinity
   const step = 0.5
-  for (let x = bb.min.x; x <= bb.max.x + 1e-6; x += step) {
-    raycaster.set(new Vector3(x, fromY, z), dir)
-    const hits = raycaster.intersectObject(mesh, false)
-    if (hits.length === 0) continue
-    let bottom = Infinity
-    for (const hit of hits) if (hit.point.y < bottom) bottom = hit.point.y
+  for (let x = sampler.minX; x <= sampler.maxX + 1e-6; x += step) {
+    const bottom = sampler.sample(x)
+    if (bottom === null) continue
     const lower = bottom < bestBottom - 1e-6
     const tieNearCenter = Math.abs(bottom - bestBottom) <= 1e-6 && Math.abs(x) < Math.abs(bestX)
     if (lower || tieNearCenter) {
@@ -368,9 +357,216 @@ function plateBottomAnchorX(plate: BufferGeometry, thickness: number): number {
       bestX = x
     }
   }
-
-  material.dispose()
   return bestX
+}
+
+// X da haste é válido se todo o diâmetro tiver material da placa e o fundo
+// variar no máximo STEM_EMBED (evita cobrir entalhes internos do contorno).
+function isStemXValid(
+  sampler: PlateBottomSampler,
+  x: number,
+  radius: number,
+): boolean {
+  const center = sampler.sample(x)
+  if (center === null) return false
+
+  const step = 0.5
+  for (let sampleX = x - radius; sampleX <= x + radius + 1e-6; sampleX += step) {
+    const bottom = sampler.sample(sampleX)
+    if (bottom === null) return false
+    if (Math.abs(bottom - center) > STEM_EMBED) return false
+  }
+  return true
+}
+
+function collectValidStemXs(
+  sampler: PlateBottomSampler,
+  radius: number,
+): number[] {
+  const xs: number[] = []
+  const step = 0.5
+  for (let x = sampler.minX + radius; x <= sampler.maxX - radius + 1e-6; x += step) {
+    if (isStemXValid(sampler, x, radius)) xs.push(x)
+  }
+  return xs
+}
+
+// Escolhe o X válido mais próximo do candidato.
+function resolveStemX(
+  sampler: PlateBottomSampler,
+  candidateX: number,
+  radius: number,
+): number | null {
+  const xs = collectValidStemXs(sampler, radius)
+  if (xs.length === 0) return null
+
+  let best = xs[0]
+  let bestDistance = Math.abs(best - candidateX)
+  for (const x of xs) {
+    const distance = Math.abs(x - candidateX)
+    if (distance < bestDistance) {
+      best = x
+      bestDistance = distance
+    }
+  }
+  return best
+}
+
+// Topo da haste: maior fundo sob o disco inteiro, garantindo que o círculo
+// entre na placa (na placa plana o resultado é o fundo global + embed).
+function stemTopY(
+  sampler: PlateBottomSampler,
+  x: number,
+  radius: number,
+): number {
+  const step = 0.5
+  let highest = sampler.minY
+  for (let sampleX = x - radius; sampleX <= x + radius + 1e-6; sampleX += step) {
+    const bottom = sampler.sample(sampleX)
+    if (bottom !== null && bottom > highest) highest = bottom
+  }
+  return highest + STEM_EMBED
+}
+
+// Busca um par de X válidos e separados, ou null quando a placa não comporta.
+function lowerBound(xs: number[], value: number): number {
+  let low = 0
+  let high = xs.length
+  while (low < high) {
+    const mid = (low + high) >> 1
+    if (xs[mid] < value) low = mid + 1
+    else high = mid
+  }
+  return low
+}
+
+function resolveDoubleStemXs(
+  sampler: PlateBottomSampler,
+  spacing: number,
+  radius: number,
+): { left: number; right: number } | null {
+  const minSeparation = radius * 2 + STEM_MIN_GAP
+  const desiredHalf = spacing / 2
+  if (
+    desiredHalf * 2 >= minSeparation &&
+    isStemXValid(sampler, -desiredHalf, radius) &&
+    isStemXValid(sampler, desiredHalf, radius)
+  ) {
+    return { left: -desiredHalf, right: desiredHalf }
+  }
+
+  const xs = collectValidStemXs(sampler, radius)
+  let best: { left: number; right: number } | null = null
+  let bestScore = Infinity
+  for (let i = 0; i < xs.length; i++) {
+    const targetRight = Math.max(desiredHalf, xs[i] + minSeparation)
+    const start = lowerBound(xs, targetRight)
+    for (const j of [start, start - 1]) {
+      if (j <= i || j < 0 || j >= xs.length) continue
+      if (xs[j] - xs[i] < minSeparation) continue
+      const score = Math.abs(xs[i] + desiredHalf) + Math.abs(xs[j] - desiredHalf)
+      if (score < bestScore) {
+        bestScore = score
+        best = { left: xs[i], right: xs[j] }
+      }
+    }
+  }
+  return best
+}
+
+function buildSingleStem(
+  params: CakeTopperParams,
+  sampler: PlateBottomSampler,
+  radius: number,
+  onError?: (message: string) => void,
+): BufferGeometry {
+  const anchorX = plateBottomAnchor(sampler)
+  const resolvedX = resolveStemX(sampler, anchorX, radius)
+  if (resolvedX === null) {
+    onError?.('Haste maior que a placa; usando âncora')
+  }
+  // Sem X válido, mantém a haste dentro dos limites horizontais da placa.
+  const minX = sampler.minX + radius
+  const maxX = sampler.maxX - radius
+  const fallbackX = minX <= maxX ? Math.min(maxX, Math.max(minX, anchorX)) : 0
+  const x = resolvedX ?? fallbackX
+  return buildStem(params, x, stemTopY(sampler, x, radius))
+}
+
+// Remove triângulos de área zero dos polos e solda vértices duplicados.
+function cleanStemGeometry(geometry: BufferGeometry): BufferGeometry {
+  const source = geometry.index ? geometry.toNonIndexed() : geometry
+  const pos = source.getAttribute('position')
+  const kept: number[] = []
+
+  for (let i = 0; i < pos.count; i += 3) {
+    const ax = pos.getX(i)
+    const ay = pos.getY(i)
+    const az = pos.getZ(i)
+    const bx = pos.getX(i + 1)
+    const by = pos.getY(i + 1)
+    const bz = pos.getZ(i + 1)
+    const cx = pos.getX(i + 2)
+    const cy = pos.getY(i + 2)
+    const cz = pos.getZ(i + 2)
+
+    const abx = bx - ax
+    const aby = by - ay
+    const abz = bz - az
+    const acx = cx - ax
+    const acy = cy - ay
+    const acz = cz - az
+
+    const crossX = aby * acz - abz * acy
+    const crossY = abz * acx - abx * acz
+    const crossZ = abx * acy - aby * acx
+    if (crossX * crossX + crossY * crossY + crossZ * crossZ > 1e-18) {
+      kept.push(ax, ay, az, bx, by, bz, cx, cy, cz)
+    }
+  }
+
+  const filtered = new BufferGeometry()
+  filtered.setAttribute('position', new Float32BufferAttribute(kept, 3))
+  const welded = mergeVertices(filtered)
+  filtered.dispose()
+  if (source !== geometry) source.dispose()
+  geometry.dispose()
+  welded.setAttribute(
+    'uv',
+    new Float32BufferAttribute(
+      new Float32Array(welded.getAttribute('position').count * 2),
+      2,
+    ),
+  )
+  welded.computeVertexNormals()
+  return welded
+}
+
+function buildStem(
+  params: CakeTopperParams,
+  centerX: number,
+  topY: number,
+): BufferGeometry {
+  const radius = params.stemDiameter / 2
+  const tipRadius = STEM_TIP_FLAT_DIAMETER / 2
+  const tipLength = Math.min(
+    params.stemDiameter * STEM_TIP_RATIO,
+    params.stemLength * STEM_MAX_TIP_LENGTH_RATIO,
+  )
+
+  // Perfil de baixo para cima: ponta plana → cone → corpo cilíndrico → topo.
+  const points = [
+    new Vector2(0, -params.stemLength),
+    new Vector2(tipRadius, -params.stemLength),
+    new Vector2(radius, -params.stemLength + tipLength),
+    new Vector2(radius, 0),
+    new Vector2(0, 0),
+  ]
+
+  const raw = new LatheGeometry(points, STEM_SEGMENTS)
+  const geometry = cleanStemGeometry(raw)
+  geometry.translate(centerX, topY, params.thickness / 2)
+  return geometry
 }
 
 function buildSupport(
@@ -378,26 +574,28 @@ function buildSupport(
   plate: BufferGeometry,
   onError?: (message: string) => void,
 ): BufferGeometry | null {
-  plate.computeBoundingBox()
-  const plateBox = plate.boundingBox
-  if (!plateBox) return null
-  const plateMinY = plateBox.min.y
+  const sampler = createPlateBottomSampler(plate, params.thickness)
+  if (!sampler) return null
 
-  if (params.supportType === 'haste') {
-    const stem = new CylinderGeometry(
-      params.stemDiameter / 2,
-      params.stemDiameter / 2,
-      params.stemLength,
-      STEM_SEGMENTS,
+  try {
+    const radius = params.stemDiameter / 2
+    if (params.supportType === 'haste') {
+      return buildSingleStem(params, sampler, radius, onError)
+    }
+
+    const positions = resolveDoubleStemXs(sampler, params.stemSpacing, radius)
+    if (!positions) {
+      onError?.('Espaçamento insuficiente para haste dupla; usando haste simples')
+      return buildSingleStem(params, sampler, radius, onError)
+    }
+
+    const stems = [positions.left, positions.right].map((x) =>
+      buildStem(params, x, stemTopY(sampler, x, radius)),
     )
-    // Ancora sob o fundo real da placa e embute o topo (plateMinY + STEM_EMBED)
-    // para soldar os corpos.
-    const anchorX = plateBottomAnchorX(plate, params.thickness)
-    stem.translate(anchorX, plateMinY + STEM_EMBED - params.stemLength / 2, params.thickness / 2)
-    return stem
+    return mergeAll(stems, onError)
+  } finally {
+    sampler.dispose()
   }
-
-  return buildBase(params, plateMinY, onError)
 }
 
 export function buildCakeTopper(input: BuildCakeTopperInput): BuildCakeTopperResult {

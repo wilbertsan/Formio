@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3, type BufferGeometry } from 'three'
+import {
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+  Raycaster,
+  Vector3,
+  type BufferGeometry,
+} from 'three'
 import { Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
   buildCakeTopper,
@@ -17,9 +24,8 @@ const SVG_EMPTY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><
 const SVG_TRAPEZOID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M30,0 L70,0 L100,100 L0,100 Z" fill="#000"/></svg>'
 // Triângulo retângulo: base (SVG y=100) reduzida a um único ponto em x=0 (esquerda).
 const SVG_TRIANGLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L0,100 Z" fill="#000"/></svg>'
-
-// Deve bater com BASE_FLOOR em buildCakeTopper.ts.
-const BASE_FLOOR = 3
+const SVG_DISCONNECTED = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L30,0 L30,100 L0,100 Z M70,0 L100,0 L100,100 L70,100 Z" fill="#000"/></svg>'
+const SVG_NOTCH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L100,100 L53,100 L53,80 L51,80 L51,100 L0,100 Z" fill="#000"/></svg>'
 
 function mockFont(text: string): Font {
   const glyphs: FontData['glyphs'] = {}
@@ -70,6 +76,27 @@ function xIntervalInBand(geometry: BufferGeometry, fromY: number, toY: number): 
     }
   }
   return Number.isFinite(min) ? { min, max } : null
+}
+
+function plateBottomAtX(
+  plate: BufferGeometry,
+  x: number,
+  thickness: number,
+): number | null {
+  plate.computeBoundingBox()
+  const bb = plate.boundingBox
+  if (!bb) return null
+
+  const material = new MeshBasicMaterial({ side: DoubleSide })
+  const mesh = new Mesh(plate, material)
+  const raycaster = new Raycaster(
+    new Vector3(x, bb.max.y + 1, thickness / 2),
+    new Vector3(0, -1, 0),
+  )
+  const hits = raycaster.intersectObject(mesh)
+  material.dispose()
+  if (hits.length === 0) return null
+  return Math.min(...hits.map((hit) => hit.point.y))
 }
 
 describe('buildCakeTopper - placa', () => {
@@ -321,13 +348,15 @@ describe('buildCakeTopper - fixação (support)', () => {
     const pb = result.plate.boundingBox!
     result.support!.computeBoundingBox()
     const sb = result.support!.boundingBox!
-    const stemX = (sb.min.x + sb.max.x) / 2
+    const stemRadius = (sb.max.x - sb.min.x) / 2
 
-    // O fundo real do triângulo é um bico deslocado (não em x=0); a haste deve
-    // ficar sob esse fundo, dentro do intervalo de X da faixa inferior da placa.
+    // O fundo real do triângulo é um bico deslocado (não em x=0); a borda da
+    // haste deve ficar sob esse fundo, dentro do intervalo de X da faixa
+    // inferior da placa (o círculo inteiro precisa caber na placa).
     const band = xIntervalInBand(result.plate, pb.min.y, pb.min.y + 1)!
-    expect(stemX).toBeGreaterThanOrEqual(band.min - 0.25)
-    expect(stemX).toBeLessThanOrEqual(band.max + 0.25)
+    expect(sb.min.x).toBeGreaterThanOrEqual(band.min - 0.25)
+    expect(sb.min.x).toBeLessThanOrEqual(band.max + 0.25)
+    expect(stemRadius).toBeCloseTo(params.stemDiameter / 2, 5)
   })
 
   it('haste permanece centralizada em formas simétricas', () => {
@@ -338,44 +367,212 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect((sb.min.x + sb.max.x) / 2).toBeCloseTo(0, 3)
   })
 
-  it('base é transladada para o lado da placa', () => {
+  it('haste tem ponta cônica', () => {
     const params = {
       ...defaultCakeTopperParams,
-      supportType: 'base' as const,
-      baseWidth: 40,
+      shape: 'rounded-rect' as const,
+      supportType: 'haste' as const,
     }
     const result = buildCakeTopper({ params })
-    expect(result.support).not.toBeNull()
-    result.support!.computeBoundingBox()
-    expect(result.support!.boundingBox!.min.x).toBeGreaterThan(defaultCakeTopperParams.width / 2)
+    const support = result.support!
+    support.computeBoundingBox()
+    const bb = support.boundingBox!
+    const geometry = support.toNonIndexed()
+    const pos = geometry.getAttribute('position')
+    const centerX = (bb.min.x + bb.max.x) / 2
+    const centerZ = (bb.min.z + bb.max.z) / 2
+
+    let maxRadiusAtBottom = 0
+    let maxRadiusAtTop = 0
+    let degenerate = 0
+    for (let i = 0; i < pos.count; i += 3) {
+      const ax = pos.getX(i)
+      const ay = pos.getY(i)
+      const az = pos.getZ(i)
+      const bx = pos.getX(i + 1)
+      const by = pos.getY(i + 1)
+      const bz = pos.getZ(i + 1)
+      const cx = pos.getX(i + 2)
+      const cy = pos.getY(i + 2)
+      const cz = pos.getZ(i + 2)
+
+      const abx = bx - ax
+      const aby = by - ay
+      const abz = bz - az
+      const acx = cx - ax
+      const acy = cy - ay
+      const acz = cz - az
+      const crossX = aby * acz - abz * acy
+      const crossY = abz * acx - abx * acz
+      const crossZ = abx * acy - aby * acx
+      if (crossX * crossX + crossY * crossY + crossZ * crossZ <= 1e-18) degenerate++
+
+      if (ay <= bb.min.y + 1e-6) {
+        maxRadiusAtBottom = Math.max(maxRadiusAtBottom, Math.hypot(ax - centerX, az - centerZ))
+      }
+      if (ay >= bb.max.y - 1e-6) {
+        maxRadiusAtTop = Math.max(maxRadiusAtTop, Math.hypot(ax - centerX, az - centerZ))
+      }
+    }
+    geometry.dispose()
+
+    expect(maxRadiusAtBottom).toBeCloseTo(0.4, 1)
+    expect(maxRadiusAtTop).toBeCloseTo(params.stemDiameter / 2, 1)
+    expect(degenerate).toBe(0)
   })
 
-  it('base tem piso e forma um corpo conectado (canal não atravessa)', () => {
+  it('limita a ponta cônica a metade do comprimento', () => {
     const params = {
       ...defaultCakeTopperParams,
-      supportType: 'base' as const,
-      baseWidth: 40,
-      slotDepth: 10,
+      shape: 'rounded-rect' as const,
+      supportType: 'haste' as const,
+      stemDiameter: 8,
+      stemLength: 20,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    support.computeBoundingBox()
+    const bb = support.boundingBox!
+    const nonIndexed = support.toNonIndexed()
+    const pos = nonIndexed.getAttribute('position')
+    const centerX = (bb.min.x + bb.max.x) / 2
+    const centerZ = (bb.min.z + bb.max.z) / 2
+    const coneBaseY = bb.min.y + 10
+
+    let maxRadiusAtConeBase = 0
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i)
+      if (Math.abs(y - coneBaseY) < 0.01) {
+        maxRadiusAtConeBase = Math.max(
+          maxRadiusAtConeBase,
+          Math.hypot(pos.getX(i) - centerX, pos.getZ(i) - centerZ),
+        )
+      }
+    }
+    nonIndexed.dispose()
+
+    expect(maxRadiusAtConeBase).toBeCloseTo(params.stemDiameter / 2, 1)
+  })
+
+  it('haste dupla gera duas hastes com o espaçamento configurado', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'rounded-rect' as const,
+      supportType: 'haste-dupla' as const,
+      stemSpacing: 30,
+      stemDiameter: 4,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    support.computeBoundingBox()
+    const bb = support.boundingBox!
+    const plate = result.plate
+    plate.computeBoundingBox()
+    const plateMinY = plate.boundingBox!.min.y
+
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.stemDiameter, 1)
+    expect(bb.max.y - bb.min.y).toBeCloseTo(params.stemLength, 5)
+    expect(bb.max.y).toBeCloseTo(plateMinY + 2, 5)
+
+    const nonIndexed = support.toNonIndexed()
+    const pos = nonIndexed.getAttribute('position')
+    let minAbsX = Infinity
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i)
+      if (Math.abs(x) > 1e-6) minAbsX = Math.min(minAbsX, Math.abs(x))
+    }
+    nonIndexed.dispose()
+
+    expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.stemDiameter / 2 - 0.1)
+  })
+
+  it('aproxima as hastes mantendo o par simétrico', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'circle' as const,
+      width: 50,
+      height: 50,
+      supportType: 'haste-dupla' as const,
+      stemSpacing: 40,
+      stemDiameter: 4,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    support.computeBoundingBox()
+    const sb = support.boundingBox!
+
+    expect(sb.max.x - sb.min.x).toBeGreaterThan(params.stemDiameter)
+    expect(Math.abs((sb.min.x + sb.max.x) / 2)).toBeLessThan(1)
+  })
+
+  it('usa haste simples quando não há espaço para duas hastes', () => {
+    const onError = vi.fn()
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_TRIANGLE,
+      width: 100,
+      height: 100,
+      supportType: 'haste-dupla' as const,
+      stemDiameter: 8,
+      stemSpacing: 20,
+    }
+    const result = buildCakeTopper({ params, onError })
+    expect(result.support).not.toBeNull()
+    result.support!.computeBoundingBox()
+    const bb = result.support!.boundingBox!
+    const centerX = (bb.min.x + bb.max.x) / 2
+    expect(plateBottomAtX(result.plate, centerX, params.thickness)).not.toBeNull()
+    result.plate.computeBoundingBox()
+    const pb = result.plate.boundingBox!
+    expect(bb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
+    expect(bb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
+
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemDiameter, 1)
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('haste simples'))
+  })
+
+  it('posiciona a haste dupla sob os lobes de um contorno desconexo', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_DISCONNECTED,
+      width: 100,
+      height: 100,
+      supportType: 'haste-dupla' as const,
+      stemDiameter: 3,
+      stemSpacing: 10,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    const nonIndexed = support.toNonIndexed()
+    const pos = nonIndexed.getAttribute('position')
+    let hasVertexInGap = false
+    for (let i = 0; i < pos.count; i++) {
+      if (Math.abs(pos.getX(i)) < 19.9) hasVertexInGap = true
+    }
+    nonIndexed.dispose()
+
+    expect(hasVertexInGap).toBe(false)
+  })
+
+  it('não posiciona a haste sobre um entalhe do contorno', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_NOTCH,
+      width: 100,
+      height: 100,
+      supportType: 'haste' as const,
+      stemDiameter: 8,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
 
-    // A altura inclui o piso.
-    expect(bb.max.y - bb.min.y).toBeCloseTo(params.slotDepth + BASE_FLOOR, 5)
-
-    // Um raio pelo centro do canal encontra o piso (entrada e saída = sólido
-    // fechado). Se o canal atravessasse o bloco, o raio passaria direto.
-    const centerX = (bb.min.x + bb.max.x) / 2
-    const centerZ = (bb.min.z + bb.max.z) / 2
-    const raycaster = new Raycaster(
-      new Vector3(centerX, bb.max.y + 5, centerZ),
-      new Vector3(0, -1, 0),
-    )
-    const mesh = new Mesh(support, new MeshBasicMaterial({ side: DoubleSide }))
-    const hits = raycaster.intersectObject(mesh)
-    expect(hits.length).toBeGreaterThanOrEqual(2)
+    // O entalhe tem 2mm (x≈1..3): a haste de 8mm não pode cobri-lo.
+    expect(bb.max.x <= 1 + 0.01 || bb.min.x >= 3 - 0.01).toBe(true)
   })
 })
 

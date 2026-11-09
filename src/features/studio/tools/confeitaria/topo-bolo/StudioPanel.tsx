@@ -24,10 +24,7 @@ const SLIDER_LIMITS = {
   iconScale: { min: 0.5, max: 2, step: 0.1 },
   stemDiameter: { min: 3, max: 8, step: 0.5 },
   stemLength: { min: 20, max: 60, step: 1 },
-  slotWidth: { min: 2.4, max: 4.5, step: 0.1 },
-  slotDepth: { min: 5, max: 20, step: 1 },
-  baseWidth: { min: 30, max: 60, step: 1 },
-  baseDepth: { min: 20, max: 40, step: 1 },
+  stemSpacing: { min: 10, max: 40, step: 1 },
 } as const
 
 interface StudioPanelProps {
@@ -455,102 +452,55 @@ export function StudioPanel({
                 value={params.supportType}
                 onChange={(event) => onUpdateParam('supportType', event.target.value)}
               >
-                <option value="haste">Haste (palito)</option>
-                <option value="base">Base de encaixe</option>
+                <option value="haste">Haste</option>
+                <option value="haste-dupla">Haste dupla</option>
               </SelectField>
 
-              {params.supportType === 'haste' ? (
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Diâmetro da haste</Text>
+                <Text fontSize="xs" color="font.secondary">{params.stemDiameter} mm</Text>
+              </Flex>
+              <SliderField
+                label="Diâmetro da haste"
+                labelHidden
+                aria-label="Diâmetro da haste"
+                min={SLIDER_LIMITS.stemDiameter.min}
+                max={SLIDER_LIMITS.stemDiameter.max}
+                step={SLIDER_LIMITS.stemDiameter.step}
+                value={params.stemDiameter}
+                onChange={(value) => onUpdateParam('stemDiameter', value as number)}
+              />
+
+              <Flex direction="row" justifyContent="space-between">
+                <Text fontSize="xs" color="font.tertiary">Comprimento da haste</Text>
+                <Text fontSize="xs" color="font.secondary">{params.stemLength} mm</Text>
+              </Flex>
+              <SliderField
+                label="Comprimento da haste"
+                labelHidden
+                aria-label="Comprimento da haste"
+                min={SLIDER_LIMITS.stemLength.min}
+                max={SLIDER_LIMITS.stemLength.max}
+                step={SLIDER_LIMITS.stemLength.step}
+                value={params.stemLength}
+                onChange={(value) => onUpdateParam('stemLength', value as number)}
+              />
+
+              {params.supportType === 'haste-dupla' && (
                 <>
                   <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Diâmetro da haste</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.stemDiameter} mm</Text>
+                    <Text fontSize="xs" color="font.tertiary">Espaçamento das hastes</Text>
+                    <Text fontSize="xs" color="font.secondary">{params.stemSpacing} mm</Text>
                   </Flex>
                   <SliderField
-                    label="Diâmetro da haste"
+                    label="Espaçamento das hastes"
                     labelHidden
-                    aria-label="Diâmetro da haste"
-                    min={SLIDER_LIMITS.stemDiameter.min}
-                    max={SLIDER_LIMITS.stemDiameter.max}
-                    step={SLIDER_LIMITS.stemDiameter.step}
-                    value={params.stemDiameter}
-                    onChange={(value) => onUpdateParam('stemDiameter', value as number)}
-                  />
-
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Comprimento da haste</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.stemLength} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Comprimento da haste"
-                    labelHidden
-                    aria-label="Comprimento da haste"
-                    min={SLIDER_LIMITS.stemLength.min}
-                    max={SLIDER_LIMITS.stemLength.max}
-                    step={SLIDER_LIMITS.stemLength.step}
-                    value={params.stemLength}
-                    onChange={(value) => onUpdateParam('stemLength', value as number)}
-                  />
-                </>
-              ) : (
-                <>
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Largura da base</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.baseWidth} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Largura da base"
-                    labelHidden
-                    aria-label="Largura da base"
-                    min={SLIDER_LIMITS.baseWidth.min}
-                    max={SLIDER_LIMITS.baseWidth.max}
-                    step={SLIDER_LIMITS.baseWidth.step}
-                    value={params.baseWidth}
-                    onChange={(value) => onUpdateParam('baseWidth', value as number)}
-                  />
-
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Profundidade da base</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.baseDepth} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Profundidade da base"
-                    labelHidden
-                    aria-label="Profundidade da base"
-                    min={SLIDER_LIMITS.baseDepth.min}
-                    max={SLIDER_LIMITS.baseDepth.max}
-                    step={SLIDER_LIMITS.baseDepth.step}
-                    value={params.baseDepth}
-                    onChange={(value) => onUpdateParam('baseDepth', value as number)}
-                  />
-
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Largura do encaixe</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.slotWidth} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Largura do encaixe"
-                    labelHidden
-                    aria-label="Largura do encaixe"
-                    min={SLIDER_LIMITS.slotWidth.min}
-                    max={SLIDER_LIMITS.slotWidth.max}
-                    step={SLIDER_LIMITS.slotWidth.step}
-                    value={params.slotWidth}
-                    onChange={(value) => onUpdateParam('slotWidth', value as number)}
-                  />
-
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Profundidade do encaixe</Text>
-                    <Text fontSize="xs" color="font.secondary">{params.slotDepth} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label="Profundidade do encaixe"
-                    labelHidden
-                    aria-label="Profundidade do encaixe"
-                    min={SLIDER_LIMITS.slotDepth.min}
-                    max={SLIDER_LIMITS.slotDepth.max}
-                    step={SLIDER_LIMITS.slotDepth.step}
-                    value={params.slotDepth}
-                    onChange={(value) => onUpdateParam('slotDepth', value as number)}
+                    aria-label="Espaçamento das hastes"
+                    min={SLIDER_LIMITS.stemSpacing.min}
+                    max={SLIDER_LIMITS.stemSpacing.max}
+                    step={SLIDER_LIMITS.stemSpacing.step}
+                    value={params.stemSpacing}
+                    onChange={(value) => onUpdateParam('stemSpacing', value as number)}
                   />
                 </>
               )}
