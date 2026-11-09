@@ -437,20 +437,21 @@ describe('buildCakeTopper - fixação (support)', () => {
     const pos = nonIndexed.getAttribute('position')
     const centerX = (bb.min.x + bb.max.x) / 2
     const centerZ = (bb.min.z + bb.max.z) / 2
+    const coneBaseY = bb.min.y + 10
 
-    let maxRadiusAboveTip = 0
+    let maxRadiusAtConeBase = 0
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i)
-      if (y > bb.min.y + 10.01) {
-        maxRadiusAboveTip = Math.max(
-          maxRadiusAboveTip,
+      if (Math.abs(y - coneBaseY) < 0.01) {
+        maxRadiusAtConeBase = Math.max(
+          maxRadiusAtConeBase,
           Math.hypot(pos.getX(i) - centerX, pos.getZ(i) - centerZ),
         )
       }
     }
     nonIndexed.dispose()
 
-    expect(maxRadiusAboveTip).toBeCloseTo(params.stemDiameter / 2, 1)
+    expect(maxRadiusAtConeBase).toBeCloseTo(params.stemDiameter / 2, 1)
   })
 
   it('haste dupla gera duas hastes com o espaçamento configurado', () => {
@@ -522,6 +523,10 @@ describe('buildCakeTopper - fixação (support)', () => {
     const bb = result.support!.boundingBox!
     const centerX = (bb.min.x + bb.max.x) / 2
     expect(plateBottomAtX(result.plate, centerX, params.thickness)).not.toBeNull()
+    result.plate.computeBoundingBox()
+    const pb = result.plate.boundingBox!
+    expect(bb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
+    expect(bb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
 
     expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemDiameter, 1)
     expect(onError).toHaveBeenCalledWith(expect.stringContaining('haste simples'))

@@ -192,7 +192,7 @@ describe('exportCakeTopperStl', () => {
     expect(harness.removeChildSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('une placa, relevo e haste reais sem perder atributos', () => {
+  it('une placa e haste reais sem perder atributos', () => {
     const harness = setupDownloadHarness()
     const result = buildCakeTopper({ params: defaultCakeTopperParams })
     exportCakeTopperStl(result, 'Build real')

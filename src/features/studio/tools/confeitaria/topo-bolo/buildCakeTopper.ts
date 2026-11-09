@@ -485,7 +485,11 @@ function buildSingleStem(
   if (resolvedX === null) {
     onError?.('Haste maior que a placa; usando âncora')
   }
-  const x = resolvedX ?? anchorX
+  // Sem X válido, mantém a haste dentro dos limites horizontais da placa.
+  const minX = sampler.minX + radius
+  const maxX = sampler.maxX - radius
+  const fallbackX = minX <= maxX ? Math.min(maxX, Math.max(minX, anchorX)) : 0
+  const x = resolvedX ?? fallbackX
   return buildStem(params, x, stemTopY(sampler, x, radius))
 }
 
