@@ -380,20 +380,37 @@ function isStemXValid(
   )
 }
 
-// Move X em direção ao centro até o círculo inteiro da haste caber na placa.
+function collectValidStemXs(
+  sampler: PlateBottomSampler,
+  radius: number,
+): number[] {
+  const xs: number[] = []
+  const step = 0.5
+  for (let x = sampler.minX + radius; x <= sampler.maxX - radius + 1e-6; x += step) {
+    if (isStemXValid(sampler, x, radius)) xs.push(x)
+  }
+  return xs
+}
+
+// Escolhe o X válido mais próximo do candidato.
 function resolveStemX(
   sampler: PlateBottomSampler,
   candidateX: number,
   radius: number,
-): number {
-  const step = 0.5
-  const direction = Math.sign(candidateX) || 1
-  const maxSteps = Math.ceil(Math.abs(candidateX) / step)
-  for (let i = 0; i <= maxSteps; i++) {
-    const x = candidateX - direction * i * step
-    if (isStemXValid(sampler, x, radius)) return x
+): number | null {
+  const xs = collectValidStemXs(sampler, radius)
+  if (xs.length === 0) return null
+
+  let best = xs[0]
+  let bestDistance = Math.abs(best - candidateX)
+  for (const x of xs) {
+    const distance = Math.abs(x - candidateX)
+    if (distance < bestDistance) {
+      best = x
+      bestDistance = distance
+    }
   }
-  return 0
+  return best
 }
 
 // Topo da haste: maior fundo sob o disco, garantindo que o círculo inteiro
@@ -414,26 +431,16 @@ function stemTopY(
   return highest + STEM_EMBED
 }
 
-function collectValidStemXs(
-  sampler: PlateBottomSampler,
-  radius: number,
-): number[] {
-  const xs: number[] = []
-  const step = 0.5
-  for (let x = sampler.minX + radius; x <= sampler.maxX - radius + 1e-6; x += step) {
-    if (isStemXValid(sampler, x, radius)) xs.push(x)
-  }
-  return xs
-}
-
-// Duas hastes válidas e separadas ou null quando a placa não comporta.
+// Busca um par de X válidos e separados, ou null quando a placa não comporta.
 function resolveDoubleStemXs(
   sampler: PlateBottomSampler,
   spacing: number,
   radius: number,
 ): { left: number; right: number } | null {
+  const minSeparation = radius * 2 + STEM_MIN_GAP
   const desiredHalf = spacing / 2
   if (
+    desiredHalf * 2 >= minSeparation &&
     isStemXValid(sampler, -desiredHalf, radius) &&
     isStemXValid(sampler, desiredHalf, radius)
   ) {
@@ -441,20 +448,35 @@ function resolveDoubleStemXs(
   }
 
   const xs = collectValidStemXs(sampler, radius)
-  if (xs.length === 0) return null
-
-  const minSeparation = radius * 2 + STEM_MIN_GAP
-  const xMin = xs[0]
-  const xMax = xs[xs.length - 1]
-  if (xMax - xMin < minSeparation) return null
-
-  let left = Math.max(xMin, -desiredHalf)
-  let right = Math.min(xMax, desiredHalf)
-  if (right - left < minSeparation) {
-    left = xMin
-    right = xMax
+  let best: { left: number; right: number } | null = null
+  let bestScore = Infinity
+  let j = 0
+  for (let i = 0; i < xs.length; i++) {
+    if (j <= i) j = i + 1
+    while (j < xs.length && xs[j] - xs[i] < minSeparation) j++
+    if (j >= xs.length) break
+    const score = Math.abs(xs[i] + desiredHalf) + Math.abs(xs[j] - desiredHalf)
+    if (score < bestScore) {
+      bestScore = score
+      best = { left: xs[i], right: xs[j] }
+    }
   }
-  return { left, right }
+  return best
+}
+
+function buildSingleStem(
+  params: CakeTopperParams,
+  sampler: PlateBottomSampler,
+  radius: number,
+  onError?: (message: string) => void,
+): BufferGeometry {
+  const anchorX = plateBottomAnchor(sampler)
+  const resolvedX = resolveStemX(sampler, anchorX, radius)
+  if (resolvedX === null) {
+    onError?.('Haste maior que a placa; usando âncora')
+  }
+  const x = resolvedX ?? anchorX
+  return buildStem(params, x, stemTopY(sampler, x, radius))
 }
 
 // Remove triângulos de área zero dos polos e solda vértices duplicados.
@@ -537,17 +559,13 @@ function buildSupport(
   try {
     const radius = params.stemDiameter / 2
     if (params.supportType === 'haste') {
-      const anchorX = plateBottomAnchor(sampler)
-      const x = resolveStemX(sampler, anchorX, radius)
-      return buildStem(params, x, stemTopY(sampler, x, radius))
+      return buildSingleStem(params, sampler, radius, onError)
     }
 
     const positions = resolveDoubleStemXs(sampler, params.stemSpacing, radius)
     if (!positions) {
       onError?.('Espaçamento insuficiente para haste dupla; usando haste simples')
-      const anchorX = plateBottomAnchor(sampler)
-      const x = resolveStemX(sampler, anchorX, radius)
-      return buildStem(params, x, stemTopY(sampler, x, radius))
+      return buildSingleStem(params, sampler, radius, onError)
     }
 
     const stems = [positions.left, positions.right].map((x) =>

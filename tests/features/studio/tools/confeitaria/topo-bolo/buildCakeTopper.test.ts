@@ -1,5 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { BufferGeometry } from 'three'
+import {
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+  Raycaster,
+  Vector3,
+  type BufferGeometry,
+} from 'three'
 import { Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
   buildCakeTopper,
@@ -17,6 +24,7 @@ const SVG_EMPTY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><
 const SVG_TRAPEZOID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M30,0 L70,0 L100,100 L0,100 Z" fill="#000"/></svg>'
 // Triângulo retângulo: base (SVG y=100) reduzida a um único ponto em x=0 (esquerda).
 const SVG_TRIANGLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L0,100 Z" fill="#000"/></svg>'
+const SVG_DISCONNECTED = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L30,0 L30,100 L0,100 Z M70,0 L100,0 L100,100 L70,100 Z" fill="#000"/></svg>'
 
 function mockFont(text: string): Font {
   const glyphs: FontData['glyphs'] = {}
@@ -67,6 +75,27 @@ function xIntervalInBand(geometry: BufferGeometry, fromY: number, toY: number): 
     }
   }
   return Number.isFinite(min) ? { min, max } : null
+}
+
+function plateBottomAtX(
+  plate: BufferGeometry,
+  x: number,
+  thickness: number,
+): number | null {
+  plate.computeBoundingBox()
+  const bb = plate.boundingBox
+  if (!bb) return null
+
+  const material = new MeshBasicMaterial({ side: DoubleSide })
+  const mesh = new Mesh(plate, material)
+  const raycaster = new Raycaster(
+    new Vector3(x, bb.max.y + 1, thickness / 2),
+    new Vector3(0, -1, 0),
+  )
+  const hits = raycaster.intersectObject(mesh)
+  material.dispose()
+  if (hits.length === 0) return null
+  return Math.min(...hits.map((hit) => hit.point.y))
 }
 
 describe('buildCakeTopper - placa', () => {
@@ -460,9 +489,35 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect(result.support).not.toBeNull()
     result.support!.computeBoundingBox()
     const bb = result.support!.boundingBox!
+    const centerX = (bb.min.x + bb.max.x) / 2
+    expect(plateBottomAtX(result.plate, centerX, params.thickness)).not.toBeNull()
 
     expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemDiameter, 1)
     expect(onError).toHaveBeenCalledWith(expect.stringContaining('haste simples'))
+  })
+
+  it('posiciona a haste dupla sob os lobes de um contorno desconexo', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_DISCONNECTED,
+      width: 100,
+      height: 100,
+      supportType: 'haste-dupla' as const,
+      stemDiameter: 3,
+      stemSpacing: 10,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    const nonIndexed = support.toNonIndexed()
+    const pos = nonIndexed.getAttribute('position')
+    let hasVertexInGap = false
+    for (let i = 0; i < pos.count; i++) {
+      if (Math.abs(pos.getX(i)) < 5) hasVertexInGap = true
+    }
+    nonIndexed.dispose()
+
+    expect(hasVertexInGap).toBe(false)
   })
 })
 
