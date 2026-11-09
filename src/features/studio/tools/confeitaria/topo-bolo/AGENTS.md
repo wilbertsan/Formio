@@ -10,7 +10,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 
 ## Parâmetros
 
-- Formato: `circle`, `rounded-rect`, `oval` ou `custom` (contorno definido por SVG)
+- Formato: `circle`, `rounded-rect` (padrão), `oval` ou `custom` (contorno definido por SVG)
 - Largura: 50–120mm
 - Altura: 30–80mm
 - Espessura: 2–4mm
