@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import type { MockInstance } from 'vitest'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { exportCakeTopperStl } from '@/features/studio/tools/confeitaria/topo-bolo/exportStl'
+import { buildCakeTopper } from '@/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper'
+import { defaultCakeTopperParams } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
 
 vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', async (importOriginal) => {
   const actual =
@@ -188,5 +190,16 @@ describe('exportCakeTopperStl', () => {
     expect(harness.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
     expect(harness.appendChildSpy).toHaveBeenCalledTimes(1)
     expect(harness.removeChildSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('une placa, relevo e haste reais sem perder atributos', () => {
+    const harness = setupDownloadHarness()
+    const result = buildCakeTopper({ params: defaultCakeTopperParams })
+    exportCakeTopperStl(result, 'Build real')
+
+    const passedParts = mergeMock.mock.calls[0]?.[0] as THREE.BufferGeometry[]
+    expect(passedParts).toHaveLength(2)
+    expect(mergeMock.mock.results[0]?.value).not.toBeNull()
+    expect(harness.anchorStub.download).toBe('Build-real.stl')
   })
 })

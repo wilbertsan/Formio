@@ -429,6 +429,17 @@ function stemTopY(
 }
 
 // Busca um par de X válidos e separados, ou null quando a placa não comporta.
+function lowerBound(xs: number[], value: number): number {
+  let low = 0
+  let high = xs.length
+  while (low < high) {
+    const mid = (low + high) >> 1
+    if (xs[mid] < value) low = mid + 1
+    else high = mid
+  }
+  return low
+}
+
 function resolveDoubleStemXs(
   sampler: PlateBottomSampler,
   spacing: number,
@@ -447,15 +458,17 @@ function resolveDoubleStemXs(
   const xs = collectValidStemXs(sampler, radius)
   let best: { left: number; right: number } | null = null
   let bestScore = Infinity
-  let j = 0
   for (let i = 0; i < xs.length; i++) {
-    if (j <= i) j = i + 1
-    while (j < xs.length && xs[j] - xs[i] < minSeparation) j++
-    if (j >= xs.length) break
-    const score = Math.abs(xs[i] + desiredHalf) + Math.abs(xs[j] - desiredHalf)
-    if (score < bestScore) {
-      bestScore = score
-      best = { left: xs[i], right: xs[j] }
+    const targetRight = Math.max(desiredHalf, xs[i] + minSeparation)
+    const start = lowerBound(xs, targetRight)
+    for (const j of [start, start - 1]) {
+      if (j <= i || j < 0 || j >= xs.length) continue
+      if (xs[j] - xs[i] < minSeparation) continue
+      const score = Math.abs(xs[i] + desiredHalf) + Math.abs(xs[j] - desiredHalf)
+      if (score < bestScore) {
+        bestScore = score
+        best = { left: xs[i], right: xs[j] }
+      }
     }
   }
   return best
@@ -514,6 +527,13 @@ function cleanStemGeometry(geometry: BufferGeometry): BufferGeometry {
   filtered.dispose()
   if (source !== geometry) source.dispose()
   geometry.dispose()
+  welded.setAttribute(
+    'uv',
+    new Float32BufferAttribute(
+      new Float32Array(welded.getAttribute('position').count * 2),
+      2,
+    ),
+  )
   welded.computeVertexNormals()
   return welded
 }

@@ -421,6 +421,38 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect(degenerate).toBe(0)
   })
 
+  it('limita a ponta cônica a metade do comprimento', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'rounded-rect' as const,
+      supportType: 'haste' as const,
+      stemDiameter: 8,
+      stemLength: 20,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    support.computeBoundingBox()
+    const bb = support.boundingBox!
+    const nonIndexed = support.toNonIndexed()
+    const pos = nonIndexed.getAttribute('position')
+    const centerX = (bb.min.x + bb.max.x) / 2
+    const centerZ = (bb.min.z + bb.max.z) / 2
+
+    let maxRadiusAboveTip = 0
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i)
+      if (y > bb.min.y + 10.01) {
+        maxRadiusAboveTip = Math.max(
+          maxRadiusAboveTip,
+          Math.hypot(pos.getX(i) - centerX, pos.getZ(i) - centerZ),
+        )
+      }
+    }
+    nonIndexed.dispose()
+
+    expect(maxRadiusAboveTip).toBeCloseTo(params.stemDiameter / 2, 1)
+  })
+
   it('haste dupla gera duas hastes com o espaçamento configurado', () => {
     const params = {
       ...defaultCakeTopperParams,
@@ -453,25 +485,23 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.stemDiameter / 2 - 0.1)
   })
 
-  it('aproxima as hastes quando o espaçamento excede a placa', () => {
+  it('aproxima as hastes mantendo o par simétrico', () => {
     const params = {
       ...defaultCakeTopperParams,
       shape: 'circle' as const,
       width: 50,
-      height: 30,
+      height: 50,
       supportType: 'haste-dupla' as const,
       stemSpacing: 40,
-      stemDiameter: 8,
+      stemDiameter: 4,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const sb = support.boundingBox!
-    result.plate.computeBoundingBox()
-    const pb = result.plate.boundingBox!
 
-    expect(sb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
-    expect(sb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
+    expect(sb.max.x - sb.min.x).toBeGreaterThan(params.stemDiameter)
+    expect(Math.abs((sb.min.x + sb.max.x) / 2)).toBeLessThan(1)
   })
 
   it('usa haste simples quando não há espaço para duas hastes', () => {
