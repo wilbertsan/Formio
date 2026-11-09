@@ -341,14 +341,14 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste' as const,
-      stemDiameter: 4,
+      stemWidth: 4,
     }
     const result = buildCakeTopper({ params })
     result.plate.computeBoundingBox()
     const pb = result.plate.boundingBox!
     result.support!.computeBoundingBox()
     const sb = result.support!.boundingBox!
-    const stemRadius = (sb.max.x - sb.min.x) / 2
+    const stemHalfWidth = (sb.max.x - sb.min.x) / 2
 
     // O fundo real do triângulo é um bico deslocado (não em x=0); a borda da
     // haste deve ficar sob esse fundo, dentro do intervalo de X da faixa
@@ -356,7 +356,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     const band = xIntervalInBand(result.plate, pb.min.y, pb.min.y + 1)!
     expect(sb.min.x).toBeGreaterThanOrEqual(band.min - 0.25)
     expect(sb.min.x).toBeLessThanOrEqual(band.max + 0.25)
-    expect(stemRadius).toBeCloseTo(params.stemDiameter / 2, 5)
+    expect(stemHalfWidth).toBeCloseTo(params.stemWidth / 2, 5)
   })
 
   it('haste permanece centralizada em formas simétricas', () => {
@@ -367,7 +367,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect((sb.min.x + sb.max.x) / 2).toBeCloseTo(0, 3)
   })
 
-  it('haste tem ponta cônica', () => {
+  it('haste é plana com a espessura da placa e ponta chanfrada', () => {
     const params = {
       ...defaultCakeTopperParams,
       shape: 'rounded-rect' as const,
@@ -377,13 +377,12 @@ describe('buildCakeTopper - fixação (support)', () => {
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
-    const geometry = support.toNonIndexed()
+    const geometry = support
     const pos = geometry.getAttribute('position')
     const centerX = (bb.min.x + bb.max.x) / 2
-    const centerZ = (bb.min.z + bb.max.z) / 2
 
-    let maxRadiusAtBottom = 0
-    let maxRadiusAtTop = 0
+    let maxHalfWidthAtBottom = 0
+    let maxHalfWidthAtTop = 0
     let degenerate = 0
     for (let i = 0; i < pos.count; i += 3) {
       const ax = pos.getX(i)
@@ -408,50 +407,47 @@ describe('buildCakeTopper - fixação (support)', () => {
       if (crossX * crossX + crossY * crossY + crossZ * crossZ <= 1e-18) degenerate++
 
       if (ay <= bb.min.y + 1e-6) {
-        maxRadiusAtBottom = Math.max(maxRadiusAtBottom, Math.hypot(ax - centerX, az - centerZ))
+        maxHalfWidthAtBottom = Math.max(maxHalfWidthAtBottom, Math.abs(ax - centerX))
       }
       if (ay >= bb.max.y - 1e-6) {
-        maxRadiusAtTop = Math.max(maxRadiusAtTop, Math.hypot(ax - centerX, az - centerZ))
+        maxHalfWidthAtTop = Math.max(maxHalfWidthAtTop, Math.abs(ax - centerX))
       }
     }
-    geometry.dispose()
 
-    expect(maxRadiusAtBottom).toBeCloseTo(0.4, 1)
-    expect(maxRadiusAtTop).toBeCloseTo(params.stemDiameter / 2, 1)
+    expect(bb.max.z - bb.min.z).toBeCloseTo(params.thickness, 5)
+    expect(maxHalfWidthAtBottom).toBeCloseTo(0.4, 1)
+    expect(maxHalfWidthAtTop).toBeCloseTo(params.stemWidth / 2, 1)
     expect(degenerate).toBe(0)
   })
 
-  it('limita a ponta cônica a metade do comprimento', () => {
+  it('limita a ponta chanfrada a metade do comprimento', () => {
     const params = {
       ...defaultCakeTopperParams,
       shape: 'rounded-rect' as const,
       supportType: 'haste' as const,
-      stemDiameter: 8,
+      stemWidth: 8,
       stemLength: 20,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
-    const nonIndexed = support.toNonIndexed()
-    const pos = nonIndexed.getAttribute('position')
+    const pos = support.getAttribute('position')
     const centerX = (bb.min.x + bb.max.x) / 2
-    const centerZ = (bb.min.z + bb.max.z) / 2
-    const coneBaseY = bb.min.y + 10
+    const tipBaseY = bb.min.y + 10
 
-    let maxRadiusAtConeBase = 0
+    let maxHalfWidthAtTipBase = 0
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i)
-      if (Math.abs(y - coneBaseY) < 0.01) {
-        maxRadiusAtConeBase = Math.max(
-          maxRadiusAtConeBase,
-          Math.hypot(pos.getX(i) - centerX, pos.getZ(i) - centerZ),
+      if (Math.abs(y - tipBaseY) < 0.01) {
+        maxHalfWidthAtTipBase = Math.max(
+          maxHalfWidthAtTipBase,
+          Math.abs(pos.getX(i) - centerX),
         )
       }
     }
-    nonIndexed.dispose()
 
-    expect(maxRadiusAtConeBase).toBeCloseTo(params.stemDiameter / 2, 1)
+    expect(maxHalfWidthAtTipBase).toBeCloseTo(params.stemWidth / 2, 1)
   })
 
   it('haste dupla gera duas hastes com o espaçamento configurado', () => {
@@ -460,7 +456,7 @@ describe('buildCakeTopper - fixação (support)', () => {
       shape: 'rounded-rect' as const,
       supportType: 'haste-dupla' as const,
       stemSpacing: 30,
-      stemDiameter: 4,
+      stemWidth: 4,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
@@ -470,20 +466,18 @@ describe('buildCakeTopper - fixação (support)', () => {
     plate.computeBoundingBox()
     const plateMinY = plate.boundingBox!.min.y
 
-    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.stemDiameter, 1)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.stemWidth, 1)
     expect(bb.max.y - bb.min.y).toBeCloseTo(params.stemLength, 5)
     expect(bb.max.y).toBeCloseTo(plateMinY + 2, 5)
 
-    const nonIndexed = support.toNonIndexed()
-    const pos = nonIndexed.getAttribute('position')
+    const pos = support.getAttribute('position')
     let minAbsX = Infinity
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i)
       if (Math.abs(x) > 1e-6) minAbsX = Math.min(minAbsX, Math.abs(x))
     }
-    nonIndexed.dispose()
 
-    expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.stemDiameter / 2 - 0.1)
+    expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.stemWidth / 2 - 0.1)
   })
 
   it('aproxima as hastes mantendo o par simétrico', () => {
@@ -494,14 +488,14 @@ describe('buildCakeTopper - fixação (support)', () => {
       height: 50,
       supportType: 'haste-dupla' as const,
       stemSpacing: 40,
-      stemDiameter: 4,
+      stemWidth: 4,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const sb = support.boundingBox!
 
-    expect(sb.max.x - sb.min.x).toBeGreaterThan(params.stemDiameter)
+    expect(sb.max.x - sb.min.x).toBeGreaterThan(params.stemWidth)
     expect(Math.abs((sb.min.x + sb.max.x) / 2)).toBeLessThan(1)
   })
 
@@ -514,7 +508,7 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste-dupla' as const,
-      stemDiameter: 8,
+      stemWidth: 8,
       stemSpacing: 20,
     }
     const result = buildCakeTopper({ params, onError })
@@ -528,7 +522,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect(bb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
     expect(bb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
 
-    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemDiameter, 1)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemWidth, 1)
     expect(onError).toHaveBeenCalledWith(expect.stringContaining('haste simples'))
   })
 
@@ -540,18 +534,16 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste-dupla' as const,
-      stemDiameter: 3,
+      stemWidth: 3,
       stemSpacing: 10,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
-    const nonIndexed = support.toNonIndexed()
-    const pos = nonIndexed.getAttribute('position')
+    const pos = support.getAttribute('position')
     let hasVertexInGap = false
     for (let i = 0; i < pos.count; i++) {
       if (Math.abs(pos.getX(i)) < 19.9) hasVertexInGap = true
     }
-    nonIndexed.dispose()
 
     expect(hasVertexInGap).toBe(false)
   })
@@ -564,7 +556,7 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste' as const,
-      stemDiameter: 8,
+      stemWidth: 8,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!

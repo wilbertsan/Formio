@@ -22,7 +22,7 @@ const SLIDER_LIMITS = {
   thickness: { min: 2, max: 4, step: 0.5 },
   cornerRadius: { min: 3, max: 15, step: 1 },
   iconScale: { min: 0.5, max: 2, step: 0.1 },
-  stemDiameter: { min: 3, max: 8, step: 0.5 },
+  stemWidth: { min: 3, max: 8, step: 0.5 },
   stemLength: { min: 20, max: 60, step: 1 },
   stemSpacing: { min: 10, max: 40, step: 1 },
 } as const
@@ -457,18 +457,18 @@ export function StudioPanel({
               </SelectField>
 
               <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Diâmetro da haste</Text>
-                <Text fontSize="xs" color="font.secondary">{params.stemDiameter} mm</Text>
+                <Text fontSize="xs" color="font.tertiary">Largura da haste</Text>
+                <Text fontSize="xs" color="font.secondary">{params.stemWidth} mm</Text>
               </Flex>
               <SliderField
-                label="Diâmetro da haste"
+                label="Largura da haste"
                 labelHidden
-                aria-label="Diâmetro da haste"
-                min={SLIDER_LIMITS.stemDiameter.min}
-                max={SLIDER_LIMITS.stemDiameter.max}
-                step={SLIDER_LIMITS.stemDiameter.step}
-                value={params.stemDiameter}
-                onChange={(value) => onUpdateParam('stemDiameter', value as number)}
+                aria-label="Largura da haste"
+                min={SLIDER_LIMITS.stemWidth.min}
+                max={SLIDER_LIMITS.stemWidth.max}
+                step={SLIDER_LIMITS.stemWidth.step}
+                value={params.stemWidth}
+                onChange={(value) => onUpdateParam('stemWidth', value as number)}
               />
 
               <Flex direction="row" justifyContent="space-between">

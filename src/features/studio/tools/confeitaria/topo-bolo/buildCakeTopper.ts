@@ -1,9 +1,7 @@
 import {
-  BufferGeometry,
+  type BufferGeometry,
   DoubleSide,
   ExtrudeGeometry,
-  Float32BufferAttribute,
-  LatheGeometry,
   Mesh,
   MeshBasicMaterial,
   Path,
@@ -13,7 +11,7 @@ import {
   Vector3,
 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
-import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { buildSvgIconGeometry, parseSvg, svgShapesFromParsed } from '../shared/svgToIconShape'
 import { shapesToGeometry, textToShapes } from '../shared/textOutline'
 import { ICON_MARGIN } from './iconLayout'
@@ -43,9 +41,8 @@ const TEXT_Z_OFFSET = 0.01
 const ICON_DEPTH = 1
 const CUSTOM_MIN_FEATURE = 0.5
 const STEM_EMBED = 2
-const STEM_SEGMENTS = 24
 const STEM_TIP_RATIO = 2.5
-const STEM_TIP_FLAT_DIAMETER = 0.8
+const STEM_TIP_FLAT_WIDTH = 0.8
 const STEM_MAX_TIP_LENGTH_RATIO = 0.5
 const STEM_MIN_GAP = 0.5
 
@@ -365,13 +362,13 @@ function plateBottomAnchor(sampler: PlateBottomSampler): number {
 function isStemXValid(
   sampler: PlateBottomSampler,
   x: number,
-  radius: number,
+  halfWidth: number,
 ): boolean {
   const center = sampler.sample(x)
   if (center === null) return false
 
   const step = 0.5
-  for (let sampleX = x - radius; sampleX <= x + radius + 1e-6; sampleX += step) {
+  for (let sampleX = x - halfWidth; sampleX <= x + halfWidth + 1e-6; sampleX += step) {
     const bottom = sampler.sample(sampleX)
     if (bottom === null) return false
     if (Math.abs(bottom - center) > STEM_EMBED) return false
@@ -381,12 +378,12 @@ function isStemXValid(
 
 function collectValidStemXs(
   sampler: PlateBottomSampler,
-  radius: number,
+  halfWidth: number,
 ): number[] {
   const xs: number[] = []
   const step = 0.5
-  for (let x = sampler.minX + radius; x <= sampler.maxX - radius + 1e-6; x += step) {
-    if (isStemXValid(sampler, x, radius)) xs.push(x)
+  for (let x = sampler.minX + halfWidth; x <= sampler.maxX - halfWidth + 1e-6; x += step) {
+    if (isStemXValid(sampler, x, halfWidth)) xs.push(x)
   }
   return xs
 }
@@ -395,9 +392,9 @@ function collectValidStemXs(
 function resolveStemX(
   sampler: PlateBottomSampler,
   candidateX: number,
-  radius: number,
+  halfWidth: number,
 ): number | null {
-  const xs = collectValidStemXs(sampler, radius)
+  const xs = collectValidStemXs(sampler, halfWidth)
   if (xs.length === 0) return null
 
   let best = xs[0]
@@ -417,11 +414,11 @@ function resolveStemX(
 function stemTopY(
   sampler: PlateBottomSampler,
   x: number,
-  radius: number,
+  halfWidth: number,
 ): number {
   const step = 0.5
   let highest = sampler.minY
-  for (let sampleX = x - radius; sampleX <= x + radius + 1e-6; sampleX += step) {
+  for (let sampleX = x - halfWidth; sampleX <= x + halfWidth + 1e-6; sampleX += step) {
     const bottom = sampler.sample(sampleX)
     if (bottom !== null && bottom > highest) highest = bottom
   }
@@ -443,19 +440,19 @@ function lowerBound(xs: number[], value: number): number {
 function resolveDoubleStemXs(
   sampler: PlateBottomSampler,
   spacing: number,
-  radius: number,
+  halfWidth: number,
 ): { left: number; right: number } | null {
-  const minSeparation = radius * 2 + STEM_MIN_GAP
+  const minSeparation = halfWidth * 2 + STEM_MIN_GAP
   const desiredHalf = spacing / 2
   if (
     desiredHalf * 2 >= minSeparation &&
-    isStemXValid(sampler, -desiredHalf, radius) &&
-    isStemXValid(sampler, desiredHalf, radius)
+    isStemXValid(sampler, -desiredHalf, halfWidth) &&
+    isStemXValid(sampler, desiredHalf, halfWidth)
   ) {
     return { left: -desiredHalf, right: desiredHalf }
   }
 
-  const xs = collectValidStemXs(sampler, radius)
+  const xs = collectValidStemXs(sampler, halfWidth)
   let best: { left: number; right: number } | null = null
   let bestScore = Infinity
   for (let i = 0; i < xs.length; i++) {
@@ -477,69 +474,20 @@ function resolveDoubleStemXs(
 function buildSingleStem(
   params: CakeTopperParams,
   sampler: PlateBottomSampler,
-  radius: number,
+  halfWidth: number,
   onError?: (message: string) => void,
 ): BufferGeometry {
   const anchorX = plateBottomAnchor(sampler)
-  const resolvedX = resolveStemX(sampler, anchorX, radius)
+  const resolvedX = resolveStemX(sampler, anchorX, halfWidth)
   if (resolvedX === null) {
     onError?.('Haste maior que a placa; usando âncora')
   }
   // Sem X válido, mantém a haste dentro dos limites horizontais da placa.
-  const minX = sampler.minX + radius
-  const maxX = sampler.maxX - radius
+  const minX = sampler.minX + halfWidth
+  const maxX = sampler.maxX - halfWidth
   const fallbackX = minX <= maxX ? Math.min(maxX, Math.max(minX, anchorX)) : 0
   const x = resolvedX ?? fallbackX
-  return buildStem(params, x, stemTopY(sampler, x, radius))
-}
-
-// Remove triângulos de área zero dos polos e solda vértices duplicados.
-function cleanStemGeometry(geometry: BufferGeometry): BufferGeometry {
-  const source = geometry.index ? geometry.toNonIndexed() : geometry
-  const pos = source.getAttribute('position')
-  const kept: number[] = []
-
-  for (let i = 0; i < pos.count; i += 3) {
-    const ax = pos.getX(i)
-    const ay = pos.getY(i)
-    const az = pos.getZ(i)
-    const bx = pos.getX(i + 1)
-    const by = pos.getY(i + 1)
-    const bz = pos.getZ(i + 1)
-    const cx = pos.getX(i + 2)
-    const cy = pos.getY(i + 2)
-    const cz = pos.getZ(i + 2)
-
-    const abx = bx - ax
-    const aby = by - ay
-    const abz = bz - az
-    const acx = cx - ax
-    const acy = cy - ay
-    const acz = cz - az
-
-    const crossX = aby * acz - abz * acy
-    const crossY = abz * acx - abx * acz
-    const crossZ = abx * acy - aby * acx
-    if (crossX * crossX + crossY * crossY + crossZ * crossZ > 1e-18) {
-      kept.push(ax, ay, az, bx, by, bz, cx, cy, cz)
-    }
-  }
-
-  const filtered = new BufferGeometry()
-  filtered.setAttribute('position', new Float32BufferAttribute(kept, 3))
-  const welded = mergeVertices(filtered)
-  filtered.dispose()
-  if (source !== geometry) source.dispose()
-  geometry.dispose()
-  welded.setAttribute(
-    'uv',
-    new Float32BufferAttribute(
-      new Float32Array(welded.getAttribute('position').count * 2),
-      2,
-    ),
-  )
-  welded.computeVertexNormals()
-  return welded
+  return buildStem(params, x, stemTopY(sampler, x, halfWidth))
 }
 
 function buildStem(
@@ -547,25 +495,29 @@ function buildStem(
   centerX: number,
   topY: number,
 ): BufferGeometry {
-  const radius = params.stemDiameter / 2
-  const tipRadius = STEM_TIP_FLAT_DIAMETER / 2
+  const halfWidth = params.stemWidth / 2
+  const tipHalfWidth = STEM_TIP_FLAT_WIDTH / 2
   const tipLength = Math.min(
-    params.stemDiameter * STEM_TIP_RATIO,
+    params.stemWidth * STEM_TIP_RATIO,
     params.stemLength * STEM_MAX_TIP_LENGTH_RATIO,
   )
+  const bodyLength = params.stemLength - tipLength
 
-  // Perfil de baixo para cima: ponta plana → cone → corpo cilíndrico → topo.
-  const points = [
-    new Vector2(0, -params.stemLength),
-    new Vector2(tipRadius, -params.stemLength),
-    new Vector2(radius, -params.stemLength + tipLength),
-    new Vector2(radius, 0),
-    new Vector2(0, 0),
-  ]
+  // Haste plana: mesma espessura da placa, com ponta chanfrada no plano X/Y.
+  const shape = new Shape()
+  shape.moveTo(-halfWidth, 0)
+  shape.lineTo(-halfWidth, -bodyLength)
+  shape.lineTo(-tipHalfWidth, -params.stemLength)
+  shape.lineTo(tipHalfWidth, -params.stemLength)
+  shape.lineTo(halfWidth, -bodyLength)
+  shape.lineTo(halfWidth, 0)
+  shape.closePath()
 
-  const raw = new LatheGeometry(points, STEM_SEGMENTS)
-  const geometry = cleanStemGeometry(raw)
-  geometry.translate(centerX, topY, params.thickness / 2)
+  const geometry = new ExtrudeGeometry(shape, {
+    depth: params.thickness,
+    bevelEnabled: false,
+  })
+  geometry.translate(centerX, topY, 0)
   return geometry
 }
 
@@ -578,19 +530,19 @@ function buildSupport(
   if (!sampler) return null
 
   try {
-    const radius = params.stemDiameter / 2
+    const halfWidth = params.stemWidth / 2
     if (params.supportType === 'haste') {
-      return buildSingleStem(params, sampler, radius, onError)
+      return buildSingleStem(params, sampler, halfWidth, onError)
     }
 
-    const positions = resolveDoubleStemXs(sampler, params.stemSpacing, radius)
+    const positions = resolveDoubleStemXs(sampler, params.stemSpacing, halfWidth)
     if (!positions) {
       onError?.('Espaçamento insuficiente para haste dupla; usando haste simples')
-      return buildSingleStem(params, sampler, radius, onError)
+      return buildSingleStem(params, sampler, halfWidth, onError)
     }
 
     const stems = [positions.left, positions.right].map((x) =>
-      buildStem(params, x, stemTopY(sampler, x, radius)),
+      buildStem(params, x, stemTopY(sampler, x, halfWidth)),
     )
     return mergeAll(stems, onError)
   } finally {
