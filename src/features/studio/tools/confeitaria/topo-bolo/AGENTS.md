@@ -30,6 +30,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Texto e ícone são sempre gerados em relevo alto; não há modo de corte vazado
 - `haste`: haste vertical embutida 2mm na placa, com ponta cônica tipo lápis
 - `haste-dupla`: duas hastes verticais paralelas, simétricas em X, cada uma ancorada no fundo local da placa; o espaçamento é ajustável
+- Em contornos estreitos ou irregulares, a haste dupla aproxima as hastes; se não houver par válido, usa haste simples e sinaliza o aviso
 - Textos encaixados no contorno da placa com margem de 4mm; ícone com margem de 1mm
 - Textos e ícone são posicionados livremente no editor 2D; o ícone usa `iconOffsetX`/`iconOffsetY` com margem de 1mm
 - Peso leve para não tombar o bolo
