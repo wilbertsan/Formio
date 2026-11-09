@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { DoubleSide, Mesh, MeshBasicMaterial, Raycaster, Vector3, type BufferGeometry } from 'three'
+import type { BufferGeometry } from 'three'
 import { Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
 import {
   buildCakeTopper,
@@ -17,9 +17,6 @@ const SVG_EMPTY = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><
 const SVG_TRAPEZOID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M30,0 L70,0 L100,100 L0,100 Z" fill="#000"/></svg>'
 // Triângulo retângulo: base (SVG y=100) reduzida a um único ponto em x=0 (esquerda).
 const SVG_TRIANGLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L0,100 Z" fill="#000"/></svg>'
-
-// Deve bater com BASE_FLOOR em buildCakeTopper.ts.
-const BASE_FLOOR = 3
 
 function mockFont(text: string): Font {
   const glyphs: FontData['glyphs'] = {}
@@ -338,44 +335,48 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect((sb.min.x + sb.max.x) / 2).toBeCloseTo(0, 3)
   })
 
-  it('base é transladada para o lado da placa', () => {
+  it('haste tem ponta cônica', () => {
     const params = {
       ...defaultCakeTopperParams,
-      supportType: 'base' as const,
-      baseWidth: 40,
+      shape: 'rounded-rect' as const,
+      supportType: 'haste' as const,
     }
     const result = buildCakeTopper({ params })
-    expect(result.support).not.toBeNull()
-    result.support!.computeBoundingBox()
-    expect(result.support!.boundingBox!.min.x).toBeGreaterThan(defaultCakeTopperParams.width / 2)
+    const support = result.support!
+    support.computeBoundingBox()
+    const bb = support.boundingBox!
+    const centerX = (bb.min.x + bb.max.x) / 2
+    const centerZ = (bb.min.z + bb.max.z) / 2
+    const pos = support.getAttribute('position')
+
+    let maxRadiusAtBottom = 0
+    let maxRadiusAtTop = 0
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i)
+      const radius = Math.hypot(pos.getX(i) - centerX, pos.getZ(i) - centerZ)
+      if (y <= bb.min.y + 1e-6) maxRadiusAtBottom = Math.max(maxRadiusAtBottom, radius)
+      if (y >= bb.max.y - 1e-6) maxRadiusAtTop = Math.max(maxRadiusAtTop, radius)
+    }
+
+    expect(maxRadiusAtBottom).toBeCloseTo(0.4, 1)
+    expect(maxRadiusAtTop).toBeCloseTo(params.stemDiameter / 2, 1)
   })
 
-  it('base tem piso e forma um corpo conectado (canal não atravessa)', () => {
+  it('haste dupla gera duas hastes com o espaçamento configurado', () => {
     const params = {
       ...defaultCakeTopperParams,
-      supportType: 'base' as const,
-      baseWidth: 40,
-      slotDepth: 10,
+      shape: 'rounded-rect' as const,
+      supportType: 'haste-dupla' as const,
+      stemSpacing: 30,
+      stemDiameter: 4,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
 
-    // A altura inclui o piso.
-    expect(bb.max.y - bb.min.y).toBeCloseTo(params.slotDepth + BASE_FLOOR, 5)
-
-    // Um raio pelo centro do canal encontra o piso (entrada e saída = sólido
-    // fechado). Se o canal atravessasse o bloco, o raio passaria direto.
-    const centerX = (bb.min.x + bb.max.x) / 2
-    const centerZ = (bb.min.z + bb.max.z) / 2
-    const raycaster = new Raycaster(
-      new Vector3(centerX, bb.max.y + 5, centerZ),
-      new Vector3(0, -1, 0),
-    )
-    const mesh = new Mesh(support, new MeshBasicMaterial({ side: DoubleSide }))
-    const hits = raycaster.intersectObject(mesh)
-    expect(hits.length).toBeGreaterThanOrEqual(2)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.stemDiameter, 1)
+    expect(bb.max.y - bb.min.y).toBeCloseTo(params.stemLength, 5)
   })
 })
 
