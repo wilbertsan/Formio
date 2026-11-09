@@ -503,7 +503,8 @@ function buildStem(
   )
   const bodyLength = params.stemLength - tipLength
 
-  // Haste plana: mesma espessura da placa, com ponta chanfrada no plano X/Y.
+  // Haste de seção quadrada: lado igual à espessura da placa, com ponta
+  // chanfrada no plano X/Y.
   const shape = new Shape()
   shape.moveTo(-halfWidth, 0)
   shape.lineTo(-halfWidth, -bodyLength)
