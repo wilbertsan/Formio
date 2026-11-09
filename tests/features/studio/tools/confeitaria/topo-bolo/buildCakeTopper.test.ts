@@ -26,6 +26,8 @@ const SVG_TRAPEZOID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 
 const SVG_TRIANGLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L0,100 Z" fill="#000"/></svg>'
 const SVG_DISCONNECTED = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L30,0 L30,100 L0,100 Z M70,0 L100,0 L100,100 L70,100 Z" fill="#000"/></svg>'
 const SVG_NOTCH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L100,100 L53,100 L53,80 L51,80 L51,100 L0,100 Z" fill="#000"/></svg>'
+// Faixa estreita (8mm): cabe uma haste de 4mm, mas não um par separado.
+const SVG_NARROW = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect x="46" y="0" width="8" height="100" fill="#000"/></svg>'
 
 function mockFont(text: string): Font {
   const glyphs: FontData['glyphs'] = {}
@@ -341,7 +343,6 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste' as const,
-      stemWidth: 4,
     }
     const result = buildCakeTopper({ params })
     result.plate.computeBoundingBox()
@@ -356,7 +357,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     const band = xIntervalInBand(result.plate, pb.min.y, pb.min.y + 1)!
     expect(sb.min.x).toBeGreaterThanOrEqual(band.min - 0.25)
     expect(sb.min.x).toBeLessThanOrEqual(band.max + 0.25)
-    expect(stemHalfWidth).toBeCloseTo(params.stemWidth / 2, 5)
+    expect(stemHalfWidth).toBeCloseTo(params.thickness / 2, 5)
   })
 
   it('haste permanece centralizada em formas simétricas', () => {
@@ -367,7 +368,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect((sb.min.x + sb.max.x) / 2).toBeCloseTo(0, 3)
   })
 
-  it('haste é plana com a espessura da placa e ponta chanfrada', () => {
+  it('haste tem seção quadrada da espessura da placa e ponta chanfrada', () => {
     const params = {
       ...defaultCakeTopperParams,
       shape: 'rounded-rect' as const,
@@ -415,8 +416,9 @@ describe('buildCakeTopper - fixação (support)', () => {
     }
 
     expect(bb.max.z - bb.min.z).toBeCloseTo(params.thickness, 5)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.thickness, 5)
     expect(maxHalfWidthAtBottom).toBeCloseTo(0.4, 1)
-    expect(maxHalfWidthAtTop).toBeCloseTo(params.stemWidth / 2, 1)
+    expect(maxHalfWidthAtTop).toBeCloseTo(params.thickness / 2, 1)
     expect(degenerate).toBe(0)
   })
 
@@ -425,8 +427,8 @@ describe('buildCakeTopper - fixação (support)', () => {
       ...defaultCakeTopperParams,
       shape: 'rounded-rect' as const,
       supportType: 'haste' as const,
-      stemWidth: 8,
-      stemLength: 20,
+      thickness: 4,
+      stemLength: 15,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
@@ -434,7 +436,11 @@ describe('buildCakeTopper - fixação (support)', () => {
     const bb = support.boundingBox!
     const pos = support.getAttribute('position')
     const centerX = (bb.min.x + bb.max.x) / 2
-    const tipBaseY = bb.min.y + 10
+    const tipLength = Math.min(
+      params.thickness * 2.5,
+      params.stemLength * 0.5,
+    )
+    const tipBaseY = bb.min.y + tipLength
 
     let maxHalfWidthAtTipBase = 0
     for (let i = 0; i < pos.count; i++) {
@@ -447,7 +453,7 @@ describe('buildCakeTopper - fixação (support)', () => {
       }
     }
 
-    expect(maxHalfWidthAtTipBase).toBeCloseTo(params.stemWidth / 2, 1)
+    expect(maxHalfWidthAtTipBase).toBeCloseTo(params.thickness / 2, 1)
   })
 
   it('haste dupla gera duas hastes com o espaçamento configurado', () => {
@@ -456,7 +462,6 @@ describe('buildCakeTopper - fixação (support)', () => {
       shape: 'rounded-rect' as const,
       supportType: 'haste-dupla' as const,
       stemSpacing: 30,
-      stemWidth: 4,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
@@ -466,7 +471,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     plate.computeBoundingBox()
     const plateMinY = plate.boundingBox!.min.y
 
-    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.stemWidth, 1)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemSpacing + params.thickness, 1)
     expect(bb.max.y - bb.min.y).toBeCloseTo(params.stemLength, 5)
     expect(bb.max.y).toBeCloseTo(plateMinY + 2, 5)
 
@@ -477,7 +482,7 @@ describe('buildCakeTopper - fixação (support)', () => {
       if (Math.abs(x) > 1e-6) minAbsX = Math.min(minAbsX, Math.abs(x))
     }
 
-    expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.stemWidth / 2 - 0.1)
+    expect(minAbsX).toBeGreaterThan(params.stemSpacing / 2 - params.thickness / 2 - 0.1)
   })
 
   it('aproxima as hastes mantendo o par simétrico', () => {
@@ -488,14 +493,13 @@ describe('buildCakeTopper - fixação (support)', () => {
       height: 50,
       supportType: 'haste-dupla' as const,
       stemSpacing: 40,
-      stemWidth: 4,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const sb = support.boundingBox!
 
-    expect(sb.max.x - sb.min.x).toBeGreaterThan(params.stemWidth)
+    expect(sb.max.x - sb.min.x).toBeGreaterThan(params.thickness)
     expect(Math.abs((sb.min.x + sb.max.x) / 2)).toBeLessThan(1)
   })
 
@@ -504,11 +508,11 @@ describe('buildCakeTopper - fixação (support)', () => {
     const params = {
       ...defaultCakeTopperParams,
       shape: 'custom' as const,
-      contourSvg: SVG_TRIANGLE,
+      contourSvg: SVG_NARROW,
       width: 100,
       height: 100,
       supportType: 'haste-dupla' as const,
-      stemWidth: 8,
+      thickness: 4,
       stemSpacing: 20,
     }
     const result = buildCakeTopper({ params, onError })
@@ -522,7 +526,7 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect(bb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
     expect(bb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
 
-    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemWidth, 1)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.thickness, 1)
     expect(onError).toHaveBeenCalledWith(expect.stringContaining('haste simples'))
   })
 
@@ -534,7 +538,6 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste-dupla' as const,
-      stemWidth: 3,
       stemSpacing: 10,
     }
     const result = buildCakeTopper({ params })
@@ -556,14 +559,13 @@ describe('buildCakeTopper - fixação (support)', () => {
       width: 100,
       height: 100,
       supportType: 'haste' as const,
-      stemWidth: 8,
     }
     const result = buildCakeTopper({ params })
     const support = result.support!
     support.computeBoundingBox()
     const bb = support.boundingBox!
 
-    // O entalhe tem 2mm (x≈1..3): a haste de 8mm não pode cobri-lo.
+    // O entalhe tem 2mm (x≈1..3): a haste não pode cobri-lo.
     expect(bb.max.x <= 1 + 0.01 || bb.min.x >= 3 - 0.01).toBe(true)
   })
 })
