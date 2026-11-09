@@ -443,6 +443,27 @@ describe('buildCakeTopper - fixação (support)', () => {
     expect(sb.min.x).toBeGreaterThanOrEqual(pb.min.x - 0.5)
     expect(sb.max.x).toBeLessThanOrEqual(pb.max.x + 0.5)
   })
+
+  it('usa haste simples quando não há espaço para duas hastes', () => {
+    const onError = vi.fn()
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_TRIANGLE,
+      width: 100,
+      height: 100,
+      supportType: 'haste-dupla' as const,
+      stemDiameter: 8,
+      stemSpacing: 20,
+    }
+    const result = buildCakeTopper({ params, onError })
+    expect(result.support).not.toBeNull()
+    result.support!.computeBoundingBox()
+    const bb = result.support!.boundingBox!
+
+    expect(bb.max.x - bb.min.x).toBeCloseTo(params.stemDiameter, 1)
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('haste simples'))
+  })
 })
 
 describe('disposeCakeTopperResult', () => {

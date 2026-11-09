@@ -47,6 +47,7 @@ const STEM_SEGMENTS = 24
 const STEM_TIP_RATIO = 2.5
 const STEM_TIP_FLAT_DIAMETER = 0.8
 const STEM_MAX_TIP_LENGTH_RATIO = 0.5
+const STEM_MIN_GAP = 0.5
 
 // Translada apenas em X/Y, preservando a faixa de extrusão em Z (0..depth).
 function centerXY(geometry: BufferGeometry): void {
@@ -342,9 +343,7 @@ function createPlateBottomSampler(
 }
 
 // X onde a placa "pisa": o fundo mais baixo (empate → mais próximo de 0).
-function plateBottomAnchor(
-  sampler: PlateBottomSampler,
-): { x: number; bottom: number } {
+function plateBottomAnchor(sampler: PlateBottomSampler): number {
   let bestX = 0
   let bestBottom = Infinity
   const step = 0.5
@@ -358,10 +357,7 @@ function plateBottomAnchor(
       bestX = x
     }
   }
-  return {
-    x: bestX,
-    bottom: Number.isFinite(bestBottom) ? bestBottom : sampler.minY,
-  }
+  return bestX
 }
 
 // X da haste é válido se o topo (círculo inteiro) estiver sob a placa.
@@ -398,6 +394,67 @@ function resolveStemX(
     if (isStemXValid(sampler, x, radius)) return x
   }
   return 0
+}
+
+// Topo da haste: maior fundo sob o disco, garantindo que o círculo inteiro
+// entre na placa (na placa plana o resultado é o fundo global + embed).
+function stemTopY(
+  sampler: PlateBottomSampler,
+  x: number,
+  radius: number,
+): number {
+  const center = sampler.sample(x)
+  const left = sampler.sample(x - radius)
+  const right = sampler.sample(x + radius)
+  const highest = Math.max(
+    center ?? sampler.minY,
+    left ?? sampler.minY,
+    right ?? sampler.minY,
+  )
+  return highest + STEM_EMBED
+}
+
+function collectValidStemXs(
+  sampler: PlateBottomSampler,
+  radius: number,
+): number[] {
+  const xs: number[] = []
+  const step = 0.5
+  for (let x = sampler.minX + radius; x <= sampler.maxX - radius + 1e-6; x += step) {
+    if (isStemXValid(sampler, x, radius)) xs.push(x)
+  }
+  return xs
+}
+
+// Duas hastes válidas e separadas ou null quando a placa não comporta.
+function resolveDoubleStemXs(
+  sampler: PlateBottomSampler,
+  spacing: number,
+  radius: number,
+): { left: number; right: number } | null {
+  const desiredHalf = spacing / 2
+  if (
+    isStemXValid(sampler, -desiredHalf, radius) &&
+    isStemXValid(sampler, desiredHalf, radius)
+  ) {
+    return { left: -desiredHalf, right: desiredHalf }
+  }
+
+  const xs = collectValidStemXs(sampler, radius)
+  if (xs.length === 0) return null
+
+  const minSeparation = radius * 2 + STEM_MIN_GAP
+  const xMin = xs[0]
+  const xMax = xs[xs.length - 1]
+  if (xMax - xMin < minSeparation) return null
+
+  let left = Math.max(xMin, -desiredHalf)
+  let right = Math.min(xMax, desiredHalf)
+  if (right - left < minSeparation) {
+    left = xMin
+    right = xMax
+  }
+  return { left, right }
 }
 
 // Remove triângulos de área zero dos polos e solda vértices duplicados.
@@ -480,18 +537,22 @@ function buildSupport(
   try {
     const radius = params.stemDiameter / 2
     if (params.supportType === 'haste') {
-      const anchor = plateBottomAnchor(sampler)
-      const x = resolveStemX(sampler, anchor.x, radius)
-      const topY = (sampler.sample(x) ?? anchor.bottom) + STEM_EMBED
-      return buildStem(params, x, topY)
+      const anchorX = plateBottomAnchor(sampler)
+      const x = resolveStemX(sampler, anchorX, radius)
+      return buildStem(params, x, stemTopY(sampler, x, radius))
     }
 
-    const halfSpacing = params.stemSpacing / 2
-    const stems = [-halfSpacing, halfSpacing].map((candidateX) => {
-      const x = resolveStemX(sampler, candidateX, radius)
-      const topY = (sampler.sample(x) ?? sampler.minY) + STEM_EMBED
-      return buildStem(params, x, topY)
-    })
+    const positions = resolveDoubleStemXs(sampler, params.stemSpacing, radius)
+    if (!positions) {
+      onError?.('Espaçamento insuficiente para haste dupla; usando haste simples')
+      const anchorX = plateBottomAnchor(sampler)
+      const x = resolveStemX(sampler, anchorX, radius)
+      return buildStem(params, x, stemTopY(sampler, x, radius))
+    }
+
+    const stems = [positions.left, positions.right].map((x) =>
+      buildStem(params, x, stemTopY(sampler, x, radius)),
+    )
     return mergeAll(stems, onError)
   } finally {
     sampler.dispose()
