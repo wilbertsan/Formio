@@ -25,6 +25,7 @@ const SVG_TRAPEZOID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 
 // Triângulo retângulo: base (SVG y=100) reduzida a um único ponto em x=0 (esquerda).
 const SVG_TRIANGLE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L0,100 Z" fill="#000"/></svg>'
 const SVG_DISCONNECTED = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L30,0 L30,100 L0,100 Z M70,0 L100,0 L100,100 L70,100 Z" fill="#000"/></svg>'
+const SVG_NOTCH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M0,0 L100,0 L100,100 L53,100 L53,80 L51,80 L51,100 L0,100 Z" fill="#000"/></svg>'
 
 function mockFont(text: string): Font {
   const glyphs: FontData['glyphs'] = {}
@@ -513,11 +514,30 @@ describe('buildCakeTopper - fixação (support)', () => {
     const pos = nonIndexed.getAttribute('position')
     let hasVertexInGap = false
     for (let i = 0; i < pos.count; i++) {
-      if (Math.abs(pos.getX(i)) < 5) hasVertexInGap = true
+      if (Math.abs(pos.getX(i)) < 19.9) hasVertexInGap = true
     }
     nonIndexed.dispose()
 
     expect(hasVertexInGap).toBe(false)
+  })
+
+  it('não posiciona a haste sobre um entalhe do contorno', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      shape: 'custom' as const,
+      contourSvg: SVG_NOTCH,
+      width: 100,
+      height: 100,
+      supportType: 'haste' as const,
+      stemDiameter: 8,
+    }
+    const result = buildCakeTopper({ params })
+    const support = result.support!
+    support.computeBoundingBox()
+    const bb = support.boundingBox!
+
+    // O entalhe tem 2mm (x≈1..3): a haste de 8mm não pode cobri-lo.
+    expect(bb.max.x <= 1 + 0.01 || bb.min.x >= 3 - 0.01).toBe(true)
   })
 })
 

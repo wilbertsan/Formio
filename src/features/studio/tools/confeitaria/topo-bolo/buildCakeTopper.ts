@@ -360,24 +360,23 @@ function plateBottomAnchor(sampler: PlateBottomSampler): number {
   return bestX
 }
 
-// X da haste é válido se o topo (círculo inteiro) estiver sob a placa.
+// X da haste é válido se todo o diâmetro tiver material da placa e o fundo
+// variar no máximo STEM_EMBED (evita cobrir entalhes internos do contorno).
 function isStemXValid(
   sampler: PlateBottomSampler,
   x: number,
   radius: number,
 ): boolean {
-  const bottom = sampler.sample(x)
-  if (bottom === null) return false
+  const center = sampler.sample(x)
+  if (center === null) return false
 
-  const topY = bottom + STEM_EMBED
-  const leftBottom = sampler.sample(x - radius)
-  const rightBottom = sampler.sample(x + radius)
-  return (
-    leftBottom !== null &&
-    rightBottom !== null &&
-    leftBottom <= topY &&
-    rightBottom <= topY
-  )
+  const step = 0.5
+  for (let sampleX = x - radius; sampleX <= x + radius + 1e-6; sampleX += step) {
+    const bottom = sampler.sample(sampleX)
+    if (bottom === null) return false
+    if (Math.abs(bottom - center) > STEM_EMBED) return false
+  }
+  return true
 }
 
 function collectValidStemXs(
@@ -413,21 +412,19 @@ function resolveStemX(
   return best
 }
 
-// Topo da haste: maior fundo sob o disco, garantindo que o círculo inteiro
+// Topo da haste: maior fundo sob o disco inteiro, garantindo que o círculo
 // entre na placa (na placa plana o resultado é o fundo global + embed).
 function stemTopY(
   sampler: PlateBottomSampler,
   x: number,
   radius: number,
 ): number {
-  const center = sampler.sample(x)
-  const left = sampler.sample(x - radius)
-  const right = sampler.sample(x + radius)
-  const highest = Math.max(
-    center ?? sampler.minY,
-    left ?? sampler.minY,
-    right ?? sampler.minY,
-  )
+  const step = 0.5
+  let highest = sampler.minY
+  for (let sampleX = x - radius; sampleX <= x + radius + 1e-6; sampleX += step) {
+    const bottom = sampler.sample(sampleX)
+    if (bottom !== null && bottom > highest) highest = bottom
+  }
   return highest + STEM_EMBED
 }
 
