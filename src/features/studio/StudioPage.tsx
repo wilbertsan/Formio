@@ -8,6 +8,8 @@ import { useKeychain } from './tools/chaveiros/chaveiro/useKeychain'
 import { exportStl } from './tools/chaveiros/chaveiro/exportStl'
 import { TextPositionEditor } from './tools/chaveiros/chaveiro/TextPositionEditor'
 import { useCard } from './tools/letreiros/cartao-visita/useCard'
+import { exportStl as exportCardStl } from './tools/letreiros/cartao-visita/exportStl'
+import { TextPositionEditor as CardTextPositionEditor } from './tools/letreiros/cartao-visita/TextPositionEditor'
 import { useCakeStand } from './tools/confeitaria/suporte-bolo/useCakeStand'
 import { useCakeTopper } from './tools/confeitaria/topo-bolo/useCakeTopper'
 import { exportCakeTopperStl } from './tools/confeitaria/topo-bolo/exportStl'
@@ -267,16 +269,20 @@ function ChaveiroToolWrapper({ onBack }: { onBack: () => void }) {
 function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
-  const [selectedBlockId, setSelectedBlockId] = useState<string>('name')
+  const [selectedContentId, setSelectedContentId] = useState<string>('')
+  const [isEditorOpen, setEditorOpen] = useState(false)
 
   const {
     params,
     geometry,
+    isBuilding,
+    error,
     dimensions,
     updateParam,
-    updateBlock,
-    addBlock,
-    removeBlock,
+    updateContent,
+    addContent,
+    removeContent,
+    setContentType,
     reset,
   } = useCard()
 
@@ -285,8 +291,27 @@ function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
   }, [])
 
   const handleExport = useCallback(() => {
-    // TODO: implement card STL export
+    if (geometry) {
+      exportCardStl(geometry, projectName)
+    }
+  }, [geometry, projectName])
+
+  const handleSelectContent = useCallback((id: string) => {
+    setSelectedContentId(id)
   }, [])
+
+  const handleAddContent = useCallback(() => {
+    const id = addContent()
+    if (id) setSelectedContentId(id)
+  }, [addContent])
+
+  const handleMoveContent = useCallback((id: string, x: number, y: number) => {
+    updateContent(id, { offsetX: x, offsetY: y })
+  }, [updateContent])
+
+  const effectiveSelectedContentId = params.contents.some((content) => content.id === selectedContentId)
+    ? selectedContentId
+    : params.contents[0].id
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
@@ -297,34 +322,66 @@ function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
+        {error ? (
+          <div
+            role="alert"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+          >
+            {error}
+          </div>
+        ) : isBuilding ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+          >
+            Gerando…
+          </div>
+        ) : null}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <CartaoVisitaTool
             params={params}
-            selectedBlockId={selectedBlockId}
-            onSelectBlock={setSelectedBlockId}
-            onUpdateBlock={updateBlock}
-            onAddBlock={addBlock}
-            onRemoveBlock={removeBlock}
+            selectedContentId={effectiveSelectedContentId}
+            onSelectContent={handleSelectContent}
+            onUpdateContent={updateContent}
+            onSetContentType={setContentType}
+            onAddContent={handleAddContent}
+            onRemoveContent={removeContent}
             onUpdateParam={updateParam}
             onReset={reset}
+            onOpenEditor={() => setEditorOpen(true)}
           />
         </Suspense>
-        <StudioViewport
-          hasGeometry={geometry !== null}
-          resetCameraSignal={resetCameraSignal}
-          onResetCamera={handleResetCamera}
-        >
-          <Suspense fallback={null}>
-            <CartaoVisitaPreview
-              geometry={geometry}
-              baseColor={params.baseColor}
-              letterColor={params.letterColor}
-            />
-          </Suspense>
-        </StudioViewport>
+        <div className="flex min-h-0 flex-1" aria-busy={isBuilding}>
+          <StudioViewport
+            hasGeometry={geometry !== null}
+            resetCameraSignal={resetCameraSignal}
+            onResetCamera={handleResetCamera}
+          >
+            <Suspense fallback={null}>
+              <CartaoVisitaPreview
+                geometry={geometry}
+                baseColor={params.baseColor}
+                letterColor={params.letterColor}
+              />
+            </Suspense>
+          </StudioViewport>
+        </div>
       </div>
       <StudioStatusBar dimensions={dimensions} />
+      {isEditorOpen && (
+        <Suspense fallback={null}>
+          <CardTextPositionEditor
+            params={params}
+            geometry={geometry}
+            selectedContentId={effectiveSelectedContentId}
+            onSelectContent={setSelectedContentId}
+            onMoveContent={handleMoveContent}
+            onClose={() => setEditorOpen(false)}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

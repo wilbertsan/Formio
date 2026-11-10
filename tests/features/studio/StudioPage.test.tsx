@@ -8,6 +8,8 @@ import '@/features/studio/tools/confeitaria/rolo-textura/StudioPanel'
 import '@/features/studio/tools/chaveiros/chaveiro/StudioPanel'
 import '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
 import '@/features/studio/tools/letreiros/marcador-pagina/StudioPanel'
+import '@/features/studio/tools/letreiros/cartao-visita/StudioPanel'
+import '@/features/studio/tools/letreiros/cartao-visita/TextPositionEditor'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -173,5 +175,30 @@ describe('StudioPage', () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /marcador de página/i }))
     expect(await screen.findByText('50 × 100 × 1 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
+  })
+
+  it('abre a ferramenta Cartão de Visita com o painel de conteúdo', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Cartão de Visita' }, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /seu nome/i })).toBeInTheDocument()
+    expect(screen.getByText('85 × 55 × 2 mm')).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… no Cartão de Visita', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+    expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
+  })
+
+  it('abre o editor de posicionamento do Cartão de Visita', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar conteúdos/i }, LAZY_TIMEOUT))
+    expect(screen.getByRole('heading', { name: /posicionar conteúdos/i })).toBeInTheDocument()
   })
 })
