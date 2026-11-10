@@ -541,6 +541,7 @@ function SuporteFotoToolWrapper({ onBack }: { onBack: () => void }) {
             onResetCamera={handleResetCamera}
             cameraPosition={cameraPosition}
             fitRadius={fitRadius}
+            resetAzimuth={30}
           >
             <Suspense fallback={null}>
               <SuporteFotoPreview

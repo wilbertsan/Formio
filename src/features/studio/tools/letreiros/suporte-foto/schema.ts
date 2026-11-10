@@ -27,7 +27,7 @@ export const PHOTO_SIZE_KEYS = ['10x15', '13x18', '15x20'] as [
 
 const contentFields = {
   id: z.string().min(1),
-  offsetX: z.number().min(-90).max(90),
+  offsetX: z.number().min(-95).max(95),
   offsetY: z.number().min(-25).max(25),
 }
 

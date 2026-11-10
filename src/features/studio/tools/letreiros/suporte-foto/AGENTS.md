@@ -24,7 +24,7 @@ inclinado atrás, separado da faixa por uma fenda de 2 mm onde a foto encaixa.
 | contents[] | array | 1–3 itens | 1 texto |
 
 Cada item de `contents[]` é uma união discriminada por `kind` (`text` | `icon`)
-com `id` e `offsetX/Y` (-90–90 / -25–25mm):
+com `id` e `offsetX/Y` (-95–95 / -25–25mm):
 
 - `text`: `content` (string, sem limite, vazio permitido), `fontStyle`
   (normal/bold/serif), `fontSize` (3–15mm)

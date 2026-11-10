@@ -80,6 +80,24 @@ describe('usePhotoStand', () => {
     expect(result.current.fitRadius).toBeGreaterThan(0)
   })
 
+  it('enquadra a peça pela frente (face do conteúdo em +Z)', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => usePhotoStand({ workerFactory: factory }))
+    const [x, y, z] = result.current.cameraPosition
+    expect(z).toBeGreaterThan(0)
+    expect(x).toBeGreaterThan(0)
+    expect(y).toBeGreaterThan(0)
+  })
+
+  it('mostra a profundidade efetiva quando o perfil exige mais base', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => usePhotoStand({ workerFactory: factory }))
+    act(() => result.current.updateParam('bandHeight', 40))
+    act(() => result.current.updateParam('thickness', 4))
+    act(() => result.current.updateParam('angle', 60))
+    expect(result.current.dimensions.thickness).toBeGreaterThan(30)
+  })
+
   it('updateParam clampa valores da peça', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => usePhotoStand({ workerFactory: factory }))
@@ -130,7 +148,7 @@ describe('usePhotoStand', () => {
     const item = result.current.params.contents[0]
     if (item.kind !== 'text') throw new Error('conteúdo inesperado')
     expect(item.fontSize).toBe(15)
-    expect(item.offsetX).toBe(90)
+    expect(item.offsetX).toBe(95)
   })
 
   it('troca o tipo de conteúdo preservando os offsets', () => {

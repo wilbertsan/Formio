@@ -181,6 +181,23 @@ describe('StudioPanel', () => {
     expect(props.onReset).toHaveBeenCalledTimes(1)
   })
 
+  it('mostra a profundidade efetiva quando o perfil exige mais base', () => {
+    renderPanel({
+      params: { ...defaultPhotoStandParams, depth: 30, bandHeight: 40, thickness: 4, angle: 60 },
+    })
+    expect(screen.getByText(/profundidade efetiva: 32\.8 mm/i)).toBeInTheDocument()
+  })
+
+  it('não mostra profundidade efetiva quando a informada basta', () => {
+    renderPanel()
+    expect(screen.queryByText(/profundidade efetiva/i)).not.toBeInTheDocument()
+  })
+
+  it('rotula a segunda cor como cor do conteúdo', () => {
+    renderPanel()
+    expect(screen.getByText('Cor do conteúdo')).toBeInTheDocument()
+  })
+
   it('explica relevo, cobertura da foto e estabilidade', () => {
     renderPanel()
     expect(screen.getByText(/elevados em 1 mm/i)).toBeInTheDocument()

@@ -20,6 +20,7 @@ import {
   PHOTO_SIZES,
   PLA_COLORS,
 } from './schema'
+import { getEffectiveDepth } from './shapes'
 
 interface StudioPanelProps {
   params: PhotoStandParams
@@ -126,6 +127,7 @@ export function StudioPanel({
   const iconItems = params.contents.filter((item) => item.kind === 'icon')
   const hasMultipleIcons = iconItems.length > 1
   const photo = PHOTO_SIZES[params.photoSize]
+  const effectiveDepth = getEffectiveDepth(params)
 
   useEffect(() => {
     setSvgError(null)
@@ -431,6 +433,11 @@ export function StudioPanel({
                 step={0.5}
                 onChange={(value) => onUpdateParam('thickness', value)}
               />
+              {effectiveDepth > params.depth && (
+                <Text fontSize="xs" color="font.secondary">
+                  Profundidade efetiva: {Number(effectiveDepth.toFixed(1))} mm
+                </Text>
+              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
@@ -454,7 +461,7 @@ export function StudioPanel({
               />
 
               <Text fontSize="xs" color="font.tertiary">
-                Cor do texto
+                Cor do conteúdo
               </Text>
               <ColorSwatches
                 colors={PLA_COLORS}

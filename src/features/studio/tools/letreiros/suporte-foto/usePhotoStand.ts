@@ -54,7 +54,7 @@ const CONTENT_NUMERIC_RANGES: Record<string, { min: number; max: number }> = {
   fontSize: { min: 3, max: 15 },
   iconScale: { min: 0.5, max: 1 },
   iconLineWidth: { min: 0.1, max: 1.5 },
-  offsetX: { min: -90, max: 90 },
+  offsetX: { min: -95, max: 95 },
   offsetY: { min: -25, max: 25 },
 }
 
@@ -347,11 +347,13 @@ export function usePhotoStand(options: UsePhotoStandOptions = {}) {
     return { width: size.x, height: size.y, depth: size.z }
   }, [geometry, params])
 
+  // Dimensões nominais da peça (sem o relevo de 1 mm do conteúdo), coerentes
+  // com os sliders do painel.
   const dimensions = useMemo(() => ({
-    width: Number(objectBounds.width.toFixed(1)),
-    height: Number(objectBounds.height.toFixed(1)),
-    thickness: Number(objectBounds.depth.toFixed(1)),
-  }), [objectBounds])
+    width: Number(getStandWidth(params).toFixed(1)),
+    height: Number(params.bandHeight.toFixed(1)),
+    thickness: Number(getEffectiveDepth(params).toFixed(1)),
+  }), [params])
 
   const fitRadius = useMemo(
     () => Math.max(
@@ -364,7 +366,8 @@ export function usePhotoStand(options: UsePhotoStandOptions = {}) {
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2
     const elevation = (25 * Math.PI) / 180
-    const azimuth = (210 * Math.PI) / 180
+    // Azimute frontal: a face do conteúdo fica em +Z.
+    const azimuth = (30 * Math.PI) / 180
     const x = distance * Math.sin(azimuth) * Math.cos(elevation)
     const z = distance * Math.cos(azimuth) * Math.cos(elevation)
     const y = distance * Math.sin(elevation)
