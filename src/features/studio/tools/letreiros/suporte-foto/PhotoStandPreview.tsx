@@ -10,15 +10,14 @@ export function PhotoStandPreview({ geometry, baseColor, letterColor }: PhotoSta
   if (!geometry) return null
   return (
     <group>
-      <mesh geometry={geometry.leftText} castShadow receiveShadow>
-        <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
-      </mesh>
-      <mesh geometry={geometry.rightText} castShadow receiveShadow>
-        <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
-      </mesh>
       <mesh geometry={geometry.base} castShadow receiveShadow>
         <meshStandardMaterial color={baseColor} metalness={0.1} roughness={0.4} />
       </mesh>
+      {geometry.content && (
+        <mesh geometry={geometry.content} castShadow>
+          <meshStandardMaterial color={letterColor} metalness={0.1} roughness={0.3} />
+        </mesh>
+      )}
     </group>
   )
 }

@@ -16,6 +16,13 @@ import {
   serializeCardResult,
   type SerializedCardResult,
 } from '@/features/studio/tools/letreiros/cartao-visita/workerGeometry'
+import '@/features/studio/tools/letreiros/suporte-foto/StudioPanel'
+import '@/features/studio/tools/letreiros/suporte-foto/PhotoPositionEditor'
+import { exportStl as exportPhotoStandStl } from '@/features/studio/tools/letreiros/suporte-foto/exportStl'
+import {
+  serializePhotoStandResult,
+  type SerializedPhotoStandResult,
+} from '@/features/studio/tools/letreiros/suporte-foto/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -32,17 +39,19 @@ vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
 
 // jsdom não implementa Worker; o hook da ferramenta cria um após o debounce.
 let cardWorkerResponse: SerializedCardResult | null = null
+let photoWorkerResponse: SerializedPhotoStandResult | null = null
 
 class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
   onerror: (() => void) | null = null
   postMessage(message: unknown): void {
-    if (!cardWorkerResponse) return
     const request = message as { params?: { productType?: string } }
-    if (request.params?.productType !== 'card') return
-    setTimeout(() => {
-      this.onmessage?.({ data: { data: cardWorkerResponse } } as MessageEvent)
+    const deliver = (data: unknown) => setTimeout(() => {
+      this.onmessage?.({ data: { data } } as MessageEvent)
     }, 0)
+
+    if (request.params?.productType === 'card' && cardWorkerResponse) deliver(cardWorkerResponse)
+    if (request.params?.productType === 'photo-stand' && photoWorkerResponse) deliver(photoWorkerResponse)
   }
   terminate(): void {}
 }
@@ -50,6 +59,10 @@ class WorkerMock {
 vi.stubGlobal('Worker', WorkerMock)
 
 vi.mock('@/features/studio/tools/letreiros/cartao-visita/exportStl', () => ({
+  exportStl: vi.fn(),
+}))
+
+vi.mock('@/features/studio/tools/letreiros/suporte-foto/exportStl', () => ({
   exportStl: vi.fn(),
 }))
 
@@ -83,7 +96,9 @@ function renderStudioPage() {
 describe('StudioPage', () => {
   beforeEach(() => {
     cardWorkerResponse = null
+    photoWorkerResponse = null
     vi.mocked(exportCardStl).mockClear()
+    vi.mocked(exportPhotoStandStl).mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -238,6 +253,51 @@ describe('StudioPage', () => {
     fireEvent.click(exportButton)
 
     expect(exportCardStl).toHaveBeenCalledWith(
+      expect.objectContaining({ base: expect.anything() }),
+      'Projeto sem título',
+      expect.any(Function),
+    )
+  })
+
+  it('abre a ferramenta Suporte para Foto com o painel de conteúdo', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /suporte para foto/i }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Suporte para Foto' }, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /família/i })).toBeInTheDocument()
+    expect(screen.getByText('120 × 25 × 40 mm')).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… no Suporte para Foto', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /suporte para foto/i }))
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+    expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
+  })
+
+  it('abre o editor de posicionamento do Suporte para Foto', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /suporte para foto/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar conteúdos/i }, LAZY_TIMEOUT))
+    expect(screen.getByRole('heading', { name: /posicionar conteúdos/i })).toBeInTheDocument()
+  })
+
+  it('habilita e executa a exportação do Suporte para Foto', async () => {
+    photoWorkerResponse = serializePhotoStandResult({
+      base: new THREE.BoxGeometry(120, 25, 40),
+      content: new THREE.BoxGeometry(40, 8, 1),
+      contentItems: [{ id: 'content-1', halfWidth: 20, halfHeight: 4 }],
+    }).data
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /suporte para foto/i }))
+
+    const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
+    await waitFor(() => expect(exportButton).toBeEnabled())
+    fireEvent.click(exportButton)
+
+    expect(exportPhotoStandStl).toHaveBeenCalledWith(
       expect.objectContaining({ base: expect.anything() }),
       'Projeto sem título',
       expect.any(Function),
