@@ -33,6 +33,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - Em contornos estreitos ou irregulares, a haste dupla aproxima as hastes; se não houver par válido, usa haste simples e sinaliza o aviso
 - Textos encaixados no contorno da placa com margem de 4mm; ícone com margem de 1mm
 - Textos e ícone são posicionados livremente no editor 2D; o ícone usa `iconOffsetX`/`iconOffsetY` com margem de 1mm
+- O editor usa o contorno real da placa (incluindo `custom`), os limites reais dos conteúdos (`contentItems`) e fecha por Escape, clique no fundo ou Concluir
 - Peso leve para não tombar o bolo
 
 ## Estrutura de arquivos
@@ -42,7 +43,7 @@ Gerar toppers decorativos para bolo com múltiplos textos, ícone SVG e fixaçã
 - `exportStl.ts` — Exportação STL binário (partes mescladas)
 - `useCakeTopper.ts` — Hook de estado (reducer + Zod + debounce + fontes lazy)
 - `StudioPanel.tsx` — Painel de parâmetros
-- `TextPositionEditor.tsx` — Editor 2D de posição de textos e ícone
+- `TextPositionEditor.tsx` — Editor 2D SVG de posição de textos e ícone, com pointer/touch, nudge por setas e tamanhos reais do build
 - `CakeTopperPreview.tsx` — Preview R3F
 
 Helpers compartilhados: `../shared/textOutline.ts` (texto → contornos → geometria),
