@@ -6,7 +6,7 @@ Itens planos de exibição com foco em tipografia e fixação — cartões, plac
 
 | Ferramenta | Status |
 |---|---|
-| cartao-visita | planejada |
+| cartao-visita | implementada |
 | placa-loja | planejada |
 | suporte-foto | planejada |
 

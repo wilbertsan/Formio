@@ -5,7 +5,7 @@
 O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas disponíveis:
 
 - **Gerador de Chaveiros** — Chaveiros 3D personalizados com textos e ícones SVG sempre elevados em 1mm, com auto-fit por formato
-- **Cartão de Visita** — Cartões de visita 3D com texto em relevo e layout personalizado
+- **Cartão de Visita** — Cartões de visita 3D com conteúdo livre (texto/ícone), relevo fixo e posicionamento no editor 2D
 - **Suporte de Bolo** — Suportes para exibir bolo com decoração personalizada
 - **Suporte para Foto** — Suportes personalizados com texto 3D e slot para fotos
 - **Topo de Bolo** — Toppers com texto em relevo alto, ícone SVG e fixação por haste ou haste dupla, com conteúdo unificado no painel
@@ -41,10 +41,18 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Painel de blocos | `src/features/studio/tools/chaveiros/chaveiro/StudioPanel.tsx` |
 | **Cartão de Visita** | |
 | Schema + tipos | `src/features/studio/tools/letreiros/cartao-visita/schema.ts` |
-| Geometria base + texto | `src/features/studio/tools/letreiros/cartao-visita/buildCard.ts` |
+| Forma com cantos arredondados | `src/features/studio/tools/letreiros/cartao-visita/shapes.ts` |
+| Área útil + auto-fit | `src/features/studio/tools/letreiros/cartao-visita/autoFit.ts` |
+| Texto 3D | `src/features/studio/tools/letreiros/cartao-visita/textToGeometry.ts` |
+| Composição base + conteúdo | `src/features/studio/tools/letreiros/cartao-visita/buildCard.ts` |
+| Worker + serialização | `src/features/studio/tools/letreiros/cartao-visita/buildCard.worker.ts` |
+| Interface do worker | `src/features/studio/tools/letreiros/cartao-visita/workerClient.ts` |
+| Serialização da geometria | `src/features/studio/tools/letreiros/cartao-visita/workerGeometry.ts` |
 | Hook de estado | `src/features/studio/tools/letreiros/cartao-visita/useCard.ts` |
 | Painel de parâmetros | `src/features/studio/tools/letreiros/cartao-visita/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/letreiros/cartao-visita/CardPreview.tsx` |
+| Editor de posição | `src/features/studio/tools/letreiros/cartao-visita/TextPositionEditor.tsx` |
+| Export STL | `src/features/studio/tools/letreiros/cartao-visita/exportStl.ts` |
 | **Suporte de Bolo** | |
 | Schema + tipos | `src/features/studio/tools/confeitaria/suporte-bolo/schema.ts` |
 | Geometria (base, coluna, prato) | `src/features/studio/tools/confeitaria/suporte-bolo/buildCakeStand.ts` |
@@ -175,6 +183,7 @@ Pipeline completo de geração do marcador:
 - **Cortador + Carimbo:** Gera duas peças separadas num único STL, a partir de **texto ou ícone SVG** (mutuamente exclusivos), lado a lado. Os contornos vêm de `font.generateShapes` (texto) ou `SVGLoader`+Clipper (SVG, via `shared/svgToIconShape.ts`, com engrossamento de traços finos até `iconLineWidth`). O **cortador** recorta o contorno com margem (`baseMargin`), unindo os elementos — parede de espessura `wallThickness` em volta de `expand(forma, +margem)`, em peça única (sem paredes internas). O **carimbo** (sem cabo) tem **base única** `expand(forma, +margem − folga)` (0.4mm/lado) e a **forma em alto relevo** (`reliefHeight`, 1–3mm) na face de contato. Forma reduzida se exceder `MAX_SHAPE_WIDTH_MM` (150mm). Exportação STL binário das peças mescladas.
 - **Rolo de Textura:** Rolo cilíndrico fechado, com tampas planas e filetes de 1mm (sem cabos laterais), e relevo saliente. O padrão vem de três famílias (geométrico: losangos/bolinhas/grade; ondulado: ondas/chevrons/escamas; floral: flor/folha/roseta) ou de um SVG personalizado repetido como motivo. O relevo é vetorial, extrudado e curvado sobre o cilindro, com escala uniforme por `min(cellW, cellH)` e slider de escala (40–100%). Traços finos de motivos e SVG são engrossados até 0,8mm; preenchimentos sólidos do SVG não são alterados e a centerline é preservada. Motivos contínuos ultrapassam a célula em X para emendar sem costura. A densidade define células de 12/8/5mm; a profundidade do relevo é 0.5–2mm. O corpo é uma malha fechada por revolução; o relevo é mesclado ao corpo em grupos de material. A repetição fecha exatamente em 360° e no comprimento. Build em Web Worker. Exportação STL binário.
 - **Carimbo Brigadeiro:** Corpo único em hiperboloide com cintura central (LatheGeometry; duas "folhas" visuais) — face de contato plana no diâmetro, cintura no meio e topo menor; imprime com a face para cima (overhang ≲ 45°). Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; a elevação do relevo é ajustável (`reliefElevation`, 0.5–3.0mm, padrão 1mm) e o conteúdo sobressai abaixo da face de contato. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.
+- **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 
 ## Próximos passos (fora de escopo desta fase)
 

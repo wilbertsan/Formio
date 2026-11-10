@@ -25,7 +25,7 @@ const TOOLS: ToolCard[] = [
   {
     id: 'cartao-visita',
     name: 'Cartão de Visita',
-    description: 'Cartões de visita 3D com texto em relevo e layout personalizado',
+    description: 'Cartões de visita 3D com textos, ícone SVG e posicionamento livre',
     icon: '💳',
     category: 'Letreiros',
   },
