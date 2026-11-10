@@ -1,302 +1,455 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CakeTopperParams, TextItem } from './schema'
-import { clampToOutline } from './placement'
-import {
-  fitIconHalfSize,
-  iconGeometryHalfSize,
-  ICON_MARGIN,
-  type HalfSize,
-} from './iconLayout'
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
+import { Button, Flex, Heading } from '@aws-amplify/ui-react'
+import { Shape, Vector2 } from 'three'
+import type { BuildCakeTopperResult } from './buildCakeTopper'
+import { getPlateShapes } from './buildCakeTopper'
+import { fitIconHalfSize, iconGeometryHalfSize, ICON_MARGIN } from './iconLayout'
+import { clampToOutline, outlineSpec, type PlateBounds } from './placement'
+import type { CakeTopperParams } from './schema'
+
+const ICON_ID = 'icon'
+const TEXT_MARGIN = 4
+const PADDING = 5
+const DRAG_THRESHOLD = 0.5
+const HEADING_ID = 'content-position-editor-heading'
+const KEY_DELTAS: Record<string, { x: number; y: number }> = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: 1 },
+  ArrowDown: { x: 0, y: -1 },
+}
 
 interface TextPositionEditorProps {
   params: CakeTopperParams
-  selectedTextId: string
-  onSelectText: (id: string) => void
-  onMoveText: (id: string, x: number, y: number) => void
-  onMoveIcon: (x: number, y: number) => void
+  geometry: BuildCakeTopperResult | null
+  selectedContentId: string
+  onSelectContent: (id: string) => void
+  onMoveContent: (id: string, x: number, y: number) => void
   onClose: () => void
 }
 
-const TEXT_MARGIN = 3
-const SCALE = 2
-const ICON_ID = '__icon__'
-
-function plateHalfExtents(params: CakeTopperParams): HalfSize {
-  if (params.shape === 'circle') {
-    const radius = Math.min(params.width, params.height) / 2
-    return { halfWidth: radius, halfHeight: radius }
-  }
-  return { halfWidth: params.width / 2, halfHeight: params.height / 2 }
+interface EditorContent {
+  id: string
+  kind: 'text' | 'icon'
+  label: string
+  x: number
+  y: number
+  halfWidth: number
+  halfHeight: number
+  margin: number
 }
 
-// Encolhe o retângulo do texto até a área útil da placa, espelhando o builder.
-function effectiveHalfSize(item: TextItem, plate: HalfSize): HalfSize {
-  const usableHalfWidth = Math.max(0, plate.halfWidth - TEXT_MARGIN)
-  const usableHalfHeight = Math.max(0, plate.halfHeight - TEXT_MARGIN)
-  return {
-    halfWidth: Math.min(item.width / 2, usableHalfWidth),
-    halfHeight: Math.min(item.height / 2, usableHalfHeight),
-  }
+interface PlateBox {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  ctx.moveTo(x + radius, y)
-  ctx.lineTo(x + width - radius, y)
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
-  ctx.lineTo(x + width, y + height - radius)
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
-  ctx.lineTo(x + radius, y + height)
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
-  ctx.lineTo(x, y + radius)
-  ctx.quadraticCurveTo(x, y, x + radius, y)
+function shapeToPath(shape: Shape): string {
+  const toPath = (points: Vector2[]): string =>
+    points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${-point.y}`).join(' ') + ' Z'
+  const outer = toPath(shape.getPoints(64))
+  const holes = shape.holes.map((hole) => toPath(hole.getPoints(64))).join(' ')
+  return holes ? `${outer} ${holes}` : outer
+}
+
+function shapesBounds(shapes: Shape[]): PlateBox {
+  let minX = Infinity
+  let maxX = -Infinity
+  let minY = Infinity
+  let maxY = -Infinity
+
+  const expand = (point: Vector2): void => {
+    if (point.x < minX) minX = point.x
+    if (point.x > maxX) maxX = point.x
+    if (point.y < minY) minY = point.y
+    if (point.y > maxY) maxY = point.y
+  }
+
+  for (const shape of shapes) {
+    shape.getPoints(64).forEach(expand)
+    for (const hole of shape.holes) hole.getPoints(64).forEach(expand)
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return { minX: -10, maxX: 10, minY: -10, maxY: 10 }
+  }
+  return { minX, maxX, minY, maxY }
 }
 
 export function TextPositionEditor({
   params,
-  selectedTextId,
-  onSelectText,
-  onMoveText,
-  onMoveIcon,
+  geometry,
+  selectedContentId,
+  onSelectContent,
+  onMoveContent,
   onClose,
 }: TextPositionEditorProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
-  const [dragging, setDragging] = useState<string | null>(null)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const dragRef = useRef<{
+    id: string
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+    moved: boolean
+  } | null>(null)
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+  const plateBoundsRef = useRef<PlateBounds>({ halfWidth: 1, halfHeight: 1 })
+  const contentBoxesRef = useRef<EditorContent[]>([])
+  const onMoveContentRef = useRef(onMoveContent)
+  onMoveContentRef.current = onMoveContent
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
 
-  const canvasWidth = params.width * SCALE
-  const canvasHeight = params.height * SCALE
-  const plate = plateHalfExtents(params)
+  const plateShapes = useMemo(() => getPlateShapes(params), [params])
+  const plate = useMemo(() => shapesBounds(plateShapes), [plateShapes])
+  const plateBounds = useMemo<PlateBounds>(() => ({
+    halfWidth: (plate.maxX - plate.minX) / 2,
+    halfHeight: (plate.maxY - plate.minY) / 2,
+  }), [plate])
+  plateBoundsRef.current = plateBounds
 
-  const [iconSelected, setIconSelected] = useState(false)
-  const rawIconHalf = useMemo(
-    () => iconGeometryHalfSize(params.svgIcon, params.width, params.height, params.iconScale),
-    [params.svgIcon, params.width, params.height, params.iconScale],
-  )
-  const iconHalf = fitIconHalfSize(rawIconHalf, params, plate)
+  const viewMinX = plate.minX - PADDING
+  const viewMinY = -(plate.maxY + PADDING)
+  const vbWidth = plate.maxX - plate.minX + 2 * PADDING
+  const vbHeight = plate.maxY - plate.minY + 2 * PADDING
+
+  const contentBoxes = useMemo<EditorContent[]>(() => {
+    const built = geometry?.contentItems ?? []
+    const items: EditorContent[] = params.texts.map((text) => {
+      const item = built.find((content) => content.id === text.id)
+      const halfWidth = item?.halfWidth ?? text.width / 2
+      const halfHeight = item?.halfHeight ?? text.height / 2
+      const placed = clampToOutline(
+        params,
+        plateBounds,
+        halfWidth,
+        halfHeight,
+        text.offsetX,
+        text.offsetY,
+        TEXT_MARGIN,
+      )
+      return {
+        id: text.id,
+        kind: 'text',
+        label: text.content || 'Texto',
+        x: placed.x,
+        y: placed.y,
+        halfWidth,
+        halfHeight,
+        margin: TEXT_MARGIN,
+      }
+    })
+
+    if (params.svgIcon) {
+      const item = built.find((content) => content.id === ICON_ID)
+      const raw = iconGeometryHalfSize(
+        params.svgIcon,
+        params.width,
+        params.height,
+        params.iconScale,
+      )
+      const fallback = fitIconHalfSize(raw, params, plateBounds)
+      const halfWidth = item?.halfWidth ?? fallback?.halfWidth ?? 4
+      const halfHeight = item?.halfHeight ?? fallback?.halfHeight ?? 4
+      const placed = clampToOutline(
+        params,
+        plateBounds,
+        halfWidth,
+        halfHeight,
+        params.iconOffsetX,
+        params.iconOffsetY,
+        ICON_MARGIN,
+      )
+      items.push({
+        id: ICON_ID,
+        kind: 'icon',
+        label: 'Ícone',
+        x: placed.x,
+        y: placed.y,
+        halfWidth,
+        halfHeight,
+        margin: ICON_MARGIN,
+      })
+    }
+
+    return items
+  }, [params, geometry, plateBounds])
+  contentBoxesRef.current = contentBoxes
+
+  const toSvg = useCallback((clientX: number, clientY: number) => {
+    const svg = svgRef.current
+    if (!svg) return { x: 0, y: 0 }
+
+    if (typeof svg.getScreenCTM === 'function' && typeof svg.createSVGPoint === 'function') {
+      const ctm = svg.getScreenCTM()
+      if (ctm) {
+        const pt = svg.createSVGPoint()
+        pt.x = clientX
+        pt.y = clientY
+        const mapped = pt.matrixTransform(ctm.inverse())
+        if (Number.isFinite(mapped.x) && Number.isFinite(mapped.y)) {
+          return { x: mapped.x, y: -mapped.y }
+        }
+      }
+    }
+
+    const rect = svg.getBoundingClientRect()
+    const scaleX = vbWidth / (rect.width || 1)
+    const scaleY = vbHeight / (rect.height || 1)
+    return {
+      x: (clientX - rect.left) * scaleX + viewMinX,
+      y: -((clientY - rect.top) * scaleY + viewMinY),
+    }
+  }, [vbWidth, vbHeight, viewMinX, viewMinY])
+
+  const clampPosition = useCallback((
+    content: EditorContent,
+    x: number,
+    y: number,
+  ): { x: number; y: number } => {
+    return clampToOutline(
+      paramsRef.current,
+      plateBoundsRef.current,
+      content.halfWidth,
+      content.halfHeight,
+      x,
+      y,
+      content.margin,
+    )
+  }, [])
 
   useEffect(() => {
-    if (!iconHalf) {
-      setIconSelected(false)
-      setDragging((current) => (current === ICON_ID ? null : current))
+    const onMove = (event: PointerEvent) => {
+      const drag = dragRef.current
+      if (!drag) return
+
+      const pos = toSvg(event.clientX, event.clientY)
+      const deltaX = pos.x - drag.startX
+      const deltaY = pos.y - drag.startY
+      if (!drag.moved && Math.hypot(deltaX, deltaY) <= DRAG_THRESHOLD) return
+
+      const content = contentBoxesRef.current.find((item) => item.id === drag.id)
+      if (!content) return
+
+      drag.moved = true
+      const next = clampPosition(content, drag.originX + deltaX, drag.originY + deltaY)
+      setDragPos({ id: drag.id, x: next.x, y: next.y })
     }
-  }, [iconHalf])
+
+    const onUp = (event: PointerEvent) => {
+      const drag = dragRef.current
+      if (!drag) return
+
+      if (drag.moved) {
+        const content = contentBoxesRef.current.find((item) => item.id === drag.id)
+        const pos = toSvg(event.clientX, event.clientY)
+        if (content) {
+          const next = clampPosition(
+            content,
+            drag.originX + pos.x - drag.startX,
+            drag.originY + pos.y - drag.startY,
+          )
+          onMoveContentRef.current(drag.id, next.x, next.y)
+        }
+      }
+
+      dragRef.current = null
+      setDragPos(null)
+    }
+
+    const onCancel = () => {
+      dragRef.current = null
+      setDragPos(null)
+    }
+
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+    document.addEventListener('pointercancel', onCancel)
+    return () => {
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      document.removeEventListener('pointercancel', onCancel)
+    }
+  }, [toSvg, clampPosition])
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   useEffect(() => {
     closeButtonRef.current?.focus()
   }, [])
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+  const handlePointerDown = useCallback((
+    id: string,
+    event: ReactPointerEvent<SVGGElement>,
+  ) => {
+    event.stopPropagation()
+    onSelectContent(id)
+
+    const content = contentBoxesRef.current.find((item) => item.id === id)
+    if (!content) return
+
+    const pos = toSvg(event.clientX, event.clientY)
+    dragRef.current = {
+      id,
+      startX: pos.x,
+      startY: pos.y,
+      originX: content.x,
+      originY: content.y,
+      moved: false,
     }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onSelectContent, toSvg])
 
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+  const handleKeyDown = useCallback((
+    id: string,
+    event: ReactKeyboardEvent<SVGGElement>,
+  ) => {
+    const delta = KEY_DELTAS[event.key]
+    if (!delta) return
 
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+    const content = contentBoxesRef.current.find((item) => item.id === id)
+    if (!content) return
 
-    ctx.fillStyle = '#f5f5f5'
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight)
+    event.preventDefault()
+    const next = clampPosition(content, content.x + delta.x, content.y + delta.y)
+    onMoveContentRef.current(id, next.x, next.y)
+  }, [clampPosition])
 
-    const centerX = canvasWidth / 2
-    const centerY = canvasHeight / 2
-
-    ctx.beginPath()
-    switch (params.shape) {
-      case 'circle':
-        ctx.arc(centerX, centerY, plate.halfWidth * SCALE, 0, Math.PI * 2)
-        break
-      case 'oval':
-        ctx.ellipse(centerX, centerY, plate.halfWidth * SCALE, plate.halfHeight * SCALE, 0, 0, Math.PI * 2)
-        break
-      case 'rounded-rect': {
-        const radius = Math.min(params.cornerRadius, plate.halfWidth, plate.halfHeight) * SCALE
-        roundRect(ctx, centerX - plate.halfWidth * SCALE, centerY - plate.halfHeight * SCALE, canvasWidth, canvasHeight, radius)
-        break
-      }
-      case 'custom':
-        ctx.rect(centerX - plate.halfWidth * SCALE, centerY - plate.halfHeight * SCALE, canvasWidth, canvasHeight)
-        break
-    }
-    ctx.fillStyle = '#e4e4e7'
-    ctx.fill()
-    ctx.strokeStyle = '#a1a1aa'
-    ctx.lineWidth = 1
-    ctx.stroke()
-
-    for (const text of params.texts) {
-      const isSelected = !iconSelected && text.id === selectedTextId
-      const half = effectiveHalfSize(text, plate)
-      const textWidth = half.halfWidth * 2 * SCALE
-      const textHeight = half.halfHeight * 2 * SCALE
-      const x = centerX + text.offsetX * SCALE - textWidth / 2
-      const y = centerY - text.offsetY * SCALE - textHeight / 2
-
-      ctx.fillStyle = isSelected ? '#14b8a6' : '#a1a1aa'
-      ctx.fillRect(x, y, textWidth, textHeight)
-
-      ctx.strokeStyle = isSelected ? '#0d9488' : '#71717a'
-      ctx.lineWidth = isSelected ? 2 : 1
-      ctx.strokeRect(x, y, textWidth, textHeight)
-
-      ctx.fillStyle = '#fff'
-      ctx.font = '12px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(text.content, x + textWidth / 2, y + textHeight / 2)
-    }
-
-    if (iconHalf) {
-      const iconWidth = iconHalf.halfWidth * 2 * SCALE
-      const iconHeight = iconHalf.halfHeight * 2 * SCALE
-      const x = centerX + params.iconOffsetX * SCALE - iconWidth / 2
-      const y = centerY - params.iconOffsetY * SCALE - iconHeight / 2
-
-      ctx.fillStyle = iconSelected ? '#f59e0b' : '#d4d4d8'
-      ctx.fillRect(x, y, iconWidth, iconHeight)
-
-      ctx.strokeStyle = iconSelected ? '#d97706' : '#71717a'
-      ctx.lineWidth = iconSelected ? 2 : 1
-      ctx.strokeRect(x, y, iconWidth, iconHeight)
-
-      ctx.fillStyle = '#fff'
-      ctx.font = '12px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillText('Ícone', x + iconWidth / 2, y + iconHeight / 2)
-    }
-  }, [params, selectedTextId, canvasWidth, canvasHeight, plate, iconHalf, iconSelected])
-
-  useEffect(() => {
-    draw()
-  }, [draw])
-
-  const handleMouseDown = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (event.button !== 0) return
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const rect = canvas.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
-
-    if (iconHalf) {
-      const iconWidth = iconHalf.halfWidth * 2 * SCALE
-      const iconHeight = iconHalf.halfHeight * 2 * SCALE
-      const iconX = canvasWidth / 2 + params.iconOffsetX * SCALE - iconWidth / 2
-      const iconY = canvasHeight / 2 - params.iconOffsetY * SCALE - iconHeight / 2
-
-      if (x >= iconX && x <= iconX + iconWidth && y >= iconY && y <= iconY + iconHeight) {
-        setIconSelected(true)
-        setDragging(ICON_ID)
-        setDragStart({ x: event.clientX, y: event.clientY })
-        return
-      }
-    }
-
-    for (const text of params.texts) {
-      const half = effectiveHalfSize(text, plate)
-      const textWidth = half.halfWidth * 2 * SCALE
-      const textHeight = half.halfHeight * 2 * SCALE
-      const textX = canvasWidth / 2 + text.offsetX * SCALE - textWidth / 2
-      const textY = canvasHeight / 2 - text.offsetY * SCALE - textHeight / 2
-
-      if (x >= textX && x <= textX + textWidth && y >= textY && y <= textY + textHeight) {
-        setIconSelected(false)
-        onSelectText(text.id)
-        setDragging(text.id)
-        setDragStart({ x: event.clientX, y: event.clientY })
-        return
-      }
-    }
-  }
-
-  const handleMouseMove = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!dragging) return
-    const dx = (event.clientX - dragStart.x) / SCALE
-    const dy = (event.clientY - dragStart.y) / SCALE
-
-    if (dragging === ICON_ID) {
-      if (!iconHalf) return
-      const placed = clampToOutline(
-        params,
-        plate,
-        iconHalf.halfWidth,
-        iconHalf.halfHeight,
-        params.iconOffsetX + dx,
-        params.iconOffsetY - dy,
-        ICON_MARGIN,
-      )
-      onMoveIcon(placed.x, placed.y)
-      setDragStart({ x: event.clientX, y: event.clientY })
-      return
-    }
-
-    const text = params.texts.find((item) => item.id === dragging)
-    if (!text) return
-    const half = effectiveHalfSize(text, plate)
-    const placed = clampToOutline(
-      params,
-      plate,
-      half.halfWidth,
-      half.halfHeight,
-      text.offsetX + dx,
-      text.offsetY - dy,
-      TEXT_MARGIN,
-    )
-    onMoveText(dragging, placed.x, placed.y)
-    setDragStart({ x: event.clientX, y: event.clientY })
-  }
-
-  const handleMouseUp = () => {
-    setDragging(null)
-  }
+  const validArea = outlineSpec(params, plateBounds, TEXT_MARGIN)
 
   return (
     <div
       data-testid="text-editor"
       role="dialog"
       aria-modal="true"
-      aria-label="Posicionamento de conteúdo"
+      aria-labelledby={HEADING_ID}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={onClose}
     >
-      <div className="rounded-lg bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Posicionar Conteúdo</h2>
-          <button
+      <div
+        className="w-[90vw] max-w-2xl rounded-lg bg-white p-4 shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <Flex direction="row" justifyContent="space-between" alignItems="center" marginBottom="medium">
+          <Heading id={HEADING_ID} level={2} fontSize="large">Posicionar conteúdos</Heading>
+          <Button
             ref={closeButtonRef}
-            onClick={onClose}
-            className="rounded p-1 hover:bg-neutral-100"
+            size="small"
+            variation="link"
             aria-label="Fechar"
+            onClick={onClose}
           >
             ✕
-          </button>
-        </div>
-        <canvas
-          ref={canvasRef}
-          width={canvasWidth}
-          height={canvasHeight}
-          aria-label="Área de posicionamento de conteúdo"
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          className="cursor-move border border-neutral-200"
-        />
-        <p className="mt-2 text-sm text-neutral-500">Arraste os textos e o ícone para reposicionar</p>
+          </Button>
+        </Flex>
+
+        <svg
+          ref={svgRef}
+          data-testid="editor-svg"
+          viewBox={`${viewMinX} ${viewMinY} ${vbWidth} ${vbHeight}`}
+          className="w-full touch-none select-none rounded border border-neutral-200"
+        >
+          <rect x={viewMinX} y={viewMinY} width={vbWidth} height={vbHeight} fill="#f5f5f5" />
+          <g data-testid="editor-base">
+            {plateShapes.map((shape, index) => (
+              <path
+                key={index}
+                d={shapeToPath(shape)}
+                fill="#e4e4e7"
+                stroke="#a1a1aa"
+                strokeWidth={0.3}
+                fillRule="evenodd"
+              />
+            ))}
+          </g>
+          {validArea.box ? (
+            <rect
+              data-testid="editor-valid-area"
+              x={-validArea.rx}
+              y={-validArea.ry}
+              width={validArea.rx * 2}
+              height={validArea.ry * 2}
+              fill="none"
+              stroke="#14b8a680"
+              strokeWidth={0.2}
+              strokeDasharray="1,0.5"
+            />
+          ) : (
+            <ellipse
+              data-testid="editor-valid-area"
+              cx={0}
+              cy={0}
+              rx={validArea.rx}
+              ry={validArea.ry}
+              fill="none"
+              stroke="#14b8a680"
+              strokeWidth={0.2}
+              strokeDasharray="1,0.5"
+            />
+          )}
+          {contentBoxes.map((content) => {
+            const isDragging = dragPos?.id === content.id
+            const x = isDragging ? dragPos.x : content.x
+            const y = isDragging ? dragPos.y : content.y
+            const selected = content.id === selectedContentId
+            return (
+              <g
+                key={content.id}
+                data-testid={`editor-content-${content.id}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Mover ${content.label}`}
+                onPointerDown={(event) => handlePointerDown(content.id, event)}
+                onKeyDown={(event) => handleKeyDown(content.id, event)}
+                style={{ cursor: 'grab' }}
+              >
+                <rect
+                  x={x - content.halfWidth}
+                  y={-y - content.halfHeight}
+                  width={content.halfWidth * 2}
+                  height={content.halfHeight * 2}
+                  fill={selected ? '#14b8a6' : '#0d948899'}
+                  stroke={selected ? '#0f766e' : 'transparent'}
+                  strokeWidth={0.3}
+                />
+                <text
+                  x={x}
+                  y={-y}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontSize={Math.min(content.halfHeight * 1.2, 4)}
+                  fill="white"
+                  pointerEvents="none"
+                >
+                  {content.label.slice(0, 10)}
+                </text>
+              </g>
+            )
+          })}
+        </svg>
+
+        <p className="mt-2 text-sm text-neutral-500">
+          Arraste os conteúdos ou use as setas do teclado.
+        </p>
+
+        <Flex justifyContent="flex-end" marginTop="medium">
+          <Button variation="primary" onClick={onClose}>Concluir</Button>
+        </Flex>
       </div>
     </div>
   )

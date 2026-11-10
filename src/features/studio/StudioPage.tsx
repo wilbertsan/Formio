@@ -492,6 +492,7 @@ function TopoBoloToolWrapper({ onBack }: { onBack: () => void }) {
             onSetSvgIcon={setSvgIcon}
             onSetContourSvg={setContourSvg}
             onReset={reset}
+            geometry={geometry}
           />
         </Suspense>
         <StudioViewport

@@ -22,6 +22,7 @@ describe('StudioPanel', () => {
     onSetContourSvg: vi.fn(),
     onReset: vi.fn(),
     onMoveIcon: vi.fn(),
+    geometry: null,
   })
 
   it('renderiza o cabeçalho', () => {
@@ -111,6 +112,7 @@ describe('StudioPanel', () => {
     render(<StudioPanel {...createMockProps()} />)
     fireEvent.click(screen.getByText(/posicionar conteúdo/i))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-svg')).toBeInTheDocument()
   })
 
   it('dispara onReset ao clicar em Restaurar', () => {

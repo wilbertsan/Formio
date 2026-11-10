@@ -1,129 +1,166 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { vi } from 'vitest'
+import * as THREE from 'three'
 import { TextPositionEditor } from '@/features/studio/tools/confeitaria/topo-bolo/TextPositionEditor'
-import { defaultCakeTopperParams, type CakeTopperParams } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
-import { clampToOutline } from '@/features/studio/tools/confeitaria/topo-bolo/placement'
 import {
-  fitIconHalfSize,
-  iconGeometryHalfSize,
-} from '@/features/studio/tools/confeitaria/topo-bolo/iconLayout'
+  defaultCakeTopperParams,
+  type CakeTopperParams,
+} from '@/features/studio/tools/confeitaria/topo-bolo/schema'
+import type { BuildCakeTopperResult } from '@/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper'
 
-const SVG_RECT = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
-
-const clampParams: CakeTopperParams = {
-  ...defaultCakeTopperParams,
-  shape: 'circle',
-  width: 80,
-  height: 50,
-  texts: [{ ...defaultCakeTopperParams.texts[0], width: 30, height: 10, offsetX: 0, offsetY: 0 }],
+if (typeof window.PointerEvent === 'undefined') {
+  Object.defineProperty(window, 'PointerEvent', {
+    value: MouseEvent,
+    configurable: true,
+    writable: true,
+  })
 }
 
-function renderEditor(
-  overrides?: {
-    params?: CakeTopperParams
-    selectedTextId?: string
-    onSelectText?: (id: string) => void
-    onMoveText?: (id: string, x: number, y: number) => void
-    onMoveIcon?: (x: number, y: number) => void
-    onClose?: () => void
-  },
-) {
-  const params = overrides?.params ?? defaultCakeTopperParams
+const SVG_RECT = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect x="0" y="0" width="20" height="10" fill="#000"/></svg>'
+const firstTextId = defaultCakeTopperParams.texts[0].id
+
+function mockGeometry(): BuildCakeTopperResult {
+  return {
+    plate: new THREE.BufferGeometry(),
+    relief: null,
+    support: null,
+    contentItems: [
+      { id: firstTextId, kind: 'text', halfWidth: 5, halfHeight: 2 },
+    ],
+  }
+}
+
+function renderEditor(overrides: {
+  params?: CakeTopperParams
+  geometry?: BuildCakeTopperResult | null
+  selectedContentId?: string
+  onSelectContent?: (id: string) => void
+  onMoveContent?: (id: string, x: number, y: number) => void
+  onClose?: () => void
+} = {}) {
   return render(
     <TextPositionEditor
-      params={params}
-      selectedTextId={overrides?.selectedTextId ?? params.texts[0].id}
-      onSelectText={overrides?.onSelectText ?? (() => undefined)}
-      onMoveText={overrides?.onMoveText ?? (() => undefined)}
-      onMoveIcon={overrides?.onMoveIcon ?? (() => undefined)}
-      onClose={overrides?.onClose ?? (() => undefined)}
+      params={overrides.params ?? defaultCakeTopperParams}
+      geometry={overrides.geometry === undefined ? mockGeometry() : overrides.geometry}
+      selectedContentId={overrides.selectedContentId ?? firstTextId}
+      onSelectContent={overrides.onSelectContent ?? (() => undefined)}
+      onMoveContent={overrides.onMoveContent ?? (() => undefined)}
+      onClose={overrides.onClose ?? (() => undefined)}
     />,
   )
 }
 
-function placedIconOffset(params: CakeTopperParams): { x: number; y: number } {
-  const plate = { halfWidth: 25, halfHeight: 25 }
-  const raw = iconGeometryHalfSize(params.svgIcon, params.width, params.height, params.iconScale)
-  const half = fitIconHalfSize(raw, params, plate)
-  if (!half) throw new Error('Ícone sem geometria')
-  return clampToOutline(params, plate, half.halfWidth, half.halfHeight, 160, -175, 1)
+function dragContent(id: string, clientX: number, clientY: number): void {
+  const element = screen.getByTestId(`editor-content-${id}`)
+  fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+  fireEvent.pointerMove(document, { clientX, clientY })
+  fireEvent.pointerUp(document, { clientX, clientY })
+}
+
+function mockSvgViewport(container: HTMLElement, width: number, height: number): void {
+  const svg = container.querySelector('svg')
+  if (!svg) throw new Error('svg não encontrado')
+  vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: width,
+    bottom: height,
+    width,
+    height,
+    toJSON: () => ({}),
+  } as DOMRect)
 }
 
 describe('TextPositionEditor', () => {
-  beforeEach(() => {
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('renderiza o editor com canvas acessível', () => {
+  it('renderiza a placa, a área útil e a caixa do texto', () => {
     renderEditor()
-    expect(screen.getByTestId('text-editor')).toBeInTheDocument()
-    expect(screen.getByLabelText('Área de posicionamento de conteúdo')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-base')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-valid-area')).toBeInTheDocument()
+    expect(screen.getByTestId(`editor-content-${firstTextId}`)).toBeInTheDocument()
+    expect(screen.getByText('Texto')).toBeInTheDocument()
   })
 
-  it('expõe o overlay como diálogo modal', () => {
-    renderEditor()
-    const dialog = screen.getByRole('dialog', { name: 'Posicionamento de conteúdo' })
-    expect(dialog).toHaveAttribute('aria-modal', 'true')
+  it('seleciona o conteúdo ao clicar', () => {
+    const onSelectContent = vi.fn()
+    renderEditor({ selectedContentId: '', onSelectContent })
+    fireEvent.pointerDown(screen.getByTestId(`editor-content-${firstTextId}`), {
+      clientX: 0,
+      clientY: 0,
+      button: 0,
+      bubbles: true,
+    })
+    expect(onSelectContent).toHaveBeenCalledWith(firstTextId)
   })
 
-  it('foca o botão Fechar ao abrir', () => {
-    renderEditor()
-    expect(screen.getByLabelText('Fechar')).toHaveFocus()
+  it('não move ao clicar sem arrastar', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent, selectedContentId: '' })
+    const element = screen.getByTestId(`editor-content-${firstTextId}`)
+    fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+    fireEvent.pointerUp(document, { clientX: 100, clientY: 100 })
+    expect(onMoveContent).not.toHaveBeenCalled()
   })
 
-  it('seleciona texto ao clicar sobre ele', () => {
-    const onSelectText = vi.fn()
-    renderEditor({ selectedTextId: '', onSelectText })
-    const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
-    fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
-    expect(onSelectText).toHaveBeenCalledWith('text-1')
+  it('dispara onMoveContent ao arrastar e soltar', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+    dragContent(firstTextId, 140, 140)
+    expect(onMoveContent).toHaveBeenCalledWith(firstTextId, expect.any(Number), expect.any(Number))
   })
 
-  it('não inicia arraste com botão direito', () => {
-    const onSelectText = vi.fn()
-    renderEditor({ selectedTextId: '', onSelectText })
-    const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
-    fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 2 })
-    expect(onSelectText).not.toHaveBeenCalled()
+  it('usa o delta do arraste a partir da posição de origem', () => {
+    const params: CakeTopperParams = {
+      ...defaultCakeTopperParams,
+      texts: [{ ...defaultCakeTopperParams.texts[0], offsetX: 5, offsetY: -2 }],
+    }
+    const onMoveContent = vi.fn()
+    const { container } = renderEditor({ params, onMoveContent })
+    const svg = container.querySelector('svg')!
+    const [, , vbWidth, vbHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+    mockSvgViewport(container, vbWidth, vbHeight)
+
+    const element = screen.getByTestId(`editor-content-${firstTextId}`)
+    fireEvent.pointerDown(element, { clientX: 39, clientY: 18.5, button: 0, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 42, clientY: 16.5 })
+    fireEvent.pointerUp(document, { clientX: 42, clientY: 16.5 })
+
+    const [id, x, y] = onMoveContent.mock.calls[0]
+    expect(id).toBe(firstTextId)
+    expect(x).toBeCloseTo(8, 1)
+    expect(y).toBeCloseTo(0, 1)
+    expect(x).not.toBeCloseTo(12, 1)
   })
 
-  it('limita o arraste à área útil da placa', () => {
-    const onMoveText = vi.fn()
-    renderEditor({ params: clampParams, onMoveText })
-    const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
-    fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
-    fireEvent.mouseMove(canvas, { clientX: 300, clientY: 300 })
-    const [, x, y] = onMoveText.mock.calls[0] as [string, number, number]
-    const placed = clampToOutline(
-      clampParams,
-      { halfWidth: 25, halfHeight: 25 },
-      15,
-      5,
-      110,
-      -125,
-      3,
-    )
-    expect(x).toBeCloseTo(placed.x, 5)
-    expect(y).toBeCloseTo(placed.y, 5)
+  it('limita o arraste à placa', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+    dragContent(firstTextId, 5000, 5000)
+    const [id, x, y] = onMoveContent.mock.calls[0]
+    expect(id).toBe(firstTextId)
+    expect(Math.abs(x)).toBeLessThanOrEqual(40)
+    expect(Math.abs(y)).toBeLessThanOrEqual(25)
   })
 
-  it('permite arraste dentro do limite', () => {
-    const onMoveText = vi.fn()
-    renderEditor({ params: clampParams, onMoveText })
-    const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
-    fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
-    fireEvent.mouseMove(canvas, { clientX: 84, clientY: 54 })
-    expect(onMoveText).toHaveBeenCalledWith('text-1', 2, -2)
+  it('move conteúdo por teclado com as setas', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+    fireEvent.keyDown(screen.getByRole('button', { name: /mover texto/i }), { key: 'ArrowRight' })
+    expect(onMoveContent).toHaveBeenCalledWith(firstTextId, 1, 0)
   })
 
-  it('fecha ao clicar no botão Fechar', () => {
+  it('fecha ao clicar em Concluir', () => {
     const onClose = vi.fn()
     renderEditor({ onClose })
-    fireEvent.click(screen.getByLabelText('Fechar'))
+    fireEvent.click(screen.getByRole('button', { name: /concluir/i }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('fecha ao clicar no fundo', () => {
+    const onClose = vi.fn()
+    renderEditor({ onClose })
+    fireEvent.click(screen.getByTestId('text-editor'))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -134,41 +171,42 @@ describe('TextPositionEditor', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
-  it('arrasta o ícone e chama onMoveIcon', () => {
-    const onMoveIcon = vi.fn()
-    const params: CakeTopperParams = {
-      ...defaultCakeTopperParams,
-      svgIcon: SVG_RECT,
-      iconScale: 1,
-      iconOffsetX: 0,
-      iconOffsetY: 0,
-    }
-    renderEditor({ params, onMoveIcon })
-    const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
-    fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
-    fireEvent.mouseMove(canvas, { clientX: 84, clientY: 54 })
-    expect(onMoveIcon).toHaveBeenCalledWith(2, -2)
+  it('foca o botão fechar ao montar', () => {
+    renderEditor()
+    expect(screen.getByRole('button', { name: /fechar/i })).toHaveFocus()
   })
 
-  it('limita o arraste do ícone à área útil da placa', () => {
-    const onMoveIcon = vi.fn()
+  it('expõe diálogo modal rotulado pelo título', () => {
+    renderEditor()
+    const dialog = screen.getByRole('dialog')
+    const heading = screen.getByRole('heading', { name: /posicionar conteúdos/i })
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-labelledby', heading.id)
+  })
+
+  it('usa tamanhos de fallback sem geometria', () => {
+    renderEditor({ geometry: null })
+    const rect = screen.getByTestId(`editor-content-${firstTextId}`).querySelector('rect')
+    expect(rect).toHaveAttribute('width', '90')
+    expect(rect).toHaveAttribute('height', '14')
+  })
+
+  it('renderiza o ícone quando configurado', () => {
     const params: CakeTopperParams = {
       ...defaultCakeTopperParams,
-      shape: 'circle',
-      width: 80,
-      height: 50,
       svgIcon: SVG_RECT,
-      iconScale: 1,
       iconOffsetX: 0,
       iconOffsetY: 0,
     }
-    renderEditor({ params, onMoveIcon })
-    const canvas = screen.getByLabelText('Área de posicionamento de conteúdo')
-    fireEvent.mouseDown(canvas, { clientX: 80, clientY: 50, button: 0 })
-    fireEvent.mouseMove(canvas, { clientX: 400, clientY: 400 })
-    const [x, y] = onMoveIcon.mock.calls[0] as [number, number]
-    const max = placedIconOffset(params)
-    expect(x).toBeCloseTo(max.x, 5)
-    expect(y).toBeCloseTo(max.y, 5)
+    const geometry: BuildCakeTopperResult = {
+      ...mockGeometry(),
+      contentItems: [
+        ...mockGeometry().contentItems!,
+        { id: 'icon', kind: 'icon', halfWidth: 3, halfHeight: 3 },
+      ],
+    }
+    renderEditor({ params, geometry })
+    expect(screen.getByTestId('editor-content-icon')).toBeInTheDocument()
+    expect(screen.getByText('Ícone')).toBeInTheDocument()
   })
 })
