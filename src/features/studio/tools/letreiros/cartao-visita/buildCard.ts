@@ -1,4 +1,4 @@
-import { type BufferGeometry, ExtrudeGeometry } from 'three'
+import { BufferGeometry, ExtrudeGeometry } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { getUsableRegion, resolveContentGeometry } from './autoFit'
