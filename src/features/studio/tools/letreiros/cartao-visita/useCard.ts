@@ -187,12 +187,15 @@ export function useCard(options: UseCardOptions = {}) {
   }, [workerFactory])
 
   // Cor não altera a geometria: o build só depende destes campos.
+  // Serializa em ordem fixa (arrays) para não depender da ordem das chaves do Zod.
   const buildKey = useMemo(() => JSON.stringify({
     width: params.width,
     height: params.height,
     thickness: params.thickness,
     cornerRadius: params.cornerRadius,
-    contents: params.contents,
+    contents: params.contents.map((item) => item.kind === 'text'
+      ? ['text', item.id, item.content, item.fontStyle, item.fontSize, item.offsetX, item.offsetY]
+      : ['icon', item.id, item.svgIcon, item.iconScale, item.iconLineWidth, item.offsetX, item.offsetY]),
   }), [
     params.width,
     params.height,

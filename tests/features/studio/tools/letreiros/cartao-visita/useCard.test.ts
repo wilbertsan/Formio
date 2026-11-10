@@ -197,6 +197,28 @@ describe('useCard', () => {
     expect(result.current.isBuilding).toBe(false)
   })
 
+  it('não reconstrói ao trocar as cores', () => {
+    const { factory, workers, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useCard({ workerFactory: factory }))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+    act(() => {
+      respond()
+    })
+    expect(workers).toHaveLength(1)
+
+    act(() => result.current.updateParam('baseColor', '#ef4444'))
+    act(() => result.current.updateParam('letterColor', '#171717'))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
+
+    expect(workers).toHaveLength(1)
+    expect(result.current.params.baseColor).toBe('#ef4444')
+    expect(result.current.params.letterColor).toBe('#171717')
+  })
+
   it('expõe erro quando o worker falha', () => {
     const { factory, fail } = makeWorkerFixture()
     const { result } = renderHook(() => useCard({ workerFactory: factory }))
