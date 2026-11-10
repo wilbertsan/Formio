@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import * as THREE from 'three'
 import { MemoryRouter } from 'react-router-dom'
 import { StudioPage } from '@/features/studio/StudioPage'
 // Importa o painel eagerly para que o chunk lazy do StudioPage já esteja
@@ -8,6 +9,13 @@ import '@/features/studio/tools/confeitaria/rolo-textura/StudioPanel'
 import '@/features/studio/tools/chaveiros/chaveiro/StudioPanel'
 import '@/features/studio/tools/chaveiros/chaveiro/TextPositionEditor'
 import '@/features/studio/tools/letreiros/marcador-pagina/StudioPanel'
+import '@/features/studio/tools/letreiros/cartao-visita/StudioPanel'
+import '@/features/studio/tools/letreiros/cartao-visita/TextPositionEditor'
+import { exportStl as exportCardStl } from '@/features/studio/tools/letreiros/cartao-visita/exportStl'
+import {
+  serializeCardResult,
+  type SerializedCardResult,
+} from '@/features/studio/tools/letreiros/cartao-visita/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -23,14 +31,27 @@ vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
 }))
 
 // jsdom não implementa Worker; o hook da ferramenta cria um após o debounce.
+let cardWorkerResponse: SerializedCardResult | null = null
+
 class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
   onerror: (() => void) | null = null
-  postMessage(): void {}
+  postMessage(message: unknown): void {
+    if (!cardWorkerResponse) return
+    const request = message as { params?: { productType?: string } }
+    if (request.params?.productType !== 'card') return
+    setTimeout(() => {
+      this.onmessage?.({ data: { data: cardWorkerResponse } } as MessageEvent)
+    }, 0)
+  }
   terminate(): void {}
 }
 
 vi.stubGlobal('Worker', WorkerMock)
+
+vi.mock('@/features/studio/tools/letreiros/cartao-visita/exportStl', () => ({
+  exportStl: vi.fn(),
+}))
 
 vi.mock('@react-three/fiber', () => {
   const camera = { position: { set: vi.fn() }, lookAt: vi.fn(), fov: 45 }
@@ -61,6 +82,8 @@ function renderStudioPage() {
 
 describe('StudioPage', () => {
   beforeEach(() => {
+    cardWorkerResponse = null
+    vi.mocked(exportCardStl).mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -173,5 +196,51 @@ describe('StudioPage', () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /marcador de página/i }))
     expect(await screen.findByText('50 × 100 × 1 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
+  })
+
+  it('abre a ferramenta Cartão de Visita com o painel de conteúdo', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Cartão de Visita' }, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /adicionar texto/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /seu nome/i })).toBeInTheDocument()
+    expect(screen.getByText('85 × 55 × 2 mm')).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… no Cartão de Visita', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+    expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
+  })
+
+  it('abre o editor de posicionamento do Cartão de Visita', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /posicionar conteúdos/i }, LAZY_TIMEOUT))
+    expect(screen.getByRole('heading', { name: /posicionar conteúdos/i })).toBeInTheDocument()
+  })
+
+  it('habilita e executa a exportação quando o cartão é gerado', async () => {
+    cardWorkerResponse = serializeCardResult({
+      base: new THREE.BoxGeometry(85, 55, 2),
+      content: new THREE.BoxGeometry(10, 4, 1),
+      contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2 }],
+    }).data
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /cartão de visita/i }))
+
+    const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
+    await waitFor(() => expect(exportButton).toBeEnabled())
+    fireEvent.click(exportButton)
+
+    expect(exportCardStl).toHaveBeenCalledWith(
+      expect.objectContaining({ base: expect.anything() }),
+      'Projeto sem título',
+      expect.any(Function),
+    )
   })
 })

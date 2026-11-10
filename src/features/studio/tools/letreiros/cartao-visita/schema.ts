@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
-export const MARGIN_MIN = 3
+export const CONTENT_DEPTH = 1
+export const CONTENT_MARGIN = 3
+export const BASE_BEVEL = 0.1
 
 export const PLA_COLORS = [
   '#14b8a6', '#ef4444', '#3b82f6', '#eab308', '#22c55e',
@@ -9,75 +11,101 @@ export const PLA_COLORS = [
 
 export type PlaColor = (typeof PLA_COLORS)[number]
 
-export const textBlockSchema = z.object({
+const contentFields = {
   id: z.string().min(1),
-  content: z.string().trim().min(1).max(30),
+  offsetX: z.number().min(-40).max(40),
+  offsetY: z.number().min(-40).max(40),
+}
+
+export const textContentSchema = z.object({
+  ...contentFields,
+  kind: z.literal('text'),
+  content: z.string(),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   fontSize: z.number().min(3).max(12),
-  relief: z.number().min(0.3).max(1.5),
-  offsetX: z.number().min(-30).max(30),
-  offsetY: z.number().min(-30).max(30),
 })
 
-export type TextBlock = z.infer<typeof textBlockSchema>
+export const iconContentSchema = z.object({
+  ...contentFields,
+  kind: z.literal('icon'),
+  svgIcon: z.string().min(1).nullable(),
+  iconScale: z.number().min(0.5).max(1),
+  iconLineWidth: z.number().min(0.1).max(1.5),
+})
+
+export const contentItemSchema = z.discriminatedUnion('kind', [
+  textContentSchema,
+  iconContentSchema,
+])
+
+export type TextContent = z.infer<typeof textContentSchema>
+export type IconContent = z.infer<typeof iconContentSchema>
+export type CardContent = z.infer<typeof contentItemSchema>
+export type FontStyle = TextContent['fontStyle']
 
 export const cardParamsSchema = z.object({
   productType: z.literal('card'),
-  layout: z.enum(['centered', 'left']),
   width: z.number().min(50).max(90),
   height: z.number().min(30).max(60),
   thickness: z.number().min(1).max(3),
   cornerRadius: z.number().min(0).max(10),
-  textMode: z.enum(['raised', 'engraved']),
   baseColor: z.enum(PLA_COLORS),
   letterColor: z.enum(PLA_COLORS),
-  blocks: z.array(textBlockSchema).min(1).max(3),
+  contents: z.array(contentItemSchema).min(1).max(3),
 })
 
 export type CardParams = z.infer<typeof cardParamsSchema>
-export type CardLayout = CardParams['layout']
-export type CardTextMode = CardParams['textMode']
-export type FontStyle = TextBlock['fontStyle']
 
-const defaultBlocks: TextBlock[] = [
+const defaultContents: CardContent[] = [
   {
-    id: 'block-1',
-    content: 'Nome',
+    id: 'content-1',
+    kind: 'text',
+    content: 'Seu Nome',
     fontStyle: 'bold',
-    fontSize: 8,
-    relief: 1,
+    fontSize: 7,
     offsetX: 0,
-    offsetY: 0,
+    offsetY: 10,
   },
   {
-    id: 'block-2',
-    content: 'Cargo',
-    fontStyle: 'normal',
-    fontSize: 5,
-    relief: 0.8,
-    offsetX: 0,
-    offsetY: 0,
-  },
-  {
-    id: 'block-3',
-    content: 'contato@email.com',
+    id: 'content-2',
+    kind: 'text',
+    content: 'Seu Cargo',
     fontStyle: 'normal',
     fontSize: 4,
-    relief: 0.6,
     offsetX: 0,
     offsetY: 0,
+  },
+  {
+    id: 'content-3',
+    kind: 'text',
+    content: 'seu@email.com',
+    fontStyle: 'normal',
+    fontSize: 3,
+    offsetX: 0,
+    offsetY: -10,
   },
 ]
 
 export const defaultCardParams: CardParams = {
   productType: 'card',
-  layout: 'centered',
   width: 85,
   height: 55,
   thickness: 2,
   cornerRadius: 3,
-  textMode: 'raised',
   baseColor: '#14b8a6',
   letterColor: '#f5f5f5',
-  blocks: defaultBlocks,
+  contents: defaultContents,
+}
+
+export function normalizeName(name: string): string {
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ç/gi, 'c')
+}
+
+export function sanitizeFilename(name: string): string {
+  const normalized = normalizeName(name)
+  const cleaned = normalized.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '-')
+  return cleaned.length > 0 ? cleaned : 'cartao-visita'
 }

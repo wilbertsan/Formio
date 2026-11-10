@@ -3165,7 +3165,7 @@ describe('TextPositionEditor', () => {
     dragContent(firstId, 5000, 5000)
     const [, x, y] = onMoveContent.mock.calls[0]
     expect(x).toBeCloseTo(34.5, 1)
-    expect(y).toBeCloseTo(22.5, 1)
+    expect(y).toBeCloseTo(-22.5, 1)
   })
 
   it('move com as setas do teclado', () => {

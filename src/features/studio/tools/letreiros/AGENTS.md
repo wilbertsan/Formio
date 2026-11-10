@@ -6,16 +6,17 @@ Itens planos de exibição com foco em tipografia e fixação — cartões, plac
 
 | Ferramenta | Status |
 |---|---|
-| cartao-visita | planejada |
+| cartao-visita | implementada |
 | placa-loja | planejada |
 | suporte-foto | planejada |
 
 ## Regras do domínio
 
-- Tipografia: fontes legíveis, tamanho mínimo de 3mm de altura para leitura
+- Tipografia: fontes legíveis; 3mm de altura como referência, com auto-fit para textos longos
 - Espessura típica: 1–4mm para cartões, 3–8mm para placas
 - Fixação: furos para parafuso/.dupla-face, base para pé (suporte de foto)
-- Alinhamento de texto: centralizado ou à esquerda, consistente
+- Posicionamento: livre no editor 2D, com clamp à área útil
+- Cartão de visita: conteúdo livre (texto/ícone), relevo fixo de 1 mm, margem de 3 mm
 - Margem mínima de 3mm entre texto e borda
 - Superfícies planas: sem curvaturas, boa adesão de filament
 - STL sempre manifold, fechado, pronto para impressão

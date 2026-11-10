@@ -1,25 +1,80 @@
+import { useEffect, useRef, useState } from 'react'
 import {
   Accordion,
   Button,
   Flex,
   Heading,
+  Radio,
+  RadioGroupField,
   SelectField,
   SliderField,
   Text,
   TextField,
   View,
 } from '@aws-amplify/ui-react'
-import { type CardParams, type TextBlock, PLA_COLORS } from './schema'
+import {
+  type CardParams,
+  type FontStyle,
+  type IconContent,
+  type TextContent,
+  PLA_COLORS,
+} from './schema'
 
 interface StudioPanelProps {
   params: CardParams
-  selectedBlockId: string
-  onSelectBlock: (id: string) => void
-  onUpdateBlock: (id: string, patch: Partial<TextBlock>) => void
-  onAddBlock: () => void
-  onRemoveBlock: (id: string) => void
+  selectedContentId: string
+  onSelectContent: (id: string) => void
+  onUpdateContent: (id: string, patch: Partial<TextContent> | Partial<IconContent>) => void
+  onSetContentType: (id: string, kind: 'text' | 'icon') => void
+  onAddContent: () => void
+  onRemoveContent: (id: string) => void
   onUpdateParam: (key: keyof CardParams, value: number | string) => void
   onReset: () => void
+  onOpenEditor: () => void
+}
+
+const MAX_SVG_BYTES = 1024 * 1024
+const SVG_ERROR_MESSAGE = 'Envie um arquivo SVG de até 1 MB.'
+const SVG_READ_ERROR_MESSAGE = 'Não foi possível ler o arquivo.'
+
+function LabeledSlider({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  step,
+  onChange,
+  isDisabled,
+}: {
+  label: string
+  value: number
+  unit: string
+  min: number
+  max: number
+  step: number
+  onChange: (value: number) => void
+  isDisabled?: boolean
+}) {
+  return (
+    <>
+      <Flex direction="row" justifyContent="space-between">
+        <Text fontSize="xs" color="font.tertiary">{label}</Text>
+        <Text fontSize="xs" color="font.secondary">{value} {unit}</Text>
+      </Flex>
+      <SliderField
+        label=""
+        aria-label={label}
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        isDisabled={isDisabled}
+        isValueHidden
+        onChange={(next) => onChange(next as number)}
+      />
+    </>
+  )
 }
 
 function ColorSwatches({
@@ -41,31 +96,67 @@ function ColorSwatches({
           aria-pressed={color === selected}
           onClick={() => onSelect(color)}
           className="h-7 w-7 rounded-full p-0"
-          style={{ backgroundColor: color, border: color === selected ? '2px solid #000' : '2px solid transparent' }}
+          style={{
+            backgroundColor: color,
+            border: color === selected ? '2px solid #000' : '2px solid transparent',
+          }}
         />
       ))}
     </Flex>
   )
 }
 
-function blockLabel(id: string): string {
-  if (id === 'block-1') return 'Nome'
-  if (id === 'block-2') return 'Cargo'
-  return 'Contato'
-}
-
 export function StudioPanel({
   params,
-  selectedBlockId,
-  onSelectBlock,
-  onUpdateBlock,
-  onAddBlock,
-  onRemoveBlock,
+  selectedContentId,
+  onSelectContent,
+  onUpdateContent,
+  onSetContentType,
+  onAddContent,
+  onRemoveContent,
   onUpdateParam,
   onReset,
+  onOpenEditor,
 }: StudioPanelProps) {
-  const selectedBlock = params.blocks.find((b) => b.id === selectedBlockId) ?? params.blocks[0]
-  const canAddBlock = params.blocks.length < 3
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [svgError, setSvgError] = useState<string | null>(null)
+  const selected = params.contents.find((item) => item.id === selectedContentId) ?? params.contents[0]
+  const canAddContent = params.contents.length < 3
+  const iconItems = params.contents.filter((item) => item.kind === 'icon')
+  const hasMultipleIcons = iconItems.length > 1
+
+  useEffect(() => {
+    setSvgError(null)
+  }, [selectedContentId])
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const input = event.target
+    const file = input.files?.[0]
+    if (!file) {
+      input.value = ''
+      return
+    }
+
+    if (!file.name.toLowerCase().endsWith('.svg') || file.size > MAX_SVG_BYTES) {
+      setSvgError(SVG_ERROR_MESSAGE)
+      input.value = ''
+      return
+    }
+
+    const contentId = selected.id
+    const reader = new FileReader()
+    reader.onload = (loadEvent) => {
+      const svgContent = loadEvent.target?.result as string
+      setSvgError(null)
+      onUpdateContent(contentId, { svgIcon: svgContent })
+      input.value = ''
+    }
+    reader.onerror = () => {
+      setSvgError(SVG_READ_ERROR_MESSAGE)
+      input.value = ''
+    }
+    reader.readAsText(file)
+  }
 
   return (
     <View
@@ -83,178 +174,231 @@ export function StudioPanel({
       </Flex>
 
       <Accordion.Container allowMultiple>
-        <Accordion.Item value="texto">
+        <Accordion.Item value="conteudo">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Texto
+              Conteúdo
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <Flex direction="row" gap="xs" wrap="wrap">
-                {params.blocks.map((block) => (
+                {params.contents.map((item) => (
                   <Button
-                    key={block.id}
+                    key={item.id}
                     size="small"
-                    aria-pressed={block.id === selectedBlockId}
-                    onClick={() => onSelectBlock(block.id)}
+                    aria-pressed={item.id === selected.id}
+                    onClick={() => onSelectContent(item.id)}
                   >
-                    {blockLabel(block.id)}
+                    {item.kind === 'text'
+                      ? item.content || 'Texto'
+                      : hasMultipleIcons
+                        ? `Ícone ${iconItems.findIndex((icon) => icon.id === item.id) + 1}`
+                        : 'Ícone'}
                   </Button>
                 ))}
-                {params.blocks.length > 1 && (
+                {params.contents.length > 1 && (
                   <Button
                     size="small"
                     variation="link"
-                    onClick={() => onRemoveBlock(selectedBlockId)}
+                    aria-label="Remover conteúdo"
+                    onClick={() => {
+                      setSvgError(null)
+                      onRemoveContent(selected.id)
+                    }}
                   >
                     ×
                   </Button>
                 )}
               </Flex>
 
-              <Button
-                size="small"
-                isDisabled={!canAddBlock}
-                onClick={onAddBlock}
-              >
-                Adicionar bloco
+              <Button size="small" isDisabled={!canAddContent} onClick={onAddContent}>
+                Adicionar texto
               </Button>
 
-              {selectedBlock && (
+              <RadioGroupField
+                legend="Tipo de conteúdo"
+                name="contentType"
+                value={selected.kind}
+                onChange={(event) =>
+                  onSetContentType(selected.id, event.target.value as 'text' | 'icon')
+                }
+              >
+                <Radio value="text">Texto</Radio>
+                <Radio value="icon">Ícone</Radio>
+              </RadioGroupField>
+
+              {selected.kind === 'text' ? (
                 <>
                   <TextField
                     label="Conteúdo"
-                    value={selectedBlock.content}
-                    maxLength={30}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      onUpdateBlock(selectedBlock.id, { content: e.target.value })
+                    descriptiveText="Acentos são removidos automaticamente. Textos longos são reduzidos."
+                    value={selected.content}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                      onUpdateContent(selected.id, { content: event.target.value })
                     }
                   />
 
                   <SelectField
                     label="Estilo da letra"
-                    value={selectedBlock.fontStyle}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      onUpdateBlock(selectedBlock.id, { fontStyle: e.target.value as TextBlock['fontStyle'] })
+                    value={selected.fontStyle}
+                    onChange={(event: React.ChangeEvent<HTMLSelectElement>) =>
+                      onUpdateContent(selected.id, { fontStyle: event.target.value as FontStyle })
                     }
                   >
-                    <option value="bold">Negrito</option>
                     <option value="normal">Normal</option>
+                    <option value="bold">Negrito</option>
                     <option value="serif">Serifada</option>
                   </SelectField>
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Tamanho da fonte</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedBlock.fontSize} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Tamanho da fonte"
-                    min={3} max={12} step={0.5}
-                    value={selectedBlock.fontSize}
-                    onChange={(value) => onUpdateBlock(selectedBlock.id, { fontSize: value as number })}
+                  <LabeledSlider
+                    label="Tamanho da fonte"
+                    value={selected.fontSize}
+                    unit="mm"
+                    min={3}
+                    max={12}
+                    step={0.5}
+                    onChange={(value) => onUpdateContent(selected.id, { fontSize: value })}
+                  />
+                </>
+              ) : (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".svg"
+                    data-testid="icon-upload"
+                    onChange={handleFileUpload}
+                    style={{ display: 'none' }}
                   />
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Altura do relevo</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedBlock.relief} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Altura do relevo"
-                    min={0.3} max={1.5} step={0.1}
-                    value={selectedBlock.relief}
-                    onChange={(value) => onUpdateBlock(selectedBlock.id, { relief: value as number })}
+                  {!selected.svgIcon ? (
+                    <Button size="small" onClick={() => fileInputRef.current?.click()}>
+                      Upload SVG
+                    </Button>
+                  ) : (
+                    <>
+                      <Text fontSize="xs" color="font.secondary">
+                        Ícone carregado
+                      </Text>
+                      <Button
+                        size="small"
+                        variation="link"
+                        onClick={() => {
+                          setSvgError(null)
+                          onUpdateContent(selected.id, { svgIcon: null })
+                        }}
+                      >
+                        Remover ícone
+                      </Button>
+                    </>
+                  )}
+
+                  {svgError && (
+                    <Text role="alert" fontSize="xs" className="text-red-600">
+                      {svgError}
+                    </Text>
+                  )}
+
+                  <LabeledSlider
+                    label="Escala do ícone"
+                    value={selected.iconScale}
+                    unit="x"
+                    min={0.5}
+                    max={1}
+                    step={0.1}
+                    isDisabled={!selected.svgIcon}
+                    onChange={(value) => onUpdateContent(selected.id, { iconScale: value })}
                   />
 
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Offset horizontal</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedBlock.offsetX} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Offset horizontal"
-                    min={-30} max={30} step={1}
-                    value={selectedBlock.offsetX}
-                    onChange={(value) => onUpdateBlock(selectedBlock.id, { offsetX: value as number })}
-                  />
-
-                  <Flex direction="row" justifyContent="space-between">
-                    <Text fontSize="xs" color="font.tertiary">Offset vertical</Text>
-                    <Text fontSize="xs" color="font.secondary">{selectedBlock.offsetY} mm</Text>
-                  </Flex>
-                  <SliderField
-                    label=""
-                    aria-label="Offset vertical"
-                    min={-30} max={30} step={1}
-                    value={selectedBlock.offsetY}
-                    onChange={(value) => onUpdateBlock(selectedBlock.id, { offsetY: value as number })}
+                  <LabeledSlider
+                    label="Espessura da linha do ícone"
+                    value={selected.iconLineWidth}
+                    unit="mm"
+                    min={0.1}
+                    max={1.5}
+                    step={0.05}
+                    isDisabled={!selected.svgIcon}
+                    onChange={(value) => onUpdateContent(selected.id, { iconLineWidth: value })}
                   />
                 </>
               )}
+
+              <Text fontSize="xs" color="font.tertiary">
+                Textos e ícones elevados em 1 mm.
+              </Text>
+
+              <Button
+                size="small"
+                variation="link"
+                onClick={onOpenEditor}
+                aria-label="Posicionar conteúdos"
+              >
+                ✥ Posicionar conteúdos
+              </Button>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
 
-        <Accordion.Item value="base">
+        <Accordion.Item value="cartao">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">
-              Base
+              Cartão
             </Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Largura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.width} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Largura"
-                min={50} max={90} step={1}
+              <LabeledSlider
+                label="Largura"
                 value={params.width}
-                onChange={(value) => onUpdateParam('width', value as number)}
+                unit="mm"
+                min={50}
+                max={90}
+                step={1}
+                onChange={(value) => onUpdateParam('width', value)}
               />
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Altura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.height} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Altura"
-                min={30} max={60} step={1}
+              <LabeledSlider
+                label="Altura"
                 value={params.height}
-                onChange={(value) => onUpdateParam('height', value as number)}
+                unit="mm"
+                min={30}
+                max={60}
+                step={1}
+                onChange={(value) => onUpdateParam('height', value)}
               />
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Espessura</Text>
-                <Text fontSize="xs" color="font.secondary">{params.thickness} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Espessura"
-                min={1} max={3} step={0.5}
+              <LabeledSlider
+                label="Espessura"
                 value={params.thickness}
-                onChange={(value) => onUpdateParam('thickness', value as number)}
+                unit="mm"
+                min={1}
+                max={3}
+                step={0.5}
+                onChange={(value) => onUpdateParam('thickness', value)}
               />
-
-              <Flex direction="row" justifyContent="space-between">
-                <Text fontSize="xs" color="font.tertiary">Cantos arredondados</Text>
-                <Text fontSize="xs" color="font.secondary">{params.cornerRadius} mm</Text>
-              </Flex>
-              <SliderField
-                label=""
-                aria-label="Cantos arredondados"
-                min={0} max={10} step={0.5}
+              <LabeledSlider
+                label="Cantos arredondados"
                 value={params.cornerRadius}
-                onChange={(value) => onUpdateParam('cornerRadius', value as number)}
+                unit="mm"
+                min={0}
+                max={10}
+                step={0.5}
+                onChange={(value) => onUpdateParam('cornerRadius', value)}
               />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
 
+        <Accordion.Item value="aparencia">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">
+              Aparência
+            </Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
               <Text fontSize="xs" color="font.tertiary">
                 Cor da base
               </Text>
@@ -272,29 +416,6 @@ export function StudioPanel({
                 selected={params.letterColor}
                 onSelect={(color) => onUpdateParam('letterColor', color)}
               />
-            </Flex>
-          </Accordion.Content>
-        </Accordion.Item>
-
-        <Accordion.Item value="layout">
-          <Accordion.Trigger>
-            <Heading level={3} fontSize="small">
-              Layout
-            </Heading>
-            <Accordion.Icon />
-          </Accordion.Trigger>
-          <Accordion.Content>
-            <Flex direction="column" gap="xs">
-              <SelectField
-                label="Alinhamento"
-                value={params.layout}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  onUpdateParam('layout', e.target.value)
-                }
-              >
-                <option value="centered">Centralizado</option>
-                <option value="left">Esquerda</option>
-              </SelectField>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
