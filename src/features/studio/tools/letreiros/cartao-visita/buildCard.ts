@@ -22,7 +22,6 @@ export interface BuildContentItem {
   id: string
   halfWidth: number
   halfHeight: number
-  geometry: BufferGeometry | null
 }
 
 export interface BuildCardResult {
@@ -102,7 +101,6 @@ export function buildCard({
         id: item.id,
         halfWidth: 0,
         halfHeight: 0,
-        geometry: null,
       })
       continue
     }
@@ -112,7 +110,6 @@ export function buildCard({
       id: item.id,
       halfWidth: fitted.halfWidth,
       halfHeight: fitted.halfHeight,
-      geometry: null,
     })
     contentGeometries.push(fitted.geometry)
   }

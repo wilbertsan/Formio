@@ -241,6 +241,12 @@ export function TextPositionEditor({
     id: string,
     event: ReactKeyboardEvent<SVGGElement>,
   ) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelectContent(id)
+      return
+    }
+
     const delta = KEY_DELTAS[event.key]
     if (!delta) return
 
@@ -254,7 +260,7 @@ export function TextPositionEditor({
       box.halfHeight,
     )
     onMoveContentRef.current(id, next.x, next.y)
-  }, [clampPosition])
+  }, [clampPosition, onSelectContent])
 
   return (
     <div
@@ -322,6 +328,7 @@ export function TextPositionEditor({
                 tabIndex={0}
                 aria-label={`Mover ${box.label}`}
                 onPointerDown={(event) => handlePointerDown(box.id, event)}
+                onFocus={() => onSelectContent(box.id)}
                 onKeyDown={(event) => handleKeyDown(box.id, event)}
                 style={{ cursor: 'grab' }}
               >

@@ -124,7 +124,6 @@ describe('buildCard', () => {
     const result = buildCard(makeInput({}, { fonts: {} }))
     expect(result.content).toBeNull()
     expect(result.contentItems).toHaveLength(3)
-    expect(result.contentItems[0].geometry).toBeNull()
     expect(result.contentItems[0].halfWidth).toBe(0)
   })
 
@@ -172,6 +171,8 @@ describe('buildCard', () => {
     ))
     expect(result.content).not.toBeNull()
     expect(result.contentItems[0].halfWidth).toBeGreaterThan(0)
+    const bb = boundsOf(result.content)
+    expect(bb.max.z - bb.min.z).toBeCloseTo(CONTENT_DEPTH, 2)
   })
 
   it('ignora texto vazio', () => {

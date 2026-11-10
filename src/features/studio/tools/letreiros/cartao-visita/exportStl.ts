@@ -18,12 +18,21 @@ function normalizeForMerge(geometry: BufferGeometry): BufferGeometry {
   return out
 }
 
-export function exportStl(geometry: BuildCardResult, projectName: string): void {
+export function exportStl(
+  geometry: BuildCardResult,
+  projectName: string,
+  onError?: (message: string) => void,
+): void {
   const geometries = geometry.content
     ? [geometry.base, geometry.content]
     : [geometry.base]
   const normalized = geometries.map(normalizeForMerge)
-  const merged = mergeGeometries(normalized) ?? normalized[0]
+  const merged = mergeGeometries(normalized)
+  if (!merged) {
+    normalized.forEach((item) => item.dispose())
+    onError?.('Falha ao mesclar geometrias para exportação')
+    return
+  }
   normalized.forEach((item) => {
     if (item !== merged) item.dispose()
   })

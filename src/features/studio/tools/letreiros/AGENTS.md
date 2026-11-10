@@ -12,7 +12,7 @@ Itens planos de exibição com foco em tipografia e fixação — cartões, plac
 
 ## Regras do domínio
 
-- Tipografia: fontes legíveis, tamanho mínimo de 3mm de altura para leitura
+- Tipografia: fontes legíveis; 3mm de altura como referência, com auto-fit para textos longos
 - Espessura típica: 1–4mm para cartões, 3–8mm para placas
 - Fixação: furos para parafuso/.dupla-face, base para pé (suporte de foto)
 - Posicionamento: livre no editor 2D, com clamp à área útil

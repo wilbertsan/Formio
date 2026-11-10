@@ -144,6 +144,17 @@ describe('StudioPanel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Envie um arquivo SVG de até 1 MB.')
   })
 
+  it('rejeita SVG maior que 1 MB', async () => {
+    renderPanel({ params: iconParams() })
+    const file = new File(
+      [new Uint8Array(1024 * 1024 + 1)],
+      'grande.svg',
+      { type: 'image/svg+xml' },
+    )
+    fireEvent.change(screen.getByTestId('icon-upload'), { target: { files: [file] } })
+    expect(await screen.findByRole('alert')).toHaveTextContent('Envie um arquivo SVG de até 1 MB.')
+  })
+
   it('desabilita sliders do ícone sem SVG', () => {
     renderPanel({ params: iconParams(null) })
     expect(screen.getByLabelText('Escala do ícone')).toHaveAttribute('aria-disabled', 'true')

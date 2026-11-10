@@ -118,8 +118,9 @@ describe('cartao-visita schema', () => {
     expect(normalizeName('José Ção')).toBe('Jose Cao')
   })
 
-  it('sanitizeFilename remove caracteres inválidos', () => {
-    expect(sanitizeFilename('Meu Cartão! @#')).toBe('Meu-Carto')
+  it('sanitizeFilename remove caracteres inválidos e acentos', () => {
+    expect(sanitizeFilename('Meu Cartão! @#')).toBe('Meu-Cartao')
+    expect(sanitizeFilename('Cartão')).toBe('Cartao')
     expect(sanitizeFilename('')).toBe('cartao-visita')
   })
 })

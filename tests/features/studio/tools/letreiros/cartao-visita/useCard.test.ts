@@ -19,7 +19,7 @@ function serialized(): SerializedCardResult {
   return serializeCardResult({
     base: new THREE.BoxGeometry(85, 55, 2),
     content: new THREE.BoxGeometry(10, 4, 1),
-    contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2, geometry: null }],
+    contentItems: [{ id: 'content-1', halfWidth: 5, halfHeight: 2 }],
   }).data
 }
 
@@ -132,6 +132,18 @@ describe('useCard', () => {
       expect(updated.fontSize).toBe(12)
     }
     expect(updated.offsetX).toBe(-40)
+  })
+
+  it('preserva espaços no conteúdo digitado', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useCard({ workerFactory: factory }))
+    const id = result.current.params.contents[0].id
+    act(() => result.current.updateContent(id, { content: 'Maria ' }))
+    const updated = result.current.params.contents[0]
+    expect(updated.kind).toBe('text')
+    if (updated.kind === 'text') {
+      expect(updated.content).toBe('Maria ')
+    }
   })
 
   it('setContentType alterna texto/ícone preservando id e offsets', () => {

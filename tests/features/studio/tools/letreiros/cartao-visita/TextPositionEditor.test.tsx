@@ -22,7 +22,7 @@ function mockGeometry(): BuildCardResult {
   return {
     base: new THREE.BufferGeometry(),
     content: new THREE.BufferGeometry(),
-    contentItems: [{ id: firstId, halfWidth: 5, halfHeight: 2, geometry: null }],
+    contentItems: [{ id: firstId, halfWidth: 5, halfHeight: 2 }],
   }
 }
 
@@ -105,6 +105,18 @@ describe('TextPositionEditor', () => {
     const [, x, y] = onMoveContent.mock.calls[0]
     expect(x).toBeCloseTo(34.5, 1)
     expect(y).toBeCloseTo(-22.5, 1)
+  })
+
+  it('seleciona ao focar e ativa com Enter', () => {
+    const onSelectContent = vi.fn()
+    renderEditor({ onSelectContent, selectedContentId: '' })
+    const element = screen.getByTestId(`editor-content-${firstId}`)
+
+    fireEvent.focus(element)
+    expect(onSelectContent).toHaveBeenCalledWith(firstId)
+
+    fireEvent.keyDown(element, { key: 'Enter' })
+    expect(onSelectContent).toHaveBeenCalledTimes(2)
   })
 
   it('move com as setas do teclado', () => {

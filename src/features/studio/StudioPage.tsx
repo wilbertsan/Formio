@@ -271,6 +271,7 @@ function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
   const [selectedContentId, setSelectedContentId] = useState<string>('')
   const [isEditorOpen, setEditorOpen] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const {
     params,
@@ -291,9 +292,9 @@ function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
   }, [])
 
   const handleExport = useCallback(() => {
-    if (geometry) {
-      exportCardStl(geometry, projectName)
-    }
+    if (!geometry) return
+    setExportError(null)
+    exportCardStl(geometry, projectName, setExportError)
   }, [geometry, projectName])
 
   const handleSelectContent = useCallback((id: string) => {
@@ -323,12 +324,12 @@ function CartaoVisitaToolWrapper({ onBack }: { onBack: () => void }) {
         onBack={onBack}
       />
       <div className="relative flex min-h-0 flex-1">
-        {error ? (
+        {error ?? exportError ? (
           <div
             role="alert"
             className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
           >
-            {error}
+            {error ?? exportError}
           </div>
         ) : isBuilding ? (
           <div

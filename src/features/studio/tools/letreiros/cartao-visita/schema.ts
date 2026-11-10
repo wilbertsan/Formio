@@ -20,7 +20,7 @@ const contentFields = {
 export const textContentSchema = z.object({
   ...contentFields,
   kind: z.literal('text'),
-  content: z.string().trim(),
+  content: z.string(),
   fontStyle: z.enum(['normal', 'bold', 'serif']),
   fontSize: z.number().min(3).max(12),
 })
@@ -105,6 +105,7 @@ export function normalizeName(name: string): string {
 }
 
 export function sanitizeFilename(name: string): string {
-  const cleaned = name.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '-')
+  const normalized = normalizeName(name)
+  const cleaned = normalized.replace(/[^a-zA-Z0-9 _-]/g, '').trim().replace(/\s+/g, '-')
   return cleaned.length > 0 ? cleaned : 'cartao-visita'
 }

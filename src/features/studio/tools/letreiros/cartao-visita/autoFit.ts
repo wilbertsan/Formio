@@ -35,8 +35,13 @@ export interface FittedContent {
 }
 
 export function getUsableRegion(params: CardParams): RectRegion {
-  const halfWidth = Math.max(0.5, params.width / 2 - CONTENT_MARGIN)
-  const halfHeight = Math.max(0.5, params.height / 2 - CONTENT_MARGIN)
+  // Nos cantos arredondados, o retângulo interno precisa recuar mais para
+  // garantir os 3 mm de margem também sobre a curva. `r/√2` é a distância do
+  // centro do arco até o vértice do retângulo inscrito no arco de 45°.
+  const innerRadius = Math.max(0, params.cornerRadius - CONTENT_MARGIN)
+  const cornerInset = innerRadius * (1 - Math.SQRT1_2)
+  const halfWidth = Math.max(0.5, params.width / 2 - CONTENT_MARGIN - cornerInset)
+  const halfHeight = Math.max(0.5, params.height / 2 - CONTENT_MARGIN - cornerInset)
   return {
     kind: 'rect',
     minX: -halfWidth,
@@ -97,6 +102,7 @@ export function resolveContentGeometry(
       size: item.fontSize,
       depth: CONTENT_DEPTH,
     })
+    normalizeDepth(geometry, CONTENT_DEPTH)
     fitGeometryToRegion(geometry, ctx.region)
     return fittedContent(geometry, item, ctx.region)
   }
@@ -113,12 +119,36 @@ export function resolveContentGeometry(
   }))
   if (!geometry) return null
 
+  normalizeDepth(geometry, CONTENT_DEPTH)
   fitGeometryToRegion(geometry, ctx.region)
   return fittedContent(geometry, item, ctx.region)
 }
 
 function ratio(available: number, size: number): number {
   return size > 0 ? available / size : Infinity
+}
+
+/**
+ * Normaliza a espessura final em Z. O builder de ícones aplica bevel e pode
+ * entregar mais que a profundidade nominal; o texto já sai com a profundidade
+ * exata. Garante o relevo fixo de 1 mm para os dois tipos.
+ */
+function normalizeDepth(geometry: BufferGeometry, depth: number): void {
+  geometry.computeBoundingBox()
+  const bb = geometry.boundingBox
+  if (!bb) return
+
+  const current = bb.max.z - bb.min.z
+  if (current <= 0) return
+
+  const scale = depth / current
+  if (Math.abs(scale - 1) > 1e-6) {
+    geometry.scale(1, 1, scale)
+    geometry.computeBoundingBox()
+  }
+
+  const scaled = geometry.boundingBox
+  if (scaled) geometry.translate(0, 0, -scaled.min.z)
 }
 
 function resolveParsedSvg(

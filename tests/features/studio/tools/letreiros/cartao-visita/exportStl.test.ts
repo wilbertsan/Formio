@@ -118,7 +118,7 @@ describe('exportStl', () => {
     const blob = (harness.createObjectURL.mock.calls as unknown[][])[0]![0] as Blob
     expect(blob).toBeInstanceOf(Blob)
     expect(blob.size).toBeGreaterThan(0)
-    expect(harness.anchorStub.download).toBe('Meu-Carto.stl')
+    expect(harness.anchorStub.download).toBe('Meu-Cartao.stl')
     expect(harness.clickSpy).toHaveBeenCalledTimes(1)
     expect(harness.revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
   })
@@ -143,5 +143,16 @@ describe('exportStl', () => {
     const geometry = makeGeometry(null)
     exportStl(geometry, 'Sem conteúdo')
     expect(lastMergeArguments()).toHaveLength(1)
+  })
+
+  it('informa erro e não baixa quando a mesclagem falha', () => {
+    const harness = setupDownloadHarness()
+    mergeMock.mockReturnValueOnce(null as unknown as THREE.BufferGeometry)
+    const onError = vi.fn()
+
+    exportStl(makeGeometry(new THREE.BoxGeometry(5, 5, 1)), 'Falha', onError)
+
+    expect(onError).toHaveBeenCalledWith('Falha ao mesclar geometrias para exportação')
+    expect(harness.createObjectURL).not.toHaveBeenCalled()
   })
 })

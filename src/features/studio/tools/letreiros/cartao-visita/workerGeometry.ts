@@ -35,6 +35,6 @@ export function deserializeCardResult(data: SerializedCardResult): BuildCardResu
   return {
     base: deserializeGeometry(data.base),
     content: data.content ? deserializeGeometry(data.content) : null,
-    contentItems: data.contentItems.map((item) => ({ ...item, geometry: null })),
+    contentItems: data.contentItems.map((item) => ({ ...item })),
   }
 }

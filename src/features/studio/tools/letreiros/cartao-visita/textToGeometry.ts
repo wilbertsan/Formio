@@ -11,7 +11,7 @@ interface TextToGeometryInput {
 }
 
 export function textToGeometry({ font, text, size, depth }: TextToGeometryInput): BufferGeometry {
-  const geometry = new TextGeometry(normalizeName(text), {
+  const geometry = new TextGeometry(normalizeName(text).trim(), {
     font,
     size,
     depth,

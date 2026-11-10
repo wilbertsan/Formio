@@ -9,7 +9,7 @@ function result(): BuildCardResult {
   return {
     base: new THREE.BoxGeometry(10, 8, 3),
     content: new THREE.BoxGeometry(5, 2, 1),
-    contentItems: [{ id: 'c1', halfWidth: 2.5, halfHeight: 1, geometry: null }],
+    contentItems: [{ id: 'c1', halfWidth: 2.5, halfHeight: 1 }],
   }
 }
 
@@ -21,7 +21,7 @@ it('serializa e desserializa base, conteúdo e metadados', () => {
   expect(restored.base.getAttribute('position').count).toBe(24)
   expect(restored.content?.getAttribute('position').count).toBe(24)
   expect(restored.contentItems).toEqual([
-    { id: 'c1', halfWidth: 2.5, halfHeight: 1, geometry: null },
+    { id: 'c1', halfWidth: 2.5, halfHeight: 1 },
   ])
   expect(restored.base.getAttribute('normal')).toBeDefined()
   expect(transfer).toHaveLength(8)

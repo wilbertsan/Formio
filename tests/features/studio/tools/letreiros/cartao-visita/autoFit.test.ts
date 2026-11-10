@@ -73,6 +73,17 @@ describe('autoFit', () => {
     })
   })
 
+  it('recua a área útil nos cantos arredondados', () => {
+    const region = getUsableRegion({
+      ...defaultCardParams,
+      width: 50,
+      height: 30,
+      cornerRadius: 10,
+    })
+    expect(region.maxX).toBeCloseTo(19.95, 2)
+    expect(region.maxY).toBeCloseTo(9.95, 2)
+  })
+
   it('reduz apenas quando necessário e centraliza', () => {
     const region = getUsableRegion(defaultCardParams)
     const geometry = new THREE.BoxGeometry(100, 10, 1)
@@ -137,5 +148,7 @@ describe('autoFit', () => {
     expect(fitted).not.toBeNull()
     expect(fitted!.halfWidth).toBeGreaterThan(0)
     expect(fitted!.halfHeight).toBeGreaterThan(0)
+    const bb = fitted!.geometry.boundingBox!
+    expect(bb.max.z - bb.min.z).toBeCloseTo(1, 2)
   })
 })
