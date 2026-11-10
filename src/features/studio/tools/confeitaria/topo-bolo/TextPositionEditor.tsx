@@ -9,13 +9,18 @@ import type { BuildCakeTopperResult } from './buildCakeTopper'
 import { getPlateShapes } from './buildCakeTopper'
 import { fitIconHalfSize, iconGeometryHalfSize, ICON_MARGIN } from './iconLayout'
 import { clampToOutline, outlineSpec, type PlateBounds } from './placement'
-import type { CakeTopperParams } from './schema'
+import {
+  OFFSET_X_RANGE,
+  OFFSET_Y_RANGE,
+  type CakeTopperParams,
+} from './schema'
 
 const ICON_ID = 'icon'
 const TEXT_MARGIN = 4
 const PADDING = 5
 const DRAG_THRESHOLD = 0.5
 const HEADING_ID = 'content-position-editor-heading'
+const HINT_ID = 'content-position-editor-hint'
 const KEY_DELTAS: Record<string, { x: number; y: number }> = {
   ArrowLeft: { x: -1, y: 0 },
   ArrowRight: { x: 1, y: 0 },
@@ -92,6 +97,8 @@ export function TextPositionEditor({
 }: TextPositionEditorProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
   const dragRef = useRef<{
     id: string
     startX: number
@@ -110,7 +117,17 @@ export function TextPositionEditor({
   onCloseRef.current = onClose
   const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
 
-  const plateShapes = useMemo(() => getPlateShapes(params), [params])
+  const plateShapes = useMemo(
+    () => getPlateShapes({
+      shape: params.shape,
+      width: params.width,
+      height: params.height,
+      cornerRadius: params.cornerRadius,
+      contourSvg: params.contourSvg,
+    }),
+    [params.shape, params.width, params.height, params.cornerRadius, params.contourSvg],
+  )
+  const platePaths = useMemo(() => plateShapes.map(shapeToPath), [plateShapes])
   const plate = useMemo(() => shapesBounds(plateShapes), [plateShapes])
   const plateBounds = useMemo<PlateBounds>(() => ({
     halfWidth: (plate.maxX - plate.minX) / 2,
@@ -127,8 +144,14 @@ export function TextPositionEditor({
     const built = geometry?.contentItems ?? []
     const items: EditorContent[] = params.texts.map((text) => {
       const item = built.find((content) => content.id === text.id)
-      const halfWidth = item?.halfWidth ?? text.width / 2
-      const halfHeight = item?.halfHeight ?? text.height / 2
+      const halfWidth = Math.min(
+        item?.halfWidth ?? text.width / 2,
+        plateBounds.halfWidth - TEXT_MARGIN,
+      )
+      const halfHeight = Math.min(
+        item?.halfHeight ?? text.height / 2,
+        plateBounds.halfHeight - TEXT_MARGIN,
+      )
       const placed = clampToOutline(
         params,
         plateBounds,
@@ -152,13 +175,13 @@ export function TextPositionEditor({
 
     if (params.svgIcon) {
       const item = built.find((content) => content.id === ICON_ID)
-      const raw = iconGeometryHalfSize(
+      const raw = item ? null : iconGeometryHalfSize(
         params.svgIcon,
         params.width,
         params.height,
         params.iconScale,
       )
-      const fallback = fitIconHalfSize(raw, params, plateBounds)
+      const fallback = raw ? fitIconHalfSize(raw, params, plateBounds) : null
       const halfWidth = item?.halfWidth ?? fallback?.halfWidth ?? 4
       const halfHeight = item?.halfHeight ?? fallback?.halfHeight ?? 4
       const placed = clampToOutline(
@@ -217,7 +240,7 @@ export function TextPositionEditor({
     x: number,
     y: number,
   ): { x: number; y: number } => {
-    return clampToOutline(
+    const placed = clampToOutline(
       paramsRef.current,
       plateBoundsRef.current,
       content.halfWidth,
@@ -226,6 +249,10 @@ export function TextPositionEditor({
       y,
       content.margin,
     )
+    return {
+      x: Math.min(OFFSET_X_RANGE.max, Math.max(OFFSET_X_RANGE.min, placed.x)),
+      y: Math.min(OFFSET_Y_RANGE.max, Math.max(OFFSET_Y_RANGE.min, placed.y)),
+    }
   }, [])
 
   useEffect(() => {
@@ -291,13 +318,37 @@ export function TextPositionEditor({
   }, [])
 
   useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
     closeButtonRef.current?.focus()
+    return () => previousFocusRef.current?.focus()
+  }, [])
+
+  const handleDialogKeyDown = useCallback((event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return
+    const container = dialogRef.current
+    if (!container) return
+    const focusable = Array.from(container.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    )).filter((element) => !element.hasAttribute('disabled'))
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
   }, [])
 
   const handlePointerDown = useCallback((
     id: string,
     event: ReactPointerEvent<SVGGElement>,
   ) => {
+    if (event.button !== 0 || event.isPrimary === false) return
     event.stopPropagation()
     onSelectContent(id)
 
@@ -338,12 +389,17 @@ export function TextPositionEditor({
       role="dialog"
       aria-modal="true"
       aria-labelledby={HEADING_ID}
+      aria-describedby={HINT_ID}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
+      onPointerDown={(event) => {
+        if (event.target === event.currentTarget) onClose()
+      }}
     >
       <div
+        ref={dialogRef}
         className="w-[90vw] max-w-2xl rounded-lg bg-white p-4 shadow-xl"
-        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onKeyDown={handleDialogKeyDown}
       >
         <Flex direction="row" justifyContent="space-between" alignItems="center" marginBottom="medium">
           <Heading id={HEADING_ID} level={2} fontSize="large">Posicionar conteúdos</Heading>
@@ -362,14 +418,15 @@ export function TextPositionEditor({
           ref={svgRef}
           data-testid="editor-svg"
           viewBox={`${viewMinX} ${viewMinY} ${vbWidth} ${vbHeight}`}
-          className="w-full touch-none select-none rounded border border-neutral-200"
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full max-h-[70vh] touch-none select-none rounded border border-neutral-200"
         >
           <rect x={viewMinX} y={viewMinY} width={vbWidth} height={vbHeight} fill="#f5f5f5" />
           <g data-testid="editor-base">
-            {plateShapes.map((shape, index) => (
+            {platePaths.map((path, index) => (
               <path
                 key={index}
-                d={shapeToPath(shape)}
+                d={path}
                 fill="#e4e4e7"
                 stroke="#a1a1aa"
                 strokeWidth={0.3}
@@ -414,6 +471,8 @@ export function TextPositionEditor({
                 role="button"
                 tabIndex={0}
                 aria-label={`Mover ${content.label}`}
+                aria-pressed={selected}
+                onFocus={() => onSelectContent(content.id)}
                 onPointerDown={(event) => handlePointerDown(content.id, event)}
                 onKeyDown={(event) => handleKeyDown(content.id, event)}
                 style={{ cursor: 'grab' }}
@@ -443,7 +502,7 @@ export function TextPositionEditor({
           })}
         </svg>
 
-        <p className="mt-2 text-sm text-neutral-500">
+        <p id={HINT_ID} className="mt-2 text-sm text-neutral-500">
           Arraste os conteúdos ou use as setas do teclado.
         </p>
 

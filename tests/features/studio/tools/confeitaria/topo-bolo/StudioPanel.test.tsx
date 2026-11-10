@@ -4,14 +4,6 @@ import { StudioPanel } from '@/features/studio/tools/confeitaria/topo-bolo/Studi
 import { defaultCakeTopperParams } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
 
 describe('StudioPanel', () => {
-  beforeEach(() => {
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
   const createMockProps = () => ({
     params: defaultCakeTopperParams,
     onUpdateParam: vi.fn(),

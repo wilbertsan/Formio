@@ -113,6 +113,15 @@ export function StudioPanel({
     textCountRef.current = params.texts.length
   }, [params.texts])
 
+  useEffect(() => {
+    const textExists = params.texts.some((text) => text.id === selectedContentId)
+    const iconExists = selectedContentId === 'icon' && params.svgIcon !== null
+    if (textExists || iconExists) return
+    const fallback = params.texts[0]?.id ?? ''
+    setSelectedContentId(fallback)
+    setSelectedTextId(fallback)
+  }, [params.texts, params.svgIcon, selectedContentId])
+
   const handleContourUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.target
     const file = input.files?.[0]

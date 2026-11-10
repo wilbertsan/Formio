@@ -30,6 +30,14 @@ export interface BuildCakeTopperInput {
   onError?: (message: string) => void
 }
 
+export interface PlateShapeParams {
+  shape: CakeTopperParams['shape']
+  width: number
+  height: number
+  cornerRadius: number
+  contourSvg: string | null
+}
+
 export interface ContentBounds {
   id: string
   kind: 'text' | 'icon'
@@ -75,20 +83,20 @@ function mergeAll(geometries: BufferGeometry[], onError?: (message: string) => v
   return first
 }
 
-function circleShape(params: CakeTopperParams): Shape {
+function circleShape(params: PlateShapeParams): Shape {
   const shape = new Shape()
   // Raio = menor lado/2 para a placa caber na caixa declarada.
   shape.absarc(0, 0, Math.min(params.width, params.height) / 2, 0, Math.PI * 2, false)
   return shape
 }
 
-function ovalShape(params: CakeTopperParams): Shape {
+function ovalShape(params: PlateShapeParams): Shape {
   const shape = new Shape()
   shape.absellipse(0, 0, params.width / 2, params.height / 2, 0, Math.PI * 2, false, 0)
   return shape
 }
 
-function roundedRectShape(params: CakeTopperParams): Shape {
+function roundedRectShape(params: PlateShapeParams): Shape {
   const shape = new Shape()
   const hw = params.width / 2
   const hh = params.height / 2
@@ -148,7 +156,7 @@ function fitShapesToBox(shapes: Shape[], boxWidth: number, boxHeight: number): S
   return shapes.map((shape) => transformShape(shape, scale, -centerX * scale, -centerY * scale))
 }
 
-function customPlateShapes(params: CakeTopperParams): Shape[] {
+function customPlateShapes(params: PlateShapeParams): Shape[] {
   if (!params.contourSvg) return []
   const parsed = parseSvg(params.contourSvg)
   if (!parsed) return []
@@ -157,7 +165,7 @@ function customPlateShapes(params: CakeTopperParams): Shape[] {
   return fitShapesToBox(shapes.map(flipShapeY), params.width, params.height)
 }
 
-function plateShapes(params: CakeTopperParams, onError?: (message: string) => void): Shape[] {
+function plateShapes(params: PlateShapeParams, onError?: (message: string) => void): Shape[] {
   switch (params.shape) {
     case 'circle':
       return [circleShape(params)]
@@ -595,7 +603,7 @@ function buildSupport(
   }
 }
 
-export function getPlateShapes(params: CakeTopperParams): Shape[] {
+export function getPlateShapes(params: PlateShapeParams): Shape[] {
   return plateShapes(params)
 }
 

@@ -103,11 +103,34 @@ describe('TextPositionEditor', () => {
     expect(onMoveContent).not.toHaveBeenCalled()
   })
 
+  it('não inicia arraste com botão direito', () => {
+    const onMoveContent = vi.fn()
+    const onSelectContent = vi.fn()
+    renderEditor({ onMoveContent, onSelectContent, selectedContentId: '' })
+    const element = screen.getByTestId(`editor-content-${firstTextId}`)
+    fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 2, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 140, clientY: 140 })
+    fireEvent.pointerUp(document, { clientX: 140, clientY: 140 })
+    expect(onSelectContent).not.toHaveBeenCalled()
+    expect(onMoveContent).not.toHaveBeenCalled()
+  })
+
   it('dispara onMoveContent ao arrastar e soltar', () => {
     const onMoveContent = vi.fn()
     renderEditor({ onMoveContent })
     dragContent(firstTextId, 140, 140)
     expect(onMoveContent).toHaveBeenCalledWith(firstTextId, expect.any(Number), expect.any(Number))
+  })
+
+  it('cancela o arraste sem mover', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+    const element = screen.getByTestId(`editor-content-${firstTextId}`)
+    fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 140, clientY: 140 })
+    fireEvent.pointerCancel(document)
+    fireEvent.pointerUp(document, { clientX: 140, clientY: 140 })
+    expect(onMoveContent).not.toHaveBeenCalled()
   })
 
   it('usa o delta do arraste a partir da posição de origem', () => {
@@ -143,6 +166,55 @@ describe('TextPositionEditor', () => {
     expect(Math.abs(y)).toBeLessThanOrEqual(25)
   })
 
+  it('limita o arraste aos limites úteis da placa', () => {
+    const onMoveContent = vi.fn()
+    renderEditor({ onMoveContent })
+    dragContent(firstTextId, 5000, 5000)
+    const [, x, y] = onMoveContent.mock.calls[0]
+    expect(x).toBeCloseTo(31, 5)
+    expect(y).toBeCloseTo(-19, 5)
+  })
+
+  it('respeita a escala do viewport no fallback de coordenadas', () => {
+    const onMoveContent = vi.fn()
+    const { container } = renderEditor({ onMoveContent })
+    const svg = container.querySelector('svg')!
+    const [, , vbWidth, vbHeight] = svg.getAttribute('viewBox')!.split(' ').map(Number)
+    mockSvgViewport(container, vbWidth * 2, vbHeight * 2)
+    const element = screen.getByTestId(`editor-content-${firstTextId}`)
+    fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 104, clientY: 96 })
+    fireEvent.pointerUp(document, { clientX: 104, clientY: 96 })
+    const [, x, y] = onMoveContent.mock.calls[0]
+    expect(x).toBeCloseTo(2, 1)
+    expect(y).toBeCloseTo(2, 1)
+  })
+
+  it('usa getScreenCTM quando disponível', () => {
+    const onMoveContent = vi.fn()
+    const { container } = renderEditor({ onMoveContent })
+    const svg = container.querySelector('svg')!
+    Object.defineProperty(svg, 'getScreenCTM', {
+      value: () => ({ inverse: () => ({}) }),
+      configurable: true,
+    })
+    Object.defineProperty(svg, 'createSVGPoint', {
+      value: () => ({
+        x: 0,
+        y: 0,
+        matrixTransform() { return { x: this.x / 2, y: -this.y / 2 } },
+      }),
+      configurable: true,
+    })
+    const element = screen.getByTestId(`editor-content-${firstTextId}`)
+    fireEvent.pointerDown(element, { clientX: 100, clientY: 100, button: 0, bubbles: true })
+    fireEvent.pointerMove(document, { clientX: 120, clientY: 80 })
+    fireEvent.pointerUp(document, { clientX: 120, clientY: 80 })
+    const [, x, y] = onMoveContent.mock.calls[0]
+    expect(x).toBeCloseTo(10, 1)
+    expect(y).toBeCloseTo(-10, 1)
+  })
+
   it('move conteúdo por teclado com as setas', () => {
     const onMoveContent = vi.fn()
     renderEditor({ onMoveContent })
@@ -160,7 +232,7 @@ describe('TextPositionEditor', () => {
   it('fecha ao clicar no fundo', () => {
     const onClose = vi.fn()
     renderEditor({ onClose })
-    fireEvent.click(screen.getByTestId('text-editor'))
+    fireEvent.pointerDown(screen.getByTestId('text-editor'))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
@@ -187,7 +259,7 @@ describe('TextPositionEditor', () => {
   it('usa tamanhos de fallback sem geometria', () => {
     renderEditor({ geometry: null })
     const rect = screen.getByTestId(`editor-content-${firstTextId}`).querySelector('rect')
-    expect(rect).toHaveAttribute('width', '90')
+    expect(rect).toHaveAttribute('width', '72')
     expect(rect).toHaveAttribute('height', '14')
   })
 
@@ -208,5 +280,25 @@ describe('TextPositionEditor', () => {
     renderEditor({ params, geometry })
     expect(screen.getByTestId('editor-content-icon')).toBeInTheDocument()
     expect(screen.getByText('Ícone')).toBeInTheDocument()
+  })
+
+  it('arrasta o ícone e envia id icon', () => {
+    const params: CakeTopperParams = {
+      ...defaultCakeTopperParams,
+      svgIcon: SVG_RECT,
+      iconOffsetX: 0,
+      iconOffsetY: 0,
+    }
+    const geometry: BuildCakeTopperResult = {
+      ...mockGeometry(),
+      contentItems: [
+        ...mockGeometry().contentItems!,
+        { id: 'icon', kind: 'icon', halfWidth: 3, halfHeight: 3 },
+      ],
+    }
+    const onMoveContent = vi.fn()
+    renderEditor({ params, geometry, onMoveContent })
+    dragContent('icon', 120, 120)
+    expect(onMoveContent).toHaveBeenCalledWith('icon', expect.any(Number), expect.any(Number))
   })
 })
