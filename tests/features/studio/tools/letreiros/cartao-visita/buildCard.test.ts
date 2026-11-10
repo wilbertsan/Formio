@@ -1,7 +1,18 @@
 import * as THREE from 'three'
-import { type BufferGeometry } from 'three'
-import { buildCard } from '@/features/studio/tools/letreiros/cartao-visita/buildCard'
-import { defaultCardParams, type CardParams } from '@/features/studio/tools/letreiros/cartao-visita/schema'
+import { buildCard, type BuildCardInput } from '@/features/studio/tools/letreiros/cartao-visita/buildCard'
+import {
+  BASE_BEVEL,
+  CONTENT_DEPTH,
+  defaultCardParams,
+  type CardContent,
+  type CardParams,
+} from '@/features/studio/tools/letreiros/cartao-visita/schema'
+import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
+
+const SVG_RECT =
+  '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#000"/></svg>'
+
+const fontStub = { glyphs: {} } as never
 
 vi.mock('three/examples/jsm/geometries/TextGeometry.js', () => ({
   TextGeometry: class extends THREE.BufferGeometry {
@@ -33,247 +44,139 @@ vi.mock('three/examples/jsm/utils/BufferGeometryUtils.js', () => ({
     const idxArrays: number[][] = []
     let vertexOffset = 0
     for (const geo of geos) {
-      geo.computeBoundingBox()
       const pos = geo.getAttribute('position') as THREE.BufferAttribute
-      const arr = new Float32Array(pos.array)
-      posArrays.push(arr)
+      posArrays.push(new Float32Array(pos.array))
       const idx = geo.getIndex()
-      if (idx) {
-        const shifted = Array.from(idx.array).map((v: number) => v + vertexOffset)
-        idxArrays.push(shifted)
-      }
+      if (idx) idxArrays.push(Array.from(idx.array).map((value) => value + vertexOffset))
       vertexOffset += pos.count
     }
-    const allPos = new Float32Array(posArrays.reduce((s, a) => s + a.length, 0))
+    const allPos = new Float32Array(posArrays.reduce((sum, array) => sum + array.length, 0))
     let offset = 0
-    for (const a of posArrays) { allPos.set(a, offset); offset += a.length }
-    merged.setAttribute('position', new THREE.BufferAttribute(allPos, 3))
-    if (idxArrays.length > 0) {
-      const allIdx = idxArrays.flat()
-      merged.setIndex(allIdx)
+    for (const array of posArrays) {
+      allPos.set(array, offset)
+      offset += array.length
     }
+    merged.setAttribute('position', new THREE.BufferAttribute(allPos, 3))
+    if (idxArrays.length > 0) merged.setIndex(idxArrays.flat())
     return merged
   },
 }))
 
-const fontStub = {
-  glyphs: {},
-  generateShapes: () => [],
-} as never
+function makeInput(
+  params: Partial<CardParams> = {},
+  extra: Partial<BuildCardInput> = {},
+): BuildCardInput {
+  return {
+    fonts: { bold: fontStub, normal: fontStub, serif: fontStub },
+    params: { ...defaultCardParams, ...params },
+    onError: () => undefined,
+    ...extra,
+  }
+}
 
-function makeParams(overrides: Partial<CardParams> = {}): CardParams {
-  return { ...defaultCardParams, ...overrides }
+function boundsOf(geometry: THREE.BufferGeometry | null): THREE.Box3 {
+  if (!geometry) throw new Error('geometria ausente')
+  geometry.computeBoundingBox()
+  return geometry.boundingBox!
+}
+
+function textItem(overrides: Partial<CardContent> = {}): CardContent {
+  return {
+    id: 'content-1',
+    kind: 'text',
+    content: 'Nome',
+    fontStyle: 'bold',
+    fontSize: 4,
+    offsetX: 0,
+    offsetY: 0,
+    ...overrides,
+  } as CardContent
 }
 
 describe('buildCard', () => {
-  describe('base geometry', () => {
-    it('returns a BufferGeometry for the base', () => {
-      const result = buildCard({ params: makeParams() })
-      expect(result.base).toBeDefined()
-      expect(result.base.getAttribute('position')).toBeDefined()
-    })
-
-    it('has correct width and height for default params (85mm x 55mm)', () => {
-      const result = buildCard({ params: makeParams() })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      const width = bb.max.x - bb.min.x
-      const height = bb.max.y - bb.min.y
-      expect(width).toBeCloseTo(85, 0)
-      expect(height).toBeCloseTo(55, 0)
-    })
-
-    it('has correct thickness for default params (2mm)', () => {
-      const result = buildCard({ params: makeParams() })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      const depth = bb.max.z - bb.min.z
-      expect(depth).toBeCloseTo(2, 0)
-    })
-
-    it('is centered at origin in x and y', () => {
-      const result = buildCard({ params: makeParams() })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      const cx = (bb.min.x + bb.max.x) / 2
-      const cy = (bb.min.y + bb.max.y) / 2
-      expect(cx).toBeCloseTo(0, 5)
-      expect(cy).toBeCloseTo(0, 5)
-    })
-
-    it('respects custom width and height', () => {
-      const result = buildCard({ params: makeParams({ width: 70, height: 40 }) })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      const width = bb.max.x - bb.min.x
-      const height = bb.max.y - bb.min.y
-      expect(width).toBeCloseTo(70, 0)
-      expect(height).toBeCloseTo(40, 0)
-    })
-
-    it('respects custom thickness', () => {
-      const result = buildCard({ params: makeParams({ thickness: 3 }) })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      const depth = bb.max.z - bb.min.z
-      expect(depth).toBeCloseTo(3, 0)
-    })
+  it('gera base com dimensões e espessura corretas', () => {
+    const result = buildCard(makeInput())
+    const bb = boundsOf(result.base)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(85, 0)
+    expect(bb.max.y - bb.min.y).toBeCloseTo(55, 0)
+    expect(bb.max.z - bb.min.z).toBeCloseTo(2 + 2 * BASE_BEVEL, 1)
+    expect((bb.min.x + bb.max.x) / 2).toBeCloseTo(0, 5)
+    expect((bb.min.y + bb.max.y) / 2).toBeCloseTo(0, 5)
   })
 
-  describe('corner radius', () => {
-    it('produces a different geometry when cornerRadius changes', () => {
-      const r0 = buildCard({ params: makeParams({ cornerRadius: 0 }) })
-      const r5 = buildCard({ params: makeParams({ cornerRadius: 5 }) })
-
-      r0.base.computeBoundingBox()
-      r5.base.computeBoundingBox()
-
-      const pos0 = r0.base.getAttribute('position')
-      const pos5 = r5.base.getAttribute('position')
-
-      const arr0 = new Float32Array(pos0.array)
-      const arr5 = new Float32Array(pos5.array)
-      const samePositionData =
-        arr0.length === arr5.length &&
-        arr0.every((v, i) => Math.abs(v - arr5[i]) < 1e-6)
-
-      expect(samePositionData).toBe(false)
-    })
-
-    it('with cornerRadius=0 still has correct outer dimensions', () => {
-      const result = buildCard({ params: makeParams({ cornerRadius: 0 }) })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      expect(bb.max.x - bb.min.x).toBeCloseTo(85, 0)
-      expect(bb.max.y - bb.min.y).toBeCloseTo(55, 0)
-    })
-
-    it('with cornerRadius=5 still has correct outer dimensions', () => {
-      const result = buildCard({ params: makeParams({ cornerRadius: 5 }) })
-      result.base.computeBoundingBox()
-      const bb = result.base.boundingBox!
-      expect(bb.max.x - bb.min.x).toBeCloseTo(85, 0)
-      expect(bb.max.y - bb.min.y).toBeCloseTo(55, 0)
-    })
+  it('respeita largura, altura e espessura customizadas', () => {
+    const result = buildCard(makeInput({ width: 70, height: 40, thickness: 1 }))
+    const bb = boundsOf(result.base)
+    expect(bb.max.x - bb.min.x).toBeCloseTo(70, 0)
+    expect(bb.max.y - bb.min.y).toBeCloseTo(40, 0)
+    expect(bb.max.z - bb.min.z).toBeCloseTo(1 + 2 * BASE_BEVEL, 1)
   })
 
-  describe('text blocks', () => {
-    it('returns empty textBlocks when no font provided', () => {
-      const result = buildCard({ params: makeParams() })
-      expect(result.textBlocks).toEqual([])
-      expect(result.text).toBeNull()
-    })
+  it('muda a geometria quando o raio dos cantos muda', () => {
+    const sharp = buildCard(makeInput({ cornerRadius: 0 }))
+    const rounded = buildCard(makeInput({ cornerRadius: 5 }))
+    const a = Array.from(sharp.base.getAttribute('position').array)
+    const b = Array.from(rounded.base.getAttribute('position').array)
+    expect(a).not.toEqual(b)
+  })
 
-    it('creates text blocks when font is provided', () => {
-      const result = buildCard({ params: makeParams(), font: fontStub })
-      expect(result.textBlocks.length).toBe(3)
-      expect(result.text).toBeDefined()
-    })
+  it('sem fontes gera base e nenhum conteúdo', () => {
+    const result = buildCard(makeInput({}, { fonts: {} }))
+    expect(result.content).toBeNull()
+    expect(result.contentItems).toHaveLength(3)
+    expect(result.contentItems[0].geometry).toBeNull()
+    expect(result.contentItems[0].halfWidth).toBe(0)
+  })
 
-    it('positions text blocks correctly for centered layout', () => {
-      const result = buildCard({ params: makeParams({ layout: 'centered' }), font: fontStub })
-      
-      const block1 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-1')
-      const block2 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-2')
-      const block3 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-3')
-      
-      expect(block1).toBeDefined()
-      expect(block2).toBeDefined()
-      expect(block3).toBeDefined()
-      
-      block1!.geometry.computeBoundingBox()
-      block2!.geometry.computeBoundingBox()
-      block3!.geometry.computeBoundingBox()
-      
-      const bb1 = block1!.geometry.boundingBox!
-      const bb2 = block2!.geometry.boundingBox!
-      const bb3 = block3!.geometry.boundingBox!
-      
-      // All blocks should be centered horizontally
-      const cx1 = (bb1.min.x + bb1.max.x) / 2
-      const cx2 = (bb2.min.x + bb2.max.x) / 2
-      const cx3 = (bb3.min.x + bb3.max.x) / 2
-      expect(cx1).toBeCloseTo(0, 0)
-      expect(cx2).toBeCloseTo(0, 0)
-      expect(cx3).toBeCloseTo(0, 0)
-      
-      // Blocks should be stacked vertically (top to bottom)
-      expect(bb1.min.y).toBeGreaterThan(bb2.max.y)
-      expect(bb2.min.y).toBeGreaterThan(bb3.max.y)
-    })
+  it('gera conteúdo de texto com relevo fixo de 1 mm', () => {
+    const result = buildCard(makeInput())
+    expect(result.content).not.toBeNull()
+    const bb = boundsOf(result.content)
+    expect(bb.min.z).toBeCloseTo(2 + BASE_BEVEL - 0.01, 2)
+    expect(bb.max.z - bb.min.z).toBeCloseTo(CONTENT_DEPTH, 1)
+    expect(result.contentItems[0].halfWidth).toBeGreaterThan(0)
+    expect(result.contentItems[0].halfHeight).toBeGreaterThan(0)
+  })
 
-    it('positions text blocks correctly for left layout', () => {
-      const result = buildCard({ params: makeParams({ layout: 'left' }), font: fontStub })
-      
-      const block1 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-1')
-      const block2 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-2')
-      const block3 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-3')
-      
-      expect(block1).toBeDefined()
-      expect(block2).toBeDefined()
-      expect(block3).toBeDefined()
-      
-      block1!.geometry.computeBoundingBox()
-      block2!.geometry.computeBoundingBox()
-      block3!.geometry.computeBoundingBox()
-      
-      const bb1 = block1!.geometry.boundingBox!
-      const bb2 = block2!.geometry.boundingBox!
-      const bb3 = block3!.geometry.boundingBox!
-      
-      // All blocks should have left edge at -halfWidth + MARGIN_MIN
-      const expectedLeft = -85 / 2 + 3
-      expect(bb1.min.x).toBeCloseTo(expectedLeft, 0)
-      expect(bb2.min.x).toBeCloseTo(expectedLeft, 0)
-      expect(bb3.min.x).toBeCloseTo(expectedLeft, 0)
-      
-      // Blocks should be stacked vertically
-      expect(bb1.min.y).toBeGreaterThan(bb2.max.y)
-      expect(bb2.min.y).toBeGreaterThan(bb3.max.y)
-    })
+  it('aplica offset X e Y no conteúdo', () => {
+    const result = buildCard(makeInput({
+      contents: [textItem({ offsetX: 10, offsetY: -5 })],
+    }))
+    const bb = boundsOf(result.content)
+    expect((bb.min.x + bb.max.x) / 2).toBeCloseTo(10, 1)
+    expect((bb.min.y + bb.max.y) / 2).toBeCloseTo(-5, 1)
+  })
 
-    it('applies offsets to text blocks', () => {
-      const params = makeParams({
-        blocks: [
-          { id: 'block-1', content: 'Nome', fontStyle: 'bold', fontSize: 8, relief: 1, offsetX: 5, offsetY: 3 },
-          { id: 'block-2', content: 'Cargo', fontStyle: 'normal', fontSize: 5, relief: 0.8, offsetX: 0, offsetY: 0 },
-          { id: 'block-3', content: 'contato@email.com', fontStyle: 'normal', fontSize: 4, relief: 0.6, offsetX: 0, offsetY: 0 },
-        ]
-      })
-      const result = buildCard({ params, font: fontStub })
-      
-      const block1 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-1')
-      expect(block1).toBeDefined()
-      
-      block1!.geometry.computeBoundingBox()
-      const bb1 = block1!.geometry.boundingBox!
-      
-      // Block 1 center X should be offset by 5mm from center
-      const cx1 = (bb1.min.x + bb1.max.x) / 2
-      expect(cx1).toBeCloseTo(5, 0)
-    })
+  it('clampa o offset à área útil', () => {
+    const result = buildCard(makeInput({
+      contents: [textItem({ fontSize: 4, offsetX: 100 })],
+    }))
+    const bb = boundsOf(result.content)
+    expect(bb.max.x).toBeLessThanOrEqual(39.5 + 0.01)
+  })
 
-    it('clamps text blocks within margins', () => {
-      const params = makeParams({
-        blocks: [
-          { id: 'block-1', content: 'Nome', fontStyle: 'bold', fontSize: 8, relief: 1, offsetX: 25, offsetY: 0 },
-          { id: 'block-2', content: 'Cargo', fontStyle: 'normal', fontSize: 5, relief: 0.8, offsetX: 0, offsetY: 0 },
-          { id: 'block-3', content: 'contato@email.com', fontStyle: 'normal', fontSize: 4, relief: 0.6, offsetX: 0, offsetY: 0 },
-        ]
-      })
-      const result = buildCard({ params, font: fontStub })
-      
-      const block1 = result.textBlocks.find((b: { id: string; geometry: BufferGeometry }) => b.id === 'block-1')
-      expect(block1).toBeDefined()
-      
-      block1!.geometry.computeBoundingBox()
-      const bb1 = block1!.geometry.boundingBox!
-      
-      // Block should be clamped to stay within 3mm margin
-      const halfWidth = 85 / 2
-      const margin = 3
-      expect(bb1.min.x).toBeGreaterThanOrEqual(-halfWidth + margin)
-      expect(bb1.max.x).toBeLessThanOrEqual(halfWidth - margin)
-    })
+  it('gera conteúdo de ícone a partir do SVG parseado', () => {
+    const icon: CardContent = {
+      id: 'icon-1',
+      kind: 'icon',
+      svgIcon: SVG_RECT,
+      iconScale: 1,
+      iconLineWidth: 0.3,
+      offsetX: 0,
+      offsetY: 0,
+    }
+    const parsed = parseSvg(SVG_RECT)
+    const result = buildCard(makeInput(
+      { contents: [icon] },
+      { parsedSvgs: { 'icon-1': parsed } },
+    ))
+    expect(result.content).not.toBeNull()
+    expect(result.contentItems[0].halfWidth).toBeGreaterThan(0)
+  })
+
+  it('ignora texto vazio', () => {
+    const result = buildCard(makeInput({ contents: [textItem({ content: '' })] }))
+    expect(result.content).toBeNull()
+    expect(result.contentItems[0].halfWidth).toBe(0)
   })
 })
