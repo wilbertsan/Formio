@@ -4,14 +4,6 @@ import { StudioPanel } from '@/features/studio/tools/confeitaria/topo-bolo/Studi
 import { defaultCakeTopperParams } from '@/features/studio/tools/confeitaria/topo-bolo/schema'
 
 describe('StudioPanel', () => {
-  beforeEach(() => {
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
   const createMockProps = () => ({
     params: defaultCakeTopperParams,
     onUpdateParam: vi.fn(),
@@ -22,6 +14,7 @@ describe('StudioPanel', () => {
     onSetContourSvg: vi.fn(),
     onReset: vi.fn(),
     onMoveIcon: vi.fn(),
+    geometry: null,
   })
 
   it('renderiza o cabeçalho', () => {
@@ -111,6 +104,7 @@ describe('StudioPanel', () => {
     render(<StudioPanel {...createMockProps()} />)
     fireEvent.click(screen.getByText(/posicionar conteúdo/i))
     expect(screen.getByTestId('text-editor')).toBeInTheDocument()
+    expect(screen.getByTestId('editor-svg')).toBeInTheDocument()
   })
 
   it('dispara onReset ao clicar em Restaurar', () => {

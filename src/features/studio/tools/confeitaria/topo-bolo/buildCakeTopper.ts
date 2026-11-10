@@ -30,10 +30,26 @@ export interface BuildCakeTopperInput {
   onError?: (message: string) => void
 }
 
+export interface PlateShapeParams {
+  shape: CakeTopperParams['shape']
+  width: number
+  height: number
+  cornerRadius: number
+  contourSvg: string | null
+}
+
+export interface ContentBounds {
+  id: string
+  kind: 'text' | 'icon'
+  halfWidth: number
+  halfHeight: number
+}
+
 export interface BuildCakeTopperResult {
   plate: BufferGeometry
   relief: BufferGeometry | null
   support: BufferGeometry | null
+  contentItems?: ContentBounds[]
 }
 
 const TEXT_MARGIN = 4
@@ -67,20 +83,20 @@ function mergeAll(geometries: BufferGeometry[], onError?: (message: string) => v
   return first
 }
 
-function circleShape(params: CakeTopperParams): Shape {
+function circleShape(params: PlateShapeParams): Shape {
   const shape = new Shape()
   // Raio = menor lado/2 para a placa caber na caixa declarada.
   shape.absarc(0, 0, Math.min(params.width, params.height) / 2, 0, Math.PI * 2, false)
   return shape
 }
 
-function ovalShape(params: CakeTopperParams): Shape {
+function ovalShape(params: PlateShapeParams): Shape {
   const shape = new Shape()
   shape.absellipse(0, 0, params.width / 2, params.height / 2, 0, Math.PI * 2, false, 0)
   return shape
 }
 
-function roundedRectShape(params: CakeTopperParams): Shape {
+function roundedRectShape(params: PlateShapeParams): Shape {
   const shape = new Shape()
   const hw = params.width / 2
   const hh = params.height / 2
@@ -140,7 +156,7 @@ function fitShapesToBox(shapes: Shape[], boxWidth: number, boxHeight: number): S
   return shapes.map((shape) => transformShape(shape, scale, -centerX * scale, -centerY * scale))
 }
 
-function customPlateShapes(params: CakeTopperParams): Shape[] {
+function customPlateShapes(params: PlateShapeParams): Shape[] {
   if (!params.contourSvg) return []
   const parsed = parseSvg(params.contourSvg)
   if (!parsed) return []
@@ -149,7 +165,7 @@ function customPlateShapes(params: CakeTopperParams): Shape[] {
   return fitShapesToBox(shapes.map(flipShapeY), params.width, params.height)
 }
 
-function plateShapes(params: CakeTopperParams, onError?: (message: string) => void): Shape[] {
+function plateShapes(params: PlateShapeParams, onError?: (message: string) => void): Shape[] {
   switch (params.shape) {
     case 'circle':
       return [circleShape(params)]
@@ -191,12 +207,17 @@ function plateBoundsOf(plate: BufferGeometry, params: CakeTopperParams): PlateBo
   }
 }
 
+interface BuiltText {
+  geometry: BufferGeometry
+  bounds: ContentBounds
+}
+
 function buildTextGeometries(
   input: BuildCakeTopperInput,
   plate: PlateBounds,
-): BufferGeometry[] {
+): BuiltText[] {
   const { params, fonts, font, onError } = input
-  const geometries: BufferGeometry[] = []
+  const geometries: BuiltText[] = []
 
   for (const item of params.texts) {
     const resolved = fonts?.[item.fontStyle] ?? font
@@ -237,16 +258,31 @@ function buildTextGeometries(
     const z = params.thickness - TEXT_Z_OFFSET
     geometry.translate(placed.x, placed.y, z)
 
-    geometries.push(geometry)
+    geometry.computeBoundingBox()
+    const finalBox = geometry.boundingBox
+    geometries.push({
+      geometry,
+      bounds: {
+        id: item.id,
+        kind: 'text',
+        halfWidth: finalBox ? (finalBox.max.x - finalBox.min.x) / 2 : 0,
+        halfHeight: finalBox ? (finalBox.max.y - finalBox.min.y) / 2 : 0,
+      },
+    })
   }
 
   return geometries
 }
 
+interface BuiltIcon {
+  geometry: BufferGeometry
+  bounds: ContentBounds
+}
+
 function buildIconGeometry(
   params: CakeTopperParams,
   plate: PlateBounds,
-): BufferGeometry | null {
+): BuiltIcon | null {
   if (!params.svgIcon) return null
 
   // Raio útil ≈ 1/3 do menor lado da placa, escalado por iconScale.
@@ -287,18 +323,34 @@ function buildIconGeometry(
   )
   const z = params.thickness - TEXT_Z_OFFSET
   geometry.translate(placed.x, placed.y, z)
-  return geometry
+  geometry.computeBoundingBox()
+  const finalBox = geometry.boundingBox
+  return {
+    geometry,
+    bounds: {
+      id: 'icon',
+      kind: 'icon',
+      halfWidth: finalBox ? (finalBox.max.x - finalBox.min.x) / 2 : 0,
+      halfHeight: finalBox ? (finalBox.max.y - finalBox.min.y) / 2 : 0,
+    },
+  }
 }
 
 function buildRelief(
   input: BuildCakeTopperInput,
   plate: PlateBounds,
-): BufferGeometry | null {
-  const textGeometries = buildTextGeometries(input, plate)
+): { geometry: BufferGeometry | null; items: ContentBounds[] } {
+  const textBuild = buildTextGeometries(input, plate)
   const icon = buildIconGeometry(input.params, plate)
-  const parts = icon ? [...textGeometries, icon] : textGeometries
-  if (parts.length === 0) return null
-  return mergeAll(parts, input.onError)
+  const parts = icon
+    ? [...textBuild.map((item) => item.geometry), icon.geometry]
+    : textBuild.map((item) => item.geometry)
+  const items = [
+    ...textBuild.map((item) => item.bounds),
+    ...(icon ? [icon.bounds] : []),
+  ]
+  if (parts.length === 0) return { geometry: null, items }
+  return { geometry: mergeAll(parts, input.onError), items }
 }
 
 interface PlateBottomSampler {
@@ -551,15 +603,23 @@ function buildSupport(
   }
 }
 
-export function buildCakeTopper(input: BuildCakeTopperInput): BuildCakeTopperResult {
+export function getPlateShapes(params: PlateShapeParams): Shape[] {
+  return plateShapes(params)
+}
+
+export function buildCakeTopper(
+  input: BuildCakeTopperInput,
+): BuildCakeTopperResult & { contentItems: ContentBounds[] } {
   const { params, onError } = input
   const plate = extrudePlate(plateShapes(params, onError), params.thickness, onError)
   const plateBounds = plateBoundsOf(plate, params)
+  const relief = buildRelief(input, plateBounds)
 
   return {
     plate,
-    relief: buildRelief(input, plateBounds),
+    relief: relief.geometry,
     support: buildSupport(params, plate, onError),
+    contentItems: relief.items,
   }
 }
 

@@ -17,6 +17,7 @@ vi.mock('@/features/studio/tools/confeitaria/topo-bolo/buildCakeTopper', () => (
     plate: new THREE.BufferGeometry(),
     relief: null,
     support: null,
+    contentItems: [],
   })),
   disposeCakeTopperResult: vi.fn(),
 }))

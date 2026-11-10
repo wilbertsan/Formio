@@ -11,6 +11,7 @@ import {
   View,
 } from '@aws-amplify/ui-react'
 import { type CakeTopperParams, type TextItem, PLA_COLORS } from './schema'
+import type { BuildCakeTopperResult } from './buildCakeTopper'
 import { TextPositionEditor } from './TextPositionEditor'
 
 const SLIDER_LIMITS = {
@@ -36,6 +37,7 @@ interface StudioPanelProps {
   onSetContourSvg: (svg: string | null) => void
   onReset: () => void
   onMoveIcon: (x: number, y: number) => void
+  geometry: BuildCakeTopperResult | null
 }
 
 function ColorSwatches({
@@ -89,9 +91,11 @@ export function StudioPanel({
   onSetContourSvg,
   onReset,
   onMoveIcon,
+  geometry,
 }: StudioPanelProps) {
   const [editorOpen, setEditorOpen] = useState(false)
   const [selectedTextId, setSelectedTextId] = useState(params.texts[0]?.id ?? '')
+  const [selectedContentId, setSelectedContentId] = useState(params.texts[0]?.id ?? '')
   const [iconUploadError, setIconUploadError] = useState(false)
   const [contourUploadError, setContourUploadError] = useState(false)
   const contourInputRef = useRef<HTMLInputElement>(null)
@@ -101,10 +105,22 @@ export function StudioPanel({
   useEffect(() => {
     if (params.texts.length > textCountRef.current) {
       const last = params.texts[params.texts.length - 1]
-      if (last) setSelectedTextId(last.id)
+      if (last) {
+        setSelectedTextId(last.id)
+        setSelectedContentId(last.id)
+      }
     }
     textCountRef.current = params.texts.length
   }, [params.texts])
+
+  useEffect(() => {
+    const textExists = params.texts.some((text) => text.id === selectedContentId)
+    const iconExists = selectedContentId === 'icon' && params.svgIcon !== null
+    if (textExists || iconExists) return
+    const fallback = params.texts[0]?.id ?? ''
+    setSelectedContentId(fallback)
+    setSelectedTextId(fallback)
+  }, [params.texts, params.svgIcon, selectedContentId])
 
   const handleContourUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.target
@@ -126,6 +142,14 @@ export function StudioPanel({
 
   const selectedText = params.texts.find((text) => text.id === selectedTextId) ?? params.texts[0]
   const canAddText = params.texts.length < 3
+
+  const handleMoveContent = (id: string, x: number, y: number) => {
+    if (id === 'icon') {
+      onMoveIcon(x, y)
+    } else {
+      onUpdateTextById(id, { offsetX: x, offsetY: y })
+    }
+  }
 
   return (
     <View
@@ -157,8 +181,11 @@ export function StudioPanel({
                   <Flex key={text.id} direction="row" gap="xs" alignItems="center">
                     <Button
                       size="small"
-                      aria-pressed={text.id === selectedText.id}
-                      onClick={() => setSelectedTextId(text.id)}
+                      aria-pressed={text.id === selectedContentId}
+                      onClick={() => {
+                        setSelectedTextId(text.id)
+                        setSelectedContentId(text.id)
+                      }}
                     >
                       {text.content}
                     </Button>
@@ -526,10 +553,13 @@ export function StudioPanel({
       {editorOpen && selectedText && (
         <TextPositionEditor
           params={params}
-          selectedTextId={selectedText.id}
-          onSelectText={setSelectedTextId}
-          onMoveText={(id, x, y) => onUpdateTextById(id, { offsetX: x, offsetY: y })}
-          onMoveIcon={onMoveIcon}
+          geometry={geometry}
+          selectedContentId={selectedContentId}
+          onSelectContent={(id) => {
+            setSelectedContentId(id)
+            if (id !== 'icon') setSelectedTextId(id)
+          }}
+          onMoveContent={handleMoveContent}
           onClose={() => setEditorOpen(false)}
         />
       )}

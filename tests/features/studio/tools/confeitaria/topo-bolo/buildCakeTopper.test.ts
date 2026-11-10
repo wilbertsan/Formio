@@ -223,6 +223,30 @@ describe('buildCakeTopper - relevo (raised)', () => {
     expect(narrowBb.hh).toBeCloseTo(wideBb.hh, 5)
   })
 
+  it('expõe as meias-extensões reais dos textos e do ícone', () => {
+    const params = {
+      ...defaultCakeTopperParams,
+      svgIcon: SVG_RECT,
+      texts: [
+        text({ id: 't1', content: 'A', width: 10, height: 10 }),
+        text({ id: 't2', content: 'AB', width: 20, height: 10 }),
+      ],
+    }
+    const result = buildCakeTopper({ params, fonts: { bold: mockFont('AB') } })
+
+    expect(result.contentItems.map((item) => item.id)).toEqual(['t1', 't2', 'icon'])
+    const narrow = result.contentItems.find((item) => item.id === 't1')!
+    const wide = result.contentItems.find((item) => item.id === 't2')!
+    expect(narrow.kind).toBe('text')
+    expect(narrow.halfWidth).toBeLessThan(wide.halfWidth)
+    expect(narrow.halfHeight).toBeCloseTo(wide.halfHeight, 5)
+
+    const icon = result.contentItems.find((item) => item.id === 'icon')!
+    expect(icon.kind).toBe('icon')
+    expect(icon.halfWidth).toBeGreaterThan(0)
+    expect(icon.halfHeight).toBeGreaterThan(0)
+  })
+
   it('relief é null sem fonte disponível', () => {
     const result = buildCakeTopper({ params: defaultCakeTopperParams })
     expect(result.relief).toBeNull()

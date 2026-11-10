@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-const OFFSET_X_RANGE = { min: -55, max: 55 } as const
-const OFFSET_Y_RANGE = { min: -35, max: 35 } as const
+export const OFFSET_X_RANGE = { min: -55, max: 55 } as const
+export const OFFSET_Y_RANGE = { min: -35, max: 35 } as const
 
 export const PLA_COLORS = [
   '#14b8a6', '#ef4444', '#3b82f6', '#eab308', '#22c55e',
