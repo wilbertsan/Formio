@@ -39,7 +39,7 @@ const TOOLS: ToolCard[] = [
   {
     id: 'suporte-foto',
     name: 'Suporte para Foto',
-    description: 'Suportes personalizados com texto 3D e slot para fotos',
+    description: 'Suporte de mesa para fotos com faixa em relevo e fenda de encaixe',
     icon: '🖼️',
     category: 'Letreiros',
   },

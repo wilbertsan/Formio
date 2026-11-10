@@ -12,6 +12,8 @@ interface StudioViewportProps {
   cameraPosition?: [number, number, number]
   /** Raio da esfera envolvente do objeto. Se informado, o reset enquadra ~80% da tela. */
   fitRadius?: number
+  /** Giro (graus) em torno do eixo Y no reset enquadrado. Use 30 para peças de face frontal em +Z. */
+  resetAzimuth?: number
   children: ReactNode
 }
 
@@ -19,18 +21,20 @@ interface StudioViewportProps {
 const FIT_FILL = 0.8
 // Inclinação (graus) e giro (graus) em torno do eixo Y do reset.
 const RESET_ELEVATION_DEGREES = 25
-const RESET_AZIMUTH_DEGREES = 210
+const DEFAULT_RESET_AZIMUTH_DEGREES = 210
 
 function CameraController({
   controlsRef,
   resetSignal,
   cameraPosition,
   fitRadius,
+  resetAzimuth,
 }: {
   controlsRef: RefObject<OrbitControlsImpl | null>
   resetSignal: number
   cameraPosition: [number, number, number]
   fitRadius?: number
+  resetAzimuth: number
 }) {
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
@@ -56,7 +60,7 @@ function CameraController({
         fitRadius / (FIT_FILL * tanHorizontal),
       )
       const elevation = (RESET_ELEVATION_DEGREES * Math.PI) / 180
-      const azimuth = (RESET_AZIMUTH_DEGREES * Math.PI) / 180
+      const azimuth = (resetAzimuth * Math.PI) / 180
       const cosElevation = Math.cos(elevation)
       perspective.position.set(
         distance * Math.sin(azimuth) * cosElevation,
@@ -73,7 +77,7 @@ function CameraController({
       controls.target.set(0, 0, 0)
       controls.update()
     }
-  }, [resetSignal, fitRadius, cameraPosition, camera, size, controlsRef])
+  }, [resetSignal, fitRadius, cameraPosition, resetAzimuth, camera, size, controlsRef])
 
   return null
 }
@@ -84,6 +88,7 @@ export function StudioViewport({
   onResetCamera,
   cameraPosition = [40, 30, 80],
   fitRadius,
+  resetAzimuth = DEFAULT_RESET_AZIMUTH_DEGREES,
   children,
 }: StudioViewportProps) {
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -141,6 +146,7 @@ export function StudioViewport({
             resetSignal={resetCameraSignal}
             cameraPosition={cameraPosition}
             fitRadius={fitRadius}
+            resetAzimuth={resetAzimuth}
           />
         </Suspense>
       </Canvas>
