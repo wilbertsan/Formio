@@ -259,9 +259,10 @@ export function StudioPanel({
                   >
                     <option value="left">Esquerda</option>
                     <option value="right">Direita</option>
-                    <option value="top">Topo</option>
-                    <option value="bottom">Fundo</option>
                   </SelectField>
+                  <Text fontSize="xs" color="font.secondary">
+                    Topo e fundo ficam para uma versão futura.
+                  </Text>
                   <LabeledSlider
                     label="Posição na lateral"
                     value={params.handleHeight}

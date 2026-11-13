@@ -164,4 +164,29 @@ describe('validateThermoformer', () => {
     })
     expect(issues.some((issue) => issue.code === 'handle-flange')).toBe(true)
   })
+
+  it('avisa painel invadindo a base', () => {
+    const issues = validateThermoformer({ ...defaultThermoformerParams, baseHeight: 7 })
+    expect(issues.some((issue) => issue.code === 'panel-base')).toBe(true)
+  })
+
+  it('avisa painel invadindo a saia da tampa', () => {
+    const issues = validateThermoformer({ ...defaultThermoformerParams, lidFitDepth: 7 })
+    expect(issues.some((issue) => issue.code === 'panel-lid')).toBe(true)
+  })
+
+  it('avisa pino no topo ou no fundo sem apoio sólido', () => {
+    const issues = validateThermoformer({ ...defaultThermoformerParams, handleSide: 'top' })
+    expect(issues.some((issue) => issue.code === 'handle-side')).toBe(true)
+  })
+
+  it('avisa flange do pino invadindo a base', () => {
+    const issues = validateThermoformer({ ...defaultThermoformerParams, handleHeight: 0 })
+    expect(issues.some((issue) => issue.code === 'handle-base-collision')).toBe(true)
+  })
+
+  it('avisa flange do pino invadindo a tampa', () => {
+    const issues = validateThermoformer({ ...defaultThermoformerParams, handleHeight: 1 })
+    expect(issues.some((issue) => issue.code === 'handle-lid-collision')).toBe(true)
+  })
 })

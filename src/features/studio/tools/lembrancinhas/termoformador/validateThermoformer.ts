@@ -18,12 +18,17 @@ export type ThermoformerIssueCode =
   | 'panel-overhang'
   | 'panel-height'
   | 'panel-radius'
+  | 'panel-base'
+  | 'panel-lid'
   | 'lid-clearance'
   | 'lid-fit-depth'
   | 'lid-internal'
   | 'handle-tip'
   | 'handle-base'
   | 'handle-flange'
+  | 'handle-side'
+  | 'handle-base-collision'
+  | 'handle-lid-collision'
   | 'base-height'
   | 'base-thin'
 
@@ -159,7 +164,58 @@ export function validateThermoformer(
     }
   }
 
+  const panelBottom = bodyTop / 2 - params.frontPanelHeight / 2
+  const panelTop = bodyTop / 2 + params.frontPanelHeight / 2
+  const lidBottom = bodyTop - params.lidFitDepth
+
+  if (params.baseEnabled && panelBottom < params.baseHeight) {
+    issues.push({
+      code: 'panel-base',
+      severity: 'warning',
+      message: 'O painel frontal invade a altura da base. Reduza a base, o painel ou reposicione o painel.',
+    })
+  }
+
+  if (params.lidEnabled && panelTop > lidBottom) {
+    issues.push({
+      code: 'panel-lid',
+      severity: 'warning',
+      message: 'O painel frontal invade a saia da tampa. Reduza o painel, a profundidade do encaixe ou aumente a altura do corpo.',
+    })
+  }
+
   if (params.handleEnabled) {
+    if (params.handleSide === 'top' || params.handleSide === 'bottom') {
+      issues.push({
+        code: 'handle-side',
+        severity: 'warning',
+        message: 'Pino no topo/fundo fica sem apoio sólido na v1. Use esquerda ou direita.',
+      })
+    } else {
+      const flangeRadius = Math.max(params.handleBaseDiameter, params.handleDiameter) / 2
+      const vertical = Math.max(
+        flangeRadius,
+        Math.min(
+          params.handleHeight * bodyTop,
+          Math.max(flangeRadius, bodyTop - flangeRadius),
+        ),
+      )
+      if (params.baseEnabled && vertical - flangeRadius < params.baseHeight) {
+        issues.push({
+          code: 'handle-base-collision',
+          severity: 'warning',
+          message: 'O flange do pino invade a base. Aumente a posição do pino.',
+        })
+      }
+      if (params.lidEnabled && vertical + flangeRadius > lidBottom) {
+        issues.push({
+          code: 'handle-lid-collision',
+          severity: 'warning',
+          message: 'O flange do pino invade a tampa. Reduza a posição do pino.',
+        })
+      }
+    }
+
     if (params.handleTipRadius > params.handleDiameter / 2) {
       issues.push({
         code: 'handle-tip',
