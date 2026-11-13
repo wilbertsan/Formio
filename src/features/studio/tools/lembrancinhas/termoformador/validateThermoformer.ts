@@ -7,8 +7,28 @@ import {
 
 export type IssueSeverity = 'error' | 'warning'
 
+export type ThermoformerIssueCode =
+  | 'corner-radius'
+  | 'wall'
+  | 'panel-border'
+  | 'panel-empty'
+  | 'panel-hole'
+  | 'panel-rib'
+  | 'panel-density'
+  | 'panel-overhang'
+  | 'panel-height'
+  | 'panel-radius'
+  | 'lid-clearance'
+  | 'lid-fit-depth'
+  | 'lid-internal'
+  | 'handle-tip'
+  | 'handle-base'
+  | 'handle-flange'
+  | 'base-height'
+  | 'base-thin'
+
 export interface ValidationIssue {
-  code: string
+  code: ThermoformerIssueCode
   severity: IssueSeverity
   message: string
 }
@@ -29,6 +49,7 @@ export function validateThermoformer(
     })
   }
 
+  // Guarda defensiva para chamadores diretos fora dos intervalos do Zod; a UI não alcança este caso.
   if (params.wallThickness < MINIMUM_WALL_MM) {
     issues.push({
       code: 'wall',
@@ -51,11 +72,19 @@ export function validateThermoformer(
     })
   }
 
-  if (pattern.effectiveSize > 0 && pattern.effectiveRib < MINIMUM_FEATURE_MM) {
+  if (pattern.holes.length > 0 && pattern.effectiveSize < MINIMUM_FEATURE_MM - 1e-9) {
+    issues.push({
+      code: 'panel-hole',
+      severity: 'warning',
+      message: `Os furos efetivos ficam abaixo de ${MINIMUM_FEATURE_MM} mm.`,
+    })
+  }
+
+  if (pattern.holes.length > 0 && pattern.effectiveRib < MINIMUM_FEATURE_MM - 1e-9) {
     issues.push({
       code: 'panel-rib',
       severity: 'warning',
-      message: `As nervuras efetivas ficam abaixo de ${MINIMUM_FEATURE_MM} mm; o furo foi reduzido.`,
+      message: `As nervuras efetivas ficam abaixo de ${MINIMUM_FEATURE_MM} mm.`,
     })
   }
 
@@ -119,6 +148,7 @@ export function validateThermoformer(
     const rimThickness = Math.max(params.wallThickness, params.rimThickness)
     const openingWidth = params.width - 2 * rimThickness - 2 * params.lidClearance
     const openingDepth = params.depth - 2 * rimThickness - 2 * params.lidClearance
+    // Guarda defensiva para chamadores diretos fora dos intervalos do Zod; a UI não alcança este caso.
     if (params.fitType === 'internal'
       && (openingWidth <= 2 * params.lidThickness || openingDepth <= 2 * params.lidThickness)) {
       issues.push({

@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { buildThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
+import { describe, it, expect, vi } from 'vitest'
+import {
+  buildThermoformer,
+  disposeThermoformerResult,
+} from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 
 describe('buildThermoformer', () => {
@@ -40,5 +43,42 @@ describe('buildThermoformer', () => {
 
     result.handle!.computeBoundingBox()
     expect(result.handle!.boundingBox!.max.x).toBeCloseTo(params.width / 2 + params.handleLength, 1)
+  })
+
+  it('posiciona a tampa com encaixe interno a partir do fundo útil', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      fitType: 'internal' as const,
+      height: 20,
+      rimHeight: 0,
+      bottomThickness: 6,
+      lidFitDepth: 20,
+    }
+    const result = buildThermoformer(params)
+    const bodyTop = params.height + params.rimHeight
+    const effectiveFitDepth = Math.min(params.lidFitDepth, bodyTop - params.bottomThickness)
+
+    result.lid!.computeBoundingBox()
+    expect(result.lid!.boundingBox!.min.y).toBeCloseTo(bodyTop - effectiveFitDepth, 1)
+    expect(result.lid!.boundingBox!.min.y).toBeCloseTo(6, 1)
+  })
+
+  it('despacha dispose para todas as peças e ignora resultado nulo', () => {
+    const result = buildThermoformer(defaultThermoformerParams)
+    const bodySpy = vi.spyOn(result.body, 'dispose')
+    const lidSpy = vi.spyOn(result.lid!, 'dispose')
+    const frontPanelSpy = vi.spyOn(result.frontPanel, 'dispose')
+    const handleSpy = vi.spyOn(result.handle!, 'dispose')
+    const baseSpy = vi.spyOn(result.base!, 'dispose')
+
+    disposeThermoformerResult(result)
+
+    expect(bodySpy).toHaveBeenCalledTimes(1)
+    expect(lidSpy).toHaveBeenCalledTimes(1)
+    expect(frontPanelSpy).toHaveBeenCalledTimes(1)
+    expect(handleSpy).toHaveBeenCalledTimes(1)
+    expect(baseSpy).toHaveBeenCalledTimes(1)
+
+    expect(() => disposeThermoformerResult(null)).not.toThrow()
   })
 })
