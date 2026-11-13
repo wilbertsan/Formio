@@ -1085,16 +1085,16 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
   }, [])
 
   const handleExport = useCallback(() => {
-    if (!geometry) return
-    exportThermoformerStl(geometry, projectName, builtParams ?? params)
-  }, [geometry, projectName, builtParams, params])
+    if (!geometry || !builtParams) return
+    exportThermoformerStl(geometry, projectName, builtParams)
+  }, [geometry, projectName, builtParams])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
       <StudioTopbar
         projectName={projectName}
         onProjectNameChange={setProjectName}
-        canExport={geometry !== null}
+        canExport={geometry !== null && builtParams !== null}
         onExport={handleExport}
         onBack={onBack}
       />
@@ -1103,7 +1103,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
           <div
             role="status"
             aria-live="polite"
-            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
           >
             Gerando…
           </div>
@@ -1111,7 +1111,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
         {error && (
           <div
             role="alert"
-            className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
           >
             {error}
           </div>

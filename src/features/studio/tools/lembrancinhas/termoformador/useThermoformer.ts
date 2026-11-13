@@ -270,7 +270,7 @@ export function useThermoformer(
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2
     const elevation = (25 * Math.PI) / 180
-    const azimuth = (210 * Math.PI) / 180
+    const azimuth = (30 * Math.PI) / 180
     return [
       Number((distance * Math.sin(azimuth) * Math.cos(elevation)).toFixed(1)),
       Number((distance * Math.sin(elevation)).toFixed(1)),

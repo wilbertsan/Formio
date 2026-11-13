@@ -24,6 +24,11 @@ import {
   serializePhotoStandResult,
   type SerializedPhotoStandResult,
 } from '@/features/studio/tools/letreiros/suporte-foto/workerGeometry'
+import { exportThermoformerStl } from '@/features/studio/tools/lembrancinhas/termoformador/exportStl'
+import {
+  serializeBuildResult,
+  type SerializedBuildResult,
+} from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -41,6 +46,7 @@ vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
 // jsdom não implementa Worker; o hook da ferramenta cria um após o debounce.
 let cardWorkerResponse: SerializedCardResult | null = null
 let photoWorkerResponse: SerializedPhotoStandResult | null = null
+let thermoWorkerResponse: SerializedBuildResult | null = null
 
 class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -53,6 +59,7 @@ class WorkerMock {
 
     if (request.params?.productType === 'card' && cardWorkerResponse) deliver(cardWorkerResponse)
     if (request.params?.productType === 'photo-stand' && photoWorkerResponse) deliver(photoWorkerResponse)
+    if (request.params?.productType === 'termoformador' && thermoWorkerResponse) deliver(thermoWorkerResponse)
   }
   terminate(): void {}
 }
@@ -65,6 +72,10 @@ vi.mock('@/features/studio/tools/letreiros/cartao-visita/exportStl', () => ({
 
 vi.mock('@/features/studio/tools/letreiros/suporte-foto/exportStl', () => ({
   exportStl: vi.fn(),
+}))
+
+vi.mock('@/features/studio/tools/lembrancinhas/termoformador/exportStl', () => ({
+  exportThermoformerStl: vi.fn(),
 }))
 
 vi.mock('@react-three/fiber', () => {
@@ -98,8 +109,10 @@ describe('StudioPage', () => {
   beforeEach(() => {
     cardWorkerResponse = null
     photoWorkerResponse = null
+    thermoWorkerResponse = null
     vi.mocked(exportCardStl).mockClear()
     vi.mocked(exportPhotoStandStl).mockClear()
+    vi.mocked(exportThermoformerStl).mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -311,6 +324,43 @@ describe('StudioPage', () => {
     expect(
       await screen.findByRole('heading', { level: 2, name: 'Termoformador' }, LAZY_TIMEOUT),
     ).toBeInTheDocument()
-    expect(screen.getByText('Dimensões')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Dimensões' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
+    expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… no Termoformador', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+    expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
+  })
+
+  it('exporta o Termoformador com os parâmetros do build', async () => {
+    thermoWorkerResponse = serializeBuildResult({
+      body: new THREE.BoxGeometry(160, 63, 120),
+      lid: new THREE.BoxGeometry(165, 14, 125),
+      frontPanel: new THREE.BoxGeometry(140, 50, 3),
+      handle: new THREE.BoxGeometry(25, 16, 16),
+      base: new THREE.BoxGeometry(165, 6, 125),
+    }).data
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+
+    const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
+    await waitFor(() => expect(exportButton).toBeEnabled())
+
+    // Muda o pino para a esquerda sem aguardar o debounce de 250 ms: o export
+    // deve usar o snapshot do build (direita), não os parâmetros pendentes.
+    fireEvent.change(screen.getByLabelText('Lateral'), { target: { value: 'left' } })
+    fireEvent.click(exportButton)
+
+    expect(exportThermoformerStl).toHaveBeenCalledWith(
+      expect.objectContaining({ body: expect.anything() }),
+      'Projeto sem título',
+      expect.objectContaining({ width: 160, handleSide: 'right' }),
+    )
   })
 })
