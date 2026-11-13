@@ -1,8 +1,8 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'rolo-textura' | 'marcador-pagina' | 'placa-loja'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'rolo-textura' | 'marcador-pagina' | 'placa-loja' | 'termoformador'
 
-type ToolCategory = 'Confeitaria' | 'Letreiros'
+type ToolCategory = 'Confeitaria' | 'Letreiros' | 'Lembrancinhas'
 
 interface ToolCard {
   id: ToolId
@@ -12,7 +12,7 @@ interface ToolCard {
   category: ToolCategory
 }
 
-const CATEGORY_ORDER: ToolCategory[] = ['Confeitaria', 'Letreiros']
+const CATEGORY_ORDER: ToolCategory[] = ['Confeitaria', 'Letreiros', 'Lembrancinhas']
 
 const TOOLS: ToolCard[] = [
   {
@@ -84,6 +84,13 @@ const TOOLS: ToolCard[] = [
     description: 'Placas de identificação 3D com texto personalizável e furos para parafuso',
     icon: '🏪',
     category: 'Letreiros',
+  },
+  {
+    id: 'termoformador',
+    name: 'Termoformador',
+    description: 'Equipamento modular de termoformagem com corpo, tampa, painel perfurado, pino e base',
+    icon: '🏭',
+    category: 'Lembrancinhas',
   },
 ]
 
