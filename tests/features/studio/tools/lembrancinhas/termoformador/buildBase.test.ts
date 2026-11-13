@@ -7,7 +7,10 @@ import {
   Vector3,
   type BufferGeometry,
 } from 'three'
-import { buildBase } from '@/features/studio/tools/lembrancinhas/termoformador/buildBase'
+import {
+  buildBase,
+  getBaseDimensions,
+} from '@/features/studio/tools/lembrancinhas/termoformador/buildBase'
 import {
   defaultThermoformerParams,
   MINIMUM_FEATURE_MM,
@@ -51,29 +54,14 @@ function verticalHits(geometry: BufferGeometry, x: number): number {
 
 /** Mede o anel do canto da face inferior ao longo da diagonal de 45°. */
 function capCornerRing(params: typeof defaultThermoformerParams): number {
-  const innerWidth = params.width + 2 * params.printClearance
-  const innerDepth = params.depth + 2 * params.printClearance
-  const outerWidth = innerWidth + 2 * params.baseThickness
-  const outerDepth = innerDepth + 2 * params.baseThickness
-  const outerRadius = Math.min(
-    params.baseCornerRadius,
-    outerWidth / 2,
-    outerDepth / 2,
-  )
-  const innerRadius = Math.max(
-    0,
-    Math.min(
-      outerRadius - params.baseThickness,
-      innerWidth / 2,
-      innerDepth / 2,
-    ),
-  )
+  const dims = getBaseDimensions(params)
+  const { outer, inner, height, chamfer } = dims
 
   const flatRing = Math.min(
-    (outerWidth - innerWidth) / 2,
-    (outerDepth - innerDepth) / 2,
+    (outer.width - inner.width) / 2,
+    (outer.depth - inner.depth) / 2,
   )
-  const cornerRing = Math.max(0, outerRadius - innerRadius)
+  const cornerRing = Math.max(0, outer.radius - inner.radius)
   const ringThickness = Math.min(flatRing, cornerRing > 0 ? cornerRing : flatRing)
   const chamferLimit = Math.max(
     0,
@@ -81,13 +69,13 @@ function capCornerRing(params: typeof defaultThermoformerParams): number {
   )
   const bevel = Math.max(
     0,
-    Math.min(params.edgeChamfer, Math.max(0.2, params.baseHeight) * 0.45, chamferLimit),
+    Math.min(chamfer, height * 0.45, chamferLimit),
   )
 
-  const outerCapHalfW = (outerWidth - 2 * bevel) / 2
-  const outerCapHalfD = (outerDepth - 2 * bevel) / 2
+  const outerCapHalfW = (outer.width - 2 * bevel) / 2
+  const outerCapHalfD = (outer.depth - 2 * bevel) / 2
   const outerCapRadius = Math.min(
-    outerRadius - bevel,
+    outer.radius - bevel,
     outerCapHalfW,
     outerCapHalfD,
   )
@@ -115,6 +103,66 @@ function capCornerRing(params: typeof defaultThermoformerParams): number {
   expect(distances.length).toBeGreaterThanOrEqual(2)
   return distances[1] - distances[0]
 }
+
+describe('getBaseDimensions', () => {
+  it('mantém o furo no raio do corpo quando o corpo tem cantos vivos', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      cornerRadius: 0,
+      baseCornerRadius: 13,
+    }
+    const dims = getBaseDimensions(params)
+
+    expect(dims.inner.width).toBeCloseTo(
+      params.width + 2 * params.printClearance,
+      10,
+    )
+    expect(dims.inner.depth).toBeCloseTo(
+      params.depth + 2 * params.printClearance,
+      10,
+    )
+    expect(dims.inner.radius).toBeLessThanOrEqual(params.printClearance + 1e-6)
+  })
+
+  it('limita o furo ao raio do corpo mais a folga de impressão', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      cornerRadius: 10,
+      baseCornerRadius: 14,
+    }
+    const dims = getBaseDimensions(params)
+
+    expect(dims.inner.radius).toBeLessThanOrEqual(
+      params.cornerRadius + params.printClearance + 1e-6,
+    )
+  })
+
+  it('aplica o teto de raio no valor padrão da base', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      cornerRadius: 10,
+      baseCornerRadius: 13,
+    }
+    const dims = getBaseDimensions(params)
+
+    expect(dims.inner.radius).toBeLessThanOrEqual(
+      params.cornerRadius + params.printClearance + 1e-6,
+    )
+  })
+
+  it('garante anel de pelo menos baseThickness quando o pedido permite', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      baseThickness: 6,
+      baseCornerRadius: 13,
+    }
+    const dims = getBaseDimensions(params)
+
+    expect(dims.outer.radius - dims.inner.radius).toBeGreaterThanOrEqual(
+      params.baseThickness - 1e-6,
+    )
+  })
+})
 
 describe('buildBase', () => {
   it('gera um anel fechado com as dimensões externas padrão', () => {
