@@ -86,8 +86,9 @@ function LabeledSlider({
         <Text fontSize="xs" color="font.secondary">{display} {suffix}</Text>
       </Flex>
       <SliderField
-        label=""
-        aria-label={label}
+        label={label}
+        labelHidden
+        isValueHidden
         min={min}
         max={max}
         step={step}
@@ -322,18 +323,22 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <Text fontSize="xs" color="font.tertiary">Cor do corpo</Text>
-              <ColorSwatches
-                colors={PLA_COLORS}
-                selected={params.bodyColor}
-                onSelect={(color) => onUpdateParam('bodyColor', color)}
-              />
-              <Text fontSize="xs" color="font.tertiary">Cor de destaque</Text>
-              <ColorSwatches
-                colors={PLA_COLORS}
-                selected={params.accentColor}
-                onSelect={(color) => onUpdateParam('accentColor', color)}
-              />
+              <Flex role="group" aria-label="Cor do corpo" direction="column" gap="xs">
+                <Text fontSize="xs" color="font.tertiary">Cor do corpo</Text>
+                <ColorSwatches
+                  colors={PLA_COLORS}
+                  selected={params.bodyColor}
+                  onSelect={(color) => onUpdateParam('bodyColor', color)}
+                />
+              </Flex>
+              <Flex role="group" aria-label="Cor de destaque" direction="column" gap="xs">
+                <Text fontSize="xs" color="font.tertiary">Cor de destaque</Text>
+                <ColorSwatches
+                  colors={PLA_COLORS}
+                  selected={params.accentColor}
+                  onSelect={(color) => onUpdateParam('accentColor', color)}
+                />
+              </Flex>
               <Text fontSize="xs" color="font.secondary">
                 Tampa, painel, pino e base usam a cor de destaque.
               </Text>
