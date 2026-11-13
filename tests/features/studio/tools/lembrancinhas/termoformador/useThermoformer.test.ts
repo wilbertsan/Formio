@@ -89,6 +89,24 @@ describe('useThermoformer', () => {
     expect(result.current.geometry!.lid).not.toBeNull()
   })
 
+  it('expõe os parâmetros exatos que geraram a geometria atual', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    expect(result.current.builtParams).toBeNull()
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    expect(result.current.builtParams?.width).toBe(defaultThermoformerParams.width)
+
+    act(() => { result.current.updateParam('width', 200) })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(result.current.geometry).not.toBeNull()
+    expect(result.current.builtParams?.width).toBe(defaultThermoformerParams.width)
+
+    act(() => { respond() })
+    expect(result.current.builtParams?.width).toBe(200)
+  })
+
   it('expõe erro quando o worker falha', () => {
     const { factory, fail } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))

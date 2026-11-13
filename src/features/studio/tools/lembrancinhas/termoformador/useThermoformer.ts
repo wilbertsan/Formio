@@ -100,6 +100,7 @@ export interface UseThermoformerOptions {
 
 export interface UseThermoformerResult {
   params: ThermoformerParams
+  builtParams: ThermoformerGeometryParams | null
   geometry: BuildThermoformerResult | null
   isBuilding: boolean
   error: string | null
@@ -118,6 +119,7 @@ export function useThermoformer(
   const workerFactoryRef = useRef(workerFactory)
   workerFactoryRef.current = workerFactory
   const [params, dispatch] = useReducer(thermoformerReducer, defaultThermoformerParams)
+  const [builtParams, setBuiltParams] = useState<ThermoformerGeometryParams | null>(null)
   const [geometry, setGeometry] = useState<BuildThermoformerResult | null>(null)
   const [isBuilding, setIsBuilding] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -172,6 +174,7 @@ export function useThermoformer(
         worker.build(buildParams, (data: SerializedBuildResult) => {
           if (workerRef.current !== worker) return
           setGeometry(deserializeBuildResult(data))
+          setBuiltParams(buildParams)
           setIsBuilding(false)
         }, () => {
           if (workerRef.current !== worker) return
@@ -288,6 +291,7 @@ export function useThermoformer(
 
   return {
     params,
+    builtParams,
     geometry,
     isBuilding,
     error,

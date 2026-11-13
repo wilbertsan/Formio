@@ -1,8 +1,6 @@
 import { Mesh, Scene, type BufferGeometry } from 'three'
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
-import {
-  prepareHandleForPrint,
-} from './buildHandle'
+import { prepareHandleForPrint } from './buildHandle'
 import type { BuildThermoformerResult } from './buildThermoformer'
 import {
   sanitizeFilename,
@@ -20,6 +18,13 @@ function centerOnBed(geometry: BufferGeometry): BufferGeometry {
   return geometry
 }
 
+/**
+ * Serializes a geometry as a binary STL and triggers the browser download.
+ *
+ * Consumes the supplied geometry: it is disposed before returning, so callers
+ * must pass a throwaway geometry (for example a print-preparation clone) and
+ * must not reuse the reference afterwards.
+ */
 function downloadStl(geometry: BufferGeometry, filename: string): void {
   const scene = new Scene()
   scene.add(new Mesh(geometry))
@@ -43,12 +48,16 @@ export function prepareBodyForPrint(geometry: BufferGeometry): BufferGeometry {
 
 export function prepareLidForPrint(geometry: BufferGeometry): BufferGeometry {
   const clone = geometry.clone()
+  // Print the lid flipped: its outer top face rests on the bed and the fit rim
+  // points upward, so no support is needed under the overhang.
   clone.rotateX(Math.PI)
   return centerOnBed(clone)
 }
 
 export function preparePanelForPrint(geometry: BufferGeometry): BufferGeometry {
   const clone = geometry.clone()
+  // Print the panel flat: the back face rests on the bed and the front face
+  // (the visible side) ends up at the top, with thickness along Y.
   clone.rotateX(-Math.PI / 2)
   return centerOnBed(clone)
 }
