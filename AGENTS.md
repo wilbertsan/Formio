@@ -36,6 +36,7 @@ Ao trabalhar em, leia o AGENTS.md do segmento:
 | Ferramenta: confeitaria | `src/features/studio/tools/confeitaria/AGENTS.md` |
 | Ferramenta: chaveiros | `src/features/studio/tools/chaveiros/AGENTS.md` |
 | Ferramenta: letreiros | `src/features/studio/tools/letreiros/AGENTS.md` |
+| Ferramenta: lembrancinhas | `src/features/studio/tools/lembrancinhas/AGENTS.md` |
 | Backend / banco | `amplify/AGENTS.md` |
 
 Regra: ao alterar um segmento, leia APENAS o AGENTS.md daquele segmento + este arquivo. Não leia os demais.
