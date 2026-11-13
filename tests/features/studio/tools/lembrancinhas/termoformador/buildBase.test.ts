@@ -77,6 +77,38 @@ describe('buildBase', () => {
     expect(signedVolume(geometry)).toBeGreaterThan(0)
   })
 
+  it('fecha a malha com cantos vivos', () => {
+    const params = { ...defaultThermoformerParams, baseCornerRadius: 0 }
+    const geometry = buildBase(params)
+    const innerWidth = params.width + 2 * params.printClearance
+
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+    const boundary = innerBoundaryX(geometry, params.baseHeight / 2)
+    expect(Math.abs(boundary - innerWidth / 2)).toBeLessThan(0.05)
+  })
+
+  it('preserva o anel da tampa em pegada larga e fina', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      width: 300,
+      depth: 60,
+      printClearance: 0.3,
+      baseThickness: 6,
+      edgeChamfer: 3,
+      baseHeight: 20,
+      baseCornerRadius: 40,
+    }
+    const geometry = buildBase(params)
+    const outerWidth = params.width + 2 * (params.printClearance + params.baseThickness)
+
+    const inner = innerBoundaryX(geometry, 0.01)
+    const outer = outerBoundaryX(geometry, 0.01, outerWidth)
+    expect(outer - inner).toBeGreaterThanOrEqual(MINIMUM_FEATURE_MM - 1e-3)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
   it('aceita altura zero com espessura mínima', () => {
     const geometry = buildBase({ ...defaultThermoformerParams, baseHeight: 0 })
     geometry.computeBoundingBox()

@@ -4,7 +4,8 @@ import { MINIMUM_FEATURE_MM, type ThermoformerGeometryParams } from './schema'
 
 export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
   const height = Math.max(0.2, params.baseHeight)
-  const maxBevelByRing = Math.max(0, (params.baseThickness - MINIMUM_FEATURE_MM) / 2)
+  // Margem de 0,15 mm para discretização dos arcos e clamp de raios.
+  const maxBevelByRing = Math.max(0, (params.baseThickness - MINIMUM_FEATURE_MM) / 2 - 0.15)
   const bevel = Math.min(
     params.edgeChamfer,
     height * 0.4,
@@ -35,10 +36,13 @@ export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
     outerDepth - 2 * effectiveBevel,
     params.baseCornerRadius - effectiveBevel,
   )
+  // Com raio interno zero, somar o bevel criaria pontos de canto quase
+  // coincidentes no furo e quebraria a manifoldness; mantemos o canto vivo.
+  const holeRadius = innerRadius > 1e-6 ? innerRadius + effectiveBevel : 0
   shape.holes.push(roundedRectPath(
     innerWidth + 2 * effectiveBevel,
     innerDepth + 2 * effectiveBevel,
-    innerRadius + effectiveBevel,
+    holeRadius,
   ))
 
   const geometry = new ExtrudeGeometry(shape, {
