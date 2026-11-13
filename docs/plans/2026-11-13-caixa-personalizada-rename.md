@@ -61,21 +61,24 @@ Chaves técnicas `handle*`, `frontPanel*` e `rim*` permanecem no schema.
 **Step 1: Move folders and files**
 
 ```bash
-git mv src/features/studio/tools/lembrancinhas/termoformador src/features/studio/tools/lembrancinhas/caixa-personalizada
-git mv tests/features/studio/tools/lembrancinhas/termoformador tests/features/studio/tools/lembrancinhas/caixa-personalizada
+REPO_ROOT=$(git rev-parse --show-toplevel)
+git mv "$REPO_ROOT/src/features/studio/tools/lembrancinhas/termoformador" "$REPO_ROOT/src/features/studio/tools/lembrancinhas/caixa-personalizada"
+git mv "$REPO_ROOT/tests/features/studio/tools/lembrancinhas/termoformador" "$REPO_ROOT/tests/features/studio/tools/lembrancinhas/caixa-personalizada"
 
-cd src/features/studio/tools/lembrancinhas/caixa-personalizada
+cd "$REPO_ROOT/src/features/studio/tools/lembrancinhas/caixa-personalizada"
 git mv ThermoformerPreview.tsx BoxPreview.tsx
 git mv buildThermoformer.ts buildBox.ts
 git mv buildThermoformer.worker.ts buildBox.worker.ts
 git mv useThermoformer.ts useBox.ts
 git mv validateThermoformer.ts validateBox.ts
 
-cd /opt/projects/BELIS3D/tests/features/studio/tools/lembrancinhas/caixa-personalizada
+cd "$REPO_ROOT/tests/features/studio/tools/lembrancinhas/caixa-personalizada"
 git mv ThermoformerPreview.test.tsx BoxPreview.test.tsx
 git mv buildThermoformer.test.ts buildBox.test.ts
 git mv useThermoformer.test.ts useBox.test.ts
 git mv validateThermoformer.test.ts validateBox.test.ts
+
+cd "$REPO_ROOT"
 ```
 
 **Step 2: Replace symbols/imports in `src` and `tests`**
