@@ -1,10 +1,16 @@
 import { ExtrudeGeometry, type BufferGeometry } from 'three'
 import { roundedRectPath, roundedRectShape } from './shapes'
-import type { ThermoformerGeometryParams } from './schema'
+import { MINIMUM_FEATURE_MM, type ThermoformerGeometryParams } from './schema'
 
 export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
   const height = Math.max(0.2, params.baseHeight)
-  const bevel = Math.min(params.edgeChamfer, height * 0.4, params.baseThickness * 0.5)
+  const maxBevelByRing = Math.max(0, (params.baseThickness - MINIMUM_FEATURE_MM) / 2)
+  const bevel = Math.min(
+    params.edgeChamfer,
+    height * 0.4,
+    params.baseThickness * 0.5,
+    maxBevelByRing,
+  )
   // Abaixo desse valor o bevel degenera e o ExtrudeGeometry já o desabilita.
   const effectiveBevel = bevel > 0.01 ? bevel : 0
 
@@ -21,15 +27,19 @@ export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
     ),
   )
 
-  // ExtrudeGeometry expande o contorno em `bevelSize` no meio da extrusão e
-  // acrescenta `bevelThickness` em cada ponta. Compensamos o contorno e a
-  // profundidade para preservar as dimensões externas e a altura nominais.
+  // ExtrudeGeometry expande o contorno em `bevelSize` no meio e acrescenta
+  // `bevelThickness` em cada ponta. Compensamos contorno, furo e profundidade
+  // para preservar dimensões externas, abertura nominal e altura.
   const shape = roundedRectShape(
     outerWidth - 2 * effectiveBevel,
     outerDepth - 2 * effectiveBevel,
     params.baseCornerRadius - effectiveBevel,
   )
-  shape.holes.push(roundedRectPath(innerWidth, innerDepth, innerRadius))
+  shape.holes.push(roundedRectPath(
+    innerWidth + 2 * effectiveBevel,
+    innerDepth + 2 * effectiveBevel,
+    innerRadius + effectiveBevel,
+  ))
 
   const geometry = new ExtrudeGeometry(shape, {
     depth: height - 2 * effectiveBevel,
