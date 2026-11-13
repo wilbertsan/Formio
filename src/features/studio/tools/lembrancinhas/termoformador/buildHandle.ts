@@ -1,8 +1,10 @@
 import {
   BufferGeometry,
+  Float32BufferAttribute,
   LatheGeometry,
   Matrix4,
   Vector2,
+  Vector3,
 } from 'three'
 import type { ThermoformerGeometryParams } from './schema'
 
@@ -24,7 +26,7 @@ export function buildHandleProfile(params: ThermoformerGeometryParams): Vector2[
     flangeHeight + Math.max(0.5, baseRadius - shaftRadius),
   )
   const availableTip = Math.max(0, params.handleLength - taperEnd)
-  const tipRadius = Math.min(params.handleTipRadius, availableTip)
+  const tipRadius = Math.min(params.handleTipRadius, availableTip, shaftRadius)
   const tipStart = params.handleLength - tipRadius
 
   const points: Vector2[] = [
@@ -67,9 +69,9 @@ export function handlePlacement(params: ThermoformerGeometryParams): Matrix4 {
     Math.max(flangeRadius, bodyTop - flangeRadius),
   )
   const horizontal = clamp(
-    params.handleHeight * params.width,
-    flangeRadius,
-    Math.max(flangeRadius, params.width - flangeRadius),
+    -params.width / 2 + params.handleHeight * params.width,
+    -params.width / 2 + flangeRadius,
+    params.width / 2 - flangeRadius,
   )
 
   const matrix = new Matrix4()
@@ -94,10 +96,36 @@ export function handlePlacement(params: ThermoformerGeometryParams): Matrix4 {
   return matrix
 }
 
+function removeDegenerateTriangles(geometry: BufferGeometry): BufferGeometry {
+  const position = geometry.getAttribute('position')
+  const kept: number[] = []
+  const a = new Vector3()
+  const b = new Vector3()
+  const c = new Vector3()
+  const ab = new Vector3()
+  const ac = new Vector3()
+  const cross = new Vector3()
+
+  for (let i = 0; i < position.count; i += 3) {
+    a.fromBufferAttribute(position, i)
+    b.fromBufferAttribute(position, i + 1)
+    c.fromBufferAttribute(position, i + 2)
+    cross.crossVectors(ab.subVectors(b, a), ac.subVectors(c, a))
+    if (cross.lengthSq() < 1e-12) continue
+    kept.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z)
+  }
+
+  const cleaned = new BufferGeometry()
+  cleaned.setAttribute('position', new Float32BufferAttribute(kept, 3))
+  return cleaned
+}
+
 export function buildHandle(params: ThermoformerGeometryParams): BufferGeometry {
   const indexed = new LatheGeometry(buildHandleProfile(params), RADIAL_SEGMENTS)
-  const geometry = indexed.toNonIndexed()
+  const raw = indexed.toNonIndexed()
   indexed.dispose()
+  const geometry = removeDegenerateTriangles(raw)
+  raw.dispose()
   geometry.applyMatrix4(handlePlacement(params))
   geometry.computeVertexNormals()
   return geometry
