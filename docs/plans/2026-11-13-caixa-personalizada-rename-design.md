@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-13
 **Ferramenta:** `lembrancinhas/caixa-personalizada`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado (v1)
 
 ## Objetivo
 

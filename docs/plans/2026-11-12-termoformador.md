@@ -14,7 +14,8 @@
 
 **Tech Stack:** React 19, TypeScript strict, Three.js, React Three Fiber, Zod, Amplify UI, Vitest, TailwindCSS 4.
 
-**Design de referência:** `docs/plans/2026-11-12-termoformador-design.md`
+**Design de referência:** `docs/plans/2026-11-12-caixa-personalizada-design.md`
+(originalmente `docs/plans/2026-11-12-termoformador-design.md`, renomeado em 2026-11-13)
 
 ---
 
