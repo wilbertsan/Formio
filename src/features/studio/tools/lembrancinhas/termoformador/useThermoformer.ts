@@ -98,8 +98,25 @@ export interface UseThermoformerOptions {
   workerFactory?: () => ThermoformerWorker
 }
 
-export function useThermoformer(options: UseThermoformerOptions = {}) {
+export interface UseThermoformerResult {
+  params: ThermoformerParams
+  geometry: BuildThermoformerResult | null
+  isBuilding: boolean
+  error: string | null
+  issues: ValidationIssue[]
+  dimensions: { width: number; height: number; thickness: number }
+  cameraPosition: [number, number, number]
+  fitRadius: number
+  updateParam: (key: keyof ThermoformerParams, value: number | string | boolean) => void
+  reset: () => void
+}
+
+export function useThermoformer(
+  options: UseThermoformerOptions = {},
+): UseThermoformerResult {
   const workerFactory = options.workerFactory ?? createThermoformerWorker
+  const workerFactoryRef = useRef(workerFactory)
+  workerFactoryRef.current = workerFactory
   const [params, dispatch] = useReducer(thermoformerReducer, defaultThermoformerParams)
   const [geometry, setGeometry] = useState<BuildThermoformerResult | null>(null)
   const [isBuilding, setIsBuilding] = useState(false)
@@ -148,84 +165,74 @@ export function useThermoformer(options: UseThermoformerOptions = {}) {
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       setError(null)
-      const worker = workerFactory()
-      workerRef.current = worker
-      setIsBuilding(true)
+      try {
+        const worker = workerFactoryRef.current()
+        workerRef.current = worker
+        setIsBuilding(true)
 
-      worker.build(buildParams, (data: SerializedBuildResult) => {
-        if (workerRef.current !== worker) return
-        const next = deserializeBuildResult(data)
-        setGeometry((previous) => {
-          disposeThermoformerResult(previous)
-          return next
+        worker.build(buildParams, (data: SerializedBuildResult) => {
+          if (workerRef.current !== worker) return
+          setGeometry(deserializeBuildResult(data))
+          setIsBuilding(false)
+        }, () => {
+          if (workerRef.current !== worker) return
+          setIsBuilding(false)
+          setError('Falha ao gerar a geometria')
         })
-        setIsBuilding(false)
-      }, () => {
-        if (workerRef.current !== worker) return
+      } catch {
         setIsBuilding(false)
         setError('Falha ao gerar a geometria')
-      })
+      }
     }, 250)
     return () => clearTimeout(debounceRef.current)
-  }, [buildParams, workerFactory])
+  }, [buildParams])
 
   useEffect(() => {
     geometryRef.current = geometry
+    return () => {
+      disposeThermoformerResult(geometry)
+    }
   }, [geometry])
 
   useEffect(() => () => {
     workerRef.current?.terminate()
     workerRef.current = null
-    disposeThermoformerResult(geometryRef.current)
-    geometryRef.current = null
   }, [])
 
   const issues: ValidationIssue[] = useMemo(
-    () => validateThermoformer(params),
-    [params],
+    () => validateThermoformer(buildParams),
+    [buildParams],
   )
 
-  const dimensions = useMemo(() => {
-    if (!geometry) {
-      const baseExtra = params.baseEnabled
-        ? 2 * (params.baseThickness + params.printClearance)
-        : 0
-      const lidExtra = params.lidEnabled
-        ? params.lidHeight + params.lidThickness
-        : 0
-      return {
-        width: Number((params.width + baseExtra).toFixed(1)),
-        height: Number((params.height + params.rimHeight + lidExtra).toFixed(1)),
-        thickness: Number((params.depth + baseExtra + params.frontPanelThickness).toFixed(1)),
-      }
-    }
-
-    const box = new Box3()
-    for (const part of [
-      geometry.body, geometry.lid, geometry.frontPanel,
-      geometry.handle, geometry.base,
-    ]) {
-      if (!part) continue
-      part.computeBoundingBox()
-      if (part.boundingBox) box.union(part.boundingBox)
-    }
-    const size = box.getSize(new Vector3())
+  const fallbackDimensions = useMemo(() => {
+    const baseExtra = params.baseEnabled
+      ? 2 * (params.baseThickness + params.printClearance)
+      : 0
+    const handleExtra = params.handleEnabled
+      && (params.handleSide === 'left' || params.handleSide === 'right')
+      ? params.handleLength
+      : 0
+    const lidExtra = params.lidEnabled
+      ? params.lidHeight + params.lidThickness
+      : 0
+    const handleTopExtra = params.handleEnabled && params.handleSide === 'top'
+      ? params.handleLength
+      : 0
     return {
-      width: Number(size.x.toFixed(1)),
-      height: Number(size.y.toFixed(1)),
-      thickness: Number(size.z.toFixed(1)),
+      width: Number((Math.max(params.width + baseExtra, params.width + handleExtra)).toFixed(1)),
+      height: Number((params.height + params.rimHeight + Math.max(lidExtra, handleTopExtra)).toFixed(1)),
+      thickness: Number((Math.max(params.depth + baseExtra, params.depth + params.frontPanelThickness)).toFixed(1)),
     }
   }, [
-    geometry, params.width, params.depth, params.height, params.rimHeight,
+    params.width, params.depth, params.height, params.rimHeight,
     params.baseEnabled, params.baseThickness, params.printClearance,
+    params.handleEnabled, params.handleSide, params.handleLength,
     params.lidEnabled, params.lidHeight, params.lidThickness,
     params.frontPanelThickness,
   ])
 
-  const fitRadius = useMemo(() => {
-    if (!geometry) {
-      return Math.max(params.width, params.depth, params.height) * 0.9
-    }
+  const bounds = useMemo(() => {
+    if (!geometry) return null
     const box = new Box3()
     for (const part of [
       geometry.body, geometry.lid, geometry.frontPanel,
@@ -235,9 +242,31 @@ export function useThermoformer(options: UseThermoformerOptions = {}) {
       part.computeBoundingBox()
       if (part.boundingBox) box.union(part.boundingBox)
     }
-    const size = box.getSize(new Vector3())
-    return Math.max(1, 0.5 * Math.hypot(size.x, size.y, size.z))
-  }, [geometry, params.width, params.depth, params.height])
+    return box.getSize(new Vector3())
+  }, [geometry])
+
+  const dimensions = useMemo(() => {
+    if (!bounds) return fallbackDimensions
+    return {
+      width: Number(bounds.x.toFixed(1)),
+      height: Number(bounds.y.toFixed(1)),
+      thickness: Number(bounds.z.toFixed(1)),
+    }
+  }, [bounds, fallbackDimensions])
+
+  const fitRadius = useMemo(() => {
+    if (!bounds) {
+      return Math.max(
+        1,
+        0.5 * Math.hypot(
+          fallbackDimensions.width,
+          fallbackDimensions.height,
+          fallbackDimensions.thickness,
+        ),
+      )
+    }
+    return Math.max(1, 0.5 * Math.hypot(bounds.x, bounds.y, bounds.z))
+  }, [bounds, fallbackDimensions])
 
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2

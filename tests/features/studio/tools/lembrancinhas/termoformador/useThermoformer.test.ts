@@ -23,18 +23,18 @@ function serializedResult(): SerializedBuildResult {
 }
 
 function makeWorkerFixture() {
-  let pending: ((data: SerializedBuildResult) => void) | null = null
-  let fail: (() => void) | null = null
   let lastParams: ThermoformerGeometryParams | null = null
   let calls = 0
+  const pendings: Array<(data: SerializedBuildResult) => void> = []
+  const failures: Array<() => void> = []
   const terminate = vi.fn()
   const factory = (): ThermoformerWorker => {
     calls++
     return {
       build: (params, onResult, onError) => {
         lastParams = params
-        pending = onResult
-        fail = onError ?? null
+        pendings.push(onResult)
+        failures.push(onError ?? (() => undefined))
       },
       terminate,
     }
@@ -43,8 +43,9 @@ function makeWorkerFixture() {
     factory,
     terminate,
     getCalls: () => calls,
-    respond: () => pending?.(serializedResult()),
-    fail: () => fail?.(),
+    respond: () => pendings[pendings.length - 1]?.(serializedResult()),
+    respondFirst: () => pendings[0]?.(serializedResult()),
+    fail: () => failures[failures.length - 1]?.(),
     getParams: () => lastParams,
   }
 }
@@ -148,5 +149,87 @@ describe('useThermoformer', () => {
     act(() => { result.current.updateParam('width', 200) })
     act(() => { vi.advanceTimersByTime(260) })
     expect(terminate).toHaveBeenCalled()
+  })
+
+  it('ignora o resultado de um build obsoleto', () => {
+    const { factory, respond, respondFirst } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { result.current.updateParam('width', 200) })
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respondFirst() })
+    expect(result.current.geometry).toBeNull()
+    expect(result.current.isBuilding).toBe(true)
+    act(() => { respond() })
+    expect(result.current.geometry).not.toBeNull()
+  })
+
+  it('descarta a geometria anterior ao aplicar uma nova', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    const first = result.current.geometry!
+    const dispose = vi.spyOn(first.body, 'dispose')
+    act(() => { result.current.updateParam('width', 200) })
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    expect(dispose).toHaveBeenCalled()
+  })
+
+  it('descarta a geometria e termina o worker ao desmontar', () => {
+    const { factory, terminate, respond } = makeWorkerFixture()
+    const { result, unmount } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    const dispose = vi.spyOn(result.current.geometry!.body, 'dispose')
+    unmount()
+    expect(dispose).toHaveBeenCalled()
+    expect(terminate).toHaveBeenCalled()
+  })
+
+  it('agrupa mudanças simultâneas em um único build', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    const calls = getCalls()
+    act(() => {
+      result.current.updateParam('width', 200)
+      result.current.updateParam('depth', 200)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(getCalls()).toBe(calls + 1)
+  })
+
+  it('limpa o erro no build seguinte', () => {
+    const { factory, fail } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { fail() })
+    expect(result.current.error).toBe('Falha ao gerar a geometria')
+    act(() => { result.current.updateParam('width', 200) })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(result.current.error).toBeNull()
+    expect(result.current.isBuilding).toBe(true)
+  })
+
+  it('expõe issues de validação dos parâmetros geométricos', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => {
+      result.current.updateParam('width', 60)
+      result.current.updateParam('cornerRadius', 40)
+    })
+    expect(result.current.issues.some((issue) => issue.code === 'corner-radius')).toBe(true)
+  })
+
+  it('expõe erro quando a fábrica de worker falha', () => {
+    const factory = (): ThermoformerWorker => {
+      throw new Error('worker indisponível')
+    }
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(result.current.error).toBe('Falha ao gerar a geometria')
+    expect(result.current.isBuilding).toBe(false)
   })
 })
