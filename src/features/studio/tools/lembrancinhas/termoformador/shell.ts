@@ -1,6 +1,6 @@
 import { BufferGeometry, Float32BufferAttribute, Vector2, Vector3 } from 'three'
 import { MINIMUM_FEATURE_MM } from './schema'
-import { roundedRectPoints } from './shapes'
+import { roundedRectExactPoints, roundedRectPoints } from './shapes'
 
 export interface RoundedRectSpec {
   width: number
@@ -60,6 +60,21 @@ function loopAt(spec: RoundedRectSpec, y: number, segments: number): Vector3[] {
   return roundedRectPoints(spec.width, spec.depth, spec.radius, segments).map(
     (point: Vector2) => new Vector3(point.x, y, point.y),
   )
+}
+
+function loopAtExact(
+  spec: RoundedRectSpec,
+  y: number,
+  cornerSegments: number,
+  edgeSegments: number,
+): Vector3[] {
+  return roundedRectExactPoints(
+    spec.width,
+    spec.depth,
+    spec.radius,
+    cornerSegments,
+    edgeSegments,
+  ).map((point: Vector2) => new Vector3(point.x, y, point.y))
 }
 
 function horizontalReference(mid: Vector3, inward: boolean): Vector3 {
@@ -182,17 +197,27 @@ export function buildRingShell(input: RingShellInput): BufferGeometry {
   )
   const cornerRing = Math.max(0, outer.radius - inner.radius)
   const ringThickness = Math.min(flatRing, cornerRing > 0 ? cornerRing : flatRing)
-  const chamferLimit = Math.max(0, (ringThickness - MINIMUM_FEATURE_MM) / 2)
+  const chamferLimit = Math.max(0, (ringThickness - (MINIMUM_FEATURE_MM + 0.02)) / 2)
   const chamfer = Math.max(0, Math.min(input.chamfer, top * 0.45, chamferLimit))
+  const cornerSegments = Math.max(4, Math.floor(segments / 8))
+  const edgeSegments = Math.max(1, Math.floor((segments - 4 * cornerSegments) / 4))
 
-  const outerBottom = loopAt(insetSpec(outer, chamfer), 0, segments)
-  const outerAtBottom = loopAt(outer, chamfer, segments)
-  const outerAtTop = loopAt(outer, top - chamfer, segments)
-  const outerTop = loopAt(insetSpec(outer, chamfer), top, segments)
-  const innerBottom = loopAt(outsetSpec(inner, chamfer), 0, segments)
-  const innerAtBottom = loopAt(inner, chamfer, segments)
-  const innerAtTop = loopAt(inner, top - chamfer, segments)
-  const innerTop = loopAt(outsetSpec(inner, chamfer), top, segments)
+  const outerBottom = loopAtExact(
+    insetSpec(outer, chamfer), 0, cornerSegments, edgeSegments,
+  )
+  const outerAtBottom = loopAtExact(outer, chamfer, cornerSegments, edgeSegments)
+  const outerAtTop = loopAtExact(outer, top - chamfer, cornerSegments, edgeSegments)
+  const outerTop = loopAtExact(
+    insetSpec(outer, chamfer), top, cornerSegments, edgeSegments,
+  )
+  const innerBottom = loopAtExact(
+    outsetSpec(inner, chamfer), 0, cornerSegments, edgeSegments,
+  )
+  const innerAtBottom = loopAtExact(inner, chamfer, cornerSegments, edgeSegments)
+  const innerAtTop = loopAtExact(inner, top - chamfer, cornerSegments, edgeSegments)
+  const innerTop = loopAtExact(
+    outsetSpec(inner, chamfer), top, cornerSegments, edgeSegments,
+  )
 
   const builder = new TriangleBuilder()
   builder.annulus(outerBottom, innerBottom, new Vector3(0, -1, 0))

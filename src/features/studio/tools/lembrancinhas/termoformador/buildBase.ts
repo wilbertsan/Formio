@@ -1,9 +1,6 @@
 import type { BufferGeometry } from 'three'
 import { buildRingShell } from './shell'
-import {
-  SHELL_SEGMENTS,
-  type ThermoformerGeometryParams,
-} from './schema'
+import type { ThermoformerGeometryParams } from './schema'
 
 export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
   const innerWidth = params.width + 2 * params.printClearance
@@ -30,6 +27,6 @@ export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
     inner: { width: innerWidth, depth: innerDepth, radius: innerRadius },
     height: Math.max(0.2, params.baseHeight),
     chamfer: params.edgeChamfer,
-    segments: SHELL_SEGMENTS,
+    segments: 256,
   })
 }

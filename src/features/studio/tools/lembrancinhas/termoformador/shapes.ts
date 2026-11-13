@@ -71,6 +71,50 @@ function resampleClosedLoop(points: Vector2[], count: number): Vector2[] {
   return result
 }
 
+/**
+ * Amostra o contorno arredondado com contagem fixa por canto e por aresta.
+ * Retorna exatamente `4 * (cornerSegments + edgeSegments)` pontos em CCW.
+ * Para raio 0 os pontos do canto coincidem; o TriangleBuilder descarta quads
+ * de área zero.
+ */
+export function roundedRectExactPoints(
+  width: number,
+  depth: number,
+  radius: number,
+  cornerSegments: number,
+  edgeSegments: number,
+): Vector2[] {
+  const halfWidth = width / 2
+  const halfDepth = depth / 2
+  const r = Math.max(0, Math.min(radius, halfWidth, halfDepth))
+  const points: Vector2[] = []
+
+  const pushEdge = (ax: number, ay: number, bx: number, by: number): void => {
+    for (let j = 0; j < edgeSegments; j++) {
+      const t = j / edgeSegments
+      points.push(new Vector2(ax + (bx - ax) * t, ay + (by - ay) * t))
+    }
+  }
+
+  const pushCorner = (cx: number, cy: number, startAngle: number): void => {
+    for (let k = 0; k < cornerSegments; k++) {
+      const angle = startAngle + (k / cornerSegments) * (Math.PI / 2)
+      points.push(new Vector2(cx + r * Math.cos(angle), cy + r * Math.sin(angle)))
+    }
+  }
+
+  pushEdge(-halfWidth + r, -halfDepth, halfWidth - r, -halfDepth)
+  pushCorner(halfWidth - r, -halfDepth + r, -Math.PI / 2)
+  pushEdge(halfWidth, -halfDepth + r, halfWidth, halfDepth - r)
+  pushCorner(halfWidth - r, halfDepth - r, 0)
+  pushEdge(halfWidth - r, halfDepth, -halfWidth + r, halfDepth)
+  pushCorner(-halfWidth + r, halfDepth - r, Math.PI / 2)
+  pushEdge(-halfWidth, halfDepth - r, -halfWidth, -halfDepth + r)
+  pushCorner(-halfWidth + r, -halfDepth + r, Math.PI)
+
+  return points
+}
+
 export function roundedRectPoints(
   width: number,
   depth: number,

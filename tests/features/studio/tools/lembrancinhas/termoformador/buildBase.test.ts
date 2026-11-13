@@ -14,26 +14,106 @@ import {
 } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { isClosed, signedVolume } from './geometryTestUtils'
 
-function horizontalHits(geometry: BufferGeometry, y: number, fromX: number, dirX: 1 | -1): number[] {
+function horizontalHits(
+  geometry: BufferGeometry,
+  y: number,
+  fromX: number,
+  dirX: 1 | -1,
+  z = 0,
+): number[] {
   const material = new MeshBasicMaterial({ side: DoubleSide })
   const mesh = new Mesh(geometry, material)
-  const ray = new Raycaster(new Vector3(fromX, y, 0), new Vector3(dirX, 0, 0))
+  const ray = new Raycaster(new Vector3(fromX, y, z), new Vector3(dirX, 0, 0))
   const hits = ray.intersectObject(mesh, false)
   material.dispose()
   return hits.map((hit) => hit.point.x)
 }
 
-function innerBoundaryX(geometry: BufferGeometry, y: number): number {
-  return Math.min(...horizontalHits(geometry, y, 0, 1).filter((x) => x > 0))
+function innerBoundaryX(geometry: BufferGeometry, y: number, z = 0): number {
+  return Math.min(...horizontalHits(geometry, y, 0, 1, z).filter((x) => x > 0))
 }
 
-function outerBoundaryX(geometry: BufferGeometry, y: number, outerWidth: number): number {
-  return Math.max(...horizontalHits(geometry, y, outerWidth, -1).filter((x) => x > 0))
+function outerBoundaryX(
+  geometry: BufferGeometry,
+  y: number,
+  outerWidth: number,
+  z = 0,
+): number {
+  return Math.max(
+    ...horizontalHits(geometry, y, outerWidth, -1, z).filter((x) => x > 0),
+  )
 }
 
 function verticalHits(geometry: BufferGeometry, x: number): number {
   const ray = new Raycaster(new Vector3(x, 100, 0), new Vector3(0, -1, 0))
   return ray.intersectObject(new Mesh(geometry), false).length
+}
+
+/** Mede o anel do canto da face inferior ao longo da diagonal de 45°. */
+function capCornerRing(params: typeof defaultThermoformerParams): number {
+  const innerWidth = params.width + 2 * params.printClearance
+  const innerDepth = params.depth + 2 * params.printClearance
+  const outerWidth = innerWidth + 2 * params.baseThickness
+  const outerDepth = innerDepth + 2 * params.baseThickness
+  const outerRadius = Math.min(
+    params.baseCornerRadius,
+    outerWidth / 2,
+    outerDepth / 2,
+  )
+  const innerRadius = Math.max(
+    0,
+    Math.min(
+      outerRadius - params.baseThickness,
+      innerWidth / 2,
+      innerDepth / 2,
+    ),
+  )
+
+  const flatRing = Math.min(
+    (outerWidth - innerWidth) / 2,
+    (outerDepth - innerDepth) / 2,
+  )
+  const cornerRing = Math.max(0, outerRadius - innerRadius)
+  const ringThickness = Math.min(flatRing, cornerRing > 0 ? cornerRing : flatRing)
+  const chamferLimit = Math.max(
+    0,
+    (ringThickness - (MINIMUM_FEATURE_MM + 0.02)) / 2,
+  )
+  const bevel = Math.max(
+    0,
+    Math.min(params.edgeChamfer, Math.max(0.2, params.baseHeight) * 0.45, chamferLimit),
+  )
+
+  const outerCapHalfW = (outerWidth - 2 * bevel) / 2
+  const outerCapHalfD = (outerDepth - 2 * bevel) / 2
+  const outerCapRadius = Math.min(
+    outerRadius - bevel,
+    outerCapHalfW,
+    outerCapHalfD,
+  )
+  const cx = outerCapHalfW - outerCapRadius
+  const cz = outerCapHalfD - outerCapRadius
+
+  const geometry = buildBase(params)
+  const material = new MeshBasicMaterial({ side: DoubleSide })
+  const mesh = new Mesh(geometry, material)
+  const ray = new Raycaster(
+    new Vector3(cx, 0.01, cz),
+    new Vector3(1, 0, 1).normalize(),
+  )
+  const hits = ray.intersectObject(mesh, false)
+  material.dispose()
+
+  const distances: number[] = []
+  for (const hit of hits) {
+    if (!distances.some((distance) => Math.abs(distance - hit.distance) < 1e-4)) {
+      distances.push(hit.distance)
+    }
+  }
+  distances.sort((a, b) => a - b)
+
+  expect(distances.length).toBeGreaterThanOrEqual(2)
+  return distances[1] - distances[0]
 }
 
 describe('buildBase', () => {
@@ -123,10 +203,61 @@ describe('buildBase', () => {
     const outerWidth = innerWidth + 2 * params.baseThickness
 
     const geometry = buildBase(params)
-    const inner = innerBoundaryX(geometry, 0.01)
-    const outer = outerBoundaryX(geometry, 0.01, outerWidth)
+    // No formato stadium o raio encosta na metade da profundidade; z=0 é a
+    // tangente exata do arco e o raio rasante não intersecta a parede interna.
+    const inner = innerBoundaryX(geometry, 0.01, 0.05)
+    const outer = outerBoundaryX(geometry, 0.01, outerWidth, 0.05)
 
     expect(outer - inner).toBeGreaterThanOrEqual(MINIMUM_FEATURE_MM - 0.05)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('preserva o anel do canto da tampa em parâmetros extremos', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      baseThickness: 6,
+      baseCornerRadius: 6,
+      edgeChamfer: 3,
+      baseHeight: 20,
+    }
+    const geometry = buildBase(params)
+    const ring = capCornerRing(params)
+
+    expect(ring).toBeGreaterThanOrEqual(MINIMUM_FEATURE_MM - 0.02)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('preserva o anel do canto da tampa em pegada larga e fina', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      width: 300,
+      depth: 60,
+      printClearance: 0.3,
+      baseThickness: 6,
+      edgeChamfer: 3,
+      baseHeight: 20,
+      baseCornerRadius: 40,
+    }
+    const geometry = buildBase(params)
+    const ring = capCornerRing(params)
+
+    expect(ring).toBeGreaterThanOrEqual(MINIMUM_FEATURE_MM - 0.02)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('fecha a malha sem chanfro e com raio igual à espessura', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      baseThickness: 6,
+      baseCornerRadius: 6,
+      edgeChamfer: 0,
+      baseHeight: 20,
+    }
+    const geometry = buildBase(params)
+
     expect(isClosed(geometry)).toBe(true)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
   })

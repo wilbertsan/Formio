@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   buildBodyShell,
   buildLidShell,
+  buildRingShell,
 } from '@/features/studio/tools/lembrancinhas/termoformador/shell'
 import { isClosed, signedVolume } from './geometryTestUtils'
 
@@ -99,5 +100,35 @@ describe('shell', () => {
     const box = geometry.boundingBox!
     expect(box.max.y).toBeCloseTo(14.4, 1)
     expect(isClosed(geometry)).toBe(true)
+  })
+
+  it('anel sem chanfro é fechado e tem volume positivo', () => {
+    const geometry = buildRingShell({
+      outer: { width: 100, depth: 60, radius: 10 },
+      inner: { width: 90, depth: 50, radius: 5 },
+      height: 20,
+      chamfer: 0,
+      segments: 128,
+    })
+
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('anel com chanfro grande é fechado e tem volume positivo', () => {
+    const geometry = buildRingShell({
+      outer: { width: 100, depth: 60, radius: 10 },
+      inner: { width: 90, depth: 50, radius: 5 },
+      height: 20,
+      chamfer: 10,
+      segments: 128,
+    })
+
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+    expect(box.min.y).toBeCloseTo(0, 1)
+    expect(box.max.y).toBeCloseTo(20, 1)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
   })
 })
