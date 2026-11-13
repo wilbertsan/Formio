@@ -151,19 +151,22 @@ describe('preparos de impressão', () => {
     const original = positions(lid)
     const position = lid.getAttribute('position')
 
-    let topIndex = -1
+    const topIndices: number[] = []
     for (let i = 0; i < position.count; i++) {
       if (Math.abs(position.getY(i) - 14.4) < 1e-4) {
-        topIndex = i
-        break
+        topIndices.push(i)
       }
     }
-    expect(topIndex).toBeGreaterThanOrEqual(0)
+    expect(topIndices.length).toBeGreaterThan(0)
 
     const lidPrint = prepareLidForPrint(lid)
+    lidPrint.computeBoundingBox()
     const printPosition = lidPrint.getAttribute('position')
     // A rotação de 180° põe a face superior (y=14.4) na mesa (y=0).
-    expect(printPosition.getY(topIndex)).toBeCloseTo(0, 3)
+    expect(lidPrint.boundingBox!.max.y).toBeCloseTo(14.4, 3)
+    for (const topIndex of topIndices) {
+      expect(printPosition.getY(topIndex)).toBeCloseTo(0, 3)
+    }
     expect(Array.from(lid.getAttribute('position').array)).toEqual(Array.from(original))
 
     lid.dispose()

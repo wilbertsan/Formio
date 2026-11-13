@@ -90,13 +90,14 @@ describe('useThermoformer', () => {
   })
 
   it('expõe os parâmetros exatos que geraram a geometria atual', () => {
-    const { factory, respond } = makeWorkerFixture()
+    const { factory, respond, getParams } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
     expect(result.current.builtParams).toBeNull()
 
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
     expect(result.current.builtParams?.width).toBe(defaultThermoformerParams.width)
+    expect(result.current.builtParams).toEqual(getParams())
 
     act(() => { result.current.updateParam('width', 200) })
     act(() => { vi.advanceTimersByTime(260) })
@@ -105,6 +106,24 @@ describe('useThermoformer', () => {
 
     act(() => { respond() })
     expect(result.current.builtParams?.width).toBe(200)
+    expect(result.current.builtParams).toEqual(getParams())
+  })
+
+  it('mantém os parâmetros anteriores quando o novo build falha', () => {
+    const { factory, respond, fail, getParams } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    expect(result.current.builtParams?.width).toBe(defaultThermoformerParams.width)
+    expect(result.current.builtParams).toEqual(getParams())
+
+    act(() => { result.current.updateParam('width', 200) })
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { fail() })
+
+    expect(result.current.error).toBe('Falha ao gerar a geometria')
+    expect(result.current.builtParams?.width).toBe(defaultThermoformerParams.width)
+    expect(result.current.builtParams).not.toEqual(getParams())
   })
 
   it('expõe erro quando o worker falha', () => {
