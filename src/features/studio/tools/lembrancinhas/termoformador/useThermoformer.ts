@@ -123,7 +123,6 @@ export function useThermoformer(
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const workerRef = useRef<ThermoformerWorker | null>(null)
-  const geometryRef = useRef<BuildThermoformerResult | null>(null)
 
   const {
     productType, width, depth, height, cornerRadius, wallThickness,
@@ -187,11 +186,8 @@ export function useThermoformer(
     return () => clearTimeout(debounceRef.current)
   }, [buildParams])
 
-  useEffect(() => {
-    geometryRef.current = geometry
-    return () => {
-      disposeThermoformerResult(geometry)
-    }
+  useEffect(() => () => {
+    disposeThermoformerResult(geometry)
   }, [geometry])
 
   useEffect(() => () => {
