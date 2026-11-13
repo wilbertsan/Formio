@@ -1,7 +1,11 @@
 import { Vector3, type BufferGeometry } from 'three'
 
+function normalize(value: number): number {
+  return Math.abs(value) < 5e-5 ? 0 : value
+}
+
 function positionKey(x: number, y: number, z: number): string {
-  return `${x.toFixed(4)},${y.toFixed(4)},${z.toFixed(4)}`
+  return `${normalize(x).toFixed(4)},${normalize(y).toFixed(4)},${normalize(z).toFixed(4)}`
 }
 
 /**
