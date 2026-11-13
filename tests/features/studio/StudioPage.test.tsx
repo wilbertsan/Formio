@@ -329,7 +329,7 @@ describe('StudioPage', () => {
     expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
   })
 
-  it('mostra Gerando… no Caixa Personalizada', async () => {
+  it('mostra Gerando… na Caixa Personalizada', async () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /caixa personalizada/i }))
     const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
@@ -337,7 +337,7 @@ describe('StudioPage', () => {
     expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
   })
 
-  it('exporta o Caixa Personalizada com os parâmetros do build', async () => {
+  it('exporta a Caixa Personalizada com os parâmetros do build', async () => {
     boxWorkerResponse = serializeBuildResult({
       body: new THREE.BoxGeometry(160, 63, 120),
       lid: new THREE.BoxGeometry(165, 14, 125),
@@ -352,7 +352,7 @@ describe('StudioPage', () => {
     const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
     await waitFor(() => expect(exportButton).toBeEnabled())
 
-    // Muda o pino para a esquerda sem aguardar o debounce de 250 ms: o export
+    // Muda o puxador para a esquerda sem aguardar o debounce de 250 ms: o export
     // deve usar o snapshot do build (direita), não os parâmetros pendentes.
     fireEvent.change(screen.getByLabelText('Lateral'), { target: { value: 'left' } })
     fireEvent.click(exportButton)
@@ -364,7 +364,7 @@ describe('StudioPage', () => {
     )
   })
 
-  it('mostra erro quando a exportação do Caixa Personalizada falha', async () => {
+  it('mostra erro quando a exportação da Caixa Personalizada falha', async () => {
     boxWorkerResponse = serializeBuildResult({
       body: new THREE.BoxGeometry(160, 63, 120),
       lid: new THREE.BoxGeometry(165, 14, 125),

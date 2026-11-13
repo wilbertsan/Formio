@@ -47,6 +47,8 @@ describe('ToolSelector', () => {
     render(<ToolSelector onSelect={onSelect} />)
     const section = screen.getByRole('heading', { name: 'Lembrancinhas' }).closest('section')!
     const card = within(section).getByRole('button', { name: /caixa personalizada/i })
+    expect(card).toHaveTextContent('Caixa 3D personalizável')
+    expect(card).toHaveTextContent('puxador lateral')
     await user.click(card)
     expect(onSelect).toHaveBeenCalledWith('caixa-personalizada')
   })

@@ -88,8 +88,8 @@ const TOOLS: ToolCard[] = [
   {
     id: 'caixa-personalizada',
     name: 'Caixa Personalizada',
-    description: 'Equipamento modular de termoformagem com corpo, tampa, painel perfurado, pino e base',
-    icon: '🏭',
+    description: 'Caixa 3D personalizável com tampa, painel decorativo, puxador lateral e base',
+    icon: '📦',
     category: 'Lembrancinhas',
   },
 ]
