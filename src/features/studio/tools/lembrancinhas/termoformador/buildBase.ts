@@ -4,16 +4,6 @@ import { MINIMUM_FEATURE_MM, type ThermoformerGeometryParams } from './schema'
 
 export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
   const height = Math.max(0.2, params.baseHeight)
-  // Margem de 0,15 mm para discretização dos arcos e clamp de raios.
-  const maxBevelByRing = Math.max(0, (params.baseThickness - MINIMUM_FEATURE_MM) / 2 - 0.15)
-  const bevel = Math.min(
-    params.edgeChamfer,
-    height * 0.4,
-    params.baseThickness * 0.5,
-    maxBevelByRing,
-  )
-  // Abaixo desse valor o bevel degenera e o ExtrudeGeometry já o desabilita.
-  const effectiveBevel = bevel > 0.01 ? bevel : 0
 
   const innerWidth = params.width + 2 * params.printClearance
   const innerDepth = params.depth + 2 * params.printClearance
@@ -28,6 +18,28 @@ export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
     ),
   )
 
+  // Canto interno vivo (raio desprezível) não tem folga para arredondar.
+  const sharpInner = innerRadius <= 0.01
+  // Margem de 0,15 mm para discretização dos arcos e clamp de raios.
+  const maxBevelByRing = Math.max(0, (params.baseThickness - MINIMUM_FEATURE_MM) / 2 - 0.15)
+  // Com canto interno vivo, o bevel amplia o furo e encolhe o raio externo da
+  // tampa ao mesmo tempo; no canto da tampa o anel cai na diagonal. Como
+  // baseCornerRadius <= baseThickness, limitar o bevel por
+  // (baseCornerRadius - MINIMUM_FEATURE_MM) / (1 + sqrt(2)) mantém o anel de
+  // canto com pelo menos MINIMUM_FEATURE_MM.
+  const cornerBevelLimit = sharpInner
+    ? Math.max(0, (params.baseCornerRadius - MINIMUM_FEATURE_MM) / (1 + Math.SQRT2))
+    : Number.POSITIVE_INFINITY
+  const bevel = Math.min(
+    params.edgeChamfer,
+    height * 0.4,
+    params.baseThickness * 0.5,
+    maxBevelByRing,
+    cornerBevelLimit,
+  )
+  // Abaixo desse valor o bevel degenera e o ExtrudeGeometry já o desabilita.
+  const effectiveBevel = bevel > 0.01 ? bevel : 0
+
   // ExtrudeGeometry expande o contorno em `bevelSize` no meio e acrescenta
   // `bevelThickness` em cada ponta. Compensamos contorno, furo e profundidade
   // para preservar dimensões externas, abertura nominal e altura.
@@ -36,9 +48,9 @@ export function buildBase(params: ThermoformerGeometryParams): BufferGeometry {
     outerDepth - 2 * effectiveBevel,
     params.baseCornerRadius - effectiveBevel,
   )
-  // Com raio interno zero, somar o bevel criaria pontos de canto quase
+  // Com canto interno vivo, somar o bevel criaria pontos de canto quase
   // coincidentes no furo e quebraria a manifoldness; mantemos o canto vivo.
-  const holeRadius = innerRadius > 1e-6 ? innerRadius + effectiveBevel : 0
+  const holeRadius = sharpInner ? 0 : innerRadius + effectiveBevel
   shape.holes.push(roundedRectPath(
     innerWidth + 2 * effectiveBevel,
     innerDepth + 2 * effectiveBevel,

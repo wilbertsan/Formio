@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { Mesh, Raycaster, Vector3, type BufferGeometry } from 'three'
+import {
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+  Raycaster,
+  Vector3,
+  type BufferGeometry,
+} from 'three'
 import { buildBase } from '@/features/studio/tools/lembrancinhas/termoformador/buildBase'
 import {
   defaultThermoformerParams,
@@ -105,6 +112,80 @@ describe('buildBase', () => {
     const inner = innerBoundaryX(geometry, 0.01)
     const outer = outerBoundaryX(geometry, 0.01, outerWidth)
     expect(outer - inner).toBeGreaterThanOrEqual(MINIMUM_FEATURE_MM - 1e-3)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('preserva o anel de canto da tampa em canto interno vivo', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      baseThickness: 6,
+      baseCornerRadius: 6,
+      edgeChamfer: 3,
+      baseHeight: 20,
+    }
+
+    // Mesmo clamp aplicado em buildBase: canto interno vivo (0) com bevel
+    // limitado para o anel de canto não colapsar na diagonal da tampa.
+    const innerWidth = params.width + 2 * params.printClearance
+    const innerDepth = params.depth + 2 * params.printClearance
+    const outerWidth = innerWidth + 2 * params.baseThickness
+    const outerDepth = innerDepth + 2 * params.baseThickness
+    const innerRadius = Math.max(
+      0,
+      Math.min(
+        params.baseCornerRadius - params.baseThickness,
+        innerWidth / 2 - 0.1,
+        innerDepth / 2 - 0.1,
+      ),
+    )
+    const height = Math.max(0.2, params.baseHeight)
+    const sharpInner = innerRadius <= 0.01
+    const maxBevelByRing = Math.max(
+      0,
+      (params.baseThickness - MINIMUM_FEATURE_MM) / 2 - 0.15,
+    )
+    const cornerBevelLimit = sharpInner
+      ? Math.max(0, (params.baseCornerRadius - MINIMUM_FEATURE_MM) / (1 + Math.SQRT2))
+      : Number.POSITIVE_INFINITY
+    const bevel = Math.min(
+      params.edgeChamfer,
+      height * 0.4,
+      params.baseThickness * 0.5,
+      maxBevelByRing,
+      cornerBevelLimit,
+    )
+
+    const outerCapHalfW = (outerWidth - 2 * bevel) / 2
+    const outerCapHalfD = (outerDepth - 2 * bevel) / 2
+    const outerCapRadius = Math.min(
+      params.baseCornerRadius - bevel,
+      outerCapHalfW,
+      outerCapHalfD,
+    )
+    const cx = outerCapHalfW - outerCapRadius
+    const cz = outerCapHalfD - outerCapRadius
+    const y = 0.01
+
+    const geometry = buildBase(params)
+    const ray = new Raycaster(
+      new Vector3(cx, y, cz),
+      new Vector3(1, 0, 1).normalize(),
+    )
+    // DoubleSide: o raio parte do furo e sai pela parede externa, cuja normal
+    // aponta para fora do sólido (face traseira para o raio).
+    const mesh = new Mesh(geometry, new MeshBasicMaterial({ side: DoubleSide }))
+    const hits = ray
+      .intersectObject(mesh, false)
+      .filter((hit) => Math.abs(hit.point.y - y) < 0.02)
+      .sort((a, b) => a.distance - b.distance)
+      // O arco externo é atingido por duas faces no mesmo ponto; colapsamos
+      // duplicatas para ficar com exatamente a parede interna e a externa.
+      .filter((hit, index, all) => index === 0 || hit.distance - all[index - 1].distance > 1e-4)
+
+    expect(hits.length).toBeGreaterThanOrEqual(2)
+    const cornerRing = hits[1].distance - hits[0].distance
+    expect(cornerRing).toBeGreaterThanOrEqual(MINIMUM_FEATURE_MM - 0.05)
     expect(isClosed(geometry)).toBe(true)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
   })
