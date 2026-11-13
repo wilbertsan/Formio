@@ -51,7 +51,7 @@ export function validateThermoformer(
     })
   }
 
-  if (pattern.effectiveRib < MINIMUM_FEATURE_MM) {
+  if (pattern.effectiveSize > 0 && pattern.effectiveRib < MINIMUM_FEATURE_MM) {
     issues.push({
       code: 'panel-rib',
       severity: 'warning',
@@ -101,7 +101,14 @@ export function validateThermoformer(
       })
     }
 
-    if (params.lidFitDepth > bodyTop) {
+    const maxInternalFit = Math.max(0, bodyTop - params.bottomThickness)
+    if (params.fitType === 'internal' && params.lidFitDepth > maxInternalFit) {
+      issues.push({
+        code: 'lid-fit-depth',
+        severity: 'warning',
+        message: 'O encaixe interno foi limitado para não atingir o fundo do corpo.',
+      })
+    } else if (params.fitType === 'external' && params.lidFitDepth > bodyTop) {
       issues.push({
         code: 'lid-fit-depth',
         severity: 'warning',
@@ -158,7 +165,7 @@ export function validateThermoformer(
         message: 'A base é mais alta que o corpo.',
       })
     }
-    if (params.baseHeight > 0 && params.baseHeight < MINIMUM_FEATURE_MM) {
+    if (params.baseHeight < MINIMUM_FEATURE_MM) {
       issues.push({
         code: 'base-thin',
         severity: 'warning',

@@ -20,6 +20,7 @@ describe('validateThermoformer', () => {
       borderWidth: 20,
     })
     expect(issues.some((issue) => issue.code === 'panel-border' && issue.severity === 'error')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'panel-rib')).toBe(false)
   })
 
   it('avisa quando a grade é limitada', () => {
@@ -42,5 +43,26 @@ describe('validateThermoformer', () => {
   it('avisa base mais alta que o corpo', () => {
     const issues = validateThermoformer({ ...defaultThermoformerParams, baseHeight: 90 })
     expect(issues.some((issue) => issue.code === 'base-height')).toBe(true)
+  })
+
+  it('avisa base mais fina que o mínimo mesmo com altura zero', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      baseEnabled: true,
+      baseHeight: 0,
+    })
+    expect(issues.some((issue) => issue.code === 'base-thin')).toBe(true)
+  })
+
+  it('avisa encaixe interno limitado pelo fundo do corpo', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      fitType: 'internal',
+      height: 20,
+      rimHeight: 0,
+      bottomThickness: 6,
+      lidFitDepth: 20,
+    })
+    expect(issues.some((issue) => issue.code === 'lid-fit-depth')).toBe(true)
   })
 })
