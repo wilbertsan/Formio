@@ -8,6 +8,7 @@ export interface LidDimensions {
   totalHeight: number
   plateBottom: number
   bottomY: number
+  fitDepth: number
 }
 
 function clampRadius(radius: number, width: number, depth: number): number {
@@ -16,10 +17,14 @@ function clampRadius(radius: number, width: number, depth: number): number {
 
 export function getLidDimensions(params: ThermoformerGeometryParams): LidDimensions {
   const bodyTop = params.height + params.rimHeight
-  const totalHeight = params.lidFitDepth + params.lidHeight + params.lidThickness
+  const bodyRadius = Math.min(params.cornerRadius, Math.min(params.width, params.depth) / 2)
+  const fitDepth = params.fitType === 'internal'
+    ? Math.min(params.lidFitDepth, Math.max(0, bodyTop - params.bottomThickness))
+    : params.lidFitDepth
+  const totalHeight = fitDepth + params.lidHeight + params.lidThickness
   const effectiveThickness = Math.max(0.2, Math.min(params.lidThickness, totalHeight - 0.2))
   const plateBottom = Math.max(0.1, totalHeight - effectiveThickness)
-  const bottomY = bodyTop - params.lidFitDepth
+  const bottomY = bodyTop - fitDepth
 
   if (params.fitType === 'external') {
     const innerWidth = params.width + 2 * params.lidClearance
@@ -27,13 +32,16 @@ export function getLidDimensions(params: ThermoformerGeometryParams): LidDimensi
     const outerWidth = innerWidth + 2 * effectiveThickness
     const outerDepth = innerDepth + 2 * effectiveThickness
     const maxOuterRadius = Math.min(outerWidth, outerDepth) / 2
-    const clearanceRadius = params.cornerRadius + params.lidClearance
-    const minInnerRadius = clampRadius(clearanceRadius, innerWidth, innerDepth)
-
-    let outerRadius = clampRadius(params.lidCornerRadius, outerWidth, outerDepth)
-    let innerRadius = Math.max(0, Math.min(outerRadius - effectiveThickness, Math.min(innerWidth, innerDepth) / 2))
-    innerRadius = Math.max(innerRadius, minInnerRadius)
-    outerRadius = Math.min(maxOuterRadius, Math.max(outerRadius, innerRadius + effectiveThickness))
+    const desiredOuterRadius = clampRadius(params.lidCornerRadius, outerWidth, outerDepth)
+    const maxInnerRadius = Math.min(
+      desiredOuterRadius - effectiveThickness,
+      bodyRadius + params.lidClearance,
+    )
+    const innerRadius = clampRadius(Math.max(0, maxInnerRadius), innerWidth, innerDepth)
+    const outerRadius = Math.min(
+      maxOuterRadius,
+      Math.max(desiredOuterRadius, innerRadius + effectiveThickness),
+    )
 
     return {
       outer: { width: outerWidth, depth: outerDepth, radius: outerRadius },
@@ -41,13 +49,21 @@ export function getLidDimensions(params: ThermoformerGeometryParams): LidDimensi
       totalHeight,
       plateBottom,
       bottomY,
+      fitDepth,
     }
   }
 
   const rimThickness = Math.max(params.wallThickness, params.rimThickness)
   const openingWidth = Math.max(0.2, params.width - 2 * rimThickness - 2 * params.lidClearance)
   const openingDepth = Math.max(0.2, params.depth - 2 * rimThickness - 2 * params.lidClearance)
-  const outerRadius = clampRadius(params.lidCornerRadius, openingWidth, openingDepth)
+  const maxOuterRadius = Math.min(openingWidth, openingDepth) / 2
+  const minOuterRadius = clampRadius(
+    Math.max(0, bodyRadius - params.wallThickness - params.lidClearance),
+    openingWidth,
+    openingDepth,
+  )
+  const desiredOuterRadius = clampRadius(params.lidCornerRadius, openingWidth, openingDepth)
+  const outerRadius = Math.min(maxOuterRadius, Math.max(minOuterRadius, desiredOuterRadius))
   const innerWidth = Math.max(0.2, openingWidth - 2 * effectiveThickness)
   const innerDepth = Math.max(0.2, openingDepth - 2 * effectiveThickness)
   const innerRadius = Math.max(
@@ -61,6 +77,7 @@ export function getLidDimensions(params: ThermoformerGeometryParams): LidDimensi
     totalHeight,
     plateBottom,
     bottomY,
+    fitDepth,
   }
 }
 

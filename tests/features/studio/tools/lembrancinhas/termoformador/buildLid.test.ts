@@ -15,6 +15,12 @@ describe('buildLid', () => {
 
     expect(dims.outer.width).toBeCloseTo(params.width + 2 * (params.lidClearance + params.lidThickness), 3)
     expect(dims.outer.depth).toBeCloseTo(params.depth + 2 * (params.lidClearance + params.lidThickness), 3)
+    expect(dims.inner.width).toBeCloseTo(params.width + 2 * params.lidClearance, 3)
+    expect(dims.inner.depth).toBeCloseTo(params.depth + 2 * params.lidClearance, 3)
+    expect(dims.inner.radius).toBeLessThanOrEqual(params.cornerRadius + params.lidClearance + 1e-6)
+    expect(dims.outer.radius).toBeGreaterThanOrEqual(
+      dims.inner.radius + params.lidThickness - 1e-6,
+    )
     expect(dims.bottomY).toBeCloseTo(params.height + params.rimHeight - params.lidFitDepth, 3)
     expect(dims.totalHeight).toBeCloseTo(params.lidFitDepth + params.lidHeight + params.lidThickness, 3)
 
@@ -30,8 +36,43 @@ describe('buildLid', () => {
     const dims = getLidDimensions(params)
     const rimThickness = Math.max(params.wallThickness, params.rimThickness)
     expect(dims.outer.width).toBeCloseTo(params.width - 2 * rimThickness - 2 * params.lidClearance, 3)
+    expect(dims.outer.radius).toBeGreaterThanOrEqual(
+      params.cornerRadius - params.wallThickness - params.lidClearance - 1e-6,
+    )
     expect(isClosed(buildLid(params))).toBe(true)
     expect(signedVolume(buildLid(params))).toBeGreaterThan(0)
+  })
+
+  it('tampa interna não colide com canto grande do corpo', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      fitType: 'internal' as const,
+      cornerRadius: 20,
+    }
+    const dims = getLidDimensions(params)
+    expect(dims.outer.radius).toBeGreaterThanOrEqual(
+      20 - params.wallThickness - params.lidClearance - 1e-6,
+    )
+    const geometry = buildLid(params)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('tampa interna limita a profundidade de encaixe ao fundo do corpo', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      fitType: 'internal' as const,
+      height: 20,
+      rimHeight: 0,
+      bottomThickness: 6,
+      lidFitDepth: 20,
+    }
+    const dims = getLidDimensions(params)
+    expect(dims.fitDepth).toBeCloseTo(14, 3)
+    expect(dims.bottomY).toBeCloseTo(6, 3)
+    const geometry = buildLid(params)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
   })
 
   it('tem cavidade: raio de baixo atinge o teto interno', () => {
