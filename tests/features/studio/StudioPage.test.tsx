@@ -18,6 +18,7 @@ import {
 } from '@/features/studio/tools/letreiros/cartao-visita/workerGeometry'
 import '@/features/studio/tools/letreiros/suporte-foto/StudioPanel'
 import '@/features/studio/tools/letreiros/suporte-foto/PhotoPositionEditor'
+import '@/features/studio/tools/lembrancinhas/termoformador/StudioPanel'
 import { exportStl as exportPhotoStandStl } from '@/features/studio/tools/letreiros/suporte-foto/exportStl'
 import {
   serializePhotoStandResult,
@@ -302,5 +303,14 @@ describe('StudioPage', () => {
       'Projeto sem título',
       expect.any(Function),
     )
+  })
+
+  it('abre a ferramenta Termoformador', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Termoformador' }, LAZY_TIMEOUT),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Dimensões')).toBeInTheDocument()
   })
 })
