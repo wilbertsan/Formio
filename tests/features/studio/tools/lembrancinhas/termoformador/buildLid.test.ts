@@ -31,6 +31,21 @@ describe('buildLid', () => {
     expect(signedVolume(geometry)).toBeGreaterThan(0)
   })
 
+  it('tampa externa mantém a faixa de canto uniforme com raio grande', () => {
+    const params = { ...defaultThermoformerParams, lidCornerRadius: 40 }
+    const dims = getLidDimensions(params)
+    const geometry = buildLid(params)
+
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+    expect(
+      Math.abs(dims.outer.radius - (dims.inner.radius + params.lidThickness)),
+    ).toBeLessThanOrEqual(1e-6)
+    expect(dims.inner.radius).toBeLessThanOrEqual(
+      params.cornerRadius + params.lidClearance + 1e-6,
+    )
+  })
+
   it('tampa interna encaixa na abertura do rim', () => {
     const params = { ...defaultThermoformerParams, fitType: 'internal' as const }
     const dims = getLidDimensions(params)

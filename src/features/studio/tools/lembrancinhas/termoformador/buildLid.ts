@@ -38,10 +38,7 @@ export function getLidDimensions(params: ThermoformerGeometryParams): LidDimensi
       bodyRadius + params.lidClearance,
     )
     const innerRadius = clampRadius(Math.max(0, maxInnerRadius), innerWidth, innerDepth)
-    const outerRadius = Math.min(
-      maxOuterRadius,
-      Math.max(desiredOuterRadius, innerRadius + effectiveThickness),
-    )
+    const outerRadius = Math.min(maxOuterRadius, innerRadius + effectiveThickness)
 
     return {
       outer: { width: outerWidth, depth: outerDepth, radius: outerRadius },
