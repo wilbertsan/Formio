@@ -1,18 +1,18 @@
-# Termoformador — Design
+# Caixa Personalizada — Design
 
 **Data:** 2026-11-12
-**Ferramenta:** `lembrancinhas/termoformador`
+**Ferramenta:** `lembrancinhas/caixa-personalizada`
 **Status:** design aprovado; implementado (v1)
 
 ## Objetivo
 
-Criar a ferramenta **Termoformador** no Studio 3D, gerando um equipamento
-modular de termoformagem em cinco peças separadas:
+Criar a ferramenta **Caixa Personalizada** no Studio 3D, gerando uma caixa
+modular personalizável em cinco peças separadas:
 
 - corpo
 - tampa
-- painel frontal perfurado
-- pino lateral
+- painel decorativo
+- puxador lateral
 - base inferior
 
 Cada peça é exportada como STL binário independente. Peças desabilitadas não
@@ -25,8 +25,8 @@ são geradas nem exportadas.
 - Corpo e tampa usam um loft de anéis de retângulo arredondado. A casca já nasce
   fechada e manifold, com fundo, paredes, cavidade, rim e encaixe.
 - Painel usa `ExtrudeGeometry` com furos nativos no `Shape`.
-- Base usa um anel extrudado.
-- Pino usa `LatheGeometry` com um único perfil fechado.
+- Base usa um anel loftado (`buildRingShell`).
+- Puxador usa `LatheGeometry` com um único perfil fechado.
 
 Alternativas descartadas:
 
@@ -38,7 +38,7 @@ Alternativas descartadas:
 ## Arquitetura de arquivos
 
 ```text
-src/features/studio/tools/lembrancinhas/termoformador/
+src/features/studio/tools/lembrancinhas/caixa-personalizada/
   schema.ts                    # Zod, defaults, cores, constantes
   shapes.ts                    # retângulo arredondado, loops e paths
   shell.ts                     # loft genérico de casca (corpo/tampa)
@@ -48,21 +48,21 @@ src/features/studio/tools/lembrancinhas/termoformador/
   panelPattern.ts              # grade, furos, limite de aberturas
   buildHandle.ts
   buildBase.ts
-  validateThermoformer.ts
-  buildThermoformer.ts         # orquestra e posiciona as peças
+  validateBox.ts
+  buildBox.ts         # orquestra e posiciona as peças
   workerGeometry.ts            # serializa as cinco peças
   workerClient.ts
-  buildThermoformer.worker.ts
-  useThermoformer.ts
+  buildBox.worker.ts
+  useBox.ts
   exportStl.ts
   StudioPanel.tsx
-  ThermoformerPreview.tsx
+  BoxPreview.tsx
 ```
 
 Integração:
 
 - `src/features/studio/components/ToolSelector.tsx` — nova categoria
-  **Lembrancinhas** e card **Termoformador**.
+  **Lembrancinhas** e card **Caixa Personalizada**.
 - `src/features/studio/StudioPage.tsx` — lazy import, wrapper, exportação e
   estados de build.
 
@@ -109,7 +109,7 @@ externas do corpo, tampa e base. Fillets 3D reais ficam fora da v1.
 superior começa nessa altura. `lidFitDepth` é a sobreposição vertical da saia
 sobre o corpo/cavidade.
 
-### Painel frontal
+### Painel decorativo
 
 | Parâmetro | Faixa | Default |
 |---|---|---|
@@ -129,7 +129,7 @@ sobre o corpo/cavidade.
 > Nota de implementação: o default de `frontPanelHeight` foi ajustado para
 > 50 mm para caber no corpo padrão (`height 60 + rimHeight 3`) sem aviso inicial.
 
-### Pino lateral
+### Puxador lateral
 
 | Parâmetro | Faixa | Default |
 |---|---|---|
@@ -194,7 +194,7 @@ Casca fechada em cima e aberta embaixo:
 A tampa é posicionada com a saia sobre o corpo, de modo que a face inferior da
 placa fique a `lidHeight` acima da borda.
 
-### Painel frontal
+### Painel decorativo
 
 - Retângulo arredondado com moldura sólida de `borderWidth`.
 - Furos somente na região interna.
@@ -211,7 +211,7 @@ placa fique a `lidHeight` acima da borda.
   plana para apoiar no corpo.
 - Peça apoiada na face frontal do corpo, sem abrir janela no corpo.
 
-### Pino lateral
+### Puxador lateral
 
 - Perfil de revolução com flange de `handleBaseDiameter`, haste de
   `handleDiameter`, comprimento `handleLength` e ponta arredondada de
@@ -235,23 +235,23 @@ placa fique a `lidHeight` acima da borda.
 - Base envolvendo a parte inferior do corpo.
 - Tampa sobre a borda do corpo.
 - Painel centrado na face frontal.
-- Pino na lateral escolhida, com a base apoiada na face.
+- Puxador na lateral escolhida, com a base apoiada na face.
 
 ## Pipeline de dados
 
 ```text
 StudioPanel
-  → useThermoformer (reducer + debounce 250 ms)
-  → buildThermoformer.worker.ts
-  → buildThermoformer.ts
+  → useBox (reducer + debounce 250 ms)
+  → buildBox.worker.ts
+  → buildBox.ts
       → buildBody / buildLid / buildFrontPanel / buildHandle / buildBase
-      → validateThermoformer (main thread, antes do build)
+      → validateBox (main thread, antes do build)
   → workerGeometry.ts (serializa as cinco peças)
-  → ThermoformerPreview (R3F, duas cores)
+  → BoxPreview (R3F, duas cores)
   → exportStl.ts (um STL por peça habilitada)
 ```
 
-- `useThermoformer` expõe `params`, `geometry`, `isBuilding`, `error`,
+- `useBox` expõe `params`, `geometry`, `isBuilding`, `error`,
   `issues`, `dimensions`, `cameraPosition`, `fitRadius`, `updateParam` e
   `reset`.
 - Troca de cor não rebuilda geometria; apenas troca o material.
@@ -261,7 +261,7 @@ StudioPanel
 
 ## Validação
 
-`validateThermoformer(params)` retorna uma lista de `issues` com severidade
+`validateBox(params)` retorna uma lista de `issues` com severidade
 `error` ou `warning`.
 
 Principais verificações:
@@ -271,7 +271,7 @@ Principais verificações:
 - painel maior que a face frontal do corpo;
 - folga da tampa menor que `printClearance`;
 - tampa interna sem cavidade possível;
-- flange do pino maior que a lateral disponível;
+- flange do puxador maior que a lateral disponível;
 - `lidFitDepth` maior que a altura do corpo;
 - base mais alta que o corpo;
 - limite de aberturas do painel atingido;
@@ -286,9 +286,9 @@ Painel com as seções:
 
 1. Dimensões
 2. Acabamento
-3. Painel frontal
+3. Painel decorativo
 4. Tampa
-5. Pino lateral
+5. Puxador lateral
 6. Base
 7. Impressão
 8. Aparência
@@ -297,7 +297,7 @@ Painel com as seções:
 Controles condicionais:
 
 - parâmetros de tampa só aparecem com `lidEnabled`;
-- parâmetros do pino só aparecem com `handleEnabled`;
+- parâmetros do puxador só aparecem com `handleEnabled`;
 - parâmetros da base só aparecem com `baseEnabled`;
 - `gridAngle` só aparece para `grid` e `mesh`.
 
@@ -305,7 +305,7 @@ Componentes Amplify UI reutilizados: `Accordion`, `SliderField`,
 `SelectField`, `SwitchField`, `Alert`, `Button`, `Flex`, `Heading`, `Text` e
 `View`.
 
-O seletor ganha a categoria **Lembrancinhas** com o card **Termoformador**.
+O seletor ganha a categoria **Lembrancinhas** com o card **Caixa Personalizada**.
 As categorias existentes permanecem.
 
 ## Exportação
@@ -316,7 +316,7 @@ Um clique em Exportar baixa os STLs separados das peças habilitadas:
 <nome>-corpo.stl
 <nome>-tampa.stl
 <nome>-painel.stl
-<nome>-pino.stl
+<nome>-puxador.stl
 <nome>-base.stl
 ```
 
@@ -325,7 +325,7 @@ Orientações de impressão:
 - corpo e base: como construídos;
 - tampa: invertida, com a placa na mesa e a saia para cima;
 - painel: deitado, com a face traseira na mesa;
-- pino: em pé sobre o flange.
+- puxador: em pé sobre o flange.
 
 Todas as peças são centralizadas na mesa antes do download. As geometrias de
 preview não são mutadas: o export usa clones.
@@ -341,13 +341,13 @@ preview não são mutadas: o export usa clones.
 - `buildFrontPanel.test.ts`: moldura, furos e curvatura.
 - `buildHandle.test.ts`: perfil, orientação e manifold.
 - `buildBase.test.ts`: anel, folga e manifold.
-- `buildThermoformer.test.ts`: peças habilitadas/desabilitadas e montagem.
-- `validateThermoformer.test.ts`: erros e avisos.
+- `buildBox.test.ts`: peças habilitadas/desabilitadas e montagem.
+- `validateBox.test.ts`: erros e avisos.
 - `workerGeometry.test.ts`: roundtrip das cinco peças.
-- `useThermoformer.test.ts`: debounce, worker, erro, cores sem rebuild,
+- `useBox.test.ts`: debounce, worker, erro, cores sem rebuild,
   dimensões e reset.
 - `StudioPanel.test.tsx`: seções, condicionais, validação e reset.
-- `ThermoformerPreview.test.tsx`: sem geometria e com geometria.
+- `BoxPreview.test.tsx`: sem geometria e com geometria.
 - `exportStl.test.ts`: cinco downloads, nomes, peças desabilitadas e
   orientações de impressão.
 - `ToolSelector.test.tsx` e `StudioPage.test.tsx`: nova categoria e abertura da
@@ -357,7 +357,7 @@ preview não são mutadas: o export usa clones.
 
 - Atualizar `docs/frontend/studio.md` com a ferramenta, os arquivos e as
   decisões.
-- Atualizar `src/features/studio/tools/lembrancinhas/termoformador/AGENTS.md`
+- Atualizar `src/features/studio/tools/lembrancinhas/caixa-personalizada/AGENTS.md`
   com status e decisões da v1.
 - Atualizar `src/features/studio/tools/lembrancinhas/AGENTS.md` com o status da
   ferramenta.
@@ -366,10 +366,10 @@ preview não são mutadas: o export usa clones.
 
 - Fillets 3D reais e controle separado de `outer/inner/bottom/top`.
 - Janela frontal no corpo ou encaixe passante do painel.
-- Furo passante para o pino lateral.
+- Furo passante para o puxador lateral.
 - Curvatura produzida por molde real; a v1 aproxima só a face frontal.
-- `nozzleDiameter`, 3MF, STEP, aquecimento, vácuo, bomba e eletrônica.
-- Reconstrução fotogramétrica.
+- Texto/nome em relevo na caixa (fica para uma próxima etapa).
+- `nozzleDiameter`, 3MF, STEP, eletrônica e backend.
 
 ## Atualizações de implementação
 
@@ -389,9 +389,9 @@ Desvios encontrados durante a execução em relação ao design original:
   (cantos respeitados) e a grade tem teto de 800 aberturas. `grid` e `mesh`
   recebem um epsilon de 0,001 rad somente no builder para o earcut fechar a
   malha.
-- O raio da ponta do pino é limitado ao raio da haste; os triângulos
+- O raio da ponta do puxador é limitado ao raio da haste; os triângulos
   degenerados do polo do `LatheGeometry` são removidos. A v1 restringe a lateral
-  do pino a `left`/`right`; `top`/`bottom` ficam reservados e geram o aviso
+  do puxador a `left`/`right`; `top`/`bottom` ficam reservados e geram o aviso
   `handle-side`.
 - O raio interno da base segue o canto do corpo + `printClearance`;
   `baseCornerRadius` é um teto e o valor efetivo é reportado por
@@ -403,7 +403,7 @@ Desvios encontrados durante a execução em relação ao design original:
   `handle-base-collision` e `handle-lid-collision`.
 - O preview usa duas cores (`bodyColor` no corpo e `accentColor` nas demais
   peças); troca de cor não rebuilda geometria e o STL não carrega cor.
-- O export usa o snapshot **`builtParams`** do build para o transform do pino,
+- O export usa o snapshot **`builtParams`** do build para o transform do puxador,
   em vez dos parâmetros correntes do painel.
 - O limite de **800 aberturas** e os códigos finais de validação
   (`corner-radius`, `wall`, `panel-border`, `panel-empty`, `panel-hole`,

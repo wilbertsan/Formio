@@ -6,8 +6,7 @@ Implementada (v1).
 
 ## Objetivo
 
-Gerar equipamento modular de termoformagem para produção de lembrancinhas, em
-peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
+Gerar caixa modular personalizável com tampa, painel decorativo, puxador lateral e base, em peças separadas.
 
 ## Parâmetros previstos
 
@@ -35,7 +34,7 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 - `lid_fit_depth`: 2–20 mm
 - `fit_type`: `external` ou `internal`
 
-### Painel frontal
+### Painel decorativo
 
 - `front_panel_width`, `front_panel_height`: 40–300 mm
 - `front_panel_thickness`: 1–5 mm
@@ -52,7 +51,7 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 - `grid_thickness`: 0,8–4 mm
 - `grid_angle`: 0–90°
 
-### Pino lateral
+### Puxador lateral
 
 - `handle_enabled`
 - `handle_diameter`: 3–20 mm
@@ -78,12 +77,15 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 
 ## Regras do domínio
 
+> As chaves técnicas `handle*`, `frontPanel*` e `rim*` permanecem no schema;
+> na UI, `handle` = puxador e `frontPanel` = painel decorativo.
+
 - Corpo é um sólido único com cavidade interna e fundo plano
 - Tampa é independente e usa `fit_type` + `lid_clearance` para o encaixe
-- Painel frontal preserva moldura sólida de `border_width`; a grade ocupa
+- Painel decorativo preserva moldura sólida de `border_width`; a grade ocupa
   somente a região interna
 - Grade e furos respeitam `minimum_feature` e `minimum_wall`
-- Pino lateral é perpendicular à lateral escolhida e não invade a cavidade
+- Puxador lateral é perpendicular à lateral escolhida e não invade a cavidade
 - Base inferior é independente e, quando desabilitada, o corpo apoia
   diretamente no fundo
 - Evitar operações booleanas desnecessárias; validar a malha ao final
@@ -93,23 +95,20 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 
 ```text
 Parâmetros
-  → contorno externo arredondado
-  → extrusão
-  → cavidade interna
-  → fillets
-  → borda superior
-  → encaixe da tampa
-  → painel frontal
-  → matriz de furos/grade
-  → pino lateral
-  → base
-  → validação de geometria
+  → schema + validação
+  → loft do corpo (fundo, cavidade, rim e chanfro)
+  → tampa (encaixe externo/interno)
+  → painel decorativo (furos/grade)
+  → puxador lateral (perfil de revolução)
+  → base (anel loftado)
+  → montagem das peças
+  → worker + serialização
   → exportação STL
 ```
 
 ## Exportação
 
-- STLs separados: `corpo`, `tampa`, `painel`, `pino`, `base`
+- STLs separados: `corpo`, `tampa`, `painel`, `puxador`, `base`
 - "Exportar tudo" gera todos os componentes habilitados
 - Peças desabilitadas não são exportadas
 - STL binário nesta fase; 3MF/STEP fora de escopo
@@ -148,19 +147,19 @@ Parâmetros
   exigem junta/suporte. No encaixe `internal`, a tampa é um plugue dentro da
   abertura (sem flange de apoio) e `lidFitDepth` é limitado a
   `bodyTop - bottomThickness` para não atingir o fundo.
-- O pino usa flange **colado na face**, sem furo passante. O raio da ponta é
+- O puxador usa flange **colado na face**, sem furo passante. O raio da ponta é
   limitado ao raio da haste (`min(handleTipRadius, availableTip, shaftRadius)`) e
   os triângulos degenerados do polo do `LatheGeometry` são removidos. A UI
   restringe a lateral a `left`/`right`; `top`/`bottom` ficam reservados e avisam
   via `handle-side`.
 - A montagem é validada com avisos de colisão: painel/base, painel/tampa,
-  pino/base e pino/tampa (`panel-base`, `panel-lid`, `handle-base-collision`,
+  puxador/base e puxador/tampa (`panel-base`, `panel-lid`, `handle-base-collision`,
   `handle-lid-collision`).
 - Duas cores no preview: `bodyColor` no corpo e `accentColor` na tampa, painel,
-  pino e base. Troca de cor não rebuilda geometria; o STL exportado não carrega
+  puxador e base. Troca de cor não rebuilda geometria; o STL exportado não carrega
   cor.
 - O export usa o snapshot **`builtParams`** do build (não os parâmetros atuais)
-  para desfazer a matriz de posicionamento do pino e centralizar cada peça.
+  para desfazer a matriz de posicionamento do puxador e centralizar cada peça.
 - `nozzleDiameter`, 3MF e STEP ficam fora da v1. `nozzleDiameter` não altera a
   geometria; a impressão usa `printClearance` e as constantes de 0,8 mm.
 - `frontPanelHeight` tem default **50 mm** (não 80 mm) para caber no corpo
@@ -168,6 +167,6 @@ Parâmetros
 
 ## Fora de escopo
 
-Reconstrução fotogramétrica exata, 3MF/STEP nesta fase, aquecimento, vácuo,
-bomba, eletrônica e outros componentes além de corpo, tampa, painel, pino e
-base.
+Texto/nome em relevo, 3MF/STEP nesta fase, encaixes além de tampa/puxador/base,
+eletrônica e outros componentes além de corpo, tampa, painel decorativo, puxador
+e base.

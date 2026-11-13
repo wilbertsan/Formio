@@ -10,6 +10,7 @@ lembrancinhas.
 | porta-vela | planejada |
 | mini-vaso | planejada |
 | caixa-personalizada | implementada (v1) |
+| termoformador | planejada |
 
 ## Regras do domínio
 
@@ -18,9 +19,9 @@ lembrancinhas.
 - Encaixes com folga de impressão de 0,2–0,3 mm
 - PLA não é resistente ao calor: porta-vela orienta uso com vela LED/tea light
 - Mini-vaso estanque: paredes e fundo sem poros
-- Peças móveis (tampa, pino, base do caixa-personalizada) exportadas separadamente
+- Peças móveis (tampa, puxador e base da caixa; tampa, pino e base do termoformador) exportadas separadamente
 - STL sempre manifold, fechado, sem auto-interseções
-- Caixa Personalizada: paredes ≥ 0,8 mm, elementos e furos ≥ 0,8 mm
+- Caixa personalizada: paredes ≥ 0,8 mm, elementos e furos ≥ 0,8 mm
 
 ## Invariantes
 

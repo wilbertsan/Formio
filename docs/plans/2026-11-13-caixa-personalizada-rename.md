@@ -582,13 +582,12 @@ git commit -m "docs: document caixa personalizada and termoformador split"
 **Step 1: Scan for old names**
 
 ```bash
-grep -rn "termoformador\|Termoformador\|Thermoformer\|thermoformer" src tests \
-  | grep -v "src/features/studio/tools/lembrancinhas/termoformador/AGENTS.md"
+grep -rn "termoformador\|Termoformador\|Thermoformer\|thermoformer" src tests --exclude=AGENTS.md
 ```
 
-Expected: no matches outside the planned Termoformador spec. The
-`termoformador/AGENTS.md` intentionally keeps the word “Termoformador”; it is
-the planned tool, not the caixa.
+Expected: no matches outside the routing `AGENTS.md` files. The planned
+Termoformador spec and the category table intentionally keep the word
+“Termoformador”; they document the planned tool, not the caixa.
 
 ```bash
 find src/features/studio/tools/lembrancinhas -maxdepth 2 -type f | sort

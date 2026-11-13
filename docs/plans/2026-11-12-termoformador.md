@@ -1,5 +1,11 @@
 # Termoformador Implementation Plan
 
+> **Nota histórica:** este plano implementou a ferramenta que foi renomeada
+> para **Caixa Personalizada** em 2026-11-13. Os nomes de arquivos e símbolos
+> abaixo refletem o estado original; a fonte atual está em
+> `lembrancinhas/caixa-personalizada` e em
+> `docs/plans/2026-11-13-caixa-personalizada-rename.md`.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Implementar a ferramenta Termoformador no Studio 3D, gerando corpo, tampa, painel perfurado, pino lateral e base como STLs separados.
