@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   roundedRectExactPoints,
-  roundedRectPath,
   roundedRectPoints,
   roundedRectShape,
 } from '@/features/studio/tools/lembrancinhas/termoformador/shapes'
@@ -24,12 +23,10 @@ describe('shapes', () => {
     expect(points.every((point) => Math.abs(point.x) <= 50.001 && Math.abs(point.y) <= 30.001)).toBe(true)
   })
 
-  it('cria shape e path sem furos', () => {
+  it('cria shape sem furos', () => {
     const shape = roundedRectShape(100, 60, 10)
-    const path = roundedRectPath(100, 60, 10)
     expect(shape.getPoints(8).length).toBeGreaterThan(8)
     expect(shape.holes).toHaveLength(0)
-    expect(path.getPoints(8).length).toBeGreaterThan(8)
   })
 
   it('amostra exata mantém contagem, ordem CCW e arco do canto', () => {

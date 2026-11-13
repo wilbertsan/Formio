@@ -1065,6 +1065,7 @@ function PlacaLojaToolWrapper({ onBack }: { onBack: () => void }) {
 function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const {
     params,
@@ -1086,7 +1087,12 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
 
   const handleExport = useCallback(() => {
     if (!geometry || !builtParams) return
-    exportThermoformerStl(geometry, projectName, builtParams)
+    setExportError(null)
+    try {
+      exportThermoformerStl(geometry, projectName, builtParams)
+    } catch {
+      setExportError('Falha ao exportar STL')
+    }
   }, [geometry, projectName, builtParams])
 
   return (
@@ -1099,7 +1105,14 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
         onBack={onBack}
       />
       <div className="relative flex min-h-0 flex-1" aria-busy={isBuilding}>
-        {isBuilding && (
+        {error ?? exportError ? (
+          <div
+            role="alert"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+          >
+            {error ?? exportError}
+          </div>
+        ) : isBuilding ? (
           <div
             role="status"
             aria-live="polite"
@@ -1107,15 +1120,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
           >
             Gerando…
           </div>
-        )}
-        {error && (
-          <div
-            role="alert"
-            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
-          >
-            {error}
-          </div>
-        )}
+        ) : null}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <TermoformadorTool
             params={params}

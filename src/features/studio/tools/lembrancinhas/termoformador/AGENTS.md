@@ -23,7 +23,6 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 
 ### Acabamento
 
-- `outer_fillet`, `inner_fillet`, `bottom_fillet`, `top_fillet`
 - `edge_chamfer`: 0–3 mm
 
 ### Tampa
@@ -60,7 +59,8 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 - `handle_length`: 5–60 mm
 - `handle_base_diameter`: 4–30 mm
 - `handle_tip_radius`: 0–5 mm
-- `handle_side`: `left`, `right`, `top` ou `bottom`
+- `handle_side`: v1 expõe `left` e `right`; `top` e `bottom` ficam reservados
+  e avisam via código `handle-side`
 - `handle_height`: posição vertical relativa à altura do corpo
 
 ### Base inferior
@@ -72,9 +72,8 @@ peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
 
 ### Impressão
 
-- `nozzle_diameter`: padrão 0,4 mm
-- `minimum_wall`: padrão 0,8 mm
-- `minimum_feature`: padrão 0,8 mm
+- `minimum_wall` e `minimum_feature`: constantes fixas de 0,8 mm usadas apenas
+  na validação
 - `print_clearance`: padrão 0,2–0,3 mm
 
 ## Regras do domínio
@@ -110,7 +109,7 @@ Parâmetros
 
 ## Exportação
 
-- STLs separados: `body`, `lid`, `front-panel`, `handle`, `base`
+- STLs separados: `corpo`, `tampa`, `painel`, `pino`, `base`
 - "Exportar tudo" gera todos os componentes habilitados
 - Peças desabilitadas não são exportadas
 - STL binário nesta fase; 3MF/STEP fora de escopo
@@ -129,7 +128,9 @@ Parâmetros
 
 - Corpo, tampa e base são **lofts de anéis** de retângulo arredondado, sem CSG.
   A base usa `buildRingShell`, um anel loftado com amostragem exata de cantos e
-  arestas (não `ExtrudeGeometry`).
+  arestas (não `ExtrudeGeometry`). O raio interno da base segue o raio do canto
+  do corpo + `printClearance`; `baseCornerRadius` é um teto e
+  `getBaseDimensions` reporta o valor efetivo.
 - Os quatro fillets previstos (`outer_fillet`, `inner_fillet`, `bottom_fillet`,
   `top_fillet`) foram substituídos por um único `edgeChamfer` (0–3 mm, default
   0,4 mm) aplicado às arestas externas de corpo, tampa e base. Fillets 3D reais
@@ -142,14 +143,19 @@ Parâmetros
   triangulação do earcut fechada.
 - Na tampa `external`, o raio interno é um teto (`bodyRadius + lidClearance`) e
   o externo é `inner + lidThickness`; `lidCornerRadius` é um pedido limitado pelo
-  encaixe do corpo, e `getLidDimensions` reporta o valor efetivo. No encaixe
-  `internal`, `lidFitDepth` é limitado a `bodyTop - bottomThickness` para não
-  atingir o fundo.
+  encaixe do corpo, e `getLidDimensions` reporta o valor efetivo. A tampa
+  externa assenta em `lidHeight = 0`; valores maiores elevam a tampa no preview e
+  exigem junta/suporte. No encaixe `internal`, a tampa é um plugue dentro da
+  abertura (sem flange de apoio) e `lidFitDepth` é limitado a
+  `bodyTop - bottomThickness` para não atingir o fundo.
 - O pino usa flange **colado na face**, sem furo passante. O raio da ponta é
   limitado ao raio da haste (`min(handleTipRadius, availableTip, shaftRadius)`) e
-  os triângulos degenerados do polo do `LatheGeometry` são removidos. Nas
-  laterais `top`/`bottom` a posição é medida ao longo da largura e limitada dentro
-  do corpo; `handleHeight` 0,5 fica centrado.
+  os triângulos degenerados do polo do `LatheGeometry` são removidos. A UI
+  restringe a lateral a `left`/`right`; `top`/`bottom` ficam reservados e avisam
+  via `handle-side`.
+- A montagem é validada com avisos de colisão: painel/base, painel/tampa,
+  pino/base e pino/tampa (`panel-base`, `panel-lid`, `handle-base-collision`,
+  `handle-lid-collision`).
 - Duas cores no preview: `bodyColor` no corpo e `accentColor` na tampa, painel,
   pino e base. Troca de cor não rebuilda geometria; o STL exportado não carrega
   cor.

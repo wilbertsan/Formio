@@ -31,12 +31,6 @@ export function roundedRectShape(width: number, depth: number, radius: number): 
   return shape
 }
 
-export function roundedRectPath(width: number, depth: number, radius: number): Path {
-  const path = new Path()
-  traceRoundedRect(path, width, depth, radius)
-  return path
-}
-
 function resampleClosedLoop(points: Vector2[], count: number): Vector2[] {
   const totalPoints = points.length
   if (totalPoints === 0) return []

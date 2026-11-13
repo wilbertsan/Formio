@@ -363,4 +363,26 @@ describe('StudioPage', () => {
       expect.objectContaining({ width: 160, handleSide: 'right' }),
     )
   })
+
+  it('mostra erro quando a exportação do Termoformador falha', async () => {
+    thermoWorkerResponse = serializeBuildResult({
+      body: new THREE.BoxGeometry(160, 63, 120),
+      lid: new THREE.BoxGeometry(165, 14, 125),
+      frontPanel: new THREE.BoxGeometry(140, 50, 3),
+      handle: new THREE.BoxGeometry(25, 16, 16),
+      base: new THREE.BoxGeometry(165, 6, 125),
+    }).data
+    vi.mocked(exportThermoformerStl).mockImplementationOnce(() => {
+      throw new Error('falha')
+    })
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+
+    const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
+    await waitFor(() => expect(exportButton).toBeEnabled())
+    fireEvent.click(exportButton)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Falha ao exportar STL')
+  })
 })
