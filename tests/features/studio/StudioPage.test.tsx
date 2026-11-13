@@ -18,17 +18,17 @@ import {
 } from '@/features/studio/tools/letreiros/cartao-visita/workerGeometry'
 import '@/features/studio/tools/letreiros/suporte-foto/StudioPanel'
 import '@/features/studio/tools/letreiros/suporte-foto/PhotoPositionEditor'
-import '@/features/studio/tools/lembrancinhas/termoformador/StudioPanel'
+import '@/features/studio/tools/lembrancinhas/caixa-personalizada/StudioPanel'
 import { exportStl as exportPhotoStandStl } from '@/features/studio/tools/letreiros/suporte-foto/exportStl'
 import {
   serializePhotoStandResult,
   type SerializedPhotoStandResult,
 } from '@/features/studio/tools/letreiros/suporte-foto/workerGeometry'
-import { exportThermoformerStl } from '@/features/studio/tools/lembrancinhas/termoformador/exportStl'
+import { exportBoxStl } from '@/features/studio/tools/lembrancinhas/caixa-personalizada/exportStl'
 import {
   serializeBuildResult,
   type SerializedBuildResult,
-} from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
+} from '@/features/studio/tools/lembrancinhas/caixa-personalizada/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -46,7 +46,7 @@ vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
 // jsdom não implementa Worker; o hook da ferramenta cria um após o debounce.
 let cardWorkerResponse: SerializedCardResult | null = null
 let photoWorkerResponse: SerializedPhotoStandResult | null = null
-let thermoWorkerResponse: SerializedBuildResult | null = null
+let boxWorkerResponse: SerializedBuildResult | null = null
 
 class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -59,7 +59,7 @@ class WorkerMock {
 
     if (request.params?.productType === 'card' && cardWorkerResponse) deliver(cardWorkerResponse)
     if (request.params?.productType === 'photo-stand' && photoWorkerResponse) deliver(photoWorkerResponse)
-    if (request.params?.productType === 'termoformador' && thermoWorkerResponse) deliver(thermoWorkerResponse)
+    if (request.params?.productType === 'caixa-personalizada' && boxWorkerResponse) deliver(boxWorkerResponse)
   }
   terminate(): void {}
 }
@@ -74,8 +74,8 @@ vi.mock('@/features/studio/tools/letreiros/suporte-foto/exportStl', () => ({
   exportStl: vi.fn(),
 }))
 
-vi.mock('@/features/studio/tools/lembrancinhas/termoformador/exportStl', () => ({
-  exportThermoformerStl: vi.fn(),
+vi.mock('@/features/studio/tools/lembrancinhas/caixa-personalizada/exportStl', () => ({
+  exportBoxStl: vi.fn(),
 }))
 
 vi.mock('@react-three/fiber', () => {
@@ -109,10 +109,10 @@ describe('StudioPage', () => {
   beforeEach(() => {
     cardWorkerResponse = null
     photoWorkerResponse = null
-    thermoWorkerResponse = null
+    boxWorkerResponse = null
     vi.mocked(exportCardStl).mockClear()
     vi.mocked(exportPhotoStandStl).mockClear()
-    vi.mocked(exportThermoformerStl).mockClear()
+    vi.mocked(exportBoxStl).mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -318,27 +318,27 @@ describe('StudioPage', () => {
     )
   })
 
-  it('abre a ferramenta Termoformador', async () => {
+  it('abre a ferramenta Caixa Personalizada', async () => {
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    fireEvent.click(screen.getByRole('button', { name: /caixa personalizada/i }))
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Termoformador' }, LAZY_TIMEOUT),
+      await screen.findByRole('heading', { level: 2, name: 'Caixa Personalizada' }, LAZY_TIMEOUT),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'Dimensões' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
     expect(screen.getByText(/arraste para girar/i)).toBeInTheDocument()
   })
 
-  it('mostra Gerando… no Termoformador', async () => {
+  it('mostra Gerando… no Caixa Personalizada', async () => {
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    fireEvent.click(screen.getByRole('button', { name: /caixa personalizada/i }))
     const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
     expect(status).toHaveTextContent('Gerando…')
     expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
   })
 
-  it('exporta o Termoformador com os parâmetros do build', async () => {
-    thermoWorkerResponse = serializeBuildResult({
+  it('exporta o Caixa Personalizada com os parâmetros do build', async () => {
+    boxWorkerResponse = serializeBuildResult({
       body: new THREE.BoxGeometry(160, 63, 120),
       lid: new THREE.BoxGeometry(165, 14, 125),
       frontPanel: new THREE.BoxGeometry(140, 50, 3),
@@ -347,7 +347,7 @@ describe('StudioPage', () => {
     }).data
 
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    fireEvent.click(screen.getByRole('button', { name: /caixa personalizada/i }))
 
     const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
     await waitFor(() => expect(exportButton).toBeEnabled())
@@ -357,27 +357,27 @@ describe('StudioPage', () => {
     fireEvent.change(screen.getByLabelText('Lateral'), { target: { value: 'left' } })
     fireEvent.click(exportButton)
 
-    expect(exportThermoformerStl).toHaveBeenCalledWith(
+    expect(exportBoxStl).toHaveBeenCalledWith(
       expect.objectContaining({ body: expect.anything() }),
       'Projeto sem título',
       expect.objectContaining({ width: 160, handleSide: 'right' }),
     )
   })
 
-  it('mostra erro quando a exportação do Termoformador falha', async () => {
-    thermoWorkerResponse = serializeBuildResult({
+  it('mostra erro quando a exportação do Caixa Personalizada falha', async () => {
+    boxWorkerResponse = serializeBuildResult({
       body: new THREE.BoxGeometry(160, 63, 120),
       lid: new THREE.BoxGeometry(165, 14, 125),
       frontPanel: new THREE.BoxGeometry(140, 50, 3),
       handle: new THREE.BoxGeometry(25, 16, 16),
       base: new THREE.BoxGeometry(165, 6, 125),
     }).data
-    vi.mocked(exportThermoformerStl).mockImplementationOnce(() => {
+    vi.mocked(exportBoxStl).mockImplementationOnce(() => {
       throw new Error('falha')
     })
 
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    fireEvent.click(screen.getByRole('button', { name: /caixa personalizada/i }))
 
     const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
     await waitFor(() => expect(exportButton).toBeEnabled())

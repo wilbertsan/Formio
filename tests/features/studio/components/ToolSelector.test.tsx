@@ -41,14 +41,14 @@ describe('ToolSelector', () => {
     expect(onSelect).toHaveBeenCalledWith('rolo-textura')
   })
 
-  it('coloca Termoformador na seção Lembrancinhas e emite o id', async () => {
+  it('coloca Caixa Personalizada na seção Lembrancinhas e emite o id', async () => {
     const onSelect = vi.fn()
     const user = userEvent.setup()
     render(<ToolSelector onSelect={onSelect} />)
     const section = screen.getByRole('heading', { name: 'Lembrancinhas' }).closest('section')!
-    const card = within(section).getByRole('button', { name: /termoformador/i })
+    const card = within(section).getByRole('button', { name: /caixa personalizada/i })
     await user.click(card)
-    expect(onSelect).toHaveBeenCalledWith('termoformador')
+    expect(onSelect).toHaveBeenCalledWith('caixa-personalizada')
   })
 
   it('chama onSelect com o id da ferramenta clicada', async () => {

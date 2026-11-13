@@ -27,8 +27,8 @@ import { useCutterStamp } from './tools/confeitaria/cortador-carimbo/useCutterSt
 import { exportCutterStampStl } from './tools/confeitaria/cortador-carimbo/exportStl'
 import { useTextureRoller } from './tools/confeitaria/rolo-textura/useTextureRoller'
 import { exportTextureRollerStl } from './tools/confeitaria/rolo-textura/exportStl'
-import { useThermoformer } from './tools/lembrancinhas/termoformador/useThermoformer'
-import { exportThermoformerStl } from './tools/lembrancinhas/termoformador/exportStl'
+import { useBox } from './tools/lembrancinhas/caixa-personalizada/useBox'
+import { exportBoxStl } from './tools/lembrancinhas/caixa-personalizada/exportStl'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -150,15 +150,15 @@ const RoloTexturaPreview = lazy(() =>
   })),
 )
 
-const TermoformadorTool = lazy(() =>
-  import('./tools/lembrancinhas/termoformador/StudioPanel').then((m) => ({
+const BoxTool = lazy(() =>
+  import('./tools/lembrancinhas/caixa-personalizada/StudioPanel').then((m) => ({
     default: m.StudioPanel,
   })),
 )
 
-const TermoformadorPreview = lazy(() =>
-  import('./tools/lembrancinhas/termoformador/ThermoformerPreview').then((m) => ({
-    default: m.ThermoformerPreview,
+const BoxPreview = lazy(() =>
+  import('./tools/lembrancinhas/caixa-personalizada/BoxPreview').then((m) => ({
+    default: m.BoxPreview,
   })),
 )
 
@@ -1062,7 +1062,7 @@ function PlacaLojaToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
-function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
+function BoxToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -1079,7 +1079,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
     builtParams,
     updateParam,
     reset,
-  } = useThermoformer()
+  } = useBox()
 
   const handleResetCamera = useCallback(() => {
     setResetCameraSignal((signal) => signal + 1)
@@ -1089,7 +1089,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
     if (!geometry || !builtParams) return
     setExportError(null)
     try {
-      exportThermoformerStl(geometry, projectName, builtParams)
+      exportBoxStl(geometry, projectName, builtParams)
     } catch {
       setExportError('Falha ao exportar STL')
     }
@@ -1122,7 +1122,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
           </div>
         ) : null}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
-          <TermoformadorTool
+          <BoxTool
             params={params}
             issues={issues}
             onUpdateParam={updateParam}
@@ -1138,7 +1138,7 @@ function TermoformadorToolWrapper({ onBack }: { onBack: () => void }) {
           resetAzimuth={30}
         >
           <Suspense fallback={null}>
-            <TermoformadorPreview
+            <BoxPreview
               geometry={geometry}
               bodyColor={params.bodyColor}
               accentColor={params.accentColor}
@@ -1204,8 +1204,8 @@ export function StudioPage() {
       {activeTool === 'placa-loja' && (
         <PlacaLojaToolWrapper onBack={() => setActiveTool(null)} />
       )}
-      {activeTool === 'termoformador' && (
-        <TermoformadorToolWrapper onBack={() => setActiveTool(null)} />
+      {activeTool === 'caixa-personalizada' && (
+        <BoxToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )
