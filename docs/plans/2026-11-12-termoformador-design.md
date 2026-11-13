@@ -221,8 +221,10 @@ placa fique a `lidHeight` acima da borda.
 
 ### Base inferior
 
-- Anel/pedestal extrudado.
-- Face interna com folga `printClearance` em relação ao corpo.
+- Anel/pedestal loftado (`buildRingShell`).
+- Face interna com folga `printClearance` em relação ao corpo; o raio interno
+  segue o canto do corpo + `printClearance`, e `baseCornerRadius` é um teto
+  reportado por `getBaseDimensions`.
 - Altura `baseHeight`, espessura radial `baseThickness`, raio externo
   `baseCornerRadius`.
 - Quando desabilitada, o corpo apoia diretamente no fundo.
@@ -300,8 +302,8 @@ Controles condicionais:
 - `gridAngle` só aparece para `grid` e `mesh`.
 
 Componentes Amplify UI reutilizados: `Accordion`, `SliderField`,
-`SelectField`, `SwitchField`, `RadioGroupField`, `Alert`, `Button`, `Flex`,
-`Heading`, `Text` e `View`.
+`SelectField`, `SwitchField`, `Alert`, `Button`, `Flex`, `Heading`, `Text` e
+`View`.
 
 O seletor ganha a categoria **Lembrancinhas** com o card **Termoformador**.
 As categorias existentes permanecem.
@@ -388,9 +390,17 @@ Desvios encontrados durante a execução em relação ao design original:
   recebem um epsilon de 0,001 rad somente no builder para o earcut fechar a
   malha.
 - O raio da ponta do pino é limitado ao raio da haste; os triângulos
-  degenerados do polo do `LatheGeometry` são removidos; o posicionamento em
-  `top`/`bottom` é medido ao longo da largura e limitado dentro do corpo
-  (0,5 = centrado).
+  degenerados do polo do `LatheGeometry` são removidos. A v1 restringe a lateral
+  do pino a `left`/`right`; `top`/`bottom` ficam reservados e geram o aviso
+  `handle-side`.
+- O raio interno da base segue o canto do corpo + `printClearance`;
+  `baseCornerRadius` é um teto e o valor efetivo é reportado por
+  `getBaseDimensions`.
+- A tampa externa assenta em `lidHeight = 0`; valores maiores elevam a tampa no
+  preview e exigem junta/suporte. A tampa interna é um plugue dentro da abertura,
+  sem flange de apoio.
+- A montagem emite avisos de colisão `panel-base`, `panel-lid`,
+  `handle-base-collision` e `handle-lid-collision`.
 - O preview usa duas cores (`bodyColor` no corpo e `accentColor` nas demais
   peças); troca de cor não rebuilda geometria e o STL não carrega cor.
 - O export usa o snapshot **`builtParams`** do build para o transform do pino,
@@ -398,6 +408,7 @@ Desvios encontrados durante a execução em relação ao design original:
 - O limite de **800 aberturas** e os códigos finais de validação
   (`corner-radius`, `wall`, `panel-border`, `panel-empty`, `panel-hole`,
   `panel-rib`, `panel-density`, `panel-overhang`, `panel-height`, `panel-radius`,
-  `lid-clearance`, `lid-fit-depth`, `lid-internal`, `handle-tip`, `handle-base`,
-  `handle-flange`, `base-height`, `base-thin`) foram confirmados na
-  implementação.
+  `panel-base`, `panel-lid`, `lid-clearance`, `lid-fit-depth`, `lid-internal`,
+  `handle-tip`, `handle-base`, `handle-flange`, `handle-side`,
+  `handle-base-collision`, `handle-lid-collision`, `base-height`, `base-thin`)
+  foram confirmados na implementação.
