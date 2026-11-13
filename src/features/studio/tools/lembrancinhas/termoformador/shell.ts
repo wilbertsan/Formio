@@ -61,6 +61,7 @@ class TriangleBuilder {
     const normal = new Vector3()
       .subVectors(second, a)
       .cross(new Vector3().subVectors(third, a))
+    // Anéis coincidentes geram quads de área zero; isClosed detecta lacunas reais.
     if (normal.lengthSq() < 1e-12) return
     if (normal.dot(reference) < 0) {
       const swap = second
@@ -111,17 +112,25 @@ class TriangleBuilder {
 export function buildBodyShell(input: BodyShellInput): BufferGeometry {
   const { outer, inner, rimInner, bottomThickness, height, rimHeight, segments } = input
   const top = height + rimHeight
+  const rimGap = Math.max(
+    0,
+    Math.min((outer.width - rimInner.width) / 2, (outer.depth - rimInner.depth) / 2),
+  )
   const chamfer = Math.max(
     0,
-    Math.min(input.chamfer, Math.min(outer.width, outer.depth) * 0.1, top * 0.45),
+    Math.min(
+      input.chamfer,
+      Math.min(outer.width, outer.depth) * 0.1,
+      top * 0.45,
+      rimGap * 0.9,
+    ),
   )
 
-  const bottomInset = chamfer > EPS ? insetSpec(outer, chamfer) : outer
-  const topInset = chamfer > EPS ? insetSpec(outer, chamfer) : outer
-  const outerBottom = loopAt(bottomInset, 0, segments)
+  const insetOuter = chamfer > EPS ? insetSpec(outer, chamfer) : outer
+  const outerBottom = loopAt(insetOuter, 0, segments)
   const outerAfterBottom = loopAt(outer, chamfer, segments)
   const outerBeforeTop = loopAt(outer, top - chamfer, segments)
-  const outerTop = loopAt(topInset, top, segments)
+  const outerTop = loopAt(insetOuter, top, segments)
   const innerBottom = loopAt(inner, bottomThickness, segments)
   const innerTop = loopAt(inner, height, segments)
   const rimBottom = loopAt(rimInner, height, segments)
@@ -148,19 +157,19 @@ export function buildBodyShell(input: BodyShellInput): BufferGeometry {
 
 export function buildLidShell(input: LidShellInput): BufferGeometry {
   const { outer, inner, totalHeight, plateThickness, segments } = input
-  const top = Math.max(totalHeight, plateThickness + 0.2)
-  const plateBottom = Math.max(0.1, top - plateThickness)
+  const top = Math.max(0.2, totalHeight)
+  const effectivePlateThickness = Math.min(plateThickness, Math.max(0.1, top - 0.1))
+  const plateBottom = Math.max(0.1, top - effectivePlateThickness)
   const chamfer = Math.max(
     0,
     Math.min(input.chamfer, Math.min(outer.width, outer.depth) * 0.1, top * 0.45),
   )
 
-  const bottomInset = chamfer > EPS ? insetSpec(outer, chamfer) : outer
-  const topInset = chamfer > EPS ? insetSpec(outer, chamfer) : outer
-  const outerBottom = loopAt(bottomInset, 0, segments)
+  const insetOuter = chamfer > EPS ? insetSpec(outer, chamfer) : outer
+  const outerBottom = loopAt(insetOuter, 0, segments)
   const outerAfterBottom = loopAt(outer, chamfer, segments)
   const outerBeforeTop = loopAt(outer, top - chamfer, segments)
-  const outerTop = loopAt(topInset, top, segments)
+  const outerTop = loopAt(insetOuter, top, segments)
   const innerBottom = loopAt(inner, 0, segments)
   const innerTop = loopAt(inner, plateBottom, segments)
 
