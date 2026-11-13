@@ -36,6 +36,13 @@ function applyFrontCurvature(
   geometry.computeVertexNormals()
 }
 
+/**
+ * Desvio angular mínimo para furos quadrados/losango. Sem ele, lados
+ * exatamente paralelos às arestas do painel deixam a triangulação do Earcut
+ * não-fechada (triângulos degenerados nas junções).
+ */
+const HOLE_ANGLE_EPSILON = 0.001
+
 function addHole(shape: ReturnType<typeof roundedRectShape>, hole: PanelHole): void {
   const path = new Path()
 
@@ -43,8 +50,9 @@ function addHole(shape: ReturnType<typeof roundedRectShape>, hole: PanelHole): v
     path.absarc(hole.x, hole.y, hole.size / 2, 0, Math.PI * 2, false)
   } else {
     const half = hole.size / 2
-    const cos = Math.cos(hole.angle)
-    const sin = Math.sin(hole.angle)
+    const angle = hole.angle + HOLE_ANGLE_EPSILON
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
     const corners = [
       [-half, -half],
       [half, -half],

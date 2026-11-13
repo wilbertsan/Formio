@@ -51,4 +51,28 @@ describe('buildFrontPanel', () => {
   it('o padrão default gera furos', () => {
     expect(computePanelPattern(defaultThermoformerParams).holes.length).toBeGreaterThan(0)
   })
+
+  it('grade quadrada sem rotação gera malha fechada', () => {
+    const geometry = buildFrontPanel({
+      ...defaultThermoformerParams,
+      pattern: 'grid',
+      gridAngle: 0,
+      surfaceCurvature: 'flat',
+    })
+
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
+
+  it('grade losango sem rotação gera malha fechada', () => {
+    const geometry = buildFrontPanel({
+      ...defaultThermoformerParams,
+      pattern: 'mesh',
+      gridAngle: 0,
+      surfaceCurvature: 'flat',
+    })
+
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+  })
 })
