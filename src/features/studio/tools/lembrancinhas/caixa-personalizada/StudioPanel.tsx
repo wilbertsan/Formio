@@ -234,7 +234,7 @@ export function StudioPanel({
           </Accordion.Content>
         </Accordion.Item>
 
-        <Accordion.Item value="pino">
+        <Accordion.Item value="puxador">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">Puxador lateral</Heading>
             <Accordion.Icon />
