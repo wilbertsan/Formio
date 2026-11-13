@@ -17,9 +17,9 @@ describe('StudioPanel (caixa-personalizada)', () => {
     expect(screen.getByText('Restaurar')).toBeDefined()
     expect(screen.getByText('Dimensões')).toBeDefined()
     expect(screen.getByText('Acabamento')).toBeDefined()
-    expect(screen.getByText('Painel frontal')).toBeDefined()
+    expect(screen.getByText('Painel decorativo')).toBeDefined()
     expect(screen.getByText('Tampa')).toBeDefined()
-    expect(screen.getByText('Pino lateral')).toBeDefined()
+    expect(screen.getByText('Puxador lateral')).toBeDefined()
     expect(screen.getByText('Base')).toBeDefined()
     expect(screen.getByText('Impressão')).toBeDefined()
     expect(screen.getByText('Aparência')).toBeDefined()
@@ -33,7 +33,7 @@ describe('StudioPanel (caixa-personalizada)', () => {
     expect(screen.getByLabelText('Altura')).toBeDefined()
     expect(screen.getByLabelText('Largura do painel')).toBeDefined()
     expect(screen.getByLabelText('Habilitar tampa')).toBeDefined()
-    expect(screen.getByLabelText('Habilitar pino')).toBeDefined()
+    expect(screen.getByLabelText('Habilitar puxador')).toBeDefined()
     expect(screen.getByLabelText('Habilitar base')).toBeDefined()
   })
 
@@ -41,7 +41,7 @@ describe('StudioPanel (caixa-personalizada)', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.getByRole('slider', { name: 'Largura' })).toBeDefined()
     expect(screen.getByRole('slider', { name: 'Altura' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Diâmetro do furo' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Tamanho da abertura' })).toBeDefined()
   })
 
   it('atualiza a largura ao usar o teclado no slider', () => {
@@ -63,7 +63,7 @@ describe('StudioPanel (caixa-personalizada)', () => {
     expect(screen.queryByLabelText('Espessura da tampa')).toBeNull()
   })
 
-  it('esconde campos do pino e da base quando desabilitados', () => {
+  it('esconde campos do puxador e da base quando desabilitados', () => {
     render(
       <StudioPanel
         {...defaultProps}
@@ -74,7 +74,7 @@ describe('StudioPanel (caixa-personalizada)', () => {
         }}
       />,
     )
-    expect(screen.queryByLabelText('Diâmetro do pino')).toBeNull()
+    expect(screen.queryByLabelText('Diâmetro do puxador')).toBeNull()
     expect(screen.queryByLabelText('Altura da base')).toBeNull()
   })
 
@@ -104,11 +104,11 @@ describe('StudioPanel (caixa-personalizada)', () => {
     expect(screen.queryByLabelText('Ângulo da grade')).toBeNull()
   })
 
-  it('desliga tampa, pino e base pelos switches', () => {
+  it('desliga tampa, puxador e base pelos switches', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
     fireEvent.click(screen.getByLabelText('Habilitar tampa'))
-    fireEvent.click(screen.getByLabelText('Habilitar pino'))
+    fireEvent.click(screen.getByLabelText('Habilitar puxador'))
     fireEvent.click(screen.getByLabelText('Habilitar base'))
     expect(onUpdateParam).toHaveBeenCalledWith('lidEnabled', false)
     expect(onUpdateParam).toHaveBeenCalledWith('handleEnabled', false)

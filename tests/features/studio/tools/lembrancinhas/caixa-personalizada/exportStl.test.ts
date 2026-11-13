@@ -89,7 +89,7 @@ describe('exportBoxStl', () => {
       'Meu-Termo-corpo.stl',
       'Meu-Termo-tampa.stl',
       'Meu-Termo-painel.stl',
-      'Meu-Termo-pino.stl',
+      'Meu-Termo-puxador.stl',
       'Meu-Termo-base.stl',
     ])
     expect(anchors.every((anchor) => anchor.click.mock.calls.length === 1)).toBe(true)

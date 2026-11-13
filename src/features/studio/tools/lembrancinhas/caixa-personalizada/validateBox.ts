@@ -172,7 +172,7 @@ export function validateBox(
     issues.push({
       code: 'panel-base',
       severity: 'warning',
-      message: 'O painel frontal invade a altura da base. Reduza a base, o painel ou reposicione o painel.',
+      message: 'O painel decorativo invade a altura da base. Reduza a base, o painel ou reposicione o painel.',
     })
   }
 
@@ -180,7 +180,7 @@ export function validateBox(
     issues.push({
       code: 'panel-lid',
       severity: 'warning',
-      message: 'O painel frontal invade a saia da tampa. Reduza o painel, a profundidade do encaixe ou aumente a altura do corpo.',
+      message: 'O painel decorativo invade a saia da tampa. Reduza o painel, a profundidade do encaixe ou aumente a altura do corpo.',
     })
   }
 
@@ -189,7 +189,7 @@ export function validateBox(
       issues.push({
         code: 'handle-side',
         severity: 'warning',
-        message: 'Pino no topo/fundo fica sem apoio sólido na v1. Use esquerda ou direita.',
+        message: 'Puxador no topo/fundo fica sem apoio sólido na v1. Use esquerda ou direita.',
       })
     } else {
       const flangeRadius = Math.max(params.handleBaseDiameter, params.handleDiameter) / 2
@@ -204,14 +204,14 @@ export function validateBox(
         issues.push({
           code: 'handle-base-collision',
           severity: 'warning',
-          message: 'O flange do pino invade a base. Aumente a posição do pino.',
+          message: 'O flange do puxador invade a base. Aumente a posição do puxador.',
         })
       }
       if (params.lidEnabled && vertical + flangeRadius > lidBottom) {
         issues.push({
           code: 'handle-lid-collision',
           severity: 'warning',
-          message: 'O flange do pino invade a tampa. Reduza a posição do pino.',
+          message: 'O flange do puxador invade a tampa. Reduza a posição do puxador.',
         })
       }
     }
@@ -220,14 +220,14 @@ export function validateBox(
       issues.push({
         code: 'handle-tip',
         severity: 'warning',
-        message: 'A ponta do pino é maior que o raio da haste e será limitada.',
+        message: 'A ponta do puxador é maior que o raio da haste e será limitada.',
       })
     }
     if (params.handleBaseDiameter < params.handleDiameter) {
       issues.push({
         code: 'handle-base',
         severity: 'warning',
-        message: 'A base do pino é menor que a haste; a base será igualada à haste.',
+        message: 'A base do puxador é menor que a haste; a base será igualada à haste.',
       })
     }
     const flange = Math.max(params.handleBaseDiameter, params.handleDiameter)
@@ -238,7 +238,7 @@ export function validateBox(
       issues.push({
         code: 'handle-flange',
         severity: 'warning',
-        message: 'O flange do pino é maior que a lateral disponível.',
+        message: 'O flange do puxador é maior que a lateral disponível.',
       })
     }
   }

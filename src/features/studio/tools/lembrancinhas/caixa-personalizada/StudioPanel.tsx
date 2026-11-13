@@ -154,7 +154,7 @@ export function StudioPanel({
 
         <Accordion.Item value="painel">
           <Accordion.Trigger>
-            <Heading level={3} fontSize="small">Painel frontal</Heading>
+            <Heading level={3} fontSize="small">Painel decorativo</Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
@@ -185,7 +185,7 @@ export function StudioPanel({
                 <option value="mesh">Malha</option>
               </SelectField>
 
-              <LabeledSlider label="Diâmetro do furo" value={params.holeDiameter} min={0.8} max={6} step={0.1} onChange={(value) => onUpdateParam('holeDiameter', value)} />
+              <LabeledSlider label="Tamanho da abertura" value={params.holeDiameter} min={0.8} max={6} step={0.1} onChange={(value) => onUpdateParam('holeDiameter', value)} />
               <LabeledSlider label="Espaçamento horizontal" value={params.holeSpacingX} min={1} max={10} step={0.5} onChange={(value) => onUpdateParam('holeSpacingX', value)} />
               <LabeledSlider label="Espaçamento vertical" value={params.holeSpacingY} min={1} max={10} step={0.5} onChange={(value) => onUpdateParam('holeSpacingY', value)} />
               <LabeledSlider label="Espessura da nervura" value={params.gridThickness} min={0.8} max={4} step={0.1} onChange={(value) => onUpdateParam('gridThickness', value)} />
@@ -236,21 +236,21 @@ export function StudioPanel({
 
         <Accordion.Item value="pino">
           <Accordion.Trigger>
-            <Heading level={3} fontSize="small">Pino lateral</Heading>
+            <Heading level={3} fontSize="small">Puxador lateral</Heading>
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <SwitchField
-                label="Habilitar pino"
+                label="Habilitar puxador"
                 isChecked={params.handleEnabled}
                 onChange={(event) => onUpdateParam('handleEnabled', event.target.checked)}
               />
               {params.handleEnabled && (
                 <>
-                  <LabeledSlider label="Diâmetro do pino" value={params.handleDiameter} min={3} max={20} step={0.5} onChange={(value) => onUpdateParam('handleDiameter', value)} />
-                  <LabeledSlider label="Comprimento do pino" value={params.handleLength} min={5} max={60} step={1} onChange={(value) => onUpdateParam('handleLength', value)} />
-                  <LabeledSlider label="Diâmetro da base" value={params.handleBaseDiameter} min={4} max={30} step={1} onChange={(value) => onUpdateParam('handleBaseDiameter', value)} />
+                  <LabeledSlider label="Diâmetro do puxador" value={params.handleDiameter} min={3} max={20} step={0.5} onChange={(value) => onUpdateParam('handleDiameter', value)} />
+                  <LabeledSlider label="Comprimento do puxador" value={params.handleLength} min={5} max={60} step={1} onChange={(value) => onUpdateParam('handleLength', value)} />
+                  <LabeledSlider label="Diâmetro da base do puxador" value={params.handleBaseDiameter} min={4} max={30} step={1} onChange={(value) => onUpdateParam('handleBaseDiameter', value)} />
                   <LabeledSlider label="Raio da ponta" value={params.handleTipRadius} min={0} max={5} step={0.1} onChange={(value) => onUpdateParam('handleTipRadius', value)} />
                   <SelectField
                     label="Lateral"
@@ -341,7 +341,7 @@ export function StudioPanel({
                 />
               </Flex>
               <Text fontSize="xs" color="font.secondary">
-                Tampa, painel, pino e base usam a cor de destaque.
+                Tampa, painel, puxador e base usam a cor de destaque.
               </Text>
             </Flex>
           </Accordion.Content>

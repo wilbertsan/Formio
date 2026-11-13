@@ -77,7 +77,7 @@ export function exportBoxStl(
   if (result.lid) downloadStl(prepareLidForPrint(result.lid), `${name}-tampa.stl`)
   downloadStl(preparePanelForPrint(result.frontPanel), `${name}-painel.stl`)
   if (result.handle) {
-    downloadStl(prepareHandleForPrint(result.handle, params), `${name}-pino.stl`)
+    downloadStl(prepareHandleForPrint(result.handle, params), `${name}-puxador.stl`)
   }
   if (result.base) downloadStl(prepareBaseForPrint(result.base), `${name}-base.stl`)
 }
