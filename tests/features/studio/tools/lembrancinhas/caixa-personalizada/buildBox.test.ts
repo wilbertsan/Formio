@@ -29,7 +29,7 @@ describe('buildBox', () => {
     expect(result.frontPanel).toBeDefined()
   })
 
-  it('posiciona tampa, painel e pino na montagem', () => {
+  it('posiciona tampa, painel e puxador na montagem', () => {
     const params = defaultBoxParams
     const result = buildBox(params)
     const bodyTop = params.height + params.rimHeight

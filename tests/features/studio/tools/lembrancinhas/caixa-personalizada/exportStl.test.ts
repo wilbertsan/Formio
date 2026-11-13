@@ -198,7 +198,7 @@ describe('preparos de impressão', () => {
     panelPrint.dispose()
   })
 
-  it('devolve o pino para a vertical com a base na mesa sem mutar o original', () => {
+  it('devolve o puxador para a vertical com a base na mesa sem mutar o original', () => {
     const handle = buildHandle(defaultBoxParams)
     const original = positions(handle)
     const print = prepareHandleForPrint(handle, defaultBoxParams)

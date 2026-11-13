@@ -136,7 +136,7 @@ describe('validateBox', () => {
     expect(issues.some((issue) => issue.code === 'panel-rib')).toBe(false)
   })
 
-  it('avisa ponta do pino maior que o raio da haste', () => {
+  it('avisa ponta do puxador maior que o raio da haste', () => {
     const issues = validateBox({
       ...defaultBoxParams,
       handleDiameter: 3,
@@ -145,7 +145,7 @@ describe('validateBox', () => {
     expect(issues.some((issue) => issue.code === 'handle-tip')).toBe(true)
   })
 
-  it('avisa base do pino menor que a haste', () => {
+  it('avisa base do puxador menor que a haste', () => {
     const issues = validateBox({
       ...defaultBoxParams,
       handleDiameter: 20,
@@ -154,7 +154,7 @@ describe('validateBox', () => {
     expect(issues.some((issue) => issue.code === 'handle-base')).toBe(true)
   })
 
-  it('avisa flange do pino maior que a lateral disponível', () => {
+  it('avisa flange do puxador maior que a lateral disponível', () => {
     const issues = validateBox({
       ...defaultBoxParams,
       height: 20,
@@ -175,17 +175,17 @@ describe('validateBox', () => {
     expect(issues.some((issue) => issue.code === 'panel-lid')).toBe(true)
   })
 
-  it('avisa pino no topo ou no fundo sem apoio sólido', () => {
+  it('avisa puxador no topo ou no fundo sem apoio sólido', () => {
     const issues = validateBox({ ...defaultBoxParams, handleSide: 'top' })
     expect(issues.some((issue) => issue.code === 'handle-side')).toBe(true)
   })
 
-  it('avisa flange do pino invadindo a base', () => {
+  it('avisa flange do puxador invadindo a base', () => {
     const issues = validateBox({ ...defaultBoxParams, handleHeight: 0 })
     expect(issues.some((issue) => issue.code === 'handle-base-collision')).toBe(true)
   })
 
-  it('avisa flange do pino invadindo a tampa', () => {
+  it('avisa flange do puxador invadindo a tampa', () => {
     const issues = validateBox({ ...defaultBoxParams, handleHeight: 1 })
     expect(issues.some((issue) => issue.code === 'handle-lid-collision')).toBe(true)
   })

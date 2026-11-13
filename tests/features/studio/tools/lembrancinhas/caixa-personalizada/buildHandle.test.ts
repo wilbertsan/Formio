@@ -16,7 +16,7 @@ describe('buildHandle', () => {
     expect(profile[profile.length - 1].y).toBeCloseTo(defaultBoxParams.handleLength, 5)
   })
 
-  it('pino à direita cresce em +X a partir da face', () => {
+  it('puxador à direita cresce em +X a partir da face', () => {
     const params = defaultBoxParams
     const geometry = buildHandle(params)
     geometry.computeBoundingBox()
@@ -25,7 +25,7 @@ describe('buildHandle', () => {
     expect(box.max.x).toBeCloseTo(params.width / 2 + params.handleLength, 1)
   })
 
-  it('pino no topo cresce em +Y a partir da borda', () => {
+  it('puxador no topo cresce em +Y a partir da borda', () => {
     const params = { ...defaultBoxParams, handleSide: 'top' as const }
     const geometry = buildHandle(params)
     geometry.computeBoundingBox()
@@ -47,7 +47,7 @@ describe('buildHandle', () => {
     expect(bottom.y).toBeLessThan(0)
   })
 
-  it('pino padrão é fechado e tem volume positivo', () => {
+  it('puxador padrão é fechado e tem volume positivo', () => {
     const geometry = buildHandle(defaultBoxParams)
     expect(isClosed(geometry)).toBe(true)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
@@ -75,7 +75,7 @@ describe('buildHandle', () => {
     expect(signedVolume(geometry)).toBeGreaterThan(0)
   })
 
-  it('centraliza o pino no topo dentro da largura do corpo', () => {
+  it('centraliza o puxador no topo dentro da largura do corpo', () => {
     const params = defaultBoxParams
     const halfWidth = params.width / 2
     const boxes = [0, 0.5, 1].map((handleHeight) => {
@@ -92,7 +92,7 @@ describe('buildHandle', () => {
     expect(boxes[2].max.x).toBeCloseTo(halfWidth, 1)
   })
 
-  it('centraliza o pino embaixo dentro da largura do corpo', () => {
+  it('centraliza o puxador embaixo dentro da largura do corpo', () => {
     const params = defaultBoxParams
     const halfWidth = params.width / 2
     const boxes = [0, 0.5, 1].map((handleHeight) => {
@@ -110,7 +110,7 @@ describe('buildHandle', () => {
     expect(boxes[2].max.x).toBeCloseTo(halfWidth, 1)
   })
 
-  it('mantém o pino lateral dentro da altura do corpo', () => {
+  it('mantém o puxador lateral dentro da altura do corpo', () => {
     const params = defaultBoxParams
     const bodyTop = params.height + params.rimHeight
 
