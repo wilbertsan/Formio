@@ -12,13 +12,14 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Cortador + Carimbo** — Cortador e carimbo no formato do texto, em duas peças
 - **Rolo de Textura** — Rolos cilíndricos fechados (sem cabos) com padrão em relevo (geométrico, ondulado, floral ou SVG)
 - **Marcador de Página** — Marcadores 3D em duas peças (base + texto com encaixe em U)
+- **Termoformador** — Equipamento modular de termoformagem com corpo, tampa, painel perfurado, pino lateral e base, exportados como STLs separados
 
 ### Componentes Genéricos
 
 - **Topbar** — nome do projeto, Exportar STL, Salvar (disabled)
 - **Viewport** — Canvas R3F + OrbitControls + Grid + Environment
 - **Status bar** — dimensões em mm + dicas
-- **Tool Selector** — Seleção de ferramenta agrupada em duas faixas horizontais: Confeitaria e Letreiros (Chaveiro classificado como Letreiros)
+- **Tool Selector** — Seleção de ferramenta agrupada em três faixas horizontais: Confeitaria, Letreiros e Lembrancinhas (Chaveiro classificado como Letreiros)
 
 ## Como editar
 
@@ -119,6 +120,24 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Painel de parâmetros | `src/features/studio/tools/letreiros/marcador-pagina/StudioPanel.tsx` |
 | Preview R3F | `src/features/studio/tools/letreiros/marcador-pagina/BookmarkPreview.tsx` |
 | Exportar dois STLs | `src/features/studio/tools/letreiros/marcador-pagina/exportStl.ts` |
+| **Termoformador** | |
+| Schema + tipos (faixas, defaults, cores e constantes) | `src/features/studio/tools/lembrancinhas/termoformador/schema.ts` |
+| Retângulo arredondado (Shape/Path) e amostragem exata | `src/features/studio/tools/lembrancinhas/termoformador/shapes.ts` |
+| Lofts de casca (corpo, tampa e anel) | `src/features/studio/tools/lembrancinhas/termoformador/shell.ts` |
+| Corpo (fundo, cavidade, rim e chanfro) | `src/features/studio/tools/lembrancinhas/termoformador/buildBody.ts` |
+| Tampa (encaixe externo/interno e cap de raio) | `src/features/studio/tools/lembrancinhas/termoformador/buildLid.ts` |
+| Padrão do painel (grade, recorte de cantos e limite de 800) | `src/features/studio/tools/lembrancinhas/termoformador/panelPattern.ts` |
+| Painel (ExtrudeGeometry, furos e curvatura frontal) | `src/features/studio/tools/lembrancinhas/termoformador/buildFrontPanel.ts` |
+| Pino (perfil Lathe, posicionamento e limpeza) | `src/features/studio/tools/lembrancinhas/termoformador/buildHandle.ts` |
+| Base (anel com folga de impressão) | `src/features/studio/tools/lembrancinhas/termoformador/buildBase.ts` |
+| Validação (issues e severidade) | `src/features/studio/tools/lembrancinhas/termoformador/validateThermoformer.ts` |
+| Orquestração e montagem das cinco peças | `src/features/studio/tools/lembrancinhas/termoformador/buildThermoformer.ts` |
+| Worker + serialização | `src/features/studio/tools/lembrancinhas/termoformador/buildThermoformer.worker.ts` |
+| Serialização das cinco peças | `src/features/studio/tools/lembrancinhas/termoformador/workerGeometry.ts` |
+| Estado + debounce + worker | `src/features/studio/tools/lembrancinhas/termoformador/useThermoformer.ts` |
+| Painel de parâmetros | `src/features/studio/tools/lembrancinhas/termoformador/StudioPanel.tsx` |
+| Preview R3F (duas cores) | `src/features/studio/tools/lembrancinhas/termoformador/ThermoformerPreview.tsx` |
+| Exportar cinco STLs | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
 
 ## Gerador de chaveiros
 
@@ -154,6 +173,39 @@ Pipeline completo de geração do marcador:
 10. **buildBookmark.ts** — Gera a textura, aplica auto-fit, coloca o texto em pé com a traseira em `x = 0`, centrado na borda da base (`z = thickness/2`) e mescla as duas barras do U; devolve `{ base, text }` (peças separadas)
 11. **exportStl.ts** — Baixa `-base.stl` e `-texto.stl`; o texto é rotacionado para imprimir deitado
 
+## Termoformador
+
+Pipeline completo de geração do termoformador:
+
+**useThermoformer.ts** → **buildThermoformer.worker.ts** → **buildThermoformer.ts** → **exportStl.ts**
+
+1. **schema.ts** — Valida parâmetros (dimensões, acabamento, tampa, painel, pino, base, impressão e duas cores PLA) e concentra `MINIMUM_WALL_MM`, `MINIMUM_FEATURE_MM`, `MAX_PANEL_OPENINGS` e `PANEL_CURVATURE_MM`
+2. **shapes.ts** — Traça o retângulo arredondado como `Shape`/`Path` e amostra o contorno com contagem fixa por canto/aresta (`roundedRectExactPoints`) para os lofts
+3. **shell.ts** — `buildBodyShell`, `buildLidShell` e `buildRingShell` costuram anéis de retângulo arredondado com o mesmo número de pontos; os triângulos são orientados por normal de referência e finalizados com `computeVertexNormals()`. Anéis coincidentes geram quads de área zero, descartados sem abrir lacunas reais
+4. **useThermoformer.ts** — Reducer + Zod com clamp dos sliders (debounce de 250 ms). Um worker é criado a cada build e o anterior é terminado; respostas obsoletas são ignoradas. A peça anterior permanece visível durante o rebuild e é descartada quando a nova geometria chega. `issues` roda na main thread; dimensões vêm da bounding box das peças e `builtParams` guarda o snapshot exato usado no build
+5. **buildThermoformer.worker.ts** — Executa `buildThermoformer` fora da main thread; `workerGeometry.ts` serializa as cinco peças (position/normal/index) com transferência de buffers
+6. **buildThermoformer.ts** — Monta as peças habilitadas: painel centrado na face frontal em `z = depth/2`, tampa deslocada por `getLidDimensions().bottomY`, corpo na origem, pino e base já posicionados
+7. **exportStl.ts** — Baixa um STL binário por peça habilitada, com clone centralizado na mesa
+
+As cinco peças independentes:
+
+- **Corpo** — Casca fechada loftada de anéis: fundo plano de `bottomThickness`, parede externa, cavidade interna com `wallThickness`, degrau e anel do rim (`rimHeight` e `rimThickness`, nunca menor que a parede) e chanfro `edgeChamfer` nos extremos
+- **Tampa** — Placa superior de `lidThickness` e saia de `lidFitDepth`. `external` envolve o corpo com `lidClearance`; `internal` encaixa na abertura do rim. A altura interna `lidHeight` é medida acima da borda do corpo
+- **Painel frontal** — Retângulo arredondado em `ExtrudeGeometry` com furos nativos no `Shape`, montado sobre a face frontal (+Z), com moldura sólida de `borderWidth`
+- **Pino lateral** — `LatheGeometry` de perfil fechado (flange, haste e ponta arredondada), perpendicular à lateral escolhida (`left`, `right`, `top` ou `bottom`)
+- **Base** — Anel loftado com `buildRingShell` em volta da parte inferior do corpo, face interna com folga `printClearance`
+
+Detalhes de implementação:
+
+- Corpo, tampa e base são lofts de anéis de retângulo arredondado, sem CSG. A base não usa ExtrudeGeometry: `buildRingShell` amostra cantos e arestas com contagem exata e garante anel de pelo menos `MINIMUM_FEATURE_MM` (0,8 mm) no topo, limitando o chanfro
+- O painel fica montado na frente (+Z) do corpo, sem janela passante. Os furos são recortados contra o retângulo interno arredondado (cantos respeitados), a grade é limitada a 800 aberturas (o espaçamento cresce 15% até caber) e `grid`/`mesh` recebem um epsilon de 0,001 rad somente no builder para o earcut fechar a malha. A curvatura (`slightly_convex`/`slightly_concave`) desloca apenas a face frontal em até `PANEL_CURVATURE_MM`; a traseira permanece plana
+- A tampa externa calcula o raio interno como teto (`bodyRadius + lidClearance`) e o externo como `inner + lidThickness`. `lidCornerRadius` é apenas um pedido: o raio efetivo é limitado pelo encaixe do corpo e reportado por `getLidDimensions`. No encaixe interno, `lidFitDepth` é limitado a `bodyTop - bottomThickness` para não atingir o fundo
+- O pino é colado na face por um flange, sem furo passante. O raio da ponta é limitado por `min(handleTipRadius, availableTip, shaftRadius)` e os triângulos degenerados do polo do `LatheGeometry` são removidos. A posição em `top`/`bottom` é medida ao longo da largura, limitada dentro do corpo (0,5 = centrada)
+- Duas cores no preview: `bodyColor` no corpo e `accentColor` na tampa, painel, pino e base. Trocar cor não rebuilda geometria; o STL exportado não carrega cor
+- Validação por códigos: `corner-radius`, `wall`, `panel-border`, `panel-empty`, `panel-hole`, `panel-rib`, `panel-density`, `panel-overhang`, `panel-height`, `panel-radius`, `lid-clearance`, `lid-fit-depth`, `lid-internal`, `handle-tip`, `handle-base`, `handle-flange`, `base-height` e `base-thin`, com severidade `error` ou `warning`. Os problemas aparecem na seção **Validação** do painel e não bloqueiam os sliders
+- Exportação: `-corpo`, `-tampa`, `-painel`, `-pino` e `-base`. O corpo e a base saem como construídos; a tampa é invertida (placa na mesa, saia para cima); o painel é deitado com a face traseira na mesa; o pino é girado de volta para ficar em pé sobre o flange. O `prepareHandleForPrint` usa o `builtParams` do build para desfazer a matriz de posicionamento e centralizar a peça. Até cinco downloads podem ser disparados e o navegador pode pedir permissão
+- `resetAzimuth=30` no `StudioViewport` porque o painel frontal fica em +Z; a câmera inicial precisa olhar a face frontal
+
 ## Decisões
 
 - **R3F + drei:** stack oficial do AGENTS.md; OrbitControls/Grid/Environment do
@@ -165,7 +217,7 @@ Pipeline completo de geração do marcador:
   valida e clampa os valores dos sliders.
 - **Mock de fiber/drei nos testes:** jsdom não tem WebGL; Canvas e componentes
   drei são mockados nos testes do viewport/page.
-- **Seletor por categoria:** ferramentas agrupadas em duas faixas horizontais empilhadas (Confeitaria e Letreiros) derivadas do array `TOOLS`; cards com `flex-wrap` e largura responsiva (`w-full sm:w-56`), título da categoria na seção (não mais no card). Chaveiro pertence a Letreiros.
+- **Seletor por categoria:** ferramentas agrupadas em três faixas horizontais empilhadas (Confeitaria, Letreiros e Lembrancinhas) derivadas do array `TOOLS`; cards com `flex-wrap` e largura responsiva (`w-full sm:w-56`), título da categoria na seção (não mais no card). Chaveiro pertence a Letreiros.
 - **Tema claro consistente com a landing** (painéis brancos, bordas neutral-200, ativos brand-600); componentes Amplify UI mantidos (SliderField, TextField).
 - **Grid distante (y=-25):** piso de fundo com cores claras que nunca intersecta a figura; câmera frontal `[40, 30, 80]` para melhor leitura do texto.
 - **Botões de ferramenta (selecionar/mover/rotacionar/zoom) removidos** — sem funcionalidade, substituídos pelo seletor de formas.
@@ -192,6 +244,7 @@ Pipeline completo de geração do marcador:
 - **Rolo de Textura:** Rolo cilíndrico fechado, com tampas planas e filetes de 1mm (sem cabos laterais), e relevo saliente. O padrão vem de três famílias (geométrico: losangos/bolinhas/grade; ondulado: ondas/chevrons/escamas; floral: flor/folha/roseta) ou de um SVG personalizado repetido como motivo. O relevo é vetorial, extrudado e curvado sobre o cilindro, com escala uniforme por `min(cellW, cellH)` e slider de escala (40–100%). Traços finos de motivos e SVG são engrossados até 0,8mm; preenchimentos sólidos do SVG não são alterados e a centerline é preservada. Motivos contínuos ultrapassam a célula em X para emendar sem costura. A densidade define células de 12/8/5mm; a profundidade do relevo é 0.5–2mm. O corpo é uma malha fechada por revolução; o relevo é mesclado ao corpo em grupos de material. A repetição fecha exatamente em 360° e no comprimento. Build em Web Worker. Exportação STL binário.
 - **Carimbo Brigadeiro:** Corpo único em hiperboloide com cintura central (LatheGeometry; duas "folhas" visuais) — face de contato plana no diâmetro, cintura no meio e topo menor; imprime com a face para cima (overhang ≲ 45°). Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; a elevação do relevo é ajustável (`reliefElevation`, 0.5–3.0mm, padrão 1mm) e o conteúdo sobressai abaixo da face de contato. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
+- **Termoformador:** Equipamento modular em cinco peças independentes (corpo, tampa, painel, pino e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do pino ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O pino usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance` e anel mínimo de 0,8 mm. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do pino. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
 
 ## Próximos passos (fora de escopo desta fase)
 

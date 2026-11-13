@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-12
 **Ferramenta:** `lembrancinhas/termoformador`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado (v1)
 
 ## Objetivo
 
@@ -114,7 +114,7 @@ sobre o corpo/cavidade.
 | Parâmetro | Faixa | Default |
 |---|---|---|
 | `frontPanelWidth` | 40–300 | 140 |
-| `frontPanelHeight` | 40–300 | 80 |
+| `frontPanelHeight` | 40–300 | 50 |
 | `frontPanelThickness` | 1–5 | 3 |
 | `frontPanelCornerRadius` | 0–40 | 8 |
 | `borderWidth` | 3–20 | 8 |
@@ -125,6 +125,9 @@ sobre o corpo/cavidade.
 | `holeSpacingY` | 1–10 | 5 |
 | `gridThickness` | 0,8–4 | 1,5 |
 | `gridAngle` | 0–90 | 0 |
+
+> Nota de implementação: o default de `frontPanelHeight` foi ajustado para
+> 50 mm para caber no corpo padrão (`height 60 + rimHeight 3`) sem aviso inicial.
 
 ### Pino lateral
 
@@ -365,3 +368,36 @@ preview não são mutadas: o export usa clones.
 - Curvatura produzida por molde real; a v1 aproxima só a face frontal.
 - `nozzleDiameter`, 3MF, STEP, aquecimento, vácuo, bomba e eletrônica.
 - Reconstrução fotogramétrica.
+
+## Atualizações de implementação
+
+Desvios encontrados durante a execução em relação ao design original:
+
+- A base usa um **loft de anel próprio** (`buildRingShell`, em `shell.ts`) em vez
+  de `ExtrudeGeometry`. O anel amostra cantos e arestas com contagem exata,
+  aplica `printClearance` na face interna e limita o chanfro para manter pelo
+  menos `MINIMUM_FEATURE_MM` (0,8 mm) de anel no topo.
+- Na tampa externa, o raio interno é um **teto** (`bodyRadius + lidClearance`) e
+  o externo é `inner + lidThickness`. `lidCornerRadius` é apenas um pedido,
+  limitado pelo encaixe do corpo; o valor efetivo é reportado por
+  `getLidDimensions`.
+- A profundidade do encaixe interno (`lidFitDepth`) é limitada a
+  `bodyTop - bottomThickness` para não atingir o fundo do corpo.
+- Os furos do painel são recortados contra o **retângulo interno arredondado**
+  (cantos respeitados) e a grade tem teto de 800 aberturas. `grid` e `mesh`
+  recebem um epsilon de 0,001 rad somente no builder para o earcut fechar a
+  malha.
+- O raio da ponta do pino é limitado ao raio da haste; os triângulos
+  degenerados do polo do `LatheGeometry` são removidos; o posicionamento em
+  `top`/`bottom` é medido ao longo da largura e limitado dentro do corpo
+  (0,5 = centrado).
+- O preview usa duas cores (`bodyColor` no corpo e `accentColor` nas demais
+  peças); troca de cor não rebuilda geometria e o STL não carrega cor.
+- O export usa o snapshot **`builtParams`** do build para o transform do pino,
+  em vez dos parâmetros correntes do painel.
+- O limite de **800 aberturas** e os códigos finais de validação
+  (`corner-radius`, `wall`, `panel-border`, `panel-empty`, `panel-hole`,
+  `panel-rib`, `panel-density`, `panel-overhang`, `panel-height`, `panel-radius`,
+  `lid-clearance`, `lid-fit-depth`, `lid-internal`, `handle-tip`, `handle-base`,
+  `handle-flange`, `base-height`, `base-thin`) foram confirmados na
+  implementação.

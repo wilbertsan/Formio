@@ -2,7 +2,7 @@
 
 ## Status
 
-Planejada.
+Implementada (v1).
 
 ## Objetivo
 
@@ -124,6 +124,41 @@ Parâmetros
 - Componentes desconectados
 - Folga insuficiente entre tampa e corpo
 - Grade sem moldura sólida ou fora da região interna
+
+## Decisões da v1
+
+- Corpo, tampa e base são **lofts de anéis** de retângulo arredondado, sem CSG.
+  A base usa `buildRingShell`, um anel loftado com amostragem exata de cantos e
+  arestas (não `ExtrudeGeometry`).
+- Os quatro fillets previstos (`outer_fillet`, `inner_fillet`, `bottom_fillet`,
+  `top_fillet`) foram substituídos por um único `edgeChamfer` (0–3 mm, default
+  0,4 mm) aplicado às arestas externas de corpo, tampa e base. Fillets 3D reais
+  ficam fora da v1.
+- O painel é **montado na face frontal** do corpo (+Z), sem janela passante. A
+  moldura sólida de `borderWidth` é preservada e os furos são recortados contra
+  o retângulo interno arredondado. A grade é limitada a **800 aberturas**
+  (`MAX_PANEL_OPENINGS`); se exceder, o espaçamento cresce 15% por iteração.
+  `grid` e `mesh` usam um epsilon de 0,001 rad somente no builder para manter a
+  triangulação do earcut fechada.
+- Na tampa `external`, o raio interno é um teto (`bodyRadius + lidClearance`) e
+  o externo é `inner + lidThickness`; `lidCornerRadius` é um pedido limitado pelo
+  encaixe do corpo, e `getLidDimensions` reporta o valor efetivo. No encaixe
+  `internal`, `lidFitDepth` é limitado a `bodyTop - bottomThickness` para não
+  atingir o fundo.
+- O pino usa flange **colado na face**, sem furo passante. O raio da ponta é
+  limitado ao raio da haste (`min(handleTipRadius, availableTip, shaftRadius)`) e
+  os triângulos degenerados do polo do `LatheGeometry` são removidos. Nas
+  laterais `top`/`bottom` a posição é medida ao longo da largura e limitada dentro
+  do corpo; `handleHeight` 0,5 fica centrado.
+- Duas cores no preview: `bodyColor` no corpo e `accentColor` na tampa, painel,
+  pino e base. Troca de cor não rebuilda geometria; o STL exportado não carrega
+  cor.
+- O export usa o snapshot **`builtParams`** do build (não os parâmetros atuais)
+  para desfazer a matriz de posicionamento do pino e centralizar cada peça.
+- `nozzleDiameter`, 3MF e STEP ficam fora da v1. `nozzleDiameter` não altera a
+  geometria; a impressão usa `printClearance` e as constantes de 0,8 mm.
+- `frontPanelHeight` tem default **50 mm** (não 80 mm) para caber no corpo
+  padrão (`height 60 + rimHeight 3`) sem aviso inicial.
 
 ## Fora de escopo
 
