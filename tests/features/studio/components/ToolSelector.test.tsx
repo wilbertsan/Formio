@@ -22,7 +22,7 @@ describe('ToolSelector', () => {
     expect(letreiros).not.toBeNull()
     expect(within(confeitaria as HTMLElement).getAllByRole('button')).toHaveLength(5)
     expect(within(letreiros as HTMLElement).getAllByRole('button')).toHaveLength(5)
-    expect(within(lembrancinhas as HTMLElement).getAllByRole('button')).toHaveLength(1)
+    expect(within(lembrancinhas as HTMLElement).getAllByRole('button')).toHaveLength(2)
   })
 
   it('coloca Chaveiro na seção Letreiros', () => {
@@ -51,6 +51,17 @@ describe('ToolSelector', () => {
     expect(card).toHaveTextContent('puxador lateral')
     await user.click(card)
     expect(onSelect).toHaveBeenCalledWith('caixa-personalizada')
+  })
+
+  it('coloca Termoformador na seção Lembrancinhas e emite o id', async () => {
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    render(<ToolSelector onSelect={onSelect} />)
+    const section = screen.getByRole('heading', { name: 'Lembrancinhas' }).closest('section')!
+    const card = within(section).getByRole('button', { name: /termoformador/i })
+    expect(card).toHaveTextContent('Tela circular perfurada')
+    await user.click(card)
+    expect(onSelect).toHaveBeenCalledWith('termoformador')
   })
 
   it('chama onSelect com o id da ferramenta clicada', async () => {

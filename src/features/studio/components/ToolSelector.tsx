@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'rolo-textura' | 'marcador-pagina' | 'placa-loja' | 'caixa-personalizada'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'rolo-textura' | 'marcador-pagina' | 'placa-loja' | 'caixa-personalizada' | 'termoformador'
 
 type ToolCategory = 'Confeitaria' | 'Letreiros' | 'Lembrancinhas'
 
@@ -90,6 +90,13 @@ const TOOLS: ToolCard[] = [
     name: 'Caixa Personalizada',
     description: 'Caixa 3D personalizável com tampa, painel decorativo, puxador lateral e base',
     icon: '📦',
+    category: 'Lembrancinhas',
+  },
+  {
+    id: 'termoformador',
+    name: 'Termoformador',
+    description: 'Tela circular perfurada com malha hexagonal e aro sólido',
+    icon: '⬡',
     category: 'Lembrancinhas',
   },
 ]
