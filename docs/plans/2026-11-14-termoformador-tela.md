@@ -35,6 +35,12 @@ favos) precisa provar que o `ExtrudeGeometry`:
 Se qualquer item falhar, **parar** e migrar para a malha procedural descrita no
 design antes de prosseguir.
 
+**Tempos medidos (referência):** default 283 favos → build ~80 ms; spike denso
+1.189 favos → build ~583 ms e `isClosed` ~784 ms (a duração do teste no Vitest
+inclui a checagem e chega a ~1,6 s, por isso o gate é avaliado pelo tempo de
+build); configuração máxima do schema (3.571 favos após o cap) → build ~7 s. O
+worker é obrigatório para manter a UI responsiva nesse extremo.
+
 ---
 
 ## Task 1: Schema, defaults e sanitização
