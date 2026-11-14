@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { BoxGeometry } from 'three'
+import { BoxGeometry, CylinderGeometry } from 'three'
 import { useThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/useThermoformer'
 import {
   defaultThermoformerParams,
@@ -16,7 +16,11 @@ function serializedScreen(): SerializedGeometry {
   return serializeGeometry(new BoxGeometry(160, 3, 120)).data
 }
 
-function makeWorkerFixture() {
+function serializedDisc(): SerializedGeometry {
+  return serializeGeometry(new CylinderGeometry(80, 80, 3, 64)).data
+}
+
+function makeWorkerFixture(serialize: () => SerializedGeometry = serializedScreen) {
   let lastParams: ThermoformerGeometryParams | null = null
   let calls = 0
   const pendings: Array<(data: SerializedGeometry) => void> = []
@@ -37,8 +41,8 @@ function makeWorkerFixture() {
     factory,
     terminate,
     getCalls: () => calls,
-    respond: () => pendings[pendings.length - 1]?.(serializedScreen()),
-    respondFirst: () => pendings[0]?.(serializedScreen()),
+    respond: () => pendings[pendings.length - 1]?.(serialize()),
+    respondFirst: () => pendings[0]?.(serialize()),
     fail: () => failures[failures.length - 1]?.(),
     getParams: () => lastParams,
   }
@@ -55,6 +59,7 @@ describe('useThermoformer', () => {
     expect(result.current.geometry).toBeNull()
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.issues).toHaveLength(0)
+    expect(result.current.fitRadius).toBeCloseTo(113.1, 1)
   })
 
   it('faz clamp dos campos numéricos', () => {
@@ -93,7 +98,19 @@ describe('useThermoformer', () => {
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.geometry).not.toBeNull()
     expect(result.current.dimensions).toEqual({ width: 160, height: 120, thickness: 3 })
-    expect(result.current.fitRadius).toBeGreaterThan(0)
+    // Fixture BoxGeometry(160, 3, 120): esfera envolvente de hypot(80, 1.5, 60).
+    expect(result.current.fitRadius).toBeCloseTo(Math.hypot(80, 1.5, 60), 1)
+  })
+
+  it('enquadra pelo raio da esfera, não pela diagonal da AABB', () => {
+    const { factory, respond } = makeWorkerFixture(serializedDisc)
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+
+    expect(result.current.fitRadius).toBeCloseTo(80, 1)
+    expect(result.current.fitRadius).toBeLessThan(100)
   })
 
   it('não rebuilda ao trocar apenas a cor', () => {

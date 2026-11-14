@@ -167,7 +167,7 @@ export function useThermoformer(
   }, [bounds, fallbackDimensions])
 
   const fitRadius = useMemo(() => {
-    if (!bounds) {
+    if (!geometry) {
       return Math.max(
         1,
         0.5 * Math.hypot(
@@ -177,8 +177,9 @@ export function useThermoformer(
         ),
       )
     }
-    return Math.max(1, 0.5 * Math.hypot(bounds.x, bounds.y, bounds.z))
-  }, [bounds, fallbackDimensions])
+    geometry.computeBoundingSphere()
+    return Math.max(1, geometry.boundingSphere?.radius ?? 1)
+  }, [geometry, fallbackDimensions])
 
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2
