@@ -10,7 +10,7 @@ lembrancinhas.
 | porta-vela | planejada |
 | mini-vaso | planejada |
 | caixa-personalizada | implementada (v1) |
-| termoformador | planejada |
+| termoformador | implementada (v1: tela) |
 
 ## Regras do domínio
 

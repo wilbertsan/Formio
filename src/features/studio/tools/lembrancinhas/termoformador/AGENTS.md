@@ -2,119 +2,75 @@
 
 ## Status
 
-Planejada.
+Implementada (v1: tela circular).
 
 ## Objetivo
 
-Gerar equipamento modular de termoformagem para produção de lembrancinhas, em
-peças separadas: corpo, tampa, painel perfurado, pino lateral e base.
+Gerar a tela circular do termoformador: um disco plano com aro sólido e malha
+hexagonal vazada, exportado como STL único. Corpo, tampa, pino lateral e base
+ficam para versões seguintes.
 
-## Parâmetros previstos
+## Parâmetros
 
-### Dimensões
-
-- `width`, `depth`: 60–300 mm
-- `height`: 20–120 mm
-- `corner_radius`: 0–40 mm
-- `wall_thickness`: 1,2–6 mm
-- `bottom_thickness`: 1,2–6 mm
-- `rim_height`: 0–10 mm
-- `rim_thickness`: 1,2–6 mm
-
-### Acabamento
-
-- `outer_fillet`, `inner_fillet`, `bottom_fillet`, `top_fillet`
-- `edge_chamfer`: 0–3 mm
-
-### Tampa
-
-- `lid_enabled`
-- `lid_thickness`: 1,2–6 mm
-- `lid_height`: 0–30 mm
-- `lid_clearance`: 0,1–0,6 mm
-- `lid_corner_radius`: 0–40 mm
-- `lid_fit_depth`: 2–20 mm
-- `fit_type`: `external` ou `internal`
-
-### Painel frontal
-
-- `front_panel_width`, `front_panel_height`: 40–300 mm
-- `front_panel_thickness`: 1–5 mm
-- `front_panel_corner_radius`: 0–40 mm
-- `border_width`: 3–20 mm
-- `surface_curvature`: `flat`, `slightly_convex` ou `slightly_concave`
-
-### Grade
-
-- `pattern`: `perforated`, `grid` ou `mesh`
-- `hole_diameter`: 0,8–6 mm
-- `hole_spacing_x`, `hole_spacing_y`: 1–10 mm
-- `grid_thickness`: 0,8–4 mm
-- `grid_angle`: 0–90°
-
-### Pino lateral
-
-- `handle_enabled`
-- `handle_diameter`: 3–20 mm
-- `handle_length`: 5–60 mm
-- `handle_base_diameter`: 4–30 mm
-- `handle_tip_radius`: 0–5 mm
-- `handle_side`: `left`, `right`, `top` ou `bottom`
-- `handle_height`: posição relativa à altura do corpo
-
-### Base inferior
-
-- `base_enabled`
-- `base_height`: 0–30 mm
-- `base_thickness`: 1,2–6 mm
-- `base_corner_radius`: 0–40 mm
-
-### Impressão
-
-- `nozzle_diameter`: padrão 0,4 mm
-- `minimum_wall`: padrão 0,8 mm
-- `minimum_feature`: padrão 0,8 mm
-- `print_clearance`: padrão 0,2–0,3 mm
+| Parâmetro | Faixa | Default |
+|---|---|---|
+| `diameter` | 60–300 mm | 160 |
+| `thickness` | 1,2–6 mm | 3 |
+| `frameWidth` | 2–30 mm | 6 |
+| `lineWidth` | 1,2–4 mm | 2 |
+| `opening` | 3–30 mm | 6 |
+| `color` | 10 cores PLA | `#14b8a6` |
 
 ## Regras do domínio
 
-- Corpo é um sólido único com cavidade interna e fundo plano
-- Tampa é independente e usa `fit_type` + `lid_clearance` para o encaixe
-- Painel frontal preserva moldura sólida de `border_width`; a grade ocupa
-  somente a região interna
-- Grade e furos respeitam `minimum_feature` e `minimum_wall`
-- Pino lateral é perpendicular à lateral escolhida e não invade a cavidade
-- Base inferior é independente
-- Evitar operações booleanas desnecessárias; validar a malha ao final
-- STL sempre manifold, fechado, sem auto-interseções e sem peças soltas
+- 1 unidade Three.js = 1 mm
+- Tela plana, espessura constante e aro sólido de `frameWidth`
+- Malha hexagonal flat-top: passo `opening + lineWidth` e circunraio
+  `opening / √3`
+- Só entram favos totalmente dentro de `diameter/2 - frameWidth`; a borda
+  sólida efetiva pode chegar a `frameWidth + circunraio`
+- Limite de 4.000 favos; acima disso a abertura cresce 15% por iteração
+- Malha sempre fechada, manifold e sem favos fora do aro
+- Sem CSG
 
-## Pipeline previsto
+## Pipeline
 
 ```text
 Parâmetros
-  → contorno externo arredondado
-  → extrusão
-  → cavidade interna
-  → fillets
-  → borda superior
-  → encaixe da tampa
-  → painel frontal
-  → matriz de furos/grade
-  → pino lateral
-  → base
-  → validação de geometria
-  → exportação STL
+  → schema + validação
+  → layout hexagonal
+  → Shape circular + Paths hexagonais
+  → ExtrudeGeometry + rotação para deitar
+  → worker + serialização
+  → preview / export STL
 ```
 
 ## Exportação
 
-- STLs separados: `body`, `lid`, `front-panel`, `handle`, `base`
-- "Exportar tudo" gera todos os componentes habilitados
-- Peças desabilitadas não são exportadas
-- STL binário nesta fase; 3MF/STEP fora de escopo
+- Um STL binário: `<nome>-tela.stl`
+- A peça sai deitada e centralizada na mesa
+
+## Validação
+
+- `screen-frame`: aro consome o disco
+- `screen-empty`: nenhum favo cabe
+- `screen-density`: limite de favos atingido
+- `screen-opening`: abertura maior que o raio interno
+- `screen-line`: linha abaixo de 0,8 mm (defensivo)
+
+## Decisões da v1
+
+- `ExtrudeGeometry` com furos hexagonais nativos, validado por spike com ~1.200
+  favos antes de seguir.
+- Cada favo é girado em 0,001 rad (`HEXAGON_ANGLE_EPSILON`) para evitar
+  vértices exatamente colineares entre favos vizinhos; sem isso o Earcut deixa
+  os caps abertos.
+- Favos parciais descartados; sem CSG.
+- Cor não rebuilda geometria.
+- `fitRadius` usa a esfera envolvente da geometria, não a diagonal da AABB.
+- O build roda em worker; configurações extremas (~3.571 favos) levam ~7 s.
+- Serialização local de uma peça, independente da Caixa.
 
 ## Fora de escopo
 
-Reconstrução fotogramétrica exata, 3MF/STEP nesta fase, aquecimento, vácuo,
-bomba, eletrônica e outros componentes além de corpo, tampa, painel, pino e
-base.
+Corpo, tampa, pino lateral, base, curvatura, 3MF/STEP e outros formatos.

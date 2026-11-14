@@ -13,6 +13,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Rolo de Textura** — Rolos cilíndricos fechados (sem cabos) com padrão em relevo (geométrico, ondulado, floral ou SVG)
 - **Marcador de Página** — Marcadores 3D em duas peças (base + texto com encaixe em U)
 - **Caixa Personalizada** — Caixa 3D personalizável com tampa, painel decorativo, puxador lateral e base, em STLs separados
+- **Termoformador** — Tela circular perfurada com malha hexagonal e aro sólido, em STL único
 
 ### Componentes Genéricos
 
@@ -138,6 +139,19 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Painel de parâmetros | `src/features/studio/tools/lembrancinhas/caixa-personalizada/StudioPanel.tsx` |
 | Preview R3F (duas cores) | `src/features/studio/tools/lembrancinhas/caixa-personalizada/BoxPreview.tsx` |
 | Exportar cinco STLs | `src/features/studio/tools/lembrancinhas/caixa-personalizada/exportStl.ts` |
+| **Termoformador** | |
+| Schema + tipos (faixas, defaults, cores e constantes) | `src/features/studio/tools/lembrancinhas/termoformador/schema.ts` |
+| Círculo e hexágono (Shape/Path e epsilon angular) | `src/features/studio/tools/lembrancinhas/termoformador/shapes.ts` |
+| Layout hexagonal (passo, cap de 4.000 e métricas) | `src/features/studio/tools/lembrancinhas/termoformador/screenPattern.ts` |
+| Build da tela (ExtrudeGeometry e rotação) | `src/features/studio/tools/lembrancinhas/termoformador/buildScreen.ts` |
+| Validação (issues e severidade) | `src/features/studio/tools/lembrancinhas/termoformador/validateScreen.ts` |
+| Worker + serialização | `src/features/studio/tools/lembrancinhas/termoformador/buildScreen.worker.ts` |
+| Serialização da geometria | `src/features/studio/tools/lembrancinhas/termoformador/workerGeometry.ts` |
+| Interface do worker | `src/features/studio/tools/lembrancinhas/termoformador/workerClient.ts` |
+| Hook de estado | `src/features/studio/tools/lembrancinhas/termoformador/useThermoformer.ts` |
+| Painel de parâmetros | `src/features/studio/tools/lembrancinhas/termoformador/StudioPanel.tsx` |
+| Preview R3F | `src/features/studio/tools/lembrancinhas/termoformador/ScreenPreview.tsx` |
+| Export STL | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
 
 ## Gerador de chaveiros
 
@@ -206,9 +220,42 @@ Detalhes de implementação:
 - Exportação: `-corpo`, `-tampa`, `-painel`, `-puxador` e `-base`. O corpo e a base saem como construídos; a tampa é invertida (placa na mesa, saia para cima); o painel é deitado com a face traseira na mesa; o puxador é girado de volta para ficar em pé sobre o flange. O `prepareHandleForPrint` usa o `builtParams` do build para desfazer a matriz de posicionamento e centralizar a peça. Até cinco downloads podem ser disparados e o navegador pode pedir permissão
 - `resetAzimuth=30` no `StudioViewport` porque o painel decorativo fica em +Z; a câmera inicial precisa olhar a face frontal
 
-> O **Termoformador** é uma ferramenta planejada para uma próxima versão. O
-> spec está em `src/features/studio/tools/lembrancinhas/termoformador/AGENTS.md`
-> e ele não aparece no seletor até ser implementado.
+## Termoformador (tela)
+
+Pipeline completo de geração da tela circular:
+
+**useThermoformer.ts** → **buildScreen.worker.ts** → **buildScreen.ts** → **exportStl.ts**
+
+1. **schema.ts** — Valida diâmetro, espessura, largura do aro, espessura da linha,
+   abertura do favo e cor PLA e concentra `MINIMUM_FEATURE_MM`,
+   `MAX_SCREEN_OPENINGS` e `SCREEN_SEGMENTS`
+2. **shapes.ts** — Cria o contorno circular e um `Path` hexagonal por favo, com
+   `HEXAGON_ANGLE_EPSILON` para evitar vértices exatamente colineares que abrem
+   os caps do Earcut
+3. **screenPattern.ts** — Calcula a treliça hexagonal flat-top
+   (`spacing = opening + lineWidth`), inclui apenas favos totalmente dentro de
+   `diameter/2 - frameWidth` e limita a 4.000 favos, crescendo a abertura 15%
+   por iteração
+4. **useThermoformer.ts** — Reducer + Zod com clamp dos sliders (debounce de
+   250 ms), um worker por build com descarte de respostas obsoletas, validação
+   na main thread e `fitRadius` pela esfera envolvente
+5. **buildScreen.worker.ts** — Executa `buildScreen` fora da main thread;
+   `workerGeometry.ts` serializa position/normal/index com transferência
+6. **buildScreen.ts** — `Shape` circular com furos hexagonais em
+   `ExtrudeGeometry`, girado para deitar em XZ com espessura em +Y
+7. **exportStl.ts** — Baixa um STL binário `<nome>-tela.stl`, centralizado na
+   mesa
+
+Detalhes:
+
+- A tela é uma peça única; corpo, tampa, pino e base ficam fora da v1.
+- O aro sólido tem `frameWidth`; favos parciais são descartados, então a borda
+  efetiva pode chegar a `frameWidth + circunraio`.
+- Os testes validam a malha com `isClosed` (cada aresta em dois triângulos e
+  winding coerente).
+- A cor não rebuilda a geometria.
+- Configurações extremas (~3.571 favos) levam ~7 s e rodam no worker para não
+  travar a UI.
 
 ## Decisões
 
@@ -249,6 +296,7 @@ Detalhes de implementação:
 - **Carimbo Brigadeiro:** Corpo único em hiperboloide com cintura central (LatheGeometry; duas "folhas" visuais) — face de contato plana no diâmetro, cintura no meio e topo menor; imprime com a face para cima (overhang ≲ 45°). Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; a elevação do relevo é ajustável (`reliefElevation`, 0.5–3.0mm, padrão 1mm) e o conteúdo sobressai abaixo da face de contato. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 - **Caixa Personalizada:** Caixa 3D personalizável em cinco peças independentes (corpo, tampa, painel decorativo, puxador e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do puxador ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O puxador usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance`, raio interno derivado do canto do corpo e anel mínimo de 0,8 mm. O puxador fica em `left`/`right` na v1; `top`/`bottom` são reservados. A tampa externa assenta em `lidHeight = 0`; valores maiores exigem junta/suporte, e a tampa interna é um plugue sem flange. A montagem avisa colisões entre painel/base, painel/tampa e flange/base ou flange/tampa. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do puxador. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
+- **Termoformador (tela):** Peça única circular com aro sólido e malha hexagonal flat-top. `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada. Favos limitados a 4.000, com abertura crescendo 15% ao exceder. Epsilon de 0,001 rad por favo evita caps abertos no Earcut. Cor não rebuilda; export de um STL `-tela`. `fitRadius` usa a esfera envolvente. Build em worker; a configuração máxima do schema leva ~7 s.
 
 ## Próximos passos (fora de escopo desta fase)
 
