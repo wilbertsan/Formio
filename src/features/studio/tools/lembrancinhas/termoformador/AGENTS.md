@@ -17,7 +17,7 @@ ficam para versões seguintes.
 | `diameter` | 60–300 mm | 160 |
 | `thickness` | 1,2–6 mm | 3 |
 | `frameWidth` | 2–30 mm | 6 |
-| `lineWidth` | 1,2–4 mm | 2 |
+| `lineWidth` | 0,4–4 mm | 0,4 |
 | `opening` | 3–30 mm | 6 |
 | `color` | 10 cores PLA | `#14b8a6` |
 
@@ -56,7 +56,7 @@ Parâmetros
 - `screen-empty`: nenhum favo cabe
 - `screen-density`: limite de favos atingido
 - `screen-opening`: abertura maior que o raio interno
-- `screen-line`: linha abaixo de 0,8 mm (defensivo)
+- `screen-line`: linha abaixo de 0,4 mm (defensivo)
 
 ## Decisões da v1
 
@@ -67,6 +67,8 @@ Parâmetros
   os caps abertos.
 - Favos parciais descartados; sem CSG.
 - Cor não rebuilda geometria.
+- A linha padrão é 0,4 mm, equivalente a uma extrusão com bico de 0,4 mm; abaixo
+  disso a malha fica frágil e a validação avisa.
 - `fitRadius` usa a esfera envolvente da geometria, não a diagonal da AABB.
 - O build roda em worker; configurações extremas (~3.571 favos) levam ~7 s.
 - Serialização local de uma peça, independente da Caixa.

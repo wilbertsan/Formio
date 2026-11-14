@@ -9,7 +9,8 @@ export type PlaColor = (typeof PLA_COLORS)[number]
 
 export const PRODUCT_TYPE = 'termoformador' as const
 
-export const MINIMUM_FEATURE_MM = 0.8
+/** Linha mínima da malha: uma extrusão de 0,4 mm (bico padrão). */
+export const MINIMUM_LINE_MM = 0.4
 export const MAX_SCREEN_OPENINGS = 4000
 export const SCREEN_SEGMENTS = 128
 
@@ -18,7 +19,7 @@ export const thermoformerParamsSchema = z.object({
   diameter: z.number().min(60).max(300),
   thickness: z.number().min(1.2).max(6),
   frameWidth: z.number().min(2).max(30),
-  lineWidth: z.number().min(1.2).max(4),
+  lineWidth: z.number().min(0.4).max(4),
   opening: z.number().min(3).max(30),
   color: z.enum(PLA_COLORS),
 })
@@ -33,7 +34,7 @@ export const defaultThermoformerParams: ThermoformerParams = {
   diameter: 160,
   thickness: 3,
   frameWidth: 6,
-  lineWidth: 2,
+  lineWidth: 0.4,
   opening: 6,
   color: '#14b8a6',
 }

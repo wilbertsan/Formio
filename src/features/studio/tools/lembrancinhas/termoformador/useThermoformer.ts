@@ -25,7 +25,7 @@ const NUMERIC_RANGES: Partial<Record<keyof ThermoformerParams, { min: number; ma
   diameter: { min: 60, max: 300 },
   thickness: { min: 1.2, max: 6 },
   frameWidth: { min: 2, max: 30 },
-  lineWidth: { min: 1.2, max: 4 },
+  lineWidth: { min: 0.4, max: 4 },
   opening: { min: 3, max: 30 },
 }
 

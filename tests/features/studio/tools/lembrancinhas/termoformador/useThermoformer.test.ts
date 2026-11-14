@@ -90,7 +90,7 @@ describe('useThermoformer', () => {
       diameter: 160,
       thickness: 3,
       frameWidth: 6,
-      lineWidth: 2,
+      lineWidth: 0.4,
       opening: 6,
     })
 

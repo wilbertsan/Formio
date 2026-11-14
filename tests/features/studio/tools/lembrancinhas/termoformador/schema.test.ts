@@ -14,7 +14,7 @@ describe('termoformador schema', () => {
       diameter: 160,
       thickness: 3,
       frameWidth: 6,
-      lineWidth: 2,
+      lineWidth: 0.4,
       opening: 6,
     })
   })
@@ -22,7 +22,7 @@ describe('termoformador schema', () => {
   it('rejeita dimensões fora da faixa', () => {
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, diameter: 59 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, thickness: 7 }).success).toBe(false)
-    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, lineWidth: 0.5 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, lineWidth: 0.3 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, opening: 2 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, frameWidth: 1 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, frameWidth: 31 }).success).toBe(false)

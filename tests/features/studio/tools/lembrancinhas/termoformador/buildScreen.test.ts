@@ -48,16 +48,16 @@ describe('buildScreen', () => {
     solid.dispose()
   })
 
-  it('spike: malha densa (~1.200 favos) permanece fechada', () => {
+  it('spike: malha densa (~1.800 favos) permanece fechada', () => {
     const params = {
       ...defaultThermoformerParams,
       diameter: 160,
       frameWidth: 2,
       opening: 3,
-      lineWidth: 1.2,
+      lineWidth: 0.4,
     }
     const pattern = computeScreenPattern(params)
-    expect(pattern.cells.length).toBeGreaterThan(1000)
+    expect(pattern.cells.length).toBeGreaterThan(1500)
     expect(pattern.cells.length).toBeLessThanOrEqual(MAX_SCREEN_OPENINGS)
 
     const geometry = buildScreen(params)

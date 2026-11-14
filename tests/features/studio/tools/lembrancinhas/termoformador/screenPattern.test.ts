@@ -12,7 +12,7 @@ describe('computeScreenPattern', () => {
     expect(pattern.capped).toBe(false)
     expect(pattern.innerRadius).toBeCloseTo(74, 5)
     expect(pattern.cellRadius).toBeCloseTo(6 / Math.sqrt(3), 5)
-    expect(pattern.spacing).toBeCloseTo(8, 5)
+    expect(pattern.spacing).toBeCloseTo(6.4, 5)
 
     for (const cell of pattern.cells) {
       expect(Math.hypot(cell.x, cell.y) + cell.radius).toBeLessThanOrEqual(
@@ -21,15 +21,15 @@ describe('computeScreenPattern', () => {
     }
   })
 
-  it('mantém a linha de 2 mm entre favos vizinhos', () => {
+  it('mantém a linha de 0,4 mm entre favos vizinhos', () => {
     const pattern = computeScreenPattern(defaultThermoformerParams)
-    expect(pattern.effectiveLine).toBeCloseTo(2, 5)
-    expect(pattern.spacing - pattern.effectiveOpening).toBeCloseTo(2, 5)
+    expect(pattern.effectiveLine).toBeCloseTo(0.4, 5)
+    expect(pattern.spacing - pattern.effectiveOpening).toBeCloseTo(0.4, 5)
   })
 
-  it('mantém passo uniforme e parede de 2 mm entre favos vizinhos', () => {
+  it('mantém passo uniforme e parede de 0,4 mm entre favos vizinhos', () => {
     const { cells, spacing, effectiveLine } = computeScreenPattern(defaultThermoformerParams)
-    expect(effectiveLine).toBeCloseTo(2, 5)
+    expect(effectiveLine).toBeCloseTo(0.4, 5)
 
     let neighbours = 0
     for (let i = 0; i < cells.length; i++) {

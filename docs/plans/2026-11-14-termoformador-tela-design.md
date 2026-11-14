@@ -8,7 +8,7 @@
 
 Criar a primeira entrega do **Termoformador**: uma peça única, a **tela
 circular**, formada por um aro sólido e uma malha hexagonal vazada com linhas de
-2 mm. A peça é visualizada no Studio 3D, gerada em Web Worker e exportada como
+0,4 mm. A peça é visualizada no Studio 3D, gerada em Web Worker e exportada como
 STL binário.
 
 Corpo, tampa, pino lateral e base descritos no `AGENTS.md` da ferramenta ficam
@@ -20,7 +20,7 @@ Caixa Personalizada.
 Incluído:
 
 - Disco circular plano, espessura constante e aro sólido.
-- Malha hexagonal (favos vazados) interna, alinhada, com linhas de 2 mm.
+- Malha hexagonal (favos vazados) interna, alinhada, com linhas de 0,4 mm.
 - Parâmetros de diâmetro, espessura, aro, linha e abertura do favo.
 - Preview R3F de uma malha, cor única PLA.
 - Build em Web Worker, validação de domínio e export STL único.
@@ -40,7 +40,7 @@ Excluído:
 | `diameter` | 60–300 mm | 160 | diâmetro externo do disco |
 | `thickness` | 1,2–6 mm | 3 | espessura da placa |
 | `frameWidth` | 2–30 mm | 6 | largura do aro sólido |
-| `lineWidth` | 1,2–4 mm | 2 | espessura das linhas da malha |
+| `lineWidth` | 0,4–4 mm | 0,4 | espessura das linhas da malha |
 | `opening` | 3–30 mm | 6 | abertura do favo entre lados opostos |
 | `color` | 10 cores PLA | `#14b8a6` | apenas preview; STL não carrega cor |
 
@@ -77,7 +77,7 @@ Alternativas descartadas:
 
 ### Spike obrigatório
 
-Antes de construir o restante, validar com ~1.500 favos que:
+Antes de construir o restante, validar com ~1.800 favos que:
 
 1. a malha é fechada (cada aresta aparece em exatamente 2 triângulos);
 2. o build termina em tempo aceitável (< ~1,5 s no worker);
@@ -148,7 +148,7 @@ tema claro e os tokens de `docs/ui/*`. Sem componente novo de UI.
 | `screen-empty` | warning | nenhum favo cabe na área interna |
 | `screen-density` | warning | limite de favos atingido e abertura ampliada |
 | `screen-opening` | warning | abertura não cabe no raio interno |
-| `screen-line` | warning | linha efetiva abaixo de 0,8 mm |
+| `screen-line` | warning | linha efetiva abaixo de 0,4 mm |
 
 Avisos não bloqueiam o build nem o export.
 
@@ -163,7 +163,7 @@ Avisos não bloqueiam o build nem o export.
 
 - **Uma peça por vez:** a v1 entrega somente a tela para validar o conceito de
   equipamento modular antes de corpo/tampa/pino/base.
-- **Favo flat-top:** melhor encaixe visual no contorno circular e linhas de 2 mm
+- **Favo flat-top:** melhor encaixe visual no contorno circular e linhas de 0,4 mm
   uniformes.
 - **Favos parciais descartados:** evita CSG e mantém a malha fechada; o aro
   efetivo é documentado e mostrado no painel.
@@ -189,7 +189,7 @@ Avisos não bloqueiam o build nem o export.
 ## Critérios de conclusão
 
 - Card **Termoformador** abre a ferramenta em Lembrancinhas.
-- Tela circular com aro sólido e malha hexagonal de linha 2 mm é gerada.
+- Tela circular com aro sólido e malha hexagonal de linha 0,4 mm é gerada.
 - Sliders atualizam a geometria com debounce e build em worker.
 - Validação lista as issues esperadas sem bloquear.
 - Export baixa `<nome>-tela.stl` deitado, fechado e manifold.

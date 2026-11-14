@@ -45,7 +45,7 @@ describe('StudioPanel (termoformador)', () => {
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Espessura da linha' }), {
       key: 'ArrowRight',
     })
-    expect(onUpdateParam).toHaveBeenCalledWith('lineWidth', 2.2)
+    expect(onUpdateParam).toHaveBeenCalledWith('lineWidth', 0.6)
   })
 
   it('troca a cor PLA', () => {
@@ -115,7 +115,7 @@ describe('StudioPanel (termoformador)', () => {
 
   it('mostra a contagem de favos e o aro sólido efetivo', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText(/283 favos/)).toBeDefined()
+    expect(screen.getByText(/439 favos/)).toBeDefined()
     expect(screen.getByText(/9\.5 mm/)).toBeDefined()
   })
 

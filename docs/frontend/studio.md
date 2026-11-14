@@ -227,7 +227,7 @@ Pipeline completo de geração da tela circular:
 **useThermoformer.ts** → **buildScreen.worker.ts** → **buildScreen.ts** → **exportStl.ts**
 
 1. **schema.ts** — Valida diâmetro, espessura, largura do aro, espessura da linha,
-   abertura do favo e cor PLA e concentra `MINIMUM_FEATURE_MM`,
+   abertura do favo e cor PLA e concentra `MINIMUM_LINE_MM`,
    `MAX_SCREEN_OPENINGS` e `SCREEN_SEGMENTS`
 2. **shapes.ts** — Cria o contorno circular e um `Path` hexagonal por favo, com
    `HEXAGON_ANGLE_EPSILON` para evitar vértices exatamente colineares que abrem
@@ -249,6 +249,8 @@ Pipeline completo de geração da tela circular:
 Detalhes:
 
 - A tela é uma peça única; corpo, tampa, pino e base ficam fora da v1.
+- A linha padrão é 0,4 mm, equivalente a uma extrusão de bico 0,4 mm; abaixo
+  disso a malha fica frágil e a validação avisa.
 - O aro sólido tem `frameWidth`; favos parciais são descartados, então a borda
   efetiva pode chegar a `frameWidth + circunraio`.
 - Os testes validam a malha com `isClosed` (cada aresta em dois triângulos e

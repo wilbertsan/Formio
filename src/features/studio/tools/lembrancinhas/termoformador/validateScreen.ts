@@ -1,7 +1,7 @@
 import { computeScreenPattern } from './screenPattern'
 import {
   MAX_SCREEN_OPENINGS,
-  MINIMUM_FEATURE_MM,
+  MINIMUM_LINE_MM,
   type ThermoformerGeometryParams,
 } from './schema'
 
@@ -59,11 +59,11 @@ export function validateScreen(
   }
 
   // Guarda defensiva para chamadores diretos fora dos intervalos do Zod; a UI não alcança este caso.
-  if (pattern.effectiveLine < MINIMUM_FEATURE_MM - 1e-9) {
+  if (pattern.effectiveLine < MINIMUM_LINE_MM - 1e-9) {
     issues.push({
       code: 'screen-line',
       severity: 'warning',
-      message: `A linha efetiva fica abaixo de ${MINIMUM_FEATURE_MM} mm.`,
+      message: `A linha efetiva fica abaixo de ${MINIMUM_LINE_MM} mm.`,
     })
   }
 

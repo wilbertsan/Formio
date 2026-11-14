@@ -59,7 +59,7 @@ describe('validateScreen', () => {
   })
 
   it('aponta linha abaixo do mínimo (defensivo)', () => {
-    const issues = validateScreen({ ...defaultThermoformerParams, lineWidth: 0.5 })
+    const issues = validateScreen({ ...defaultThermoformerParams, lineWidth: 0.3 })
     expect(issues).toContainEqual(expect.objectContaining({ code: 'screen-line', severity: 'warning' }))
   })
 })

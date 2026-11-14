@@ -130,7 +130,7 @@ export function StudioPanel({
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <LabeledSlider label="Abertura do favo" value={params.opening} min={3} max={30} step={0.5} onChange={(value) => onUpdateParam('opening', value)} />
-              <LabeledSlider label="Espessura da linha" value={params.lineWidth} min={1.2} max={4} step={0.2} onChange={(value) => onUpdateParam('lineWidth', value)} />
+              <LabeledSlider label="Espessura da linha" value={params.lineWidth} min={0.4} max={4} step={0.2} onChange={(value) => onUpdateParam('lineWidth', value)} />
               <LabeledSlider label="Largura do aro" value={params.frameWidth} min={2} max={30} step={1} onChange={(value) => onUpdateParam('frameWidth', value)} />
             </Flex>
           </Accordion.Content>
