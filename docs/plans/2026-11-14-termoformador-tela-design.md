@@ -51,9 +51,8 @@ Excluído:
 - A geometria da malha é um favo hexagonal **flat-top**.
 - Circunraio do favo: `Rc = opening / √3`.
 - Passo entre centros: `d = opening + lineWidth`.
-- Fator de expansão da treliça: `k = (opening + lineWidth) / opening`, aplicado
-  aos vetores base `(1,5·Rc, 0)` e `(0,75·Rc, √3·Rc)` para manter a linha
-  uniforme.
+- Treliça flat-top com passo horizontal `(√3/2)·(opening + lineWidth)` e
+  vertical `opening + lineWidth`, com colunas ímpares deslocadas meia linha.
 - Só entram favos **totalmente dentro** do raio interno do aro:
   `distância do centro + Rc ≤ diameter/2 − frameWidth`. Favos parciais são
   descartados, então a borda sólida efetiva pode chegar a `frameWidth + Rc`.
@@ -126,7 +125,8 @@ Parâmetros
 - `StudioPage.tsx`: lazy imports de `StudioPanel` e `ScreenPreview`, wrapper
   `ThermoformerToolWrapper` com topbar, estados de build, validação e export.
 - O viewport usa a câmera derivada do `fitRadius` como nas demais ferramentas.
-- Status bar mostra diâmetro × espessura × diâmetro.
+- Status bar mostra largura × altura × espessura; para a tela, diâmetro ×
+  diâmetro × espessura (ex.: 160 × 160 × 3 mm).
 
 ## UI
 

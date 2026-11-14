@@ -9,6 +9,7 @@ import {
   View,
 } from '@aws-amplify/ui-react'
 import { PLA_COLORS, type ThermoformerParams } from './schema'
+import { computeScreenPattern } from './screenPattern'
 import type { ValidationIssue } from './validateScreen'
 
 interface StudioPanelProps {
@@ -90,6 +91,8 @@ export function StudioPanel({
   onUpdateParam,
   onReset,
 }: StudioPanelProps) {
+  const pattern = computeScreenPattern(params)
+
   return (
     <View
       as="aside"
@@ -161,23 +164,31 @@ export function StudioPanel({
             <Accordion.Icon />
           </Accordion.Trigger>
           <Accordion.Content>
-            {issues.length === 0 ? (
-              <Text fontSize="xs" color="font.tertiary">
-                Nenhum problema encontrado.
-              </Text>
-            ) : (
-              <Flex direction="column" gap="xs">
-                {issues.map((issue) => (
-                  <Alert
-                    key={issue.code}
-                    variation={issue.severity === 'error' ? 'error' : 'warning'}
-                    heading={issue.severity === 'error' ? 'Erro' : 'Aviso'}
-                  >
-                    {issue.message}
-                  </Alert>
-                ))}
-              </Flex>
-            )}
+            <Flex direction="column" gap="xs">
+              {pattern.cells.length > 0 && (
+                <Text fontSize="xs" color="font.secondary">
+                  {pattern.cells.length} favos · aro sólido até{' '}
+                  {(params.frameWidth + pattern.cellRadius).toFixed(1)} mm
+                </Text>
+              )}
+              {issues.length === 0 ? (
+                <Text fontSize="xs" color="font.tertiary">
+                  Nenhum problema encontrado.
+                </Text>
+              ) : (
+                <Flex direction="column" gap="xs">
+                  {issues.map((issue) => (
+                    <Alert
+                      key={issue.code}
+                      variation={issue.severity === 'error' ? 'error' : 'warning'}
+                      heading={issue.severity === 'error' ? 'Erro' : 'Aviso'}
+                    >
+                      {issue.message}
+                    </Alert>
+                  ))}
+                </Flex>
+              )}
+            </Flex>
           </Accordion.Content>
         </Accordion.Item>
       </Accordion.Container>

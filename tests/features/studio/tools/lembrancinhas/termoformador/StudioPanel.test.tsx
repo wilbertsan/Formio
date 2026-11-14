@@ -113,6 +113,12 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByText('Erro')).toBeDefined()
   })
 
+  it('mostra a contagem de favos e o aro sólido efetivo', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText(/283 favos/)).toBeDefined()
+    expect(screen.getByText(/9\.5 mm/)).toBeDefined()
+  })
+
   it('não permite diâmetro abaixo do mínimo', () => {
     const onUpdateParam = vi.fn()
     render(

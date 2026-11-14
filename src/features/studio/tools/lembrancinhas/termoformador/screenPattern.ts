@@ -11,10 +11,6 @@ export interface ScreenCell {
 
 export interface ScreenPatternResult {
   cells: ScreenCell[]
-  /** Extensão dos índices de coluna ocupados (não é a contagem de colunas distintas). */
-  columns: number
-  /** Extensão dos índices de linha ocupados. */
-  rows: number
   capped: boolean
   innerRadius: number
   effectiveOpening: number
@@ -37,8 +33,6 @@ export function computeScreenPattern(
   if (innerRadius <= EPS) {
     return {
       cells: [],
-      columns: 0,
-      rows: 0,
       capped: false,
       innerRadius: Math.max(0, innerRadius),
       effectiveOpening: params.opening,
@@ -51,8 +45,6 @@ export function computeScreenPattern(
   let effectiveOpening = params.opening
   let capped = false
   let cells: ScreenCell[] = []
-  let columns = 0
-  let rows = 0
   let cellRadius = 0
   let spacing = 0
 
@@ -68,10 +60,6 @@ export function computeScreenPattern(
     const rowBound = Math.ceil(innerRadius / stepY) + 2
 
     const next: ScreenCell[] = []
-    let minColumn = Infinity
-    let lastColumn = -Infinity
-    let minRow = Infinity
-    let lastRow = -Infinity
 
     for (let column = -columnBound; column <= columnBound; column++) {
       const offset = Math.abs(column) % 2 === 1 ? stepY / 2 : 0
@@ -80,16 +68,10 @@ export function computeScreenPattern(
         const y = row * stepY + offset
         if (Math.hypot(x, y) + cellRadius > innerRadius + EPS) continue
         next.push({ x, y, radius: cellRadius })
-        minColumn = Math.min(minColumn, column)
-        lastColumn = Math.max(lastColumn, column)
-        minRow = Math.min(minRow, row)
-        lastRow = Math.max(lastRow, row)
       }
     }
 
     cells = next
-    columns = cells.length > 0 ? lastColumn - minColumn + 1 : 0
-    rows = cells.length > 0 ? lastRow - minRow + 1 : 0
 
     if (cells.length <= MAX_SCREEN_OPENINGS) break
 
@@ -101,8 +83,6 @@ export function computeScreenPattern(
 
   return {
     cells,
-    columns,
-    rows,
     capped,
     innerRadius,
     effectiveOpening,
