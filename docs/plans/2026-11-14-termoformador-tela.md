@@ -171,10 +171,24 @@ git commit -m "feat: add thermoformer screen schema"
 
 ```ts
 import { describe, it, expect } from 'vitest'
+import type { Path, Vector2 } from 'three'
 import {
   circleShape,
   hexagonPath,
 } from '@/features/studio/tools/lembrancinhas/termoformador/shapes'
+
+/** `getPoints` repete as junções; remove duplicatas consecutivas e o fechamento. */
+function vertices(path: Path): Vector2[] {
+  const unique: Vector2[] = []
+  for (const point of path.getPoints(1)) {
+    const last = unique[unique.length - 1]
+    if (!last || last.distanceTo(point) > 1e-6) unique.push(point)
+  }
+  if (unique.length > 1 && unique[0].distanceTo(unique[unique.length - 1]) <= 1e-6) {
+    unique.pop()
+  }
+  return unique
+}
 
 describe('shapes', () => {
   it('círculo amostrado mantém o raio', () => {
@@ -186,7 +200,7 @@ describe('shapes', () => {
   })
 
   it('hexágono tem seis vértices no raio pedido', () => {
-    const points = hexagonPath(4, -3, 2).getPoints(1).slice(0, 6)
+    const points = vertices(hexagonPath(4, -3, 2))
     expect(points).toHaveLength(6)
     for (const point of points) {
       expect(Math.hypot(point.x - 4, point.y + 3)).toBeCloseTo(2, 5)
@@ -195,13 +209,11 @@ describe('shapes', () => {
     expect(new Set(angles.map((angle) => angle.toFixed(4))).size).toBe(6)
   })
 
-  it('hexágono é fechado com seis lados iguais', () => {
-    const points = hexagonPath(0, 0, 2).getPoints(1)
-    const unique = points.filter(
-      (point, index) => index === 0 || point.distanceTo(points[index - 1]) > 1e-6,
-    )
-    const sides = unique.map((point, index) =>
-      point.distanceTo(unique[(index + 1) % unique.length]),
+  it('hexágono tem seis lados iguais', () => {
+    const points = vertices(hexagonPath(0, 0, 2))
+    expect(points).toHaveLength(6)
+    const sides = points.map((point, index) =>
+      point.distanceTo(points[(index + 1) % points.length]),
     )
     for (const side of sides) expect(side).toBeCloseTo(2, 5)
   })
