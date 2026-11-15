@@ -32,8 +32,8 @@ import {
 } from '@/features/studio/tools/lembrancinhas/caixa-personalizada/workerGeometry'
 import { exportThermoformerStl } from '@/features/studio/tools/lembrancinhas/termoformador/exportStl'
 import {
-  serializeGeometry as serializeScreen,
-  type SerializedGeometry as SerializedScreen,
+  serializeThermoformerResult,
+  type SerializedThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
@@ -53,7 +53,15 @@ vi.mock('three/examples/jsm/loaders/FontLoader.js', () => ({
 let cardWorkerResponse: SerializedCardResult | null = null
 let photoWorkerResponse: SerializedPhotoStandResult | null = null
 let boxWorkerResponse: SerializedBuildResult | null = null
-let screenWorkerResponse: SerializedScreen | null = null
+let screenWorkerResponse: SerializedThermoformerResult | null = null
+
+function serializedScreen(): SerializedThermoformerResult {
+  return serializeThermoformerResult({
+    screen: new THREE.BoxGeometry(160, 3, 160),
+    support: new THREE.BoxGeometry(168.6, 27, 168.6),
+    seatY: 24,
+  }).data
+}
 
 class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
@@ -420,7 +428,7 @@ describe('StudioPage', () => {
   })
 
   it('exporta a tela do Termoformador', async () => {
-    screenWorkerResponse = serializeScreen(new THREE.BoxGeometry(160, 3, 160)).data
+    screenWorkerResponse = serializedScreen()
 
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
@@ -430,13 +438,17 @@ describe('StudioPage', () => {
     fireEvent.click(exportButton)
 
     expect(exportThermoformerStl).toHaveBeenCalledWith(
-      expect.anything(),
+      expect.objectContaining({
+        screen: expect.anything(),
+        support: expect.anything(),
+        seatY: 24,
+      }),
       'Projeto sem título',
     )
   })
 
   it('mostra erro quando a exportação do Termoformador falha', async () => {
-    screenWorkerResponse = serializeScreen(new THREE.BoxGeometry(160, 3, 160)).data
+    screenWorkerResponse = serializedScreen()
     vi.mocked(exportThermoformerStl).mockImplementationOnce(() => {
       throw new Error('falha')
     })

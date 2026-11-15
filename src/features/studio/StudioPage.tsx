@@ -170,9 +170,9 @@ const ThermoformerTool = lazy(() =>
   })),
 )
 
-const ScreenPreview = lazy(() =>
-  import('./tools/lembrancinhas/termoformador/ScreenPreview').then((m) => ({
-    default: m.ScreenPreview,
+const ThermoformerPreview = lazy(() =>
+  import('./tools/lembrancinhas/termoformador/ThermoformerPreview').then((m) => ({
+    default: m.ThermoformerPreview,
   })),
 )
 
@@ -1173,6 +1173,7 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
   const {
     params,
     geometry,
+    seatY,
     isBuilding,
     error,
     issues,
@@ -1239,7 +1240,12 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
           fitRadius={fitRadius}
         >
           <Suspense fallback={null}>
-            <ScreenPreview geometry={geometry} color={params.color} />
+            <ThermoformerPreview
+              screen={geometry?.screen ?? null}
+              support={geometry?.support ?? null}
+              seatY={seatY}
+              color={params.color}
+            />
           </Suspense>
         </StudioViewport>
       </div>
