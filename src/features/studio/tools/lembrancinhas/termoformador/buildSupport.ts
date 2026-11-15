@@ -20,7 +20,6 @@ export interface SupportDimensions {
   sphereCenterY: number
   ledgeOverlap: number
   effectiveBowlDepth: number
-  cavityMaxRadius: number
   cavityWall: number
   bowlDepthLimited: boolean
 }
@@ -70,7 +69,6 @@ export function getSupportDimensions(
     sphereCenterY,
     ledgeOverlap,
     effectiveBowlDepth,
-    cavityMaxRadius,
     cavityWall,
     bowlDepthLimited,
   }

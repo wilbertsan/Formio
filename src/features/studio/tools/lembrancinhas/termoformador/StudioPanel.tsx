@@ -147,7 +147,8 @@ export function StudioPanel({
             <Flex direction="column" gap="xs">
               <Text fontSize="xs" color="font.secondary">
                 Diâmetro externo {(supportDims.outerRadius * 2).toFixed(1)} mm · Altura{' '}
-                {supportDims.height.toFixed(1)} mm
+                {supportDims.height.toFixed(1)} mm · Parede da bacia{' '}
+                {supportDims.cavityWall.toFixed(1)} mm
               </Text>
               <LabeledSlider label="Parede do suporte" value={params.wallThickness} min={2} max={10} step={0.5} onChange={(value) => onUpdateParam('wallThickness', value)} />
               <LabeledSlider label="Fundo do suporte" value={params.bottomThickness} min={2} max={10} step={0.5} onChange={(value) => onUpdateParam('bottomThickness', value)} />
@@ -167,11 +168,11 @@ export function StudioPanel({
           <Accordion.Content>
             <Flex
               role="group"
-              aria-label="Cor da tela"
+              aria-label="Cor das peças"
               direction="column"
               gap="xs"
             >
-              <Text fontSize="xs" color="font.tertiary">Cor da tela</Text>
+              <Text fontSize="xs" color="font.tertiary">Cor das peças</Text>
               <ColorSwatches
                 colors={PLA_COLORS}
                 selected={params.color}

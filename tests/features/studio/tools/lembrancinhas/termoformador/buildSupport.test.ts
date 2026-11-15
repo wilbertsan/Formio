@@ -4,7 +4,10 @@ import {
   buildSupportProfile,
   getSupportDimensions,
 } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
-import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
+import {
+  MINIMUM_SUPPORT_MM,
+  defaultThermoformerParams,
+} from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { isClosed, signedVolume } from './geometryTestUtils'
 
 describe('getSupportDimensions', () => {
@@ -58,6 +61,37 @@ describe('buildSupportProfile', () => {
       profile.some((point) => Math.abs(point.x - x) < 1e-6 && Math.abs(point.y - y) < 1e-6)
     expect(hasPoint(84.3, 0)).toBe(true)
     expect(hasPoint(84.3, 27)).toBe(true)
+  })
+
+  it('desenha a calota sobre a esfera e mantém a parede mínima', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      diameter: 60,
+      wallThickness: 2,
+      bowlDepth: 60,
+      stepWidth: 2,
+      fitClearance: 0.1,
+    }
+    const dims = getSupportDimensions(params)
+    const profile = buildSupportProfile(params)
+
+    const ledgeIndex = profile.findIndex(
+      (point) => Math.abs(point.x - dims.cavityTopRadius) < 1e-6
+        && Math.abs(point.y - dims.seatY) < 1e-6,
+    )
+    expect(ledgeIndex).toBeGreaterThan(0)
+
+    const cavity = profile.slice(ledgeIndex + 1)
+    expect(cavity.length).toBeGreaterThan(10)
+
+    for (const point of cavity) {
+      expect(point.x ** 2 + (point.y - dims.sphereCenterY) ** 2)
+        .toBeCloseTo(dims.sphereRadius ** 2, 1)
+    }
+
+    const maxCavityRadius = Math.max(...cavity.map((point) => point.x))
+    expect(maxCavityRadius)
+      .toBeLessThanOrEqual(dims.outerRadius - MINIMUM_SUPPORT_MM + 1e-3)
   })
 })
 

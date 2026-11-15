@@ -78,8 +78,8 @@ Parâmetros
 - `screen-density`: limite de favos atingido
 - `screen-opening`: abertura maior que o raio interno
 - `screen-line`: linha abaixo de 0,4 mm (defensivo)
-- `support-step` (error/warning): degrau não sustenta a tela ou sustenta menos
-  de 1 mm
+- `support-step` (error/warning, defensivo): degrau não sustenta a tela ou
+  sustenta menos de 1 mm; a UI não alcança (mínimo de 1,4 mm)
 - `support-step-frame`: degrau avança sob a área perfurada da tela
 - `support-wall`: parede abaixo de 0,8 mm (defensivo)
 - `support-bottom`: fundo abaixo de 0,8 mm (defensivo)

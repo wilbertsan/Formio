@@ -266,7 +266,8 @@ Detalhes:
   `outerRadius = recessRadius + wallThickness`. O rebaixo tem a espessura da
   tela (`thickness`), então a tela apoia no degrau e fica nivelada com o topo.
 - O degrau começa em `recessRadius - stepWidth`; a sobreposição sob a tela é
-  `stepWidth - fitClearance` e precisa sobrar pelo menos 1 mm (`support-step`).
+  `stepWidth - fitClearance` (mínimo 1,4 mm pelos limites do schema) e a
+  validação `support-step` é defensiva.
 - A profundidade efetiva da bacia é limitada para manter 0,8 mm entre a bacia e
   a parede externa; quando o clamp atua, `support-depth` avisa e `seatY` e
   altura acompanham o valor efetivo.

@@ -45,6 +45,7 @@ describe('StudioPanel (termoformador)', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.getByText(/Diâmetro externo 168\.6 mm/)).toBeDefined()
     expect(screen.getByText(/Altura 27\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Parede da bacia 9\.0 mm/)).toBeDefined()
   })
 
   it('atualiza a parede do suporte', () => {
