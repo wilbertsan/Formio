@@ -6,7 +6,9 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Box3, Vector3, type BufferGeometry } from 'three'
+import { Box3, Vector3 } from 'three'
+import type { BuildThermoformerResult } from './buildThermoformer'
+import { getSupportDimensions } from './buildSupport'
 import {
   defaultThermoformerParams,
   thermoformerParamsSchema,
@@ -14,7 +16,10 @@ import {
   type ThermoformerParams,
 } from './schema'
 import { validateThermoformer, type ValidationIssue } from './validateThermoformer'
-import { deserializeGeometry, type SerializedGeometry } from './workerGeometry'
+import {
+  deserializeThermoformerResult,
+  type SerializedThermoformerResult,
+} from './workerGeometry'
 import { createScreenWorker, type ScreenWorker } from './workerClient'
 
 type ThermoformerAction =
@@ -65,7 +70,8 @@ export interface UseThermoformerOptions {
 
 export interface UseThermoformerResult {
   params: ThermoformerParams
-  geometry: BufferGeometry | null
+  geometry: BuildThermoformerResult | null
+  seatY: number
   isBuilding: boolean
   error: string | null
   issues: ValidationIssue[]
@@ -83,7 +89,7 @@ export function useThermoformer(
   const workerFactoryRef = useRef(workerFactory)
   workerFactoryRef.current = workerFactory
   const [params, dispatch] = useReducer(thermoformerReducer, defaultThermoformerParams)
-  const [geometry, setGeometry] = useState<BufferGeometry | null>(null)
+  const [geometry, setGeometry] = useState<BuildThermoformerResult | null>(null)
   const [isBuilding, setIsBuilding] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -143,9 +149,10 @@ export function useThermoformer(
         workerRef.current = worker
         setIsBuilding(true)
 
-        worker.build(buildParams, (data: SerializedGeometry) => {
+        worker.build(buildParams, (data: SerializedThermoformerResult) => {
           if (workerRef.current !== worker) return
-          setGeometry(deserializeGeometry(data))
+          const next = deserializeThermoformerResult(data)
+          setGeometry(next)
           setIsBuilding(false)
         }, () => {
           if (workerRef.current !== worker) return
@@ -161,7 +168,8 @@ export function useThermoformer(
   }, [buildParams])
 
   useEffect(() => () => {
-    geometry?.dispose()
+    geometry?.screen.dispose()
+    geometry?.support.dispose()
   }, [geometry])
 
   useEffect(() => () => {
@@ -174,17 +182,22 @@ export function useThermoformer(
     [buildParams],
   )
 
+  const supportDims = useMemo(
+    () => getSupportDimensions(buildParams),
+    [buildParams],
+  )
+
   const fallbackDimensions = useMemo(() => ({
-    width: Number(diameter.toFixed(1)),
-    height: Number(diameter.toFixed(1)),
-    thickness: Number(thickness.toFixed(1)),
-  }), [diameter, thickness])
+    width: Number((supportDims.outerRadius * 2).toFixed(1)),
+    height: Number(supportDims.height.toFixed(1)),
+    thickness: Number((supportDims.outerRadius * 2).toFixed(1)),
+  }), [supportDims.outerRadius, supportDims.height])
 
   const bounds = useMemo(() => {
     if (!geometry) return null
-    geometry.computeBoundingBox()
+    geometry.support.computeBoundingBox()
     const box = new Box3()
-    if (geometry.boundingBox) box.union(geometry.boundingBox)
+    if (geometry.support.boundingBox) box.union(geometry.support.boundingBox)
     return box.getSize(new Vector3())
   }, [geometry])
 
@@ -192,8 +205,8 @@ export function useThermoformer(
     if (!bounds) return fallbackDimensions
     return {
       width: Number(bounds.x.toFixed(1)),
-      height: Number(bounds.z.toFixed(1)),
-      thickness: Number(bounds.y.toFixed(1)),
+      height: Number(bounds.y.toFixed(1)),
+      thickness: Number(bounds.z.toFixed(1)),
     }
   }, [bounds, fallbackDimensions])
 
@@ -203,13 +216,13 @@ export function useThermoformer(
         1,
         0.5 * Math.hypot(
           fallbackDimensions.width,
-          fallbackDimensions.thickness,
           fallbackDimensions.height,
+          fallbackDimensions.thickness,
         ),
       )
     }
-    geometry.computeBoundingSphere()
-    return Math.max(1, geometry.boundingSphere?.radius ?? 1)
+    geometry.support.computeBoundingSphere()
+    return Math.max(1, geometry.support.boundingSphere?.radius ?? 1)
   }, [geometry, fallbackDimensions])
 
   const cameraPosition = useMemo((): [number, number, number] => {
@@ -234,9 +247,12 @@ export function useThermoformer(
     dispatch({ type: 'reset' })
   }, [])
 
+  const seatY = geometry?.seatY ?? 0
+
   return {
     params,
     geometry,
+    seatY,
     isBuilding,
     error,
     issues,

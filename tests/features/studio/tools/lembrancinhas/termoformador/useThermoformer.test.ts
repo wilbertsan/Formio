@@ -7,23 +7,31 @@ import {
   type ThermoformerGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import {
-  serializeGeometry,
-  type SerializedGeometry,
+  serializeThermoformerResult,
+  type SerializedThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
 import type { ScreenWorker } from '@/features/studio/tools/lembrancinhas/termoformador/workerClient'
 
-function serializedScreen(): SerializedGeometry {
-  return serializeGeometry(new BoxGeometry(160, 3, 120)).data
+function serializedResult(): SerializedThermoformerResult {
+  return serializeThermoformerResult({
+    screen: new BoxGeometry(160, 3, 160),
+    support: new BoxGeometry(168.6, 27, 168.6),
+    seatY: 24,
+  }).data
 }
 
-function serializedDisc(): SerializedGeometry {
-  return serializeGeometry(new CylinderGeometry(80, 80, 3, 64)).data
+function serializedDisc(): SerializedThermoformerResult {
+  return serializeThermoformerResult({
+    screen: new CylinderGeometry(80, 80, 3, 64),
+    support: new CylinderGeometry(84.3, 84.3, 27, 64),
+    seatY: 24,
+  }).data
 }
 
-function makeWorkerFixture(serialize: () => SerializedGeometry = serializedScreen) {
+function makeWorkerFixture(serialize: () => SerializedThermoformerResult = serializedResult) {
   let lastParams: ThermoformerGeometryParams | null = null
   let calls = 0
-  const pendings: Array<(data: SerializedGeometry) => void> = []
+  const pendings: Array<(data: SerializedThermoformerResult) => void> = []
   const failures: Array<() => void> = []
   const terminate = vi.fn()
   const factory = (): ScreenWorker => {
@@ -59,7 +67,7 @@ describe('useThermoformer', () => {
     expect(result.current.geometry).toBeNull()
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.issues).toHaveLength(0)
-    expect(result.current.fitRadius).toBeCloseTo(113.1, 1)
+    expect(result.current.fitRadius).toBeCloseTo(120.0, 1)
   })
 
   it('faz clamp dos campos numéricos', () => {
@@ -103,9 +111,33 @@ describe('useThermoformer', () => {
     act(() => { respond() })
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.geometry).not.toBeNull()
-    expect(result.current.dimensions).toEqual({ width: 160, height: 120, thickness: 3 })
-    // Fixture BoxGeometry(160, 3, 120): esfera envolvente de hypot(80, 1.5, 60).
-    expect(result.current.fitRadius).toBeCloseTo(Math.hypot(80, 1.5, 60), 1)
+    expect(result.current.geometry!.screen).toBeDefined()
+    expect(result.current.geometry!.support).toBeDefined()
+    expect(result.current.seatY).toBe(24)
+    expect(result.current.dimensions).toEqual({
+      width: 168.6,
+      height: 27,
+      thickness: 168.6,
+    })
+    // Suporte BoxGeometry(168.6, 27, 168.6): esfera envolvente de hypot(84.3, 13.5, 84.3).
+    expect(result.current.fitRadius).toBeCloseTo(Math.hypot(84.3, 13.5, 84.3), 1)
+  })
+
+  it('usa a bounding box do suporte, não o fallback dos parâmetros', () => {
+    const { factory, respond } = makeWorkerFixture(() =>
+      serializeThermoformerResult({
+        screen: new BoxGeometry(160, 3, 160),
+        support: new BoxGeometry(180, 30, 140),
+        seatY: 27,
+      }).data,
+    )
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+
+    expect(result.current.dimensions).toEqual({ width: 180, height: 30, thickness: 140 })
+    expect(result.current.seatY).toBe(27)
   })
 
   it('enquadra pelo raio da esfera, não pela diagonal da AABB', () => {
@@ -115,7 +147,7 @@ describe('useThermoformer', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
-    expect(result.current.fitRadius).toBeCloseTo(80, 1)
+    expect(result.current.fitRadius).toBeCloseTo(85.4, 1)
     expect(result.current.fitRadius).toBeLessThan(100)
   })
 
@@ -164,6 +196,7 @@ describe('useThermoformer', () => {
     act(() => { fail() })
 
     expect(result.current.geometry).toBe(first)
+    expect(result.current.seatY).toBe(24)
     expect(result.current.error).toBe('Falha ao gerar a geometria')
     expect(result.current.isBuilding).toBe(false)
   })
@@ -199,13 +232,15 @@ describe('useThermoformer', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
     const first = result.current.geometry!
-    const dispose = vi.spyOn(first, 'dispose')
+    const disposeScreen = vi.spyOn(first.screen, 'dispose')
+    const disposeSupport = vi.spyOn(first.support, 'dispose')
 
     act(() => { result.current.updateParam('diameter', 200) })
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
-    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(disposeScreen).toHaveBeenCalledTimes(1)
+    expect(disposeSupport).toHaveBeenCalledTimes(1)
     expect(result.current.geometry).not.toBe(first)
   })
 
@@ -216,11 +251,13 @@ describe('useThermoformer', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
     const geometry = result.current.geometry!
-    const dispose = vi.spyOn(geometry, 'dispose')
+    const disposeScreen = vi.spyOn(geometry.screen, 'dispose')
+    const disposeSupport = vi.spyOn(geometry.support, 'dispose')
 
     unmount()
 
-    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(disposeScreen).toHaveBeenCalled()
+    expect(disposeSupport).toHaveBeenCalled()
     expect(terminate).toHaveBeenCalled()
   })
 })
