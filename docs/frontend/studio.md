@@ -13,7 +13,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Rolo de Textura** — Rolos cilíndricos fechados (sem cabos) com padrão em relevo (geométrico, ondulado, floral ou SVG)
 - **Marcador de Página** — Marcadores 3D em duas peças (base + texto com encaixe em U)
 - **Caixa Personalizada** — Caixa 3D personalizável com tampa, painel decorativo, puxador lateral e base, em STLs separados
-- **Termoformador** — Tela circular perfurada com malha hexagonal e aro sólido, em STL único
+- **Termoformador** — Tela circular perfurada com malha hexagonal, aro sólido e suporte côncavo, em STLs separados
 
 ### Componentes Genéricos
 
@@ -144,14 +144,16 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Círculo e hexágono (Shape/Path e epsilon angular) | `src/features/studio/tools/lembrancinhas/termoformador/shapes.ts` |
 | Layout hexagonal (passo, cap de 4.000 e métricas) | `src/features/studio/tools/lembrancinhas/termoformador/screenPattern.ts` |
 | Build da tela (ExtrudeGeometry e rotação) | `src/features/studio/tools/lembrancinhas/termoformador/buildScreen.ts` |
-| Validação (issues e severidade) | `src/features/studio/tools/lembrancinhas/termoformador/validateScreen.ts` |
+| Dimensões, perfil e LatheGeometry do suporte | `src/features/studio/tools/lembrancinhas/termoformador/buildSupport.ts` |
+| Orquestração tela + suporte + seatY | `src/features/studio/tools/lembrancinhas/termoformador/buildThermoformer.ts` |
+| Validação (issues e severidade) | `src/features/studio/tools/lembrancinhas/termoformador/validateThermoformer.ts` |
 | Worker + serialização | `src/features/studio/tools/lembrancinhas/termoformador/buildScreen.worker.ts` |
 | Serialização da geometria | `src/features/studio/tools/lembrancinhas/termoformador/workerGeometry.ts` |
 | Interface do worker | `src/features/studio/tools/lembrancinhas/termoformador/workerClient.ts` |
 | Hook de estado | `src/features/studio/tools/lembrancinhas/termoformador/useThermoformer.ts` |
 | Painel de parâmetros | `src/features/studio/tools/lembrancinhas/termoformador/StudioPanel.tsx` |
-| Preview R3F | `src/features/studio/tools/lembrancinhas/termoformador/ScreenPreview.tsx` |
-| Export STL | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
+| Preview R3F (conjunto montado) | `src/features/studio/tools/lembrancinhas/termoformador/ThermoformerPreview.tsx` |
+| Exportar dois STLs | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
 
 ## Gerador de chaveiros
 
@@ -220,15 +222,17 @@ Detalhes de implementação:
 - Exportação: `-corpo`, `-tampa`, `-painel`, `-puxador` e `-base`. O corpo e a base saem como construídos; a tampa é invertida (placa na mesa, saia para cima); o painel é deitado com a face traseira na mesa; o puxador é girado de volta para ficar em pé sobre o flange. O `prepareHandleForPrint` usa o `builtParams` do build para desfazer a matriz de posicionamento e centralizar a peça. Até cinco downloads podem ser disparados e o navegador pode pedir permissão
 - `resetAzimuth=30` no `StudioViewport` porque o painel decorativo fica em +Z; a câmera inicial precisa olhar a face frontal
 
-## Termoformador (tela)
+## Termoformador (tela + suporte)
 
-Pipeline completo de geração da tela circular:
+Pipeline completo de geração da tela circular e do suporte côncavo:
 
-**useThermoformer.ts** → **buildScreen.worker.ts** → **buildScreen.ts** → **exportStl.ts**
+**useThermoformer.ts** → **buildScreen.worker.ts** → **buildThermoformer.ts** →
+**buildScreen.ts** + **buildSupport.ts** → **exportStl.ts**
 
 1. **schema.ts** — Valida diâmetro, espessura, largura do aro, espessura da linha,
-   abertura do favo e cor PLA e concentra `MINIMUM_LINE_MM`,
-   `MAX_SCREEN_OPENINGS` e `SCREEN_SEGMENTS`
+   abertura do favo, parâmetros do suporte e cor PLA e concentra
+   `MINIMUM_LINE_MM`, `MINIMUM_SUPPORT_MM`, `MAX_SCREEN_OPENINGS` e
+   `SCREEN_SEGMENTS`
 2. **shapes.ts** — Cria o contorno circular e um `Path` hexagonal por favo, com
    `HEXAGON_ANGLE_EPSILON` para evitar vértices exatamente colineares que abrem
    os caps do Earcut
@@ -238,24 +242,41 @@ Pipeline completo de geração da tela circular:
    por iteração
 4. **useThermoformer.ts** — Reducer + Zod com clamp dos sliders (debounce de
    250 ms), um worker por build com descarte de respostas obsoletas, validação
-   na main thread e `fitRadius` pela esfera envolvente
-5. **buildScreen.worker.ts** — Executa `buildScreen` fora da main thread;
-   `workerGeometry.ts` serializa position/normal/index com transferência
-6. **buildScreen.ts** — `Shape` circular com furos hexagonais em
+   na main thread e `fitRadius` pela esfera envolvente do suporte
+5. **buildScreen.worker.ts** — Executa `buildThermoformer` fora da main thread;
+   `workerGeometry.ts` serializa as duas peças (position/normal/index) e o
+   `seatY` com transferência de buffers
+6. **buildThermoformer.ts** — Orquestra `buildScreen` e `buildSupport` e devolve
+   `{ screen, support, seatY }`, com `seatY = effectiveBowlDepth + bottomThickness`
+7. **buildScreen.ts** — `Shape` circular com furos hexagonais em
    `ExtrudeGeometry`, girado para deitar em XZ com espessura em +Y
-7. **exportStl.ts** — Baixa um STL binário `<nome>-tela.stl`, centralizado na
-   mesa
+8. **buildSupport.ts** — Perfil 2D fechado no plano `(r, y)` (fundo, parede
+   externa, aro, parede do rebaixo, degrau e arco esférico) convertido em
+   `LatheGeometry` com `SCREEN_SEGMENTS`, sem CSG; os triângulos degenerados do
+   eixo são removidos
+9. **exportStl.ts** — Baixa dois STLs binários, `<nome>-tela.stl` e
+   `<nome>-suporte.stl`, cada peça centralizada na mesa
 
 Detalhes:
 
-- A tela é uma peça única; corpo, tampa, pino e base ficam fora da v1.
+- A tela é uma peça independente; o suporte é outra, com bacia esférica fechada
+  e fundo fechado. Corpo, tampa, pino e base ficam fora da v1.
+- O suporte deriva o diâmetro da tela:
+  `recessRadius = diameter/2 + fitClearance` e
+  `outerRadius = recessRadius + wallThickness`. O rebaixo tem a espessura da
+  tela (`thickness`), então a tela apoia no degrau e fica nivelada com o topo.
+- O degrau começa em `recessRadius - stepWidth`; a sobreposição sob a tela é
+  `stepWidth - fitClearance` e precisa sobrar pelo menos 1 mm (`support-step`).
+- A profundidade efetiva da bacia é limitada para manter 0,8 mm entre a bacia e
+  a parede externa; quando o clamp atua, `support-depth` avisa e `seatY` e
+  altura acompanham o valor efetivo.
 - A linha padrão é 0,4 mm, equivalente a uma extrusão de bico 0,4 mm; abaixo
   disso a malha fica frágil e a validação avisa.
 - O aro sólido tem `frameWidth`; favos parciais são descartados, então a borda
   efetiva pode chegar a `frameWidth + circunraio`.
 - Os testes validam a malha com `isClosed` (cada aresta em dois triângulos e
   winding coerente).
-- A cor não rebuilda a geometria.
+- A cor não rebuilda a geometria e é única para as duas peças.
 - Configurações extremas (~3.571 favos) levam ~7 s e rodam no worker para não
   travar a UI.
 
@@ -298,7 +319,7 @@ Detalhes:
 - **Carimbo Brigadeiro:** Corpo único em hiperboloide com cintura central (LatheGeometry; duas "folhas" visuais) — face de contato plana no diâmetro, cintura no meio e topo menor; imprime com a face para cima (overhang ≲ 45°). Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; a elevação do relevo é ajustável (`reliefElevation`, 0.5–3.0mm, padrão 1mm) e o conteúdo sobressai abaixo da face de contato. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 - **Caixa Personalizada:** Caixa 3D personalizável em cinco peças independentes (corpo, tampa, painel decorativo, puxador e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do puxador ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O puxador usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance`, raio interno derivado do canto do corpo e anel mínimo de 0,8 mm. O puxador fica em `left`/`right` na v1; `top`/`bottom` são reservados. A tampa externa assenta em `lidHeight = 0`; valores maiores exigem junta/suporte, e a tampa interna é um plugue sem flange. A montagem avisa colisões entre painel/base, painel/tampa e flange/base ou flange/tampa. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do puxador. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
-- **Termoformador (tela):** Peça única circular com aro sólido e malha hexagonal flat-top. `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada. Favos limitados a 4.000, com abertura crescendo 15% ao exceder. Epsilon de 0,001 rad por favo evita caps abertos no Earcut. Cor não rebuilda; export de um STL `-tela`. `fitRadius` usa a esfera envolvente. Build em worker; a configuração máxima do schema leva ~7 s.
+- **Termoformador (tela + suporte):** Duas peças independentes. A tela é um disco circular com aro sólido e malha hexagonal flat-top em `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada; favos limitados a 4.000, com abertura crescendo 15% ao exceder, e epsilon de 0,001 rad por favo evita caps abertos no Earcut. O suporte é um berço côncavo de `LatheGeometry` com perfil fechado, bacia esférica e fundo fechado, sem CSG e com os triângulos degenerados do eixo removidos. O diâmetro do suporte deriva da tela (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`); a tela apoia no degrau e fica nivelada com o topo. A profundidade efetiva da bacia é limitada para manter 0,8 mm de parede externa. Preview montado com a tela em `seatY`, cor única e export de dois STLs `-tela` e `-suporte`. `fitRadius` usa a esfera envolvente do suporte. Build em worker; a configuração máxima do schema leva ~7 s.
 
 ## Próximos passos (fora de escopo desta fase)
 
