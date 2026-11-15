@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { BoxGeometry, BufferGeometry } from 'three'
+import type { BuildThermoformerResult } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import {
   exportThermoformerStl,
   prepareScreenForPrint,
+  prepareSupportForPrint,
 } from '@/features/studio/tools/lembrancinhas/termoformador/exportStl'
 
 const { parseMock } = vi.hoisted(() => ({
@@ -73,6 +75,14 @@ function positions(geometry: BufferGeometry): Float32Array {
   return Float32Array.from(geometry.getAttribute('position').array)
 }
 
+function buildResult(): BuildThermoformerResult {
+  return {
+    screen: new BoxGeometry(160, 3, 160),
+    support: new BoxGeometry(168.6, 27, 168.6),
+    seatY: 24,
+  }
+}
+
 afterEach(() => {
   restoreElementSpies?.()
   restoreElementSpies = null
@@ -80,27 +90,38 @@ afterEach(() => {
 })
 
 describe('exportThermoformerStl', () => {
-  it('baixa um único STL com o nome do projeto', () => {
+  it('baixa tela e suporte como STLs separados com o nome do projeto', () => {
     const { anchors, appendChildSpy, removeChildSpy, revokeObjectURL } = setupDownloadMocks()
-    const geometry = new BoxGeometry(160, 3, 160)
+    parseMock.mockClear()
+    const result = buildResult()
     const cloneSpy = vi.spyOn(BufferGeometry.prototype, 'clone')
     const disposeSpy = vi.spyOn(BufferGeometry.prototype, 'dispose')
 
-    exportThermoformerStl(geometry, 'Minha Tela!')
+    exportThermoformerStl(result, 'Minha Tela!')
 
-    expect(anchors).toHaveLength(1)
-    expect(anchors[0].download).toBe('Minha-Tela-tela.stl')
-    expect(anchors[0].href).toBe('blob:mock-url')
-    expect(anchors[0].click).toHaveBeenCalledTimes(1)
+    expect(anchors).toHaveLength(2)
+    expect(anchors.map((anchor) => anchor.download)).toEqual([
+      'Minha-Tela-tela.stl',
+      'Minha-Tela-suporte.stl',
+    ])
+    for (const anchor of anchors) {
+      expect(anchor.href).toBe('blob:mock-url')
+      expect(anchor.click).toHaveBeenCalledTimes(1)
+    }
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
-    expect(appendChildSpy).toHaveBeenCalledWith(anchors[0])
-    expect(removeChildSpy).toHaveBeenCalledWith(anchors[0])
+    expect(appendChildSpy).toHaveBeenCalledTimes(2)
+    expect(removeChildSpy).toHaveBeenCalledTimes(2)
+    expect(parseMock).toHaveBeenCalledTimes(2)
     expect(parseMock).toHaveBeenCalledWith(expect.anything(), { binary: true })
 
-    const clone = cloneSpy.mock.results[0].value as BufferGeometry
-    expect(disposeSpy).toHaveBeenCalledTimes(1)
-    expect(disposeSpy.mock.instances[0]).toBe(clone)
-    expect(disposeSpy.mock.instances[0]).not.toBe(geometry)
+    const clones = cloneSpy.mock.results.map(({ value }) => value as BufferGeometry)
+    expect(cloneSpy).toHaveBeenCalledTimes(2)
+    expect(disposeSpy).toHaveBeenCalledTimes(2)
+    expect(disposeSpy.mock.instances[0]).toBe(clones[0])
+    expect(disposeSpy.mock.instances[1]).toBe(clones[1])
+    expect(disposeSpy.mock.instances).not.toContain(result.screen)
+    expect(disposeSpy.mock.instances).not.toContain(result.support)
 
     cloneSpy.mockRestore()
     disposeSpy.mockRestore()
@@ -108,26 +129,61 @@ describe('exportThermoformerStl', () => {
 
   it('usa o nome padrão quando o projeto está vazio', () => {
     const { anchors } = setupDownloadMocks()
-    exportThermoformerStl(new BoxGeometry(160, 3, 160), '')
-    expect(anchors[0].download).toBe('termoformador-tela.stl')
+    exportThermoformerStl(buildResult(), '')
+    expect(anchors.map((anchor) => anchor.download)).toEqual([
+      'termoformador-tela.stl',
+      'termoformador-suporte.stl',
+    ])
   })
 })
 
 describe('prepareScreenForPrint', () => {
-  it('centraliza na mesa sem mutar o original', () => {
+  it('clona e centraliza a tela na mesa sem mutar o original', () => {
     const geometry = new BoxGeometry(160, 3, 160)
     geometry.translate(20, 11, -35)
     const original = positions(geometry)
+    const cloneSpy = vi.spyOn(BufferGeometry.prototype, 'clone')
 
     const print = prepareScreenForPrint(geometry)
     print.computeBoundingBox()
 
+    expect(cloneSpy).toHaveBeenCalledTimes(1)
+    expect(print).not.toBe(geometry)
     expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
+    expect(print.boundingBox!.max.y).toBeCloseTo(3, 3)
     expect(print.boundingBox!.min.x).toBeCloseTo(-80, 3)
     expect(print.boundingBox!.max.x).toBeCloseTo(80, 3)
     expect(print.boundingBox!.min.z).toBeCloseTo(-80, 3)
+    expect(print.boundingBox!.max.z).toBeCloseTo(80, 3)
     expect(Array.from(geometry.getAttribute('position').array)).toEqual(Array.from(original))
 
+    cloneSpy.mockRestore()
+    geometry.dispose()
+    print.dispose()
+  })
+})
+
+describe('prepareSupportForPrint', () => {
+  it('clona e centraliza o suporte na mesa sem mutar o original', () => {
+    const geometry = new BoxGeometry(168.6, 27, 168.6)
+    geometry.translate(20, 11, -35)
+    const original = positions(geometry)
+    const cloneSpy = vi.spyOn(BufferGeometry.prototype, 'clone')
+
+    const print = prepareSupportForPrint(geometry)
+    print.computeBoundingBox()
+
+    expect(cloneSpy).toHaveBeenCalledTimes(1)
+    expect(print).not.toBe(geometry)
+    expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
+    expect(print.boundingBox!.max.y).toBeCloseTo(27, 3)
+    expect(print.boundingBox!.min.x).toBeCloseTo(-84.3, 3)
+    expect(print.boundingBox!.max.x).toBeCloseTo(84.3, 3)
+    expect(print.boundingBox!.min.z).toBeCloseTo(-84.3, 3)
+    expect(print.boundingBox!.max.z).toBeCloseTo(84.3, 3)
+    expect(Array.from(geometry.getAttribute('position').array)).toEqual(Array.from(original))
+
+    cloneSpy.mockRestore()
     geometry.dispose()
     print.dispose()
   })

@@ -1,5 +1,6 @@
 import { Mesh, Scene, type BufferGeometry } from 'three'
 import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
+import type { BuildThermoformerResult } from './buildThermoformer'
 import { sanitizeFilename } from './schema'
 
 function centerOnBed(geometry: BufferGeometry): BufferGeometry {
@@ -49,10 +50,23 @@ export function prepareScreenForPrint(
   return centerOnBed(geometry.clone())
 }
 
-export function exportThermoformerStl(
+export function prepareSupportForPrint(
   geometry: BufferGeometry,
+): BufferGeometry {
+  return centerOnBed(geometry.clone())
+}
+
+/**
+ * Serializa tela e suporte como STLs binários separados e dispara os downloads.
+ *
+ * Cada peça é clonada e centralizada na mesa antes de ser exportada, então as
+ * geometrias recebidas permanecem intactas para o preview.
+ */
+export function exportThermoformerStl(
+  result: BuildThermoformerResult,
   projectName: string,
 ): void {
   const name = sanitizeFilename(projectName)
-  downloadStl(prepareScreenForPrint(geometry), `${name}-tela.stl`)
+  downloadStl(prepareScreenForPrint(result.screen), `${name}-tela.stl`)
+  downloadStl(prepareSupportForPrint(result.support), `${name}-suporte.stl`)
 }
