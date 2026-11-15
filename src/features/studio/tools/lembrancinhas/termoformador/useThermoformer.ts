@@ -13,7 +13,7 @@ import {
   type ThermoformerGeometryParams,
   type ThermoformerParams,
 } from './schema'
-import { validateScreen, type ValidationIssue } from './validateScreen'
+import { validateThermoformer, type ValidationIssue } from './validateThermoformer'
 import { deserializeGeometry, type SerializedGeometry } from './workerGeometry'
 import { createScreenWorker, type ScreenWorker } from './workerClient'
 
@@ -27,6 +27,12 @@ const NUMERIC_RANGES: Partial<Record<keyof ThermoformerParams, { min: number; ma
   frameWidth: { min: 2, max: 30 },
   lineWidth: { min: 0.4, max: 4 },
   opening: { min: 3, max: 30 },
+  wallThickness: { min: 2, max: 10 },
+  bottomThickness: { min: 2, max: 10 },
+  bowlDepth: { min: 5, max: 60 },
+  stepWidth: { min: 2, max: 15 },
+  fitClearance: { min: 0.1, max: 0.6 },
+  edgeChamfer: { min: 0, max: 3 },
 }
 
 function clampValue(key: keyof ThermoformerParams, value: number): number {
@@ -90,6 +96,12 @@ export function useThermoformer(
     frameWidth,
     lineWidth,
     opening,
+    wallThickness,
+    bottomThickness,
+    bowlDepth,
+    stepWidth,
+    fitClearance,
+    edgeChamfer,
   } = params
 
   const buildParams = useMemo<ThermoformerGeometryParams>(() => ({
@@ -99,7 +111,26 @@ export function useThermoformer(
     frameWidth,
     lineWidth,
     opening,
-  }), [productType, diameter, thickness, frameWidth, lineWidth, opening])
+    wallThickness,
+    bottomThickness,
+    bowlDepth,
+    stepWidth,
+    fitClearance,
+    edgeChamfer,
+  }), [
+    productType,
+    diameter,
+    thickness,
+    frameWidth,
+    lineWidth,
+    opening,
+    wallThickness,
+    bottomThickness,
+    bowlDepth,
+    stepWidth,
+    fitClearance,
+    edgeChamfer,
+  ])
 
   useEffect(() => {
     workerRef.current?.terminate()
@@ -139,7 +170,7 @@ export function useThermoformer(
   }, [])
 
   const issues = useMemo(
-    () => validateScreen(buildParams),
+    () => validateThermoformer(buildParams),
     [buildParams],
   )
 

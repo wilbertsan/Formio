@@ -133,7 +133,7 @@ Parâmetros
 | Código | Severidade | Regra |
 |---|---|---|
 | `support-step` | error/warning | error se `stepWidth <= fitClearance`; warning se a sobreposição for menor que 1 mm |
-| `support-step-frame` | warning | `stepWidth > frameWidth`, degrau avança sob a área perfurada |
+| `support-step-frame` | warning | `stepWidth − fitClearance > frameWidth`, degrau avança sob a área perfurada |
 | `support-wall` | error | parede abaixo de 0,8 mm (defensivo) |
 | `support-bottom` | error | fundo abaixo de 0,8 mm (defensivo) |
 | `support-clearance` | warning | folga abaixo de 0,2 mm |

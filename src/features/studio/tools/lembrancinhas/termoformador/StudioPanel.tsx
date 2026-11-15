@@ -10,7 +10,7 @@ import {
 } from '@aws-amplify/ui-react'
 import { PLA_COLORS, type ThermoformerParams } from './schema'
 import { computeScreenPattern } from './screenPattern'
-import type { ValidationIssue } from './validateScreen'
+import type { ValidationIssue } from './validateThermoformer'
 
 interface StudioPanelProps {
   params: ThermoformerParams

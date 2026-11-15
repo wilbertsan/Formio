@@ -519,6 +519,16 @@ git mv tests/features/studio/tools/lembrancinhas/termoformador/validateScreen.te
 No `validateThermoformer.test.ts`, trocar imports para `validateThermoformer` e adicionar testes do suporte:
 
 ```ts
+  it('acumula issue da tela com issue do suporte', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      diameter: 60,
+      frameWidth: 30,
+      fitClearance: 0.1,
+    })
+    expect(issues.map((issue) => issue.code)).toEqual(['screen-frame', 'support-clearance'])
+  })
+
   it('aponta degrau sem sustentação da tela (defensivo)', () => {
     const issues = validateThermoformer({
       ...defaultThermoformerParams,
@@ -543,19 +553,29 @@ No `validateThermoformer.test.ts`, trocar imports para `validateThermoformer` e 
       stepWidth: 8,
       frameWidth: 6,
     })
-    expect(issues).toContainEqual(expect.objectContaining({ code: 'support-step-frame' }))
+    expect(issues).toContainEqual(expect.objectContaining({ code: 'support-step-frame', severity: 'warning' }))
+  })
+
+  it('não avisa quando o degrau fica sob o aro sólido', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      stepWidth: 6.2,
+      frameWidth: 6,
+      fitClearance: 0.3,
+    })
+    expect(issues.some((issue) => issue.code === 'support-step-frame')).toBe(false)
   })
 
   it('aponta parede e fundo abaixo do mínimo (defensivo)', () => {
     const wall = validateThermoformer({ ...defaultThermoformerParams, wallThickness: 0.5 })
     const bottom = validateThermoformer({ ...defaultThermoformerParams, bottomThickness: 0.5 })
-    expect(wall).toContainEqual(expect.objectContaining({ code: 'support-wall' }))
-    expect(bottom).toContainEqual(expect.objectContaining({ code: 'support-bottom' }))
+    expect(wall).toContainEqual(expect.objectContaining({ code: 'support-wall', severity: 'error' }))
+    expect(bottom).toContainEqual(expect.objectContaining({ code: 'support-bottom', severity: 'error' }))
   })
 
   it('avisa sobre folga apertada da tela', () => {
     const issues = validateThermoformer({ ...defaultThermoformerParams, fitClearance: 0.1 })
-    expect(issues).toContainEqual(expect.objectContaining({ code: 'support-clearance' }))
+    expect(issues).toContainEqual(expect.objectContaining({ code: 'support-clearance', severity: 'warning' }))
   })
 
   it('avisa profundidade inválida (defensivo)', () => {
@@ -573,6 +593,9 @@ No `validateThermoformer.test.ts`, trocar imports para `validateThermoformer` e 
       fitClearance: 0.1,
     })
     expect(issues).toContainEqual(expect.objectContaining({ code: 'support-depth' }))
+    const depth = issues.find((issue) => issue.code === 'support-depth')
+    expect(depth).toEqual(expect.objectContaining({ severity: 'warning' }))
+    expect(depth!.message).toContain('45.1 mm')
   })
 ```
 
@@ -658,6 +681,8 @@ export function validateThermoformer(
     })
   }
 
+  // Guardas defensivas para chamadores diretos fora dos intervalos do Zod; a UI
+  // não alcança estes casos.
   if (support.ledgeOverlap <= 0) {
     issues.push({
       code: 'support-step',
@@ -672,7 +697,7 @@ export function validateThermoformer(
     })
   }
 
-  if (params.stepWidth > params.frameWidth) {
+  if (params.stepWidth - params.fitClearance > params.frameWidth) {
     issues.push({
       code: 'support-step-frame',
       severity: 'warning',
@@ -680,10 +705,7 @@ export function validateThermoformer(
     })
   }
 
-  if (
-    params.wallThickness < MINIMUM_SUPPORT_MM
-    || support.cavityWall < MINIMUM_SUPPORT_MM - 1e-6
-  ) {
+  if (params.wallThickness < MINIMUM_SUPPORT_MM) {
     issues.push({
       code: 'support-wall',
       severity: 'error',

@@ -92,6 +92,12 @@ describe('useThermoformer', () => {
       frameWidth: 6,
       lineWidth: 0.4,
       opening: 6,
+      wallThickness: 4,
+      bottomThickness: 4,
+      bowlDepth: 20,
+      stepWidth: 5,
+      fitClearance: 0.3,
+      edgeChamfer: 0.6,
     })
 
     act(() => { respond() })
