@@ -174,10 +174,14 @@ describe('buildSupportProfile', () => {
     const hasPoint = (x: number, y: number) =>
       profile.some((point) => Math.abs(point.x - x) < 1e-6 && Math.abs(point.y - y) < 1e-6)
 
-    expect(hasPoint(84.3, 27)).toBe(true)
+    // Chanfro de 0,6 mm nas duas arestas externas.
+    expect(hasPoint(84.3, 26.4)).toBe(true)
+    expect(hasPoint(83.7, 27)).toBe(true)
     expect(hasPoint(80.3, 27)).toBe(true)
     expect(hasPoint(80.3, 24)).toBe(true)
     expect(hasPoint(75.3, 24)).toBe(true)
+    expect(hasPoint(83.7, 0)).toBe(true)
+    expect(hasPoint(84.3, 0.6)).toBe(true)
   })
 })
 
