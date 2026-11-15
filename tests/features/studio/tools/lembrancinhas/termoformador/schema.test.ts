@@ -16,7 +16,22 @@ describe('termoformador schema', () => {
       frameWidth: 6,
       lineWidth: 0.4,
       opening: 6,
+      wallThickness: 4,
+      bottomThickness: 4,
+      bowlDepth: 20,
+      stepWidth: 5,
+      fitClearance: 0.3,
+      edgeChamfer: 0.6,
     })
+  })
+
+  it('rejeita parâmetros do suporte fora da faixa', () => {
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, wallThickness: 1.9 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, bottomThickness: 11 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, bowlDepth: 61 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, stepWidth: 16 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, fitClearance: 0.7 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, edgeChamfer: 4 }).success).toBe(false)
   })
 
   it('rejeita dimensões fora da faixa', () => {
