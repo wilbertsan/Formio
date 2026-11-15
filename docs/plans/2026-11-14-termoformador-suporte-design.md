@@ -56,6 +56,8 @@ Além dos parâmetros atuais da tela:
 - Sobreposição do degrau sob a tela: `stepWidth − fitClearance`.
 - Raio da esfera da bacia: `Rb = (Rtop² + bowlDepth²) / (2·bowlDepth)`.
 - Centro da esfera: `yc = bottomThickness + Rb`.
+- Profundidade efetiva: limitada para manter pelo menos 0,8 mm entre a
+  parede externa e o raio máximo da bacia (`cavityWall`).
 
 Com os defaults (tela 160 × 3, aro 6):
 
@@ -135,7 +137,7 @@ Parâmetros
 | `support-wall` | error | parede abaixo de 0,8 mm (defensivo) |
 | `support-bottom` | error | fundo abaixo de 0,8 mm (defensivo) |
 | `support-clearance` | warning | folga abaixo de 0,2 mm |
-| `support-depth` | warning | profundidade inválida (defensivo) |
+| `support-depth` | warning | profundidade inválida ou limitada para manter a parede mínima |
 
 As issues da tela existentes permanecem. Avisos não bloqueiam o build.
 
@@ -156,6 +158,9 @@ As issues da tela existentes permanecem. Avisos não bloqueiam o build.
 - **Encaixe por degrau:** a tela apoia no degrau; não há anel de retenção nem
   rosca na v1.
 - **Fundo fechado:** sem furo de vácuo; a bacia é um recipiente fechado.
+- **Profundidade limitada:** se a bacia solicitada furar a parede externa,
+  a profundidade efetiva é reduzida até manter 0,8 mm de parede e a
+  validação avisa via `support-depth`.
 - **Duas peças no export:** o botão exporta tela e suporte, como as peças da
   caixa.
 - **Cor única:** as duas peças usam a mesma cor PLA; o STL não carrega cor.

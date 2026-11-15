@@ -405,6 +405,10 @@ git add src/features/studio/tools/lembrancinhas/termoformador/buildSupport.ts \
 git commit -m "feat: build thermoformer support"
 ```
 
+> **Correção pós-review:** a versão final clampa `effectiveBowlDepth` para manter
+> 0,8 mm de parede entre a bacia e o exterior, expondo `cavityWall` e
+> `bowlDepthLimited`. A validação usa esses campos (Task 4).
+
 ---
 
 ## Task 3: Orquestração das duas peças
@@ -558,6 +562,18 @@ No `validateThermoformer.test.ts`, trocar imports para `validateThermoformer` e 
     const issues = validateThermoformer({ ...defaultThermoformerParams, bowlDepth: 0 })
     expect(issues).toContainEqual(expect.objectContaining({ code: 'support-depth' }))
   })
+
+  it('avisa quando a profundidade da bacia é limitada', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      diameter: 60,
+      wallThickness: 2,
+      bowlDepth: 60,
+      stepWidth: 2,
+      fitClearance: 0.1,
+    })
+    expect(issues).toContainEqual(expect.objectContaining({ code: 'support-depth' }))
+  })
 ```
 
 **Step 3: Rodar e confirmar a falha**
@@ -664,11 +680,14 @@ export function validateThermoformer(
     })
   }
 
-  if (params.wallThickness < MINIMUM_SUPPORT_MM) {
+  if (
+    params.wallThickness < MINIMUM_SUPPORT_MM
+    || support.cavityWall < MINIMUM_SUPPORT_MM - 1e-6
+  ) {
     issues.push({
       code: 'support-wall',
       severity: 'error',
-      message: `A parede do suporte é menor que o mínimo de ${MINIMUM_SUPPORT_MM} mm.`,
+      message: `A parede do suporte fica abaixo do mínimo de ${MINIMUM_SUPPORT_MM} mm.`,
     })
   }
 
@@ -688,7 +707,13 @@ export function validateThermoformer(
     })
   }
 
-  if (params.bowlDepth <= 0) {
+  if (support.bowlDepthLimited) {
+    issues.push({
+      code: 'support-depth',
+      severity: 'warning',
+      message: `A profundidade da bacia foi limitada a ${support.effectiveBowlDepth.toFixed(1)} mm para manter a parede mínima.`,
+    })
+  } else if (params.bowlDepth <= 0) {
     issues.push({
       code: 'support-depth',
       severity: 'warning',
