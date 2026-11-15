@@ -181,6 +181,5 @@ export function buildSupport(
     buildSupportProfile(params),
     SCREEN_SEGMENTS,
   )
-  geometry.computeVertexNormals()
   return removeDegenerateTriangles(geometry)
 }
