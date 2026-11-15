@@ -18,6 +18,9 @@ describe('getSupportDimensions', () => {
     expect(dims.cavityTopRadius).toBeCloseTo(75.3, 5)
     expect(dims.ledgeOverlap).toBeCloseTo(4.7, 5)
     expect(dims.sphereRadius).toBeCloseTo(151.75, 2)
+    expect(dims.effectiveBowlDepth).toBeCloseTo(20, 5)
+    expect(dims.cavityWall).toBeCloseTo(9, 5)
+    expect(dims.bowlDepthLimited).toBe(false)
   })
 
   it('mantém folga radial entre a tela e o rebaixo', () => {
@@ -48,6 +51,14 @@ describe('buildSupportProfile', () => {
     expect(hasPoint(83.7, 0)).toBe(true)
     expect(hasPoint(84.3, 0.6)).toBe(true)
   })
+
+  it('sem chanfro usa as arestas externas retas', () => {
+    const profile = buildSupportProfile({ ...defaultThermoformerParams, edgeChamfer: 0 })
+    const hasPoint = (x: number, y: number) =>
+      profile.some((point) => Math.abs(point.x - x) < 1e-6 && Math.abs(point.y - y) < 1e-6)
+    expect(hasPoint(84.3, 0)).toBe(true)
+    expect(hasPoint(84.3, 27)).toBe(true)
+  })
 })
 
 describe('buildSupport', () => {
@@ -73,12 +84,35 @@ describe('buildSupport', () => {
     geometry.dispose()
   })
 
-  it('a cavidade fica dentro da parede externa', () => {
+  it('mantém a parede entre a bacia e o exterior', () => {
     const geometry = buildSupport(defaultThermoformerParams)
     const dims = getSupportDimensions(defaultThermoformerParams)
     geometry.computeBoundingBox()
-    expect(geometry.boundingBox!.max.x).toBeGreaterThan(dims.recessRadius)
-    expect(dims.cavityTopRadius).toBeLessThan(dims.recessRadius)
+    expect(geometry.boundingBox!.max.x).toBeCloseTo(dims.outerRadius, 1)
+    expect(dims.cavityWall).toBeGreaterThanOrEqual(0.8 - 1e-6)
+    geometry.dispose()
+  })
+
+  it('limita a profundidade para não furar a parede externa', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      diameter: 60,
+      wallThickness: 2,
+      bowlDepth: 60,
+      stepWidth: 2,
+      fitClearance: 0.1,
+    }
+    const dims = getSupportDimensions(params)
+
+    expect(dims.bowlDepthLimited).toBe(true)
+    expect(dims.effectiveBowlDepth).toBeLessThan(60)
+    expect(dims.cavityWall).toBeCloseTo(0.8, 2)
+
+    const geometry = buildSupport(params)
+    geometry.computeBoundingBox()
+    expect(geometry.boundingBox!.max.x).toBeCloseTo(dims.outerRadius, 1)
+    expect(isClosed(geometry)).toBe(true)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
     geometry.dispose()
   })
 })

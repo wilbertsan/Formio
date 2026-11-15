@@ -5,6 +5,7 @@ import {
   Vector3,
 } from 'three'
 import {
+  MINIMUM_SUPPORT_MM,
   SCREEN_SEGMENTS,
   type ThermoformerGeometryParams,
 } from './schema'
@@ -18,6 +19,10 @@ export interface SupportDimensions {
   sphereRadius: number
   sphereCenterY: number
   ledgeOverlap: number
+  effectiveBowlDepth: number
+  cavityMaxRadius: number
+  cavityWall: number
+  bowlDepthLimited: boolean
 }
 
 const CAVITY_SEGMENTS = 32
@@ -29,12 +34,30 @@ export function getSupportDimensions(
   const screenRadius = params.diameter / 2
   const recessRadius = screenRadius + params.fitClearance
   const outerRadius = recessRadius + params.wallThickness
-  const depth = Math.max(0.1, params.bowlDepth)
-  const height = params.thickness + depth + params.bottomThickness
-  const seatY = depth + params.bottomThickness
-  const cavityTopRadius = Math.max(0.1, recessRadius - params.stepWidth)
-  const sphereRadius = (cavityTopRadius ** 2 + depth ** 2) / (2 * depth)
+  const requestedDepth = Math.max(0.1, params.bowlDepth)
+  const requestedTop = Math.max(0.1, recessRadius - params.stepWidth)
+  const maxCavityRadius = Math.max(0.1, outerRadius - MINIMUM_SUPPORT_MM)
+  const requestedSphereRadius =
+    (requestedTop ** 2 + requestedDepth ** 2) / (2 * requestedDepth)
+
+  const depthLimit = requestedSphereRadius > maxCavityRadius
+    ? maxCavityRadius
+      + Math.sqrt(Math.max(0, maxCavityRadius ** 2 - requestedTop ** 2))
+    : requestedDepth
+  const effectiveBowlDepth = Math.min(requestedDepth, depthLimit)
+  const bowlDepthLimited = effectiveBowlDepth < requestedDepth - 1e-9
+
+  const seatY = effectiveBowlDepth + params.bottomThickness
+  const height = params.thickness + effectiveBowlDepth + params.bottomThickness
+  const cavityTopRadius = requestedTop
+  const sphereRadius =
+    (cavityTopRadius ** 2 + effectiveBowlDepth ** 2)
+    / (2 * effectiveBowlDepth)
   const sphereCenterY = params.bottomThickness + sphereRadius
+  const cavityMaxRadius = effectiveBowlDepth >= sphereRadius
+    ? sphereRadius
+    : cavityTopRadius
+  const cavityWall = outerRadius - cavityMaxRadius
   const ledgeOverlap = screenRadius - cavityTopRadius
 
   return {
@@ -46,6 +69,10 @@ export function getSupportDimensions(
     sphereRadius,
     sphereCenterY,
     ledgeOverlap,
+    effectiveBowlDepth,
+    cavityMaxRadius,
+    cavityWall,
+    bowlDepthLimited,
   }
 }
 
