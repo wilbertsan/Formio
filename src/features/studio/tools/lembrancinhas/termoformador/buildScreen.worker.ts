@@ -1,5 +1,5 @@
-import { buildScreen } from './buildScreen'
-import { serializeGeometry } from './workerGeometry'
+import { buildThermoformer } from './buildThermoformer'
+import { serializeThermoformerResult } from './workerGeometry'
 import type { ThermoformerGeometryParams } from './schema'
 
 interface BuildRequest {
@@ -13,6 +13,6 @@ const scope = self as unknown as {
 
 scope.onmessage = (event) => {
   const { params } = event.data
-  const { data, transfer } = serializeGeometry(buildScreen(params))
+  const { data, transfer } = serializeThermoformerResult(buildThermoformer(params))
   scope.postMessage({ data }, transfer)
 }

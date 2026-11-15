@@ -1,10 +1,10 @@
 import type { ThermoformerGeometryParams } from './schema'
-import type { SerializedGeometry } from './workerGeometry'
+import type { SerializedThermoformerResult } from './workerGeometry'
 
 export interface ScreenWorker {
   build(
     params: ThermoformerGeometryParams,
-    onResult: (data: SerializedGeometry) => void,
+    onResult: (data: SerializedThermoformerResult) => void,
     onError?: () => void,
   ): void
   terminate(): void
@@ -23,7 +23,7 @@ export function createScreenWorker(): ScreenWorker {
         onError?.()
         return
       }
-      worker.onmessage = (event: MessageEvent<{ data: SerializedGeometry }>) => {
+      worker.onmessage = (event: MessageEvent<{ data: SerializedThermoformerResult }>) => {
         onResult(event.data.data)
       }
       worker.onerror = () => onError?.()

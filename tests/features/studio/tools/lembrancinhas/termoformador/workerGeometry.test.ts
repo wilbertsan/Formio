@@ -2,9 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { BoxGeometry, BufferGeometry, Float32BufferAttribute } from 'three'
 import {
   deserializeGeometry,
+  deserializeThermoformerResult,
   serializeGeometry,
+  serializeThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
 import { buildScreen } from '@/features/studio/tools/lembrancinhas/termoformador/buildScreen'
+import { buildThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
+import type { BuildThermoformerResult } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
+import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 
 describe('workerGeometry', () => {
@@ -62,5 +67,49 @@ describe('workerGeometry', () => {
 
     geometry.dispose()
     restored.dispose()
+  })
+
+  it('faz round-trip das duas peças e do assento', () => {
+    const result: BuildThermoformerResult = {
+      screen: new BoxGeometry(160, 3, 160),
+      support: new BoxGeometry(168.6, 27, 168.6),
+      seatY: 24,
+    }
+    const { data, transfer } = serializeThermoformerResult(result)
+
+    expect(transfer.length).toBeGreaterThanOrEqual(4)
+    expect(data.seatY).toBe(24)
+
+    const restored = deserializeThermoformerResult(data)
+    restored.screen.computeBoundingBox()
+    restored.support.computeBoundingBox()
+    expect(restored.screen.boundingBox!.max.x).toBeCloseTo(80, 5)
+    expect(restored.support.boundingBox!.max.y).toBeCloseTo(13.5, 5)
+    expect(restored.seatY).toBe(24)
+
+    result.screen.dispose()
+    result.support.dispose()
+    restored.screen.dispose()
+    restored.support.dispose()
+  })
+
+  it('serializa o conjunto real com buffers copiados e sem duplicatas', () => {
+    const result = buildThermoformer(defaultThermoformerParams)
+    const sourcePosition = result.screen.getAttribute('position').array
+    const { data, transfer } = serializeThermoformerResult(result)
+
+    expect(data.screen.index).toBeNull()
+    expect(data.support.index).not.toBeNull()
+    expect(transfer).toHaveLength(5)
+    expect(new Set(transfer).size).toBe(transfer.length)
+    expect(data.screen.position.buffer).not.toBe(sourcePosition.buffer)
+    expect(data.screen.position.buffer).toBe(transfer[0])
+    expect(data.seatY).toBeCloseTo(
+      getSupportDimensions(defaultThermoformerParams).seatY,
+      5,
+    )
+
+    result.screen.dispose()
+    result.support.dispose()
   })
 })

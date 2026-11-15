@@ -1,4 +1,5 @@
 import { BufferAttribute, BufferGeometry } from 'three'
+import type { BuildThermoformerResult } from './buildThermoformer'
 
 export interface SerializedGeometry {
   position: Float32Array
@@ -20,7 +21,7 @@ export function serializeGeometry(geometry: BufferGeometry): {
     : new Float32Array(0)
   const indexAttribute = geometry.getIndex()
   const index = indexAttribute
-    ? new Uint32Array(indexAttribute.array).slice()
+    ? new Uint32Array(indexAttribute.array)
     : null
 
   const transfer: ArrayBuffer[] = [
@@ -40,4 +41,36 @@ export function deserializeGeometry(data: SerializedGeometry): BufferGeometry {
   }
   if (data.index) geometry.setIndex(new BufferAttribute(data.index, 1))
   return geometry
+}
+
+export interface SerializedThermoformerResult {
+  screen: SerializedGeometry
+  support: SerializedGeometry
+  seatY: number
+}
+
+export function serializeThermoformerResult(
+  result: BuildThermoformerResult,
+): { data: SerializedThermoformerResult; transfer: ArrayBuffer[] } {
+  const screen = serializeGeometry(result.screen)
+  const support = serializeGeometry(result.support)
+
+  return {
+    data: {
+      screen: screen.data,
+      support: support.data,
+      seatY: result.seatY,
+    },
+    transfer: [...screen.transfer, ...support.transfer],
+  }
+}
+
+export function deserializeThermoformerResult(
+  data: SerializedThermoformerResult,
+): BuildThermoformerResult {
+  return {
+    screen: deserializeGeometry(data.screen),
+    support: deserializeGeometry(data.support),
+    seatY: data.seatY,
+  }
 }
