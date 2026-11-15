@@ -30,6 +30,32 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByRole('slider', { name: 'Largura do aro' })).toBeDefined()
   })
 
+  it('renderiza a seção Suporte e os sliders', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText('Suporte')).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Parede do suporte' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Fundo do suporte' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Profundidade da bacia' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Largura do degrau' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Folga da tela' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Chanfro do suporte' })).toBeDefined()
+  })
+
+  it('mostra as métricas do suporte', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText(/Diâmetro externo 168\.6 mm/)).toBeDefined()
+    expect(screen.getByText(/Altura 27\.0 mm/)).toBeDefined()
+  })
+
+  it('atualiza a parede do suporte', () => {
+    const onUpdateParam = vi.fn()
+    render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Parede do suporte' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenCalledWith('wallThickness', 4.5)
+  })
+
   it('atualiza o diâmetro ao usar o teclado no slider', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)

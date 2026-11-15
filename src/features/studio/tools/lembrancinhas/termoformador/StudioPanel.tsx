@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from '@aws-amplify/ui-react'
+import { getSupportDimensions } from './buildSupport'
 import { PLA_COLORS, type ThermoformerParams } from './schema'
 import { computeScreenPattern } from './screenPattern'
 import type { ValidationIssue } from './validateThermoformer'
@@ -92,6 +93,7 @@ export function StudioPanel({
   onReset,
 }: StudioPanelProps) {
   const pattern = computeScreenPattern(params)
+  const supportDims = getSupportDimensions(params)
 
   return (
     <View
@@ -132,6 +134,27 @@ export function StudioPanel({
               <LabeledSlider label="Abertura do favo" value={params.opening} min={3} max={30} step={0.5} onChange={(value) => onUpdateParam('opening', value)} />
               <LabeledSlider label="Espessura da linha" value={params.lineWidth} min={0.4} max={4} step={0.2} onChange={(value) => onUpdateParam('lineWidth', value)} />
               <LabeledSlider label="Largura do aro" value={params.frameWidth} min={2} max={30} step={1} onChange={(value) => onUpdateParam('frameWidth', value)} />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="suporte">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">Suporte</Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <Text fontSize="xs" color="font.secondary">
+                Diâmetro externo {(supportDims.outerRadius * 2).toFixed(1)} mm · Altura{' '}
+                {supportDims.height.toFixed(1)} mm
+              </Text>
+              <LabeledSlider label="Parede do suporte" value={params.wallThickness} min={2} max={10} step={0.5} onChange={(value) => onUpdateParam('wallThickness', value)} />
+              <LabeledSlider label="Fundo do suporte" value={params.bottomThickness} min={2} max={10} step={0.5} onChange={(value) => onUpdateParam('bottomThickness', value)} />
+              <LabeledSlider label="Profundidade da bacia" value={params.bowlDepth} min={5} max={60} step={1} onChange={(value) => onUpdateParam('bowlDepth', value)} />
+              <LabeledSlider label="Largura do degrau" value={params.stepWidth} min={2} max={15} step={0.5} onChange={(value) => onUpdateParam('stepWidth', value)} />
+              <LabeledSlider label="Folga da tela" value={params.fitClearance} min={0.1} max={0.6} step={0.1} onChange={(value) => onUpdateParam('fitClearance', value)} />
+              <LabeledSlider label="Chanfro do suporte" value={params.edgeChamfer} min={0} max={3} step={0.1} onChange={(value) => onUpdateParam('edgeChamfer', value)} />
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
