@@ -1,5 +1,5 @@
 import {
-  HANDLE_WRAP,
+  HANDLE_FIT_INTERFERENCE,
   MAX_TEXT_ARC,
   MINIMUM_BOTTOM_MM,
   MINIMUM_WALL_MM,
@@ -7,6 +7,27 @@ import {
   type MugGeometryParams,
 } from './schema'
 import { getBodyOuterRadius, getEffectiveRimChamfer, getHandleMetrics } from './shapes'
+
+/** Margem entre o texto e a borda ou o fundo da caneca. */
+const TEXT_MARGIN_MM = 2
+/** Margem entre o vão vertical da alça e a borda ou o fundo. */
+const HANDLE_MARGIN_MM = 2
+/** Abertura horizontal mínima confortável para a mão. */
+const MIN_HAND_OPENING_MM = 16
+/** Faixa útil de capacidade exibida. */
+const MIN_CAPACITY_ML = 150
+const MAX_CAPACITY_ML = 500
+/**
+ * Largura média por caractere da Helvetiker em caixa mista (medida: 0,675 a
+ * 0,694). É uma estimativa conservadora; o build usa a fonte real e faz
+ * auto-fit em `MAX_TEXT_ARC`.
+ */
+const TEXT_WIDTH_FACTOR = 0.68
+/**
+ * Altura real dos glifos em relação ao tamanho nominal (medida: 1,01 a 1,07),
+ * para a faixa do texto não subestimar a borda.
+ */
+const GLYPH_HEIGHT_FACTOR = 1.1
 
 export type IssueSeverity = 'error' | 'warning'
 
@@ -16,7 +37,6 @@ export type MugIssueCode =
   | 'mug-bottom'
   | 'mug-text-fit'
   | 'mug-text-band'
-  | 'mug-text-rail'
   | 'mug-handle-gap'
   | 'mug-handle-reach'
   | 'mug-handle-fit'
@@ -31,7 +51,7 @@ export interface ValidationIssue {
 
 /** Mesma estimativa usada no painel; o build real usa a fonte e faz auto-fit. */
 export function estimateTextWidth(text: string, size: number): number {
-  return text.trim().length * size * 0.62
+  return text.trim().length * size * TEXT_WIDTH_FACTOR
 }
 
 export function validateMug(params: MugGeometryParams): ValidationIssue[] {
@@ -70,13 +90,13 @@ export function validateMug(params: MugGeometryParams): ValidationIssue[] {
       issues.push({
         code: 'mug-text-fit',
         severity: 'warning',
-        message: 'O texto será reduzido para caber no arco da caneca.',
+        message: 'O texto pode ser reduzido para caber no arco da caneca.',
       })
     }
 
-    const halfHeight = params.textSize / 2
-    const minY = params.bottomThickness + 2
-    const maxY = params.height - chamfer - 2
+    const halfHeight = (params.textSize * GLYPH_HEIGHT_FACTOR) / 2
+    const minY = params.bottomThickness + TEXT_MARGIN_MM
+    const maxY = params.height - chamfer - TEXT_MARGIN_MM
     if (params.textCenterY - halfHeight < minY || params.textCenterY + halfHeight > maxY) {
       issues.push({
         code: 'mug-text-band',
@@ -84,39 +104,25 @@ export function validateMug(params: MugGeometryParams): ValidationIssue[] {
         message: 'O texto cruza a borda ou o fundo da caneca. Ajuste a altura ou o tamanho.',
       })
     }
-
-    const halfWrap = HANDLE_WRAP / 2
-    const gapStart = halfWrap
-    const gapEnd = Math.PI * 2 - halfWrap
-    const margin = (8 * Math.PI) / 180
-    const textStart = Math.PI - arc / 2
-    const textEnd = Math.PI + arc / 2
-    if (params.handleEnabled && (textStart < gapStart + margin || textEnd > gapEnd - margin)) {
-      issues.push({
-        code: 'mug-text-rail',
-        severity: 'warning',
-        message: 'O texto se aproxima da abraçadeira da alça. Reduza o tamanho ou o número de caracteres.',
-      })
-    }
   }
 
   if (params.handleEnabled) {
     const metrics = getHandleMetrics(params)
-    if (params.handleGap < 18) {
+    if (params.handleGap < 26) {
       issues.push({
         code: 'mug-handle-gap',
         severity: 'warning',
         message: 'A abertura vertical da mão está pequena; o conforto fica comprometido.',
       })
     }
-    if (metrics.handOpeningMinWidth < 16) {
+    if (metrics.handOpeningMinWidth < MIN_HAND_OPENING_MM) {
       issues.push({
         code: 'mug-handle-reach',
         severity: 'warning',
         message: 'O alcance da alça não deixa abertura suficiente para a mão.',
       })
     }
-    if (params.handleClearance > 0.4) {
+    if (params.handleClearance > HANDLE_FIT_INTERFERENCE) {
       issues.push({
         code: 'mug-handle-fit',
         severity: 'warning',
@@ -125,8 +131,8 @@ export function validateMug(params: MugGeometryParams): ValidationIssue[] {
     }
     const span = params.handleGap / 2 + params.handleBand
     if (
-      params.handleHeight - span < 2 ||
-      params.handleHeight + span > params.height - chamfer - 2
+      params.handleHeight - span < HANDLE_MARGIN_MM ||
+      params.handleHeight + span > params.height - chamfer - HANDLE_MARGIN_MM
     ) {
       issues.push({
         code: 'mug-handle-band',
@@ -137,11 +143,11 @@ export function validateMug(params: MugGeometryParams): ValidationIssue[] {
   }
 
   const capacity = getCapacityMl(params)
-  if (capacity < 150 || capacity > 500) {
+  if (capacity < MIN_CAPACITY_ML || capacity > MAX_CAPACITY_ML) {
     issues.push({
       code: 'mug-capacity',
       severity: 'warning',
-      message: `A capacidade aproximada é ${capacity.toFixed(0)} ml (fora da faixa de 150–500 ml).`,
+      message: `A capacidade aproximada é ${capacity.toFixed(0)} ml (fora da faixa de ${MIN_CAPACITY_ML}–${MAX_CAPACITY_ML} ml).`,
     })
   }
 

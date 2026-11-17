@@ -113,19 +113,24 @@ Parâmetros
 - `mug-taper`: diâmetro do topo menor que o da base
 - `mug-wall`: parede abaixo de 1,8 mm (defensiva; a UI já limita)
 - `mug-bottom`: fundo abaixo de 2 mm
-- `mug-text-fit`: estimativa do texto (0,62 × tamanho por caractere) não cabe
-  no arco útil de 120° da frente
+- `mug-text-fit`: estimativa do texto (0,68 × tamanho por caractere) pode
+  exceder o arco útil de 120°; o build usa a fonte real e faz auto-fit, então o
+  arco limitado mantém o texto longe da abraçadeira de 200°
 - `mug-text-band`: texto cruza a borda ou o fundo, limitado por
-  `height − chanfro efetivo − 2`
-- `mug-text-rail`: texto invade o arco da abraçadeira com margem de 8° (defensiva)
-- `mug-handle-gap`: abertura da mão pequena demais para o laço
+  `height − chanfro efetivo − 2` e pela altura real do glifo
+  (`1,1 × textSize`)
+- `mug-handle-gap`: abertura vertical da mão abaixo de 26 mm
 - `mug-handle-reach`: a menor largura do furo trapezoidal da mão é insuficiente
-- `mug-handle-fit`: folga nominal da abraçadeira acima de 0,4 mm no meio da
-  altura; a interferência no topo é absoluta em 0,4 mm para qualquer folga
+- `mug-handle-fit`: folga nominal da abraçadeira acima de
+  `HANDLE_FIT_INTERFERENCE` (0,4 mm) no meio da altura; a interferência no topo
+  é absoluta para qualquer folga
 - `mug-handle-band`: o vão vertical completo do laço
   (`handleHeight ± (handleGap / 2 + handleBand)`) sai da parede disponível
-- `mug-capacity`: capacidade abaixo de 150 ml ou acima de 500 ml
-- `mug-csg`: a união do relevo falhou
+  (o limite inferior de 2 mm é defensivo, inalcançável pelo schema)
+- `mug-capacity`: capacidade abaixo de 150 ml ou acima de 500 ml (o limite
+  inferior é defensivo, inalcançável pelo schema)
+- `mug-csg`: não é código de validação; é erro de runtime do worker quando a
+  união do relevo falha
 
 Avisos não bloqueiam o build nem o export. Falha de CSG mantém a geometria
 anterior e mostra erro no overlay.

@@ -12,7 +12,7 @@ import {
   RELIEF_EMBED,
   defaultMugParams,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
-import { getBodyOuterRadius } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/shapes'
+import { getBodyOuterRadius, getEffectiveRimChamfer } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/shapes'
 import {
   shapesToGeometry,
   textToShapes,
@@ -139,6 +139,28 @@ describe('buildRelief', () => {
     expect(box.max.y).toBeLessThanOrEqual(
       params.height - params.rimChamfer - 2 + POSITION_EPSILON,
     )
+    geometry.dispose()
+  })
+
+  it('clampa o texto com o chanfro efetivo quando o chanfro pedido é limitado', () => {
+    // Parede 2,4 mm: o chanfro efetivo é 0,6 mm, não os 2 mm pedidos.
+    const params = {
+      ...defaultMugParams,
+      rimChamfer: 2,
+      wallThickness: 2.4,
+      textCenterY: 90,
+    }
+    const chamfer = getEffectiveRimChamfer(params)
+    expect(chamfer).toBeLessThan(params.rimChamfer)
+
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    geometry.computeBoundingBox()
+    const ceiling = params.height - chamfer - 2
+
+    // O topo fica exatamente no limite efetivo: com o rimChamfer cru (2 mm) o
+    // clamp antigo pararia 1,4 mm abaixo.
+    expect(geometry.boundingBox!.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
+    expect(geometry.boundingBox!.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()
   })
 

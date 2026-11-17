@@ -5,7 +5,7 @@ import {
 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { shapesToGeometry, textToShapes } from '../../confeitaria/shared/textOutline'
-import { getBodyOuterRadius } from './shapes'
+import { getBodyOuterRadius, getEffectiveRimChamfer } from './shapes'
 import {
   CONTENT_DEPTH,
   MAX_TEXT_ARC,
@@ -47,7 +47,7 @@ export function fitRelief(
 
 function clampCenterY(params: MugGeometryParams, halfHeight: number): number {
   const minY = params.bottomThickness + 2 + halfHeight
-  const maxY = params.height - params.rimChamfer - 2 - halfHeight
+  const maxY = params.height - getEffectiveRimChamfer(params) - 2 - halfHeight
   if (minY > maxY) return params.textCenterY
   return Math.min(maxY, Math.max(minY, params.textCenterY))
 }
