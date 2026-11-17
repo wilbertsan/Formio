@@ -2,7 +2,7 @@
 
 ## Status
 
-Planejada (v1: corpo + relevo + alça de abraçadeira).
+Implementada (v1: corpo + relevo + alça de abraçadeira).
 
 ## Objetivo
 
@@ -161,10 +161,23 @@ anterior e mostra erro no overlay.
   inicial olha o lado do texto (azimute 210°).
 - Duas cores no preview: `bodyColor` no corpo e `accentColor` na alça. Troca de
   cor não rebuilda geometria.
-- O build roda em worker; a união do relevo é validada por spike antes do
-  restante da ferramenta.
-- Se o spike de CSG falhar, a implementação migra para a abordagem C
-  (plaqueta curva com o nome) antes de seguir.
+- O build roda em worker; o spike de CSG passou e a abordagem A foi mantida (o
+  fallback para a plaqueta curva não foi necessário).
+- O `three-bvh-csg` usa `useCDTClipping` (splitter CDT) em todas as uniões. O
+  splitter legado deixa T-junctions e arestas abertas nas bordas curvas; o CDT
+  produz malha fechada e single-shell. O flag é lido de volta pelo
+  `createConformingEvaluator`.
+- `geometryCleanup.removeDegenerateTriangles` remove triângulos com vértices
+  coincidentes na tolerância de 1e-4 mm (mesma do verificador de manifold) e
+  preserva position/normal/uv; é aplicado ao corpo e ao resultado do CSG.
+- O relevo usa subdivisão conforme de arestas até 2,5 mm antes de curvar, para
+  manter 1 mm de relevo visível também no centro de glifos largos
+  (sag ≈ 0,02 mm). O auto-fit limita o arco a 120°.
+- O build padrão leva ~0,6 s no worker (fonte já carregada); 20 caracteres em
+  18 mm levam ~2,4 s. O gate de teste é 4 s e roda em worker para não travar a
+  UI.
+- A alça é impressa em pé, apoiada na borda inferior do laço, com suporte sob
+  toda a face inferior da abraçadeira de 200°; não há rotação no export.
 - O export usa os snapshots de geometria do build (`body` e `handle`) e não
   recebe parâmetros; cada peça é clonada antes de centralizar na mesa.
 - `handleWrap` (200°), `HANDLE_RING_THICKNESS` (3,5 mm),

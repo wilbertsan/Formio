@@ -11,7 +11,7 @@ lembrancinhas.
 | mini-vaso | planejada |
 | caixa-personalizada | implementada (v1) |
 | termoformador | implementada (v1: tela + suporte) |
-| caneca-personalizada | planejada |
+| caneca-personalizada | implementada (v1) |
 
 ## Regras do domínio
 
