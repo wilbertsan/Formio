@@ -14,9 +14,8 @@ import {
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
 import { isClosed } from './geometryTestUtils'
 
-/** Cobre o recuo do embutimento e a variação de raio ao longo do glifo. */
-const RADIAL_TOLERANCE = 0.5
-const EPSILON = 1e-6
+/** Posições são Float32Array: ~1e-6 de erro absoluto em coordenadas de mm. */
+const POSITION_EPSILON = 1e-5
 
 function rectangleFont(width: number, height: number): Font {
   return {
@@ -37,32 +36,21 @@ describe('buildRelief', () => {
   it('curva o texto no raio do corpo e mantém 1 mm de relevo', () => {
     const params = { ...defaultMugParams, text: 'Festa' }
     const geometry = buildRelief(rectangleFont(20, 10), params)!
-    geometry.computeBoundingBox()
     const position = geometry.getAttribute('position')
-    let minRadius = Infinity
-    let maxRadius = 0
+    // O relevo acompanha a conicidade do corpo: cada vértice fica entre
+    // RELIEF_EMBED dentro da parede e CONTENT_DEPTH acima dela, no próprio y.
+    let minOffset = Infinity
+    let maxOffset = -Infinity
 
-    for (let i = 0; i < position.count; i++) {
-      const radius = Math.hypot(position.getX(i), position.getZ(i))
-      minRadius = Math.min(minRadius, radius)
-      maxRadius = Math.max(maxRadius, radius)
-    }
-
-    const radius = getOuterRadius(params, params.textCenterY)
-    // O relevo acompanha a conicidade do corpo, então o raio varia ao longo da
-    // altura do glifo além de recuar RELIEF_EMBED na parede.
-    expect(minRadius).toBeGreaterThan(radius - RADIAL_TOLERANCE)
-    expect(maxRadius).toBeGreaterThan(radius + CONTENT_DEPTH - RADIAL_TOLERANCE)
-
-    // Invariante exato: cada vértice fica entre RELIEF_EMBED dentro da parede e
-    // CONTENT_DEPTH - RELIEF_EMBED acima dela, no próprio y.
     for (let i = 0; i < position.count; i++) {
       const offset = Math.hypot(position.getX(i), position.getZ(i))
         - getOuterRadius(params, position.getY(i))
-      expect(offset).toBeGreaterThanOrEqual(-RELIEF_EMBED - EPSILON)
-      expect(offset).toBeLessThanOrEqual(CONTENT_DEPTH - RELIEF_EMBED + EPSILON)
+      minOffset = Math.min(minOffset, offset)
+      maxOffset = Math.max(maxOffset, offset)
     }
 
+    expect(minOffset).toBeCloseTo(-RELIEF_EMBED, 5)
+    expect(maxOffset).toBeCloseTo(CONTENT_DEPTH, 5)
     expect(isClosed(geometry)).toBe(true)
     geometry.dispose()
   })
@@ -74,6 +62,19 @@ describe('buildRelief', () => {
     expect(geometry.boundingBox!.max.x).toBeLessThan(0)
     expect(geometry.boundingBox!.min.y).toBeGreaterThan(params.textCenterY - params.textSize / 2 - 2)
     expect(geometry.boundingBox!.max.y).toBeLessThan(params.textCenterY + params.textSize / 2 + 2)
+    geometry.dispose()
+  })
+
+  it('clampa o texto para dentro da parede quando o centro pede a borda', () => {
+    const params = { ...defaultMugParams, textCenterY: 88 }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+
+    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + 2 - POSITION_EPSILON)
+    expect(box.max.y).toBeLessThanOrEqual(
+      params.height - params.rimChamfer - 2 + POSITION_EPSILON,
+    )
     geometry.dispose()
   })
 

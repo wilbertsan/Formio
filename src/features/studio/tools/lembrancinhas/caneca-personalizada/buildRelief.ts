@@ -1,4 +1,4 @@
-import { Box3, type BufferAttribute, type BufferGeometry } from 'three'
+import type { BufferAttribute, BufferGeometry } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { shapesToGeometry, textToShapes } from '../../confeitaria/shared/textOutline'
 import {
@@ -37,9 +37,12 @@ export function buildRelief(
   const shapes = textToShapes(font, params.text, params.textSize)
   if (shapes.length === 0) return null
 
-  const flat = shapesToGeometry(shapes, CONTENT_DEPTH, false)
+  // Extruda CONTENT_DEPTH visível + RELIEF_EMBED: depois do deslocamento de
+  // -RELIEF_EMBED a face de trás fica 0,2 mm dentro da parede e a frente a
+  // 1 mm acima dela, garantindo união CSG sem faces coplanares.
+  const flat = shapesToGeometry(shapes, CONTENT_DEPTH + RELIEF_EMBED, false)
   flat.computeBoundingBox()
-  const box = flat.boundingBox ?? new Box3()
+  const box = flat.boundingBox!
   const width = box.max.x - box.min.x
   const height = box.max.y - box.min.y
   if (width <= 0 || height <= 0) {
