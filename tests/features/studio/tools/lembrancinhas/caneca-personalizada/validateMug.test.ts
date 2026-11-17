@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { validateMug } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/validateMug'
+import {
+  GLYPH_HEIGHT_FACTOR,
+  MIN_HANDLE_GAP_MM,
+  TEXT_MARGIN_MM,
+  validateMug,
+} from '@/features/studio/tools/lembrancinhas/caneca-personalizada/validateMug'
 import { defaultMugParams } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
 import { getEffectiveRimChamfer } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/shapes'
 
@@ -41,8 +46,9 @@ describe('validateMug', () => {
   })
 
   it('aceita texto exatamente no limite superior da faixa', () => {
-    const halfHeight = (defaultMugParams.textSize * 1.1) / 2
-    const ceiling = defaultMugParams.height - getEffectiveRimChamfer(defaultMugParams) - 2
+    const halfHeight = (defaultMugParams.textSize * GLYPH_HEIGHT_FACTOR) / 2
+    const ceiling =
+      defaultMugParams.height - getEffectiveRimChamfer(defaultMugParams) - TEXT_MARGIN_MM
     const issues = validateMug({
       ...defaultMugParams,
       textCenterY: ceiling - halfHeight,
@@ -64,8 +70,8 @@ describe('validateMug', () => {
     expect(small).toContainEqual(expect.objectContaining({ code: 'mug-handle-reach', severity: 'warning' }))
   })
 
-  it('aponta abertura vertical desconfortável a partir de 24 mm', () => {
-    const narrow = validateMug({ ...defaultMugParams, handleGap: 24 })
+  it('aponta abertura vertical desconfortável abaixo de 26 mm', () => {
+    const narrow = validateMug({ ...defaultMugParams, handleGap: MIN_HANDLE_GAP_MM - 2 })
     expect(narrow).toContainEqual(expect.objectContaining({ code: 'mug-handle-gap', severity: 'warning' }))
     expect(validateMug(defaultMugParams).some((issue) => issue.code === 'mug-handle-gap')).toBe(false)
   })
@@ -95,14 +101,27 @@ describe('validateMug', () => {
   })
 
   it('não aponta problemas de alça quando a alça está desligada', () => {
-    const issues = validateMug({
+    const warningParams = {
       ...defaultMugParams,
-      handleEnabled: false,
+      handleGap: MIN_HANDLE_GAP_MM - 2,
+      handleClearance: 0.41,
+      handleReach: 30,
+      handleBand: 10,
       text: 'A'.repeat(20),
       textSize: 8,
       textCenterY: 88,
-    })
-    expect(issues.some((issue) => issue.code.startsWith('mug-handle'))).toBe(false)
-    expect(issues).toContainEqual(expect.objectContaining({ code: 'mug-text-band', severity: 'error' }))
+    }
+
+    // Os mesmos parâmetros ligados emitem os três avisos de alça...
+    const enabled = validateMug({ ...warningParams, handleEnabled: true })
+    expect(enabled).toContainEqual(expect.objectContaining({ code: 'mug-handle-gap', severity: 'warning' }))
+    expect(enabled).toContainEqual(expect.objectContaining({ code: 'mug-handle-reach', severity: 'warning' }))
+    expect(enabled).toContainEqual(expect.objectContaining({ code: 'mug-handle-fit', severity: 'warning' }))
+
+    // ...e desligados não deixam nenhum código de alça, mas a faixa do texto
+    // continua sendo verificada.
+    const disabled = validateMug({ ...warningParams, handleEnabled: false })
+    expect(disabled.some((issue) => issue.code.startsWith('mug-handle'))).toBe(false)
+    expect(disabled).toContainEqual(expect.objectContaining({ code: 'mug-text-band', severity: 'error' }))
   })
 })

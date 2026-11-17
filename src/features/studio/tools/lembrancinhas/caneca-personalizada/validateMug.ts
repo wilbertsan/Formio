@@ -9,11 +9,13 @@ import {
 import { getBodyOuterRadius, getEffectiveRimChamfer, getHandleMetrics } from './shapes'
 
 /** Margem entre o texto e a borda ou o fundo da caneca. */
-const TEXT_MARGIN_MM = 2
+export const TEXT_MARGIN_MM = 2
 /** Margem entre o vão vertical da alça e a borda ou o fundo. */
 const HANDLE_MARGIN_MM = 2
 /** Abertura horizontal mínima confortável para a mão. */
 const MIN_HAND_OPENING_MM = 16
+/** Abertura vertical mínima confortável para a mão. */
+export const MIN_HANDLE_GAP_MM = 26
 /** Faixa útil de capacidade exibida. */
 const MIN_CAPACITY_ML = 150
 const MAX_CAPACITY_ML = 500
@@ -22,12 +24,12 @@ const MAX_CAPACITY_ML = 500
  * 0,694). É uma estimativa conservadora; o build usa a fonte real e faz
  * auto-fit em `MAX_TEXT_ARC`.
  */
-const TEXT_WIDTH_FACTOR = 0.68
+export const TEXT_WIDTH_FACTOR = 0.68
 /**
  * Altura real dos glifos em relação ao tamanho nominal (medida: 1,01 a 1,07),
  * para a faixa do texto não subestimar a borda.
  */
-const GLYPH_HEIGHT_FACTOR = 1.1
+export const GLYPH_HEIGHT_FACTOR = 1.1
 
 export type IssueSeverity = 'error' | 'warning'
 
@@ -94,7 +96,8 @@ export function validateMug(params: MugGeometryParams): ValidationIssue[] {
       })
     }
 
-    const halfHeight = (params.textSize * GLYPH_HEIGHT_FACTOR) / 2
+    const fitScale = arc > 0 ? Math.min(1, MAX_TEXT_ARC / arc) : 1
+    const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
     const minY = params.bottomThickness + TEXT_MARGIN_MM
     const maxY = params.height - chamfer - TEXT_MARGIN_MM
     if (params.textCenterY - halfHeight < minY || params.textCenterY + halfHeight > maxY) {
@@ -108,7 +111,7 @@ export function validateMug(params: MugGeometryParams): ValidationIssue[] {
 
   if (params.handleEnabled) {
     const metrics = getHandleMetrics(params)
-    if (params.handleGap < 26) {
+    if (params.handleGap < MIN_HANDLE_GAP_MM) {
       issues.push({
         code: 'mug-handle-gap',
         severity: 'warning',
