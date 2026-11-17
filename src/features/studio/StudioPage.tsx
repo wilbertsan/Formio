@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Loader } from '@aws-amplify/ui-react'
 import { StudioTopbar } from './components/StudioTopbar'
 import { StudioViewport } from './components/StudioViewport'
@@ -1291,6 +1291,12 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
     setResetCameraSignal((signal) => signal + 1)
   }, [])
 
+  // Uma nova geometria chegou: o erro de export anterior não deve mascarar o
+  // status do build seguinte. Falha de export continua visível até lá.
+  useEffect(() => {
+    if (geometry) setExportError(null)
+  }, [geometry])
+
   const handleExport = useCallback(() => {
     if (!geometry) return
     setExportError(null)
@@ -1310,7 +1316,7 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
         onExport={handleExport}
         onBack={onBack}
       />
-      <div className="relative flex min-h-0 flex-1" aria-busy={isBuilding}>
+      <div className="relative flex min-h-0 flex-1">
         {error ?? exportError ? (
           <div
             role="alert"
@@ -1336,23 +1342,25 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
             onReset={reset}
           />
         </Suspense>
-        <StudioViewport
-          hasGeometry={geometry !== null}
-          resetCameraSignal={resetCameraSignal}
-          onResetCamera={handleResetCamera}
-          cameraPosition={cameraPosition}
-          fitRadius={fitRadius}
-          resetAzimuth={210}
-        >
-          <Suspense fallback={null}>
-            <MugPreview
-              body={geometry?.body ?? null}
-              handle={geometry?.handle ?? null}
-              bodyColor={params.bodyColor}
-              accentColor={params.accentColor}
-            />
-          </Suspense>
-        </StudioViewport>
+        <div className="flex min-h-0 flex-1" aria-busy={isBuilding}>
+          <StudioViewport
+            hasGeometry={geometry !== null}
+            resetCameraSignal={resetCameraSignal}
+            onResetCamera={handleResetCamera}
+            cameraPosition={cameraPosition}
+            fitRadius={fitRadius}
+            resetAzimuth={210}
+          >
+            <Suspense fallback={null}>
+              <MugPreview
+                body={geometry?.body ?? null}
+                handle={geometry?.handle ?? null}
+                bodyColor={params.bodyColor}
+                accentColor={params.accentColor}
+              />
+            </Suspense>
+          </StudioViewport>
+        </div>
       </div>
       <StudioStatusBar dimensions={dimensions} />
     </div>

@@ -71,6 +71,13 @@ function serializedScreen(): SerializedThermoformerResult {
   }).data
 }
 
+function serializedMug(): SerializedMugResult {
+  return serializeMugResult({
+    body: new THREE.BoxGeometry(80, 88, 80),
+    handle: new THREE.BoxGeometry(40, 52, 12),
+  }).data
+}
+
 class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
   onerror: (() => void) | null = null
@@ -500,10 +507,7 @@ describe('StudioPage', () => {
   })
 
   it('habilita e executa a exportação da Caneca Personalizada', async () => {
-    mugWorkerResponse = serializeMugResult({
-      body: new THREE.BoxGeometry(80, 88, 80),
-      handle: new THREE.BoxGeometry(40, 52, 12),
-    }).data
+    mugWorkerResponse = serializedMug()
 
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
@@ -512,20 +516,15 @@ describe('StudioPage', () => {
     await waitFor(() => expect(exportButton).toBeEnabled(), LAZY_TIMEOUT)
     fireEvent.click(exportButton)
 
-    expect(exportMugStl).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.anything(),
-        handle: expect.anything(),
-      }),
-      'Projeto sem título',
-    )
+    expect(exportMugStl).toHaveBeenCalledTimes(1)
+    const [result, projectName] = vi.mocked(exportMugStl).mock.calls[0]
+    expect(projectName).toBe('Projeto sem título')
+    expect(result.body.getAttribute('position').count).toBeGreaterThan(0)
+    expect(result.handle).not.toBeNull()
   })
 
   it('mostra erro quando a exportação da Caneca Personalizada falha', async () => {
-    mugWorkerResponse = serializeMugResult({
-      body: new THREE.BoxGeometry(80, 88, 80),
-      handle: new THREE.BoxGeometry(40, 52, 12),
-    }).data
+    mugWorkerResponse = serializedMug()
     vi.mocked(exportMugStl).mockImplementationOnce(() => {
       throw new Error('falha')
     })
@@ -538,5 +537,30 @@ describe('StudioPage', () => {
     fireEvent.click(exportButton)
 
     expect(screen.getByRole('alert')).toHaveTextContent('Falha ao exportar STL')
+  })
+
+  it('mostra as dimensões padronizadas da Caneca Personalizada', async () => {
+    mugWorkerResponse = serializedMug()
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+
+    expect(await screen.findByText('80 × 88 × 2.4 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
+  })
+
+  it('volta ao seletor de ferramentas a partir da Caneca Personalizada', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Caneca Personalizada' }, LAZY_TIMEOUT),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /voltar/i }))
+
+    expect(screen.getByRole('heading', { name: /escolha uma ferramenta/i })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { level: 2, name: 'Caneca Personalizada' }),
+    ).not.toBeInTheDocument()
   })
 })

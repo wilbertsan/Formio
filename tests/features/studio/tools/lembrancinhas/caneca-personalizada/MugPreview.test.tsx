@@ -3,14 +3,34 @@ import { render } from '@testing-library/react'
 import { BoxGeometry } from 'three'
 import { MugPreview } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/MugPreview'
 
+/** Avisos esperados porque jsdom não tem renderer R3F. */
+function isExpectedJsxWarning(args: unknown[]): boolean {
+  const message = args.map((arg) => String(arg)).join(' ')
+  if (/is using incorrect casing/.test(message)) return true
+  if (/is unrecognized in this browser/.test(message)) return true
+  return (
+    /does not recognize the `%s` prop on a DOM element/.test(message) &&
+    args.some((arg) => arg === 'castShadow' || arg === 'receiveShadow')
+  )
+}
+
 describe('MugPreview', () => {
-  // jsdom não tem renderer R3F: as tags customizadas geram avisos do React que
-  // não indicam falha. O teste valida a árvore DOM renderizada.
+  // Os avisos esperados são filtrados; qualquer outro erro de console falha o
+  // teste em vez de ser silenciado.
+  let unexpectedErrors: unknown[][] = []
+
   beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+    unexpectedErrors = []
+    const original = console.error
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      if (isExpectedJsxWarning(args)) return
+      unexpectedErrors.push(args)
+      original(...args)
+    })
   })
 
   afterEach(() => {
+    expect(unexpectedErrors).toEqual([])
     vi.restoreAllMocks()
   })
 
