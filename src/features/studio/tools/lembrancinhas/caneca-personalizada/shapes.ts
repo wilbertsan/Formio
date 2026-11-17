@@ -1,5 +1,9 @@
 import { Vector2 } from 'three'
-import { getOuterRadius, type MugGeometryParams } from './schema'
+import {
+  MINIMUM_WALL_MM,
+  getOuterRadius,
+  type MugGeometryParams,
+} from './schema'
 
 const DEDUPE_EPSILON = 1e-6
 
@@ -24,11 +28,12 @@ export function dedupePoints(points: Vector2[]): Vector2[] {
 export function bodyProfile(params: MugGeometryParams): Vector2[] {
   const outerBottom = params.diameterBottom / 2
   const outerTop = params.diameterTop / 2
-  const innerTop = Math.max(0.5, outerTop - params.wallThickness)
-  const innerBottom = Math.max(0.5, outerBottom - params.wallThickness)
+  const innerTop = getInnerRadius(params, params.height)
+  const innerBottom = getInnerRadius(params, params.bottomThickness)
+  // O anel plano da borda nunca desce abaixo da parede mínima.
   const chamfer = Math.max(
     0,
-    Math.min(params.rimChamfer, params.wallThickness / 2, params.height * 0.1),
+    Math.min(params.rimChamfer, params.wallThickness - MINIMUM_WALL_MM),
   )
 
   const points: Vector2[] = [

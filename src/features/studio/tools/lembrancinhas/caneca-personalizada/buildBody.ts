@@ -35,9 +35,10 @@ function removeDegenerateTriangles(geometry: BufferGeometry): BufferGeometry {
   }
 
   const result = new BufferGeometry()
-  result.setAttribute('position', position.clone())
+  for (const [name, attribute] of Object.entries(geometry.attributes)) {
+    result.setAttribute(name, attribute.clone())
+  }
   result.setIndex(kept)
-  result.computeVertexNormals()
   geometry.dispose()
 
   return result
