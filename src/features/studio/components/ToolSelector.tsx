@@ -1,6 +1,6 @@
 import { View, Heading, Text } from '@aws-amplify/ui-react'
 
-export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'rolo-textura' | 'marcador-pagina' | 'placa-loja' | 'caixa-personalizada' | 'termoformador'
+export type ToolId = 'chaveiro' | 'cartao-visita' | 'suporte-bolo' | 'suporte-foto' | 'topo-bolo' | 'carimbo-brigadeiro' | 'cortador-carimbo' | 'rolo-textura' | 'marcador-pagina' | 'placa-loja' | 'caixa-personalizada' | 'termoformador' | 'caneca-personalizada'
 
 type ToolCategory = 'Confeitaria' | 'Letreiros' | 'Lembrancinhas'
 
@@ -97,6 +97,13 @@ const TOOLS: ToolCard[] = [
     name: 'Termoformador',
     description: 'Tela circular perfurada com malha hexagonal, aro sólido e suporte côncavo',
     icon: '⬡',
+    category: 'Lembrancinhas',
+  },
+  {
+    id: 'caneca-personalizada',
+    name: 'Caneca Personalizada',
+    description: 'Caneca 3D com nome em relevo e alça removível de encaixe',
+    icon: '☕',
     category: 'Lembrancinhas',
   },
 ]

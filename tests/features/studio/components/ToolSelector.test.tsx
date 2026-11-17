@@ -22,7 +22,7 @@ describe('ToolSelector', () => {
     expect(letreiros).not.toBeNull()
     expect(within(confeitaria as HTMLElement).getAllByRole('button')).toHaveLength(5)
     expect(within(letreiros as HTMLElement).getAllByRole('button')).toHaveLength(5)
-    expect(within(lembrancinhas as HTMLElement).getAllByRole('button')).toHaveLength(2)
+    expect(within(lembrancinhas as HTMLElement).getAllByRole('button')).toHaveLength(3)
   })
 
   it('coloca Chaveiro na seção Letreiros', () => {
@@ -62,6 +62,17 @@ describe('ToolSelector', () => {
     expect(card).toHaveTextContent('Tela circular perfurada')
     await user.click(card)
     expect(onSelect).toHaveBeenCalledWith('termoformador')
+  })
+
+  it('coloca Caneca Personalizada na seção Lembrancinhas e emite o id', async () => {
+    const onSelect = vi.fn()
+    const user = userEvent.setup()
+    render(<ToolSelector onSelect={onSelect} />)
+    const section = screen.getByRole('heading', { name: 'Lembrancinhas' }).closest('section')!
+    const card = within(section).getByRole('button', { name: /caneca personalizada/i })
+    expect(card).toHaveTextContent('Caneca 3D com nome em relevo e alça removível de encaixe')
+    await user.click(card)
+    expect(onSelect).toHaveBeenCalledWith('caneca-personalizada')
   })
 
   it('chama onSelect com o id da ferramenta clicada', async () => {

@@ -31,6 +31,8 @@ import { useBox } from './tools/lembrancinhas/caixa-personalizada/useBox'
 import { exportBoxStl } from './tools/lembrancinhas/caixa-personalizada/exportStl'
 import { useThermoformer } from './tools/lembrancinhas/termoformador/useThermoformer'
 import { exportThermoformerStl } from './tools/lembrancinhas/termoformador/exportStl'
+import { useMug } from './tools/lembrancinhas/caneca-personalizada/useMug'
+import { exportMugStl } from './tools/lembrancinhas/caneca-personalizada/exportStl'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -173,6 +175,18 @@ const ThermoformerTool = lazy(() =>
 const ThermoformerPreview = lazy(() =>
   import('./tools/lembrancinhas/termoformador/ThermoformerPreview').then((m) => ({
     default: m.ThermoformerPreview,
+  })),
+)
+
+const MugTool = lazy(() =>
+  import('./tools/lembrancinhas/caneca-personalizada/StudioPanel').then((m) => ({
+    default: m.StudioPanel,
+  })),
+)
+
+const MugPreview = lazy(() =>
+  import('./tools/lembrancinhas/caneca-personalizada/MugPreview').then((m) => ({
+    default: m.MugPreview,
   })),
 )
 
@@ -1254,6 +1268,97 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
+function MugToolWrapper({ onBack }: { onBack: () => void }) {
+  const [projectName, setProjectName] = useState('Projeto sem título')
+  const [resetCameraSignal, setResetCameraSignal] = useState(0)
+  const [exportError, setExportError] = useState<string | null>(null)
+
+  const {
+    params,
+    geometry,
+    isBuilding,
+    error,
+    issues,
+    capacityMl,
+    dimensions,
+    cameraPosition,
+    fitRadius,
+    updateParam,
+    reset,
+  } = useMug()
+
+  const handleResetCamera = useCallback(() => {
+    setResetCameraSignal((signal) => signal + 1)
+  }, [])
+
+  const handleExport = useCallback(() => {
+    if (!geometry) return
+    setExportError(null)
+    try {
+      exportMugStl(geometry, projectName)
+    } catch {
+      setExportError('Falha ao exportar STL')
+    }
+  }, [geometry, projectName])
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-neutral-50">
+      <StudioTopbar
+        projectName={projectName}
+        onProjectNameChange={setProjectName}
+        canExport={geometry !== null}
+        onExport={handleExport}
+        onBack={onBack}
+      />
+      <div className="relative flex min-h-0 flex-1" aria-busy={isBuilding}>
+        {error ?? exportError ? (
+          <div
+            role="alert"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-red-200 bg-white/95 px-3 py-1 text-xs text-red-600 shadow-sm"
+          >
+            {error ?? exportError}
+          </div>
+        ) : isBuilding ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-md border border-neutral-200 bg-white/90 px-3 py-1 text-xs text-neutral-600 shadow-sm"
+          >
+            Gerando…
+          </div>
+        ) : null}
+        <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
+          <MugTool
+            params={params}
+            issues={issues}
+            capacityMl={capacityMl}
+            onUpdateParam={updateParam}
+            onReset={reset}
+          />
+        </Suspense>
+        <StudioViewport
+          hasGeometry={geometry !== null}
+          resetCameraSignal={resetCameraSignal}
+          onResetCamera={handleResetCamera}
+          cameraPosition={cameraPosition}
+          fitRadius={fitRadius}
+          resetAzimuth={210}
+        >
+          <Suspense fallback={null}>
+            <MugPreview
+              body={geometry?.body ?? null}
+              handle={geometry?.handle ?? null}
+              bodyColor={params.bodyColor}
+              accentColor={params.accentColor}
+            />
+          </Suspense>
+        </StudioViewport>
+      </div>
+      <StudioStatusBar dimensions={dimensions} />
+    </div>
+  )
+}
+
 export function StudioPage() {
   const [activeTool, setActiveTool] = useState<ToolId | null>(null)
 
@@ -1312,6 +1417,9 @@ export function StudioPage() {
       )}
       {activeTool === 'termoformador' && (
         <ThermoformerToolWrapper onBack={() => setActiveTool(null)} />
+      )}
+      {activeTool === 'caneca-personalizada' && (
+        <MugToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )

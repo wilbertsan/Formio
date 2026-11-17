@@ -20,6 +20,8 @@ import '@/features/studio/tools/letreiros/suporte-foto/StudioPanel'
 import '@/features/studio/tools/letreiros/suporte-foto/PhotoPositionEditor'
 import '@/features/studio/tools/lembrancinhas/caixa-personalizada/StudioPanel'
 import '@/features/studio/tools/lembrancinhas/termoformador/StudioPanel'
+import '@/features/studio/tools/lembrancinhas/caneca-personalizada/StudioPanel'
+import '@/features/studio/tools/lembrancinhas/caneca-personalizada/MugPreview'
 import { exportStl as exportPhotoStandStl } from '@/features/studio/tools/letreiros/suporte-foto/exportStl'
 import {
   serializePhotoStandResult,
@@ -35,6 +37,11 @@ import {
   serializeThermoformerResult,
   type SerializedThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
+import { exportMugStl } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/exportStl'
+import {
+  serializeBuildResult as serializeMugResult,
+  type SerializedBuildResult as SerializedMugResult,
+} from '@/features/studio/tools/lembrancinhas/caneca-personalizada/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -54,6 +61,7 @@ let cardWorkerResponse: SerializedCardResult | null = null
 let photoWorkerResponse: SerializedPhotoStandResult | null = null
 let boxWorkerResponse: SerializedBuildResult | null = null
 let screenWorkerResponse: SerializedThermoformerResult | null = null
+let mugWorkerResponse: SerializedMugResult | null = null
 
 function serializedScreen(): SerializedThermoformerResult {
   return serializeThermoformerResult({
@@ -67,15 +75,16 @@ class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
   onerror: (() => void) | null = null
   postMessage(message: unknown): void {
-    const request = message as { params?: { productType?: string } }
+    const request = message as { id?: number; params?: { productType?: string } }
     const deliver = (data: unknown) => setTimeout(() => {
-      this.onmessage?.({ data: { data } } as MessageEvent)
+      this.onmessage?.({ data: { id: request.id, data } } as MessageEvent)
     }, 0)
 
     if (request.params?.productType === 'card' && cardWorkerResponse) deliver(cardWorkerResponse)
     if (request.params?.productType === 'photo-stand' && photoWorkerResponse) deliver(photoWorkerResponse)
     if (request.params?.productType === 'caixa-personalizada' && boxWorkerResponse) deliver(boxWorkerResponse)
     if (request.params?.productType === 'termoformador' && screenWorkerResponse) deliver(screenWorkerResponse)
+    if (request.params?.productType === 'caneca-personalizada' && mugWorkerResponse) deliver(mugWorkerResponse)
   }
   terminate(): void {}
 }
@@ -96,6 +105,10 @@ vi.mock('@/features/studio/tools/lembrancinhas/caixa-personalizada/exportStl', (
 
 vi.mock('@/features/studio/tools/lembrancinhas/termoformador/exportStl', () => ({
   exportThermoformerStl: vi.fn(),
+}))
+
+vi.mock('@/features/studio/tools/lembrancinhas/caneca-personalizada/exportStl', () => ({
+  exportMugStl: vi.fn(),
 }))
 
 vi.mock('@react-three/fiber', () => {
@@ -131,10 +144,12 @@ describe('StudioPage', () => {
     photoWorkerResponse = null
     boxWorkerResponse = null
     screenWorkerResponse = null
+    mugWorkerResponse = null
     vi.mocked(exportCardStl).mockClear()
     vi.mocked(exportPhotoStandStl).mockClear()
     vi.mocked(exportBoxStl).mockClear()
     vi.mocked(exportThermoformerStl).mockClear()
+    vi.mocked(exportMugStl).mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -458,6 +473,68 @@ describe('StudioPage', () => {
 
     const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
     await waitFor(() => expect(exportButton).toBeEnabled())
+    fireEvent.click(exportButton)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Falha ao exportar STL')
+  })
+
+  it('abre a ferramenta Caneca Personalizada', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Caneca Personalizada' }, LAZY_TIMEOUT),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Corpo' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Personalização' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
+  })
+
+  it('mostra Gerando… na Caneca Personalizada após o debounce', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+
+    const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
+    expect(status).toHaveTextContent('Gerando…')
+    expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
+  })
+
+  it('habilita e executa a exportação da Caneca Personalizada', async () => {
+    mugWorkerResponse = serializeMugResult({
+      body: new THREE.BoxGeometry(80, 88, 80),
+      handle: new THREE.BoxGeometry(40, 52, 12),
+    }).data
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+
+    const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
+    await waitFor(() => expect(exportButton).toBeEnabled(), LAZY_TIMEOUT)
+    fireEvent.click(exportButton)
+
+    expect(exportMugStl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.anything(),
+        handle: expect.anything(),
+      }),
+      'Projeto sem título',
+    )
+  })
+
+  it('mostra erro quando a exportação da Caneca Personalizada falha', async () => {
+    mugWorkerResponse = serializeMugResult({
+      body: new THREE.BoxGeometry(80, 88, 80),
+      handle: new THREE.BoxGeometry(40, 52, 12),
+    }).data
+    vi.mocked(exportMugStl).mockImplementationOnce(() => {
+      throw new Error('falha')
+    })
+
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+
+    const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
+    await waitFor(() => expect(exportButton).toBeEnabled(), LAZY_TIMEOUT)
     fireEvent.click(exportButton)
 
     expect(screen.getByRole('alert')).toHaveTextContent('Falha ao exportar STL')
