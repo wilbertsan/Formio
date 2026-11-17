@@ -11,7 +11,9 @@ import {
 import {
   buildHandle,
   getBandInnerRadius,
+  getBandOuterRadius,
   getHandleMetrics,
+  getLoopLeftX,
   handleLoopShape,
   handleRingShape,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/buildHandle'
@@ -30,11 +32,6 @@ function pointsAtY(points: Vector2[], y: number): Vector2[] {
   return points.filter((point) => Math.abs(point.y - y) < 1e-6)
 }
 
-/** Borda esquerda do laço na altura `y` (mesma regra do shape). */
-function loopLeft(params: MugGeometryParams, y: number): number {
-  return getBodyOuterRadius(params, y) + params.handleClearance + HANDLE_LOOP_INSET
-}
-
 /** Largura do furo na altura `y`, medida cruzando as arestas do contorno. */
 function holeWidthAt(hole: Path, y: number): number {
   const points = hole.getPoints(64)
@@ -43,13 +40,24 @@ function holeWidthAt(hole: Path, y: number): number {
   for (let i = 0; i + 1 < points.length; i++) {
     const a = points[i]
     const b = points[i + 1]
-    if (a.y === b.y || (a.y - y) * (b.y - y) >= 0) continue
+    if (a.y === b.y || (a.y - y) * (b.y - y) > 0) continue
     const t = (y - a.y) / (b.y - a.y)
     xs.push(a.x + t * (b.x - a.x))
   }
 
   expect(xs).toHaveLength(2)
   return Math.max(...xs) - Math.min(...xs)
+}
+
+const strongTaper: MugGeometryParams = {
+  ...defaultMugParams,
+  diameterTop: 100,
+  diameterBottom: 60,
+  height: 80,
+  handleHeight: 52,
+  handleGap: 40,
+  handleBand: 5,
+  handleClearance: 0.2,
 }
 
 describe('buildHandle', () => {
@@ -64,26 +72,50 @@ describe('buildHandle', () => {
       handleReach - handleClearance - HANDLE_LOOP_INSET - 2 * handleBand,
       6,
     )
+    expect(metrics.handOpeningMinWidth).toBeLessThanOrEqual(metrics.handOpeningWidth)
     expect(metrics.handOpeningWidth).toBeGreaterThan(16)
   })
 
-  it('a abraçadeira aperta no topo e afrouxa na base', () => {
-    const params = defaultMugParams
-    const bottomY = params.handleHeight - params.handleWidth / 2
-    const topY = params.handleHeight + params.handleWidth / 2
+  it.each([0.2, 0.3, 0.4, 0.5])(
+    'a abraçadeira trava no topo com 0,4 mm absolutos (folga %s)',
+    (handleClearance) => {
+      const params = { ...defaultMugParams, handleClearance }
+      const midY = params.handleHeight
+      const topY = params.handleHeight + params.handleWidth / 2
+      const bottomY = params.handleHeight - params.handleWidth / 2
 
-    expect(getBandInnerRadius(params, params.handleHeight)).toBeCloseTo(
-      getBodyOuterRadius(params, params.handleHeight) + params.handleClearance,
-      6,
-    )
-    expect(getBandInnerRadius(params, topY)).toBeCloseTo(
-      getBodyOuterRadius(params, topY) + params.handleClearance - HANDLE_FIT_INTERFERENCE,
-      6,
-    )
-    expect(getBandInnerRadius(params, bottomY)).toBeCloseTo(
-      getBodyOuterRadius(params, bottomY) + params.handleClearance + HANDLE_FIT_INTERFERENCE,
-      6,
-    )
+      expect(getBandInnerRadius(params, midY)).toBeCloseTo(
+        getBodyOuterRadius(params, midY) + handleClearance,
+        6,
+      )
+      expect(getBandInnerRadius(params, topY)).toBeCloseTo(
+        getBodyOuterRadius(params, topY) - HANDLE_FIT_INTERFERENCE,
+        6,
+      )
+      expect(getBandInnerRadius(params, bottomY)).toBeCloseTo(
+        getBodyOuterRadius(params, bottomY) +
+          handleClearance +
+          HANDLE_FIT_INTERFERENCE,
+        6,
+      )
+      expect(getBandInnerRadius(params, topY)).toBeLessThan(
+        getBodyOuterRadius(params, topY),
+      )
+    },
+  )
+
+  it.each([
+    { name: 'default', params: defaultMugParams },
+    { name: 'conicidade forte', params: strongTaper },
+  ])('o laço sobrepõe a espessura da abraçadeira ($name)', ({ params }) => {
+    const yBottom = params.handleHeight - params.handleWidth / 2
+
+    for (let step = 0; step <= 8; step++) {
+      const y = yBottom + (params.handleWidth * step) / 8
+      expect(getLoopLeftX(params, y)).toBeLessThan(
+        getBandOuterRadius(params, y) - 0.5,
+      )
+    }
   })
 
   it('a abraçadeira cobre 200° centrados no +X', () => {
@@ -132,10 +164,7 @@ describe('buildHandle', () => {
     expect(minY).toBeCloseTo(params.handleHeight - params.handleGap / 2, 6)
     expect(maxY).toBeCloseTo(params.handleHeight + params.handleGap / 2, 6)
     expect(Math.max(...xs)).toBeCloseTo(metrics.loopMaxX - params.handleBand, 6)
-    expect(Math.min(...xs)).toBeCloseTo(
-      loopLeft(params, minY) + params.handleBand,
-      6,
-    )
+    expect(Math.min(...xs)).toBeCloseTo(getLoopLeftX(params, minY) + params.handleBand, 6)
     expect(holeWidthAt(hole, params.handleHeight)).toBeCloseTo(metrics.handOpeningWidth, 6)
 
     const geometry = buildHandle(params)
@@ -149,17 +178,36 @@ describe('buildHandle', () => {
     geometry.dispose()
   })
 
+  it.each([
+    { name: 'cone abre para o topo', patch: {} },
+    {
+      name: 'cone fecha para o topo',
+      patch: { diameterTop: 70, diameterBottom: 95 },
+    },
+  ])(
+    'a abertura mínima é o menor extremo do furo trapezoidal ($name)',
+    ({ patch }) => {
+      const params = { ...defaultMugParams, ...patch }
+      const metrics = getHandleMetrics(params)
+      const hole = handleLoopShape(params).holes[0]
+      const halfGap = params.handleGap / 2
+      const bottomWidth = holeWidthAt(hole, params.handleHeight - halfGap)
+      const topWidth = holeWidthAt(hole, params.handleHeight + halfGap)
+
+      expect(topWidth).not.toBeCloseTo(bottomWidth, 3)
+      expect(metrics.handOpeningWidth).toBeCloseTo(
+        holeWidthAt(hole, params.handleHeight),
+        6,
+      )
+      expect(metrics.handOpeningMinWidth).toBeCloseTo(
+        Math.min(topWidth, bottomWidth),
+        6,
+      )
+    },
+  )
+
   it('fecha e afasta o laço do corpo na conicidade forte', () => {
-    const params = {
-      ...defaultMugParams,
-      diameterTop: 100,
-      diameterBottom: 60,
-      height: 80,
-      handleHeight: 52,
-      handleGap: 40,
-      handleBand: 5,
-      handleClearance: 0.2,
-    }
+    const params = strongTaper
     const geometry = buildHandle(params)
 
     expect(isClosed(geometry)).toBe(true)
@@ -173,13 +221,10 @@ describe('buildHandle', () => {
       const matches = pointsAtY(loopPoints, y)
       expect(matches.length).toBeGreaterThan(0)
       const leftEdge = Math.min(...matches.map((point) => point.x))
+      expect(leftEdge).toBeCloseTo(getLoopLeftX(params, y), 6)
       expect(leftEdge).toBeGreaterThanOrEqual(
         getBodyOuterRadius(params, y) + params.handleClearance + HANDLE_LOOP_INSET - 1e-6,
       )
     }
-  })
-
-  it('não valida a folga da abraçadeira: a validação é da Task 6', () => {
-    expect(() => buildHandle({ ...defaultMugParams, handleClearance: 0.1 })).not.toThrow()
   })
 })

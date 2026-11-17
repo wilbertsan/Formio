@@ -2,14 +2,23 @@ import { BufferGeometry, ExtrudeGeometry } from 'three'
 import { ADDITION, Brush, Evaluator } from 'three-bvh-csg'
 import {
   getBandInnerRadius,
+  getBandOuterRadius,
   getHandleMetrics,
+  getLoopLeftX,
   handleLoopShape,
   handleRingShape,
   type HandleMetrics,
 } from './shapes'
 import type { MugGeometryParams } from './schema'
 
-export { getBandInnerRadius, getHandleMetrics, handleLoopShape, handleRingShape }
+export {
+  getBandInnerRadius,
+  getBandOuterRadius,
+  getHandleMetrics,
+  getLoopLeftX,
+  handleLoopShape,
+  handleRingShape,
+}
 export type { HandleMetrics }
 
 /**

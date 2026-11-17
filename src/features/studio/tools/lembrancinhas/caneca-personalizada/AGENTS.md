@@ -62,17 +62,19 @@ SVG e 3MF/STEP ficam para versões seguintes.
   centralizado no lado oposto à alça (180° a partir do +X).
 - A alça é uma peça separada, unida por pressão e montada por baixo, com
   abraçadeira em C de 200° centrada no +X e laço em D. `handleClearance` é a
-  folga nominal na altura `handleHeight`; a abraçadeira é 0,4 mm mais justa no
-  topo e 0,4 mm mais folgada na base (`HANDLE_FIT_INTERFERENCE`).
-- O raio interno da abraçadeira é o raio externo do corpo na altura `y` mais a
-  folga nominal, ajustado linearmente pela interferência entre a base e o topo
+  folga nominal na altura `handleHeight`; no topo a interferência é absoluta de
+  0,4 mm (`HANDLE_FIT_INTERFERENCE`) para qualquer `handleClearance`, e na base
+  a folga é `handleClearance + 0,4 mm`.
+- O raio interno da abraçadeira é o raio externo do corpo na altura `y` mais um
+  offset quadrático que fixa a interferência absoluta no topo
   (`getBandInnerRadius`); a abraçadeira acompanha a conicidade do corpo.
 - O laço em D fica no plano vertical XY, extrudado na largura `handleWidth`, com
   a borda esquerda seguindo o perfil do corpo a
   `handleClearance + HANDLE_LOOP_INSET` da parede. A abertura da mão é
   `handleGap` na vertical e
   `handleReach - handleClearance - HANDLE_LOOP_INSET - 2 * handleBand` na
-  horizontal, medida em `handleHeight`.
+  horizontal, medida em `handleHeight`; a validação usa a menor largura do furo
+  trapezoidal (`handOpeningMinWidth`).
 - A alça é impressa em pé, apoiada na borda inferior do laço; o arco de 200° da
   abraçadeira pode exigir suporte leve por baixo.
 - O corpo é impresso em pé, com o fundo na mesa, sem suporte.
@@ -133,12 +135,12 @@ anterior e mostra erro no overlay.
 - A alça não usa trilho: uma abraçadeira em C elimina a necessidade de alterar a
   parede e mantém o corpo um sólido de revolução. A fixação é por pressão e a
   peça é removível.
-- A abraçadeira tem interferência de 0,4 mm no topo e 0,4 mm de folga extra na
-  base em relação à folga nominal: a peça entra por baixo, aperta na altura
-  escolhida e trava sem trilho.
+- A abraçadeira tem interferência absoluta de 0,4 mm no topo e 0,4 mm de folga
+  extra na base em relação à folga nominal: a peça entra por baixo, aperta na
+  altura escolhida e trava sem trilho.
 - A borda esquerda do laço segue a conicidade do corpo, em vez de uma reta; ela
-  fica dentro da espessura da abraçadeira em ≈1,1 mm no topo, o que garante a
-  sobreposição sólida do CSG sem colidir com a parede.
+  fica dentro da espessura da abraçadeira em ≈0,8 mm no topo (default), o que
+  garante a sobreposição sólida do CSG sem colidir com a parede.
 - Abraçadeira e laço são unidos por CSG dentro da própria alça; o corpo recebe
   CSG apenas do texto.
 - O texto fica a 180° da alça para não colidir com a abraçadeira; a câmera

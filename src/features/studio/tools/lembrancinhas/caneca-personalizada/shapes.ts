@@ -72,33 +72,34 @@ export interface HandleMetrics {
   innerRadius: number
   outerRadius: number
   handOpeningWidth: number
+  handOpeningMinWidth: number
   handOpeningHeight: number
   loopMinX: number
   loopMaxX: number
 }
 
-export function getHandleMetrics(params: MugGeometryParams): HandleMetrics {
-  const bodyRadius = getBodyOuterRadius(params, params.handleHeight)
-  const innerRadius = bodyRadius + params.handleClearance
-  const outerRadius = innerRadius + HANDLE_RING_THICKNESS
-  return {
-    innerRadius,
-    outerRadius,
-    handOpeningWidth:
-      params.handleReach -
-      params.handleClearance -
-      HANDLE_LOOP_INSET -
-      2 * params.handleBand,
-    handOpeningHeight: params.handleGap,
-    loopMinX: bodyRadius + params.handleClearance + HANDLE_LOOP_INSET,
-    loopMaxX: bodyRadius + params.handleReach,
-  }
+/**
+ * Borda esquerda do laço: acompanha a conicidade do corpo, sempre a
+ * `handleClearance + HANDLE_LOOP_INSET` da parede.
+ */
+export function getLoopLeftX(params: MugGeometryParams, y: number): number {
+  return (
+    getBodyOuterRadius(params, y) +
+    params.handleClearance +
+    HANDLE_LOOP_INSET
+  )
 }
 
 /**
- * Raio interno da abraçadeira na altura `y`: 0,4 mm mais justo no topo e 0,4 mm
- * mais folgado na base que a folga nominal em `handleHeight`. O encaixe é por
- * pressão, montado por baixo.
+ * Raio interno da abraçadeira na altura `y`. O offset é quadrático em `t`
+ * (0 na base, 1 no topo) e vale:
+ *
+ * - base (t=0): `handleClearance + HANDLE_FIT_INTERFERENCE`
+ * - meio (t=0,5): `handleClearance`
+ * - topo (t=1): `-HANDLE_FIT_INTERFERENCE`, absoluto para qualquer folga
+ *
+ * Assim o topo morde o corpo em 0,4 mm em vez de `handleClearance - 0,4`, e a
+ * peça é montada por baixo.
  */
 export function getBandInnerRadius(
   params: MugGeometryParams,
@@ -106,12 +107,50 @@ export function getBandInnerRadius(
 ): number {
   const yBottom = params.handleHeight - params.handleWidth / 2
   const t = Math.min(1, Math.max(0, (y - yBottom) / params.handleWidth))
+  const c = params.handleClearance
+  const i = HANDLE_FIT_INTERFERENCE
+  const gap = -2 * c * t * t + (c - 2 * i) * t + c + i
+  return getBodyOuterRadius(params, y) + gap
+}
+
+/**
+ * Raio externo efetivo da abraçadeira: a mesma escala radial aplicada em
+ * `buildHandle`, então a espessura acompanha o raio interno escalado.
+ */
+export function getBandOuterRadius(
+  params: MugGeometryParams,
+  y: number,
+): number {
+  const nominal =
+    getBodyOuterRadius(params, params.handleHeight) + params.handleClearance
   return (
-    getBodyOuterRadius(params, y) +
-    params.handleClearance +
-    HANDLE_FIT_INTERFERENCE -
-    2 * HANDLE_FIT_INTERFERENCE * t
+    (nominal + HANDLE_RING_THICKNESS) * (getBandInnerRadius(params, y) / nominal)
   )
+}
+
+export function getHandleMetrics(params: MugGeometryParams): HandleMetrics {
+  const bodyRadius = getBodyOuterRadius(params, params.handleHeight)
+  const innerRadius = bodyRadius + params.handleClearance
+  const outerRadius = innerRadius + HANDLE_RING_THICKNESS
+  const loopMaxX = bodyRadius + params.handleReach
+  // O furo é trapezoidal: a largura varia linearmente com a altura, então o
+  // mínimo está sempre em um dos extremos.
+  const widthAt = (y: number): number =>
+    loopMaxX - getLoopLeftX(params, y) - 2 * params.handleBand
+  const halfGap = params.handleGap / 2
+
+  return {
+    innerRadius,
+    outerRadius,
+    handOpeningWidth: widthAt(params.handleHeight),
+    handOpeningMinWidth: Math.min(
+      widthAt(params.handleHeight - halfGap),
+      widthAt(params.handleHeight + halfGap),
+    ),
+    handOpeningHeight: params.handleGap,
+    loopMinX: getLoopLeftX(params, params.handleHeight),
+    loopMaxX,
+  }
 }
 
 /** Setor anular de 200° centrado no +X, desenhado no plano XY. */
@@ -126,25 +165,14 @@ export function handleRingShape(metrics: HandleMetrics): Shape {
 }
 
 /**
- * Borda esquerda do laço: acompanha a conicidade do corpo, sempre a
- * `handleClearance + HANDLE_LOOP_INSET` da parede.
- */
-function loopLeftX(params: MugGeometryParams, y: number): number {
-  return (
-    getBodyOuterRadius(params, y) +
-    params.handleClearance +
-    HANDLE_LOOP_INSET
-  )
-}
-
-/**
  * Laço em D no plano XY, com a abertura da mão como furo.
  *
  * A borda esquerda segue o perfil do corpo em todo o vão vertical do laço, e
- * não a reta de `loopMinX`, para não colidir com a parede cônica. Ela fica
- * dentro da espessura da abraçadeira em `HANDLE_RING_THICKNESS -
- * HANDLE_FIT_INTERFERENCE - HANDLE_LOOP_INSET` (≈1,1 mm) no topo e mais que
- * isso na base, garantindo sobreposição sólida para o CSG em toda a altura.
+ * não a reta de `loopMinX`, para não colidir com a parede cônica. No topo ela
+ * fica dentro da espessura efetiva da abraçadeira por
+ * `HANDLE_RING_THICKNESS - HANDLE_FIT_INTERFERENCE - handleClearance -
+ * HANDLE_LOOP_INSET` (≈0,8 mm no default e ≈0,9 mm com folga 0,2 mm), o que
+ * garante sobreposição sólida para o CSG em toda a altura.
  */
 export function handleLoopShape(params: MugGeometryParams): Shape {
   const metrics = getHandleMetrics(params)
@@ -155,24 +183,24 @@ export function handleLoopShape(params: MugGeometryParams): Shape {
   const corner = params.handleBand
 
   const shape = new Shape()
-  shape.moveTo(loopLeftX(params, minY), minY)
+  shape.moveTo(getLoopLeftX(params, minY), minY)
   shape.lineTo(maxX - corner, minY)
   shape.quadraticCurveTo(maxX, minY, maxX, minY + corner)
   shape.lineTo(maxX, maxY - corner)
   shape.quadraticCurveTo(maxX, maxY, maxX - corner, maxY)
-  shape.lineTo(loopLeftX(params, maxY), maxY)
+  shape.lineTo(getLoopLeftX(params, maxY), maxY)
   shape.closePath()
 
   const holeMinY = params.handleHeight - params.handleGap / 2
   const holeMaxY = params.handleHeight + params.handleGap / 2
-  const holeMinX = loopLeftX(params, holeMinY) + params.handleBand
+  const holeMinX = getLoopLeftX(params, holeMinY) + params.handleBand
   const holeMaxX = maxX - params.handleBand
 
   const hole = new Path()
   hole.moveTo(holeMinX, holeMinY)
   hole.lineTo(holeMaxX, holeMinY)
   hole.lineTo(holeMaxX, holeMaxY)
-  hole.lineTo(loopLeftX(params, holeMaxY) + params.handleBand, holeMaxY)
+  hole.lineTo(getLoopLeftX(params, holeMaxY) + params.handleBand, holeMaxY)
   hole.closePath()
   shape.holes.push(hole)
   return shape
