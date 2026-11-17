@@ -11,6 +11,7 @@ lembrancinhas.
 | mini-vaso | planejada |
 | caixa-personalizada | implementada (v1) |
 | termoformador | implementada (v1: tela + suporte) |
+| caneca-personalizada | planejada |
 
 ## Regras do domínio
 
@@ -22,6 +23,9 @@ lembrancinhas.
 - Peças móveis (tampa, puxador e base da caixa; tampa, pino e base do termoformador) exportadas separadamente
 - STL sempre manifold, fechado, sem auto-interseções
 - Caixa personalizada: paredes ≥ 0,8 mm, elementos e furos ≥ 0,8 mm
+- Caneca personalizada: parede ≥ 1,8 mm e fundo ≥ 2 mm; texto em relevo de
+  1 mm; alça separada de abraçadeira com folga de 0,2–0,5 mm; corpo impresso em
+  pé e alça deitada
 
 ## Invariantes
 
