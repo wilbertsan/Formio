@@ -58,4 +58,22 @@ describe('buildMug', () => {
     expect(result.handle).toBeNull()
     disposeMugResult(result)
   })
+
+  it.each([
+    {
+      name: 'corpo grande',
+      params: { diameterTop: 100, diameterBottom: 95, height: 115 },
+    },
+    {
+      name: 'corpo pequeno',
+      params: { diameterTop: 70, diameterBottom: 60, height: 80 },
+    },
+  ])('fecha o corpo nos extremos de tamanho ($name)', ({ params }) => {
+    const result = buildMug({ ...defaultMugParams, ...params }, realFont())
+
+    expect(isClosed(result.body)).toBe(true)
+    expect(countShells(result.body)).toBe(1)
+    expect(signedVolume(result.body)).toBeGreaterThan(0)
+    disposeMugResult(result)
+  })
 })

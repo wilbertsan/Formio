@@ -5,6 +5,7 @@ import { buildBody } from './buildBody'
 import { buildHandle } from './buildHandle'
 import { buildRelief } from './buildRelief'
 import { createConformingEvaluator } from './csg'
+import { removeDegenerateTriangles } from './geometryCleanup'
 import type { MugGeometryParams } from './schema'
 
 export interface BuildMugResult {
@@ -20,7 +21,9 @@ function unionRelief(body: BufferGeometry, relief: BufferGeometry): BufferGeomet
     bodyBrush.updateMatrixWorld()
     reliefBrush.updateMatrixWorld()
 
-    const result = evaluator.evaluate(bodyBrush, reliefBrush, ADDITION).geometry
+    const result = removeDegenerateTriangles(
+      evaluator.evaluate(bodyBrush, reliefBrush, ADDITION).geometry,
+    )
     result.computeVertexNormals()
     return result
   } finally {
