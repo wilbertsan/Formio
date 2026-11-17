@@ -1,11 +1,15 @@
 import type { MugGeometryParams } from './schema'
-import type { MugWorkerResponse, SerializedBuildResult } from './workerGeometry'
+import type {
+  MugErrorCode,
+  MugWorkerResponse,
+  SerializedBuildResult,
+} from './workerGeometry'
 
 export interface MugWorker {
   build(
     params: MugGeometryParams,
     onResult: (data: SerializedBuildResult) => void,
-    onError?: (message?: string) => void,
+    onError?: (code?: MugErrorCode) => void,
   ): void
   terminate(): void
 }

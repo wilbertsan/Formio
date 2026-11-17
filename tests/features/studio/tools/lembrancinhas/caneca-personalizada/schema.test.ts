@@ -42,6 +42,15 @@ describe('caneca schema', () => {
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, text: 'x'.repeat(MAX_TEXT_LENGTH) }).success).toBe(true)
   })
 
+  it('limita o texto por code points', () => {
+    expect(
+      mugParamsSchema.safeParse({ ...defaultMugParams, text: '🎉'.repeat(MAX_TEXT_LENGTH) }).success,
+    ).toBe(true)
+    expect(
+      mugParamsSchema.safeParse({ ...defaultMugParams, text: '🎉'.repeat(MAX_TEXT_LENGTH + 1) }).success,
+    ).toBe(false)
+  })
+
   it('rejeita cor fora da paleta', () => {
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, bodyColor: '#000000' }).success).toBe(false)
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, accentColor: '#000000' }).success).toBe(false)

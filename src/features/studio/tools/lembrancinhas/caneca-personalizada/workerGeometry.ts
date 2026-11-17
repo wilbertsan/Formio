@@ -12,11 +12,14 @@ export interface SerializedBuildResult {
   handle: SerializedGeometry | null
 }
 
+/** Códigos de falha de runtime do worker, traduzidos pelo hook. */
+export type MugErrorCode = 'mug-invalid' | 'mug-font' | 'mug-csg' | 'mug-build'
+
 /** Contrato de resposta do worker, usado pelo worker e pelo client. */
 export interface MugWorkerResponse {
   id: number
   data?: SerializedBuildResult
-  error?: string
+  error?: MugErrorCode
 }
 
 export function serializeGeometry(geometry: BufferGeometry): {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { BoxGeometry } from 'three'
 import { useMug } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/useMug'
@@ -9,11 +9,14 @@ import {
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
 import {
   serializeBuildResult,
+  type MugErrorCode,
   type SerializedBuildResult,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/workerGeometry'
 import type { MugWorker } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/workerClient'
 
-const FRIENDLY_ERROR = 'Falha ao gerar a geometria'
+const BUILD_ERROR = 'Falha ao gerar a geometria'
+const CSG_ERROR = 'Falha ao gerar o relevo. Tente outro texto.'
+const ELEVATION = (25 * Math.PI) / 180
 
 function serializedMug(): SerializedBuildResult {
   return serializeBuildResult({
@@ -29,38 +32,80 @@ function serializedMugWithOffsetHandle(): SerializedBuildResult {
   }).data
 }
 
+function serializedMugWithoutHandle(): SerializedBuildResult {
+  return serializeBuildResult({
+    body: new BoxGeometry(80, 88, 80),
+    handle: null,
+  }).data
+}
+
+interface WorkerInstance {
+  build: MugWorker['build']
+  terminate: Mock
+  pendings: Array<(data: SerializedBuildResult) => void>
+  failures: Array<(code?: MugErrorCode) => void>
+}
+
 function makeWorkerFixture(
   serialize: () => SerializedBuildResult = serializedMug,
 ) {
   let lastParams: MugGeometryParams | null = null
-  let calls = 0
-  const pendings: Array<(data: SerializedBuildResult) => void> = []
-  const failures: Array<(message?: string) => void> = []
-  const terminate = vi.fn()
+  const instances: WorkerInstance[] = []
   const factory = (): MugWorker => {
-    calls++
-    return {
-      build: (params, onResult, onError) => {
-        lastParams = params
-        pendings.push(onResult)
-        failures.push(onError ?? (() => undefined))
-      },
-      terminate,
+    const pendings: WorkerInstance['pendings'] = []
+    const failures: WorkerInstance['failures'] = []
+    const build: MugWorker['build'] = (params, onResult, onError) => {
+      lastParams = params
+      pendings.push(onResult)
+      failures.push(onError ?? (() => undefined))
     }
+    const instance: WorkerInstance = {
+      build,
+      terminate: vi.fn(),
+      pendings,
+      failures,
+    }
+    instances.push(instance)
+    return { build, terminate: instance.terminate }
   }
   return {
     factory,
-    terminate,
-    getCalls: () => calls,
-    respond: () => pendings[pendings.length - 1]?.(serialize()),
-    respondFirst: () => pendings[0]?.(serialize()),
-    fail: (message?: string) => failures[failures.length - 1]?.(message),
+    getInstances: () => instances,
+    getCalls: () => instances.length,
+    respond: () => {
+      const instance = instances.at(-1)
+      instance?.pendings.at(-1)?.(serialize())
+    },
+    respondWith: (data: SerializedBuildResult) => {
+      instances.at(-1)?.pendings.at(-1)?.(data)
+    },
+    respondFirst: () => instances[0]?.pendings[0]?.(serialize()),
+    fail: (code?: MugErrorCode) => {
+      instances.at(-1)?.failures.at(-1)?.(code)
+    },
+    failFirst: (code?: MugErrorCode) => {
+      instances[0]?.failures[0]?.(code)
+    },
     getParams: () => lastParams,
   }
 }
 
+function expectCameraInvariants(
+  position: [number, number, number],
+  fitRadius: number,
+): void {
+  const [x, y, z] = position
+  expect(Math.hypot(x, y, z)).toBeCloseTo(2.2 * fitRadius, 0)
+  expect(Math.abs(y) / Math.hypot(x, z)).toBeCloseTo(Math.tan(ELEVATION), 2)
+  expect(x).toBeLessThan(0)
+  expect(z).toBeLessThan(0)
+}
+
 beforeEach(() => { vi.useFakeTimers() })
-afterEach(() => { vi.useRealTimers() })
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('useMug', () => {
   it('retorna os defaults e a capacidade', () => {
@@ -106,6 +151,13 @@ describe('useMug', () => {
     expect(result.current.params.text).toBe('x'.repeat(MAX_TEXT_LENGTH))
   })
 
+  it('trunca o texto por code points sem quebrar pares', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+    act(() => { result.current.updateParam('text', '🎉'.repeat(MAX_TEXT_LENGTH + 5)) })
+    expect(result.current.params.text).toBe('🎉'.repeat(MAX_TEXT_LENGTH))
+  })
+
   it('mantém handleEnabled booleano', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useMug({ workerFactory: factory }))
@@ -115,6 +167,24 @@ describe('useMug', () => {
     expect(result.current.params.handleEnabled).toBe(true)
     act(() => { result.current.updateParam('handleEnabled', 0) })
     expect(result.current.params.handleEnabled).toBe(true)
+  })
+
+  it('expõe dimensões, fitRadius e câmera finitos antes do primeiro build', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+
+    const { dimensions, fitRadius, cameraPosition } = result.current
+    expect(dimensions).toEqual({
+      width: 80,
+      height: 88,
+      thickness: defaultMugParams.wallThickness,
+    })
+    expect(Number.isFinite(fitRadius)).toBe(true)
+    expect(fitRadius).toBeGreaterThan(0)
+    for (const value of [...Object.values(dimensions), ...cameraPosition]) {
+      expect(Number.isFinite(value)).toBe(true)
+    }
+    expectCameraInvariants(cameraPosition, fitRadius)
   })
 
   it('envia ao worker após o debounce sem as cores', () => {
@@ -158,6 +228,17 @@ describe('useMug', () => {
     expect(result.current.geometry!.handle).not.toBeNull()
   })
 
+  it('não cria worker nem deixa timer quando desmonta durante o debounce', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { unmount } = renderHook(() => useMug({ workerFactory: factory }))
+
+    unmount()
+    act(() => { vi.advanceTimersByTime(300) })
+
+    expect(getCalls()).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('não rebuilda ao trocar as cores', () => {
     const { factory, getCalls } = makeWorkerFixture()
     const { result } = renderHook(() => useMug({ workerFactory: factory }))
@@ -182,10 +263,32 @@ describe('useMug', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { fail('mug-csg') })
 
-    expect(result.current.error).toBe(FRIENDLY_ERROR)
+    expect(result.current.error).toBe(CSG_ERROR)
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.geometry).toBe(previous)
     expect(result.current.builtParams?.height).toBe(defaultMugParams.height)
+  })
+
+  it('mapeia os códigos de falha do worker em mensagens amigáveis', () => {
+    const { factory, fail } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+
+    const cases: Array<{ code?: MugErrorCode; message: string }> = [
+      { code: 'mug-csg', message: CSG_ERROR },
+      { code: 'mug-font', message: 'Falha ao carregar a fonte.' },
+      { code: 'mug-invalid', message: 'Parâmetros inválidos.' },
+      { code: 'mug-build', message: BUILD_ERROR },
+      { message: BUILD_ERROR },
+    ]
+
+    for (const [index, testCase] of cases.entries()) {
+      if (index > 0) {
+        act(() => { result.current.updateParam('height', 90 + index) })
+      }
+      act(() => { vi.advanceTimersByTime(260) })
+      act(() => { fail(testCase.code) })
+      expect(result.current.error).toBe(testCase.message)
+    }
   })
 
   it('limpa o erro no build seguinte', () => {
@@ -193,7 +296,7 @@ describe('useMug', () => {
     const { result } = renderHook(() => useMug({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { fail('mug-csg') })
-    expect(result.current.error).toBe(FRIENDLY_ERROR)
+    expect(result.current.error).toBe(CSG_ERROR)
 
     act(() => { result.current.updateParam('height', 100) })
     act(() => { vi.advanceTimersByTime(260) })
@@ -207,7 +310,7 @@ describe('useMug', () => {
     }
     const { result } = renderHook(() => useMug({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
-    expect(result.current.error).toBe(FRIENDLY_ERROR)
+    expect(result.current.error).toBe(BUILD_ERROR)
     expect(result.current.isBuilding).toBe(false)
   })
 
@@ -227,6 +330,7 @@ describe('useMug', () => {
     })
     act(() => { result.current.reset() })
     expect(result.current.params).toEqual(defaultMugParams)
+    expect(result.current.params).not.toBe(defaultMugParams)
     expect(result.current.issues).toEqual([])
     expect(result.current.capacityMl).toBeCloseTo(338, 0)
   })
@@ -260,23 +364,93 @@ describe('useMug', () => {
     expect(result.current.fitRadius).toBeCloseTo(0.5 * Math.hypot(unionWidth, 88, 80), 2)
   })
 
+  it('usa o snapshot da parede nas dimensões', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+
+    act(() => { result.current.updateParam('wallThickness', 4) })
+    expect(result.current.dimensions.thickness).toBe(defaultMugParams.wallThickness)
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    expect(result.current.dimensions.thickness).toBe(4)
+  })
+
+  it('aceita build sem alça', () => {
+    const { factory, respond, getParams } = makeWorkerFixture(serializedMugWithoutHandle)
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+    act(() => { result.current.updateParam('handleEnabled', false) })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(getParams()?.handleEnabled).toBe(false)
+
+    act(() => { respond() })
+    expect(result.current.geometry!.handle).toBeNull()
+    expect(result.current.fitRadius).toBeCloseTo(0.5 * Math.hypot(80, 88, 80), 2)
+    expect(Number.isFinite(result.current.fitRadius)).toBe(true)
+    expect(result.current.dimensions).toEqual({
+      width: 80,
+      height: 88,
+      thickness: defaultMugParams.wallThickness,
+    })
+  })
+
+  it('cai no fallback quando a caixa da geometria não é finita', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const { factory, respondWith } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => {
+      respondWith({
+        body: {
+          position: new Float32Array([Number.NaN, Number.NaN, Number.NaN]),
+          normal: new Float32Array([0, 0, 1]),
+          index: null,
+        },
+        handle: null,
+      })
+    })
+
+    expect(result.current.geometry).not.toBeNull()
+    expect(result.current.dimensions).toEqual({
+      width: 80,
+      height: 88,
+      thickness: defaultMugParams.wallThickness,
+    })
+    expect(Number.isFinite(result.current.fitRadius)).toBe(true)
+    for (const value of result.current.cameraPosition) {
+      expect(Number.isFinite(value)).toBe(true)
+    }
+  })
+
+  it('não deixa o spinner travado quando a resposta do worker é inválida', () => {
+    const { factory, respondWith } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => {
+      respondWith({
+        body: {
+          position: null,
+          normal: null,
+          index: null,
+        },
+        handle: null,
+      } as unknown as SerializedBuildResult)
+    })
+
+    expect(result.current.isBuilding).toBe(false)
+    expect(result.current.error).toBe(BUILD_ERROR)
+    expect(result.current.geometry).toBeNull()
+  })
+
   it('posiciona a câmera no lado do texto', () => {
     const { factory, respond } = makeWorkerFixture()
     const { result } = renderHook(() => useMug({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
-    const distance = result.current.fitRadius * 2.2
-    const elevation = (25 * Math.PI) / 180
-    const azimuth = (210 * Math.PI) / 180
-    const expected: [number, number, number] = [
-      Number((distance * Math.sin(azimuth) * Math.cos(elevation)).toFixed(1)),
-      Number((distance * Math.sin(elevation)).toFixed(1)),
-      Number((distance * Math.cos(azimuth) * Math.cos(elevation)).toFixed(1)),
-    ]
-    expect(result.current.cameraPosition).toEqual(expected)
-    expect(result.current.cameraPosition[0]).toBeLessThan(0)
-    expect(result.current.cameraPosition[2]).toBeLessThan(0)
+    expectCameraInvariants(result.current.cameraPosition, result.current.fitRadius)
   })
 
   it('expõe os parâmetros exatos que geraram a geometria atual', () => {
@@ -300,12 +474,15 @@ describe('useMug', () => {
   })
 
   it('termina o worker anterior em um novo build', () => {
-    const { factory, terminate } = makeWorkerFixture()
+    const { factory, getInstances } = makeWorkerFixture()
     const { result } = renderHook(() => useMug({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { result.current.updateParam('height', 100) })
     act(() => { vi.advanceTimersByTime(260) })
-    expect(terminate).toHaveBeenCalled()
+
+    const [first, second] = getInstances()
+    expect(first.terminate).toHaveBeenCalledTimes(1)
+    expect(second.terminate).not.toHaveBeenCalled()
   })
 
   it('ignora o resultado de um build obsoleto', () => {
@@ -321,6 +498,18 @@ describe('useMug', () => {
 
     act(() => { respond() })
     expect(result.current.geometry).not.toBeNull()
+  })
+
+  it('ignora o erro de um build obsoleto', () => {
+    const { factory, failFirst } = makeWorkerFixture()
+    const { result } = renderHook(() => useMug({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { result.current.updateParam('height', 100) })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    act(() => { failFirst('mug-csg') })
+    expect(result.current.error).toBeNull()
+    expect(result.current.isBuilding).toBe(true)
   })
 
   it('descarta a geometria anterior ao aplicar uma nova', () => {
@@ -341,7 +530,7 @@ describe('useMug', () => {
   })
 
   it('descarta a geometria e termina o worker ao desmontar', () => {
-    const { factory, terminate, respond } = makeWorkerFixture()
+    const { factory, respond, getInstances } = makeWorkerFixture()
     const { result, unmount } = renderHook(() => useMug({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
@@ -351,7 +540,7 @@ describe('useMug', () => {
     unmount()
     expect(disposeBody).toHaveBeenCalled()
     expect(disposeHandle).toHaveBeenCalled()
-    expect(terminate).toHaveBeenCalled()
+    expect(getInstances()[0].terminate).toHaveBeenCalledTimes(1)
   })
 
   it('agrupa mudanças simultâneas em um único build', () => {

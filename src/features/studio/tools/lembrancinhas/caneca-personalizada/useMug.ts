@@ -12,6 +12,8 @@ import {
   defaultMugParams,
   getCapacityMl,
   MAX_TEXT_LENGTH,
+  MINIMUM_BOTTOM_MM,
+  MINIMUM_WALL_MM,
   mugParamsSchema,
   type MugGeometryParams,
   type MugParams,
@@ -19,6 +21,7 @@ import {
 import { validateMug, type ValidationIssue } from './validateMug'
 import {
   deserializeBuildResult,
+  type MugErrorCode,
   type SerializedBuildResult,
 } from './workerGeometry'
 import { createMugWorker, type MugWorker } from './workerClient'
@@ -31,8 +34,8 @@ const NUMERIC_RANGES: Partial<Record<keyof MugParams, { min: number; max: number
   diameterTop: { min: 70, max: 100 },
   diameterBottom: { min: 60, max: 95 },
   height: { min: 80, max: 115 },
-  wallThickness: { min: 1.8, max: 4 },
-  bottomThickness: { min: 2, max: 6 },
+  wallThickness: { min: MINIMUM_WALL_MM, max: 4 },
+  bottomThickness: { min: MINIMUM_BOTTOM_MM, max: 6 },
   rimChamfer: { min: 0, max: 2 },
   handleHeight: { min: 35, max: 85 },
   handleGap: { min: 24, max: 40 },
@@ -46,6 +49,17 @@ const NUMERIC_RANGES: Partial<Record<keyof MugParams, { min: number; max: number
 
 const BUILD_ERROR = 'Falha ao gerar a geometria'
 const DEBOUNCE_MS = 250
+
+const ERROR_MESSAGES: Record<MugErrorCode, string> = {
+  'mug-csg': 'Falha ao gerar o relevo. Tente outro texto.',
+  'mug-font': 'Falha ao carregar a fonte.',
+  'mug-invalid': 'Parâmetros inválidos.',
+  'mug-build': BUILD_ERROR,
+}
+
+function errorMessage(code?: MugErrorCode): string {
+  return (code ? ERROR_MESSAGES[code] : undefined) ?? BUILD_ERROR
+}
 
 function clampValue(key: keyof MugParams, value: number): number {
   const range = NUMERIC_RANGES[key]
@@ -61,7 +75,7 @@ function mugReducer(
     case 'update': {
       let value: number | string | boolean = action.value
       if (action.key === 'text' && typeof value === 'string') {
-        value = value.slice(0, MAX_TEXT_LENGTH)
+        value = Array.from(value).slice(0, MAX_TEXT_LENGTH).join('')
       }
       if (typeof value === 'number') {
         value = clampValue(action.key, value)
@@ -71,11 +85,19 @@ function mugReducer(
       return parsed.success ? next : state
     }
     case 'reset':
-      return defaultMugParams
+      return { ...defaultMugParams }
   }
 }
 
+function isFiniteSize(size: Vector3): boolean {
+  return Number.isFinite(size.x) && Number.isFinite(size.y) && Number.isFinite(size.z)
+}
+
 export interface UseMugOptions {
+  /**
+   * Fábrica de workers usada a cada build. Deve devolver um worker novo a cada
+   * chamada: o hook encerra o worker anterior e descarta respostas obsoletas.
+   */
   workerFactory?: () => MugWorker
 }
 
@@ -100,7 +122,7 @@ export function useMug(
   const workerFactory = options.workerFactory ?? createMugWorker
   const workerFactoryRef = useRef(workerFactory)
   workerFactoryRef.current = workerFactory
-  const [params, dispatch] = useReducer(mugReducer, defaultMugParams)
+  const [params, dispatch] = useReducer(mugReducer, { ...defaultMugParams })
   const [builtParams, setBuiltParams] = useState<MugGeometryParams | null>(null)
   const [geometry, setGeometry] = useState<BuildMugResult | null>(null)
   const [isBuilding, setIsBuilding] = useState(false)
@@ -141,13 +163,19 @@ export function useMug(
         worker.build(buildParams, (data: SerializedBuildResult) => {
           // Só a resposta do worker corrente vale; builds antigos são descartados.
           if (workerRef.current !== worker) return
-          setGeometry(deserializeBuildResult(data))
-          setBuiltParams(buildParams)
-          setIsBuilding(false)
-        }, () => {
+          try {
+            const next = deserializeBuildResult(data)
+            setGeometry(next)
+            setBuiltParams(buildParams)
+            setIsBuilding(false)
+          } catch {
+            setIsBuilding(false)
+            setError(BUILD_ERROR)
+          }
+        }, (code) => {
           if (workerRef.current !== worker) return
           setIsBuilding(false)
-          setError(BUILD_ERROR)
+          setError(errorMessage(code))
         })
       } catch {
         setIsBuilding(false)
@@ -190,14 +218,20 @@ export function useMug(
   const sizes = useMemo(() => {
     if (!geometry) return null
     geometry.body.computeBoundingBox()
-    const body = geometry.body.boundingBox?.getSize(new Vector3()) ?? null
     const union = new Box3()
     if (geometry.body.boundingBox) union.union(geometry.body.boundingBox)
     if (geometry.handle) {
       geometry.handle.computeBoundingBox()
       if (geometry.handle.boundingBox) union.union(geometry.handle.boundingBox)
     }
-    return { body, union: union.getSize(new Vector3()) }
+    const unionSize = union.getSize(new Vector3())
+    // Uma malha corrompida pode gerar caixa vazia (Infinity/-Infinity).
+    if (!isFiniteSize(unionSize)) return null
+    const bodySize = geometry.body.boundingBox?.getSize(new Vector3()) ?? null
+    return {
+      body: bodySize && isFiniteSize(bodySize) ? bodySize : null,
+      union: unionSize,
+    }
   }, [geometry])
 
   const dimensions = useMemo(() => {
@@ -205,9 +239,12 @@ export function useMug(
     return {
       width: Number(sizes.body.x.toFixed(1)),
       height: Number(sizes.body.y.toFixed(1)),
-      thickness: fallbackDimensions.thickness,
+      // Espessura acompanha a parede do snapshot que gerou a geometria.
+      thickness: Number(
+        (builtParams?.wallThickness ?? wallThickness).toFixed(1),
+      ),
     }
-  }, [sizes, fallbackDimensions])
+  }, [sizes, fallbackDimensions, builtParams, wallThickness])
 
   const fitRadius = useMemo(() => {
     if (!sizes) return fallbackFitRadius

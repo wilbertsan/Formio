@@ -131,8 +131,10 @@ Parâmetros
 - `mug-capacity`: capacidade abaixo de 150 ml ou acima de 500 ml (o limite
   inferior é defensivo, inalcançável pelo schema)
 
-`mug-csg` não é código de validação: é erro de runtime do worker quando a união
-do relevo falha.
+`mug-invalid`, `mug-font`, `mug-csg` e `mug-build` não são códigos de validação:
+são falhas de runtime do worker para parâmetros inválidos, carga da fonte, união
+do relevo e serialização, respectivamente. O detalhe fica no `console.error` e o
+hook traduz o código em mensagem amigável.
 
 Avisos não bloqueiam o build nem o export. Falha de CSG mantém a geometria
 anterior e mostra erro no overlay.

@@ -1,8 +1,16 @@
 import { FontLoader, type Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { fontUrls } from '../../chaveiros/chaveiro/fonts'
-import { buildMug } from './buildMug'
-import { serializeBuildResult, type MugWorkerResponse } from './workerGeometry'
-import { mugGeometryParamsSchema, type FontStyle, type MugGeometryParams } from './schema'
+import { buildMug, disposeMugResult, type BuildMugResult } from './buildMug'
+import {
+  serializeBuildResult,
+  type MugErrorCode,
+  type MugWorkerResponse,
+} from './workerGeometry'
+import {
+  mugGeometryParamsSchema,
+  type FontStyle,
+  type MugGeometryParams,
+} from './schema'
 
 const scope = self as unknown as {
   onmessage: ((event: MessageEvent<unknown>) => void) | null
@@ -33,18 +41,46 @@ function loadFont(style: FontStyle): Promise<Font> {
   })
 }
 
+/** O detalhe fica no console; a UI só recebe o código da falha. */
+function fail(id: number, code: MugErrorCode, error: unknown): void {
+  console.error(error)
+  scope.postMessage({ id, error: code })
+}
+
 scope.onmessage = async (event) => {
   let id = 0
+  let params: MugGeometryParams
   try {
     const message: unknown = event.data
     id = readRequestId(message)
-    const params = readParams(message)
-    const font = await loadFont(params.fontStyle)
-    const { data, transfer } = serializeBuildResult(buildMug(params, font))
+    params = readParams(message)
+  } catch (error) {
+    fail(id, 'mug-invalid', error)
+    return
+  }
+
+  let font: Font
+  try {
+    font = await loadFont(params.fontStyle)
+  } catch (error) {
+    fail(id, 'mug-font', error)
+    return
+  }
+
+  let result: BuildMugResult
+  try {
+    result = buildMug(params, font)
+  } catch (error) {
+    fail(id, 'mug-csg', error)
+    return
+  }
+
+  try {
+    const { data, transfer } = serializeBuildResult(result)
     scope.postMessage({ id, data }, transfer)
   } catch (error) {
-    // O detalhe fica no console; a UI só distingue a falha de runtime do CSG.
-    console.error(error)
-    scope.postMessage({ id, error: 'mug-csg' })
+    // A serialização falhou antes do transfer: a geometria ainda é nossa.
+    disposeMugResult(result)
+    fail(id, 'mug-build', error)
   }
 }

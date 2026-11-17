@@ -39,7 +39,11 @@ export const mugParamsSchema = z.object({
   handleBand: z.number().min(5).max(10),
   handleWidth: z.number().min(8).max(16),
   handleClearance: z.number().min(0.2).max(0.5),
-  text: z.string().max(MAX_TEXT_LENGTH),
+  // Code points, não unidades UTF-16: não quebra pares substitutos.
+  text: z.string().refine(
+    (value) => Array.from(value).length <= MAX_TEXT_LENGTH,
+    { message: `O texto deve ter no máximo ${MAX_TEXT_LENGTH} caracteres.` },
+  ),
   textSize: z.number().min(6).max(18),
   fontStyle: z.enum(FONT_STYLES),
   textCenterY: z.number().min(20).max(90),
