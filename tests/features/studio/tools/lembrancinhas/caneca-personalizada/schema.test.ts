@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   defaultMugParams,
   getCapacityMl,
-  getOuterRadius,
   mugParamsSchema,
   sanitizeFilename,
   CONTENT_DEPTH,
@@ -62,17 +61,6 @@ describe('caneca schema', () => {
     }
     // (π/3) · (115 - 3) · (28² + 28·48 + 48²) mm³ → ml, com raios internos 28 e 48
     expect(getCapacityMl(conical)).toBeCloseTo(519.81, 2)
-  })
-
-  it('getOuterRadius interpola a parede cônica', () => {
-    expect(getOuterRadius(defaultMugParams, 0)).toBe(defaultMugParams.diameterBottom / 2)
-    expect(getOuterRadius(defaultMugParams, defaultMugParams.height)).toBe(defaultMugParams.diameterTop / 2)
-    expect(getOuterRadius(defaultMugParams, defaultMugParams.height / 2)).toBeCloseTo(38, 6)
-  })
-
-  it('getOuterRadius limita y fora do corpo', () => {
-    expect(getOuterRadius(defaultMugParams, -10)).toBe(defaultMugParams.diameterBottom / 2)
-    expect(getOuterRadius(defaultMugParams, defaultMugParams.height + 10)).toBe(defaultMugParams.diameterTop / 2)
   })
 
   it('sanitizeFilename', () => {

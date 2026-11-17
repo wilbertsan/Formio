@@ -73,15 +73,6 @@ export const defaultMugParams: MugParams = {
   accentColor: '#f5f5f5',
 }
 
-/** Raio externo do corpo na altura `y` (parede cônica). */
-export function getOuterRadius(
-  params: Pick<MugGeometryParams, 'diameterTop' | 'diameterBottom' | 'height'>,
-  y: number,
-): number {
-  const t = Math.min(1, Math.max(0, y / params.height))
-  return (params.diameterBottom / 2) * (1 - t) + (params.diameterTop / 2) * t
-}
-
 /** Volume interno útil em ml (tronco de cone). */
 export function getCapacityMl(params: MugGeometryParams): number {
   const rBottom = Math.max(0, params.diameterBottom / 2 - params.wallThickness)
