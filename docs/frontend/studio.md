@@ -14,7 +14,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Marcador de Página** — Marcadores 3D em duas peças (base + texto com encaixe em U)
 - **Caixa Personalizada** — Caixa 3D personalizável com tampa, painel decorativo, puxador lateral e base, em STLs separados
 - **Termoformador** — Tela circular perfurada com malha hexagonal, aro sólido e suporte côncavo, em STLs separados
-- **Caneca Personalizada (planejada)** — Caneca de parede simples com nome em relevo de 1 mm e alça removível de abraçadeira, em dois STLs
+- **Caneca Personalizada** — Caneca de parede simples com nome em relevo de 1 mm e alça removível de abraçadeira, em dois STLs
 
 ### Componentes Genéricos
 
@@ -155,7 +155,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Painel de parâmetros | `src/features/studio/tools/lembrancinhas/termoformador/StudioPanel.tsx` |
 | Preview R3F (conjunto montado) | `src/features/studio/tools/lembrancinhas/termoformador/ThermoformerPreview.tsx` |
 | Exportar dois STLs | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
-| **Caneca Personalizada (planejada)** | |
+| **Caneca Personalizada** | |
 | Schema + tipos (faixas, defaults, cores e constantes) | `src/features/studio/tools/lembrancinhas/caneca-personalizada/schema.ts` |
 | Perfil do corpo e geometria da alça | `src/features/studio/tools/lembrancinhas/caneca-personalizada/shapes.ts` |
 | Corpo por revolução | `src/features/studio/tools/lembrancinhas/caneca-personalizada/buildBody.ts` |
@@ -297,28 +297,55 @@ Detalhes:
 - Configurações extremas (~3.571 favos) levam ~7 s e rodam no worker para não
   travar a UI.
 
-## Caneca Personalizada (planejada)
+## Caneca Personalizada
 
-Especificação registrada em
-`src/features/studio/tools/lembrancinhas/caneca-personalizada/AGENTS.md` e
-`docs/plans/2026-11-17-caneca-personalizada-design.md`. Ainda não há código nem
-card no seletor.
+Pipeline completo de geração da caneca:
 
-Desenho previsto:
+**useMug.ts** → **buildMug.worker.ts** → **buildMug.ts** →
+**buildBody.ts** + **buildRelief.ts** + **buildHandle.ts** → **exportStl.ts**
 
-- **Corpo** — `LatheGeometry` de perfil fechado `(r, y)`: fundo, parede externa
-  cônica, borda chanfrada, parede interna e fundo interno. Parede padrão de
-  2,4 mm e fundo de 3,2 mm; capacidade interna calculada por tronco de cone.
-- **Personalização** — texto de até 20 caracteres, 1 mm de relevo, curvado no
-  raio do corpo a 180° da alça. Reutiliza `textToShapes`/`shapesToGeometry` da
-  confeitaria e une ao corpo por `three-bvh-csg`.
-- **Alça** — peça separada: abraçadeira em C de 200° em volta do corpo, com
-  folga de 0,3 mm, mais laço em D. Abraçadeira e laço são unidos por CSG dentro
-  da própria alça; o corpo não recebe trilho.
-- **Pipeline** — `useMug.ts` → `buildMug.worker.ts` → `buildMug.ts` →
-  `exportStl.ts`, com `{ body, handle }` serializados e dois STLs.
-- **Riscos** — a união do relevo por CSG é validada por spike antes do restante;
-  se falhar, o plano prevê a abordagem sem CSG com plaqueta curva.
+1. **schema.ts** — Valida corpo, alça, personalização e duas cores PLA;
+   `mugGeometryParamsSchema` exclui as cores para não rebuildar ao trocar cor.
+2. **shapes.ts** — Perfil fechado `(r, y)`, raio externo efetivo até
+   `height − chanfro`, contorno da abraçadeira de 200° e laço em D. Concentra
+   `getEffectiveRimChamfer`, `getBodyOuterRadius`, `getBandInnerRadius` e
+   `getHandleMetrics`.
+3. **buildBody.ts** — `LatheGeometry` de 128 segmentos; remove os triângulos
+   degenerados do eixo e preserva position/normal/uv.
+4. **buildRelief.ts** — `textToShapes`/`shapesToGeometry`, subdivisão conforme
+   até 2,5 mm, auto-fit para 120°, curvatura no raio a 180° da alça e 1 mm de
+   relevo visível (0,2 mm embutido para a união).
+5. **buildHandle.ts** — Abraçadeira com perfil quadrático: folga nominal no
+   meio, interferência absoluta de 0,4 mm no topo e folga +0,4 mm na base;
+   laço acompanha a conicidade do corpo. Abraçadeira + laço são unidos por CSG.
+6. **buildMug.ts** — Une o relevo ao corpo (`ADDITION`, `useCDTClipping`) e
+   devolve `{ body, handle }`; limpa triângulos colapsados e valida
+   fechamento/casca no spike.
+7. **useMug.ts** — Reducer + Zod, clamps, debounce de 250 ms, um worker por
+   build, descarte de respostas obsoletas, snapshot `builtParams` e descarte da
+   geometria anterior.
+8. **exportStl.ts** — Dois STLs binários: `<nome>-corpo.stl` e
+   `<nome>-alca.stl`; corpo com base em `y = 0`, alça em pé, clonada antes de
+   centralizar.
+
+Detalhes:
+
+- O corpo padrão tem 80 × 88 mm, parede 2,4 mm, fundo 3,2 mm e ~338 ml.
+- O relevo é unido por `three-bvh-csg` com o splitter CDT; o splitter legado
+  deixa T-junctions. O resultado é fechado e single-shell nos extremos de
+  tamanho.
+- A alça não usa trilho: a abraçadeira abraça o corpo por pressão e é
+  removível. Ela imprime em pé, apoiada na borda inferior do laço, com suporte
+  sob toda a face inferior do arco de 200°.
+- O texto fica sempre a 180° da alça; o auto-fit de 120° mantém a
+  personalização longe da abraçadeira.
+- Duas cores no preview (`bodyColor`/`accentColor`); trocar cor não rebuilda.
+- Validação por códigos: `mug-taper`, `mug-wall`, `mug-bottom`, `mug-text-fit`,
+  `mug-text-band`, `mug-handle-gap`, `mug-handle-reach`, `mug-handle-fit`,
+  `mug-handle-band` e `mug-capacity`. Falhas de runtime do worker usam
+  `mug-invalid`, `mug-font`, `mug-csg` e `mug-build`.
+- Build padrão ~0,6 s no worker (fonte carregada); 20 caracteres em 18 mm
+  levam ~2,4 s. O gate de teste é 4 s e roda em worker.
 
 ## Decisões
 
@@ -360,7 +387,7 @@ Desenho previsto:
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 - **Caixa Personalizada:** Caixa 3D personalizável em cinco peças independentes (corpo, tampa, painel decorativo, puxador e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do puxador ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O puxador usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance`, raio interno derivado do canto do corpo e anel mínimo de 0,8 mm. O puxador fica em `left`/`right` na v1; `top`/`bottom` são reservados. A tampa externa assenta em `lidHeight = 0`; valores maiores exigem junta/suporte, e a tampa interna é um plugue sem flange. A montagem avisa colisões entre painel/base, painel/tampa e flange/base ou flange/tampa. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do puxador. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
 - **Termoformador (tela + suporte):** Duas peças independentes. A tela é um disco circular com aro sólido e malha hexagonal flat-top em `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada; favos limitados a 4.000, com abertura crescendo 15% ao exceder, e epsilon de 0,001 rad por favo evita caps abertos no Earcut. O suporte é um berço côncavo de `LatheGeometry` com perfil fechado, bacia esférica e fundo fechado, sem CSG e com os triângulos degenerados do eixo removidos. O diâmetro do suporte deriva da tela (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`); a tela apoia no degrau e fica nivelada com o topo. A profundidade efetiva da bacia é limitada para manter 0,8 mm de parede externa. Preview montado com a tela em `seatY`, cor única e export de dois STLs `-tela` e `-suporte`. `fitRadius` usa a esfera envolvente do suporte. Build em worker; a configuração máxima do schema leva ~7 s.
-- **Caneca Personalizada (planejada):** Corpo de parede simples em `LatheGeometry` com perfil fechado, sem trilho; nome em relevo de 1 mm curvado no raio e unido por CSG, a 180° da alça. Alça separada de encaixe por pressão: abraçadeira em C de 200° (folga 0,3 mm) com laço em D, unidos por CSG dentro da alça. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A união do relevo por CSG tem spike obrigatório e fallback para plaqueta curva.
+- **Caneca Personalizada:** Corpo de parede simples em `LatheGeometry` com perfil fechado, sem trilho; nome em relevo de 1 mm curvado no raio e unido por CSG com o splitter CDT, a 180° da alça. Alça separada de encaixe por pressão: abraçadeira em C de 200° com folga nominal no meio, interferência absoluta de 0,4 mm no topo e laço em D; abraçadeira e laço são unidos por CSG dentro da alça. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A alça imprime em pé com suporte sob o arco; o corpo imprime em pé sem suporte. O relevo usa subdivisão conforme de 2,5 mm para manter 1 mm no centro de glifos largos.
 
 ## Próximos passos (fora de escopo desta fase)
 
