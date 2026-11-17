@@ -6,6 +6,8 @@ import {
   prepareHandleForPrint,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/exportStl'
 import type { BuildMugResult } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/buildMug'
+import { buildHandle } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/buildHandle'
+import { defaultMugParams } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
 
 const { parseMock } = vi.hoisted(() => ({
   parseMock: vi.fn(() => new DataView(new ArrayBuffer(84))),
@@ -175,25 +177,31 @@ describe('preparos de impressão', () => {
     preparedBody.dispose()
   })
 
-  it('a alça mantém a orientação do build, sem rotação, com a base em y = 0', () => {
-    const handle = new BoxGeometry(52, 43, 12)
-    handle.translate(60, 52, 0)
+  it('a alça real imprime em pé, sem rotação, com a base em y = 0', () => {
+    const handle = buildHandle(defaultMugParams)
     const original = positions(handle)
+    const loopHeight = defaultMugParams.handleGap + 2 * defaultMugParams.handleBand
+    expect(loopHeight).toBeCloseTo(43, 3)
 
     const preparedHandle = prepareHandleForPrint(handle)
     preparedHandle.computeBoundingBox()
+    const box = preparedHandle.boundingBox!
 
-    // A alça imprime em pé: o laço apoia na borda inferior e a altura (43 mm)
-    // continua no eixo Y; a espessura (12 mm) continua no eixo Z.
-    expect(preparedHandle.boundingBox!.min.y).toBeCloseTo(0, 3)
-    expect(preparedHandle.boundingBox!.max.y).toBeCloseTo(43, 3)
-    expect(preparedHandle.boundingBox!.max.y - preparedHandle.boundingBox!.min.y).toBeCloseTo(43, 3)
-    expect(preparedHandle.boundingBox!.max.x - preparedHandle.boundingBox!.min.x).toBeCloseTo(52, 3)
-    expect(preparedHandle.boundingBox!.max.z - preparedHandle.boundingBox!.min.z).toBeCloseTo(12, 3)
+    // Base na mesa.
+    expect(box.min.y).toBeCloseTo(0, 3)
+    // Em pé: o vão do laço corre no eixo Y; se a peça fosse deitada, a altura
+    // seria a espessura de handleWidth (12 mm), não 43 mm.
+    expect(box.max.y - box.min.y).toBeCloseTo(loopHeight, 3)
+    // A abraçadeira de 200° domina o plano XZ com ~84,6 mm de diâmetro; um span
+    // nesse eixo acima de 80 mm só existe com a alça em pé.
+    expect(box.max.z - box.min.z).toBeGreaterThan(80)
+    // Centralizada na mesa em X e Z.
+    expect(box.min.x).toBeCloseTo(-box.max.x, 3)
+    expect(box.min.z).toBeCloseTo(-box.max.z, 3)
 
-    // Original não é mutado.
+    // Original não é mutado (min Y = handleHeight − loopHeight / 2 = 30,5 mm).
     handle.computeBoundingBox()
-    expect(handle.boundingBox!.min.y).toBeCloseTo(52 - 21.5, 3)
+    expect(handle.boundingBox!.min.y).toBeCloseTo(30.5, 3)
     expect(Array.from(handle.getAttribute('position').array)).toEqual(Array.from(original))
 
     handle.dispose()

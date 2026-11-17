@@ -25,7 +25,8 @@ lembrancinhas.
 - Caixa personalizada: paredes ≥ 0,8 mm, elementos e furos ≥ 0,8 mm
 - Caneca personalizada: parede ≥ 1,8 mm e fundo ≥ 2 mm; texto em relevo de
   1 mm; alça separada de abraçadeira com folga de 0,2–0,5 mm; corpo impresso em
-  pé e alça deitada
+  pé e alça em pé, apoiada na borda inferior do laço, com suporte sob a
+  abraçadeira de 200°
 
 ## Invariantes
 
