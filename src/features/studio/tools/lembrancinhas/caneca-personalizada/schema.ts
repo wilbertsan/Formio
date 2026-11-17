@@ -50,7 +50,12 @@ export const mugParamsSchema = z.object({
 export type MugParams = z.infer<typeof mugParamsSchema>
 
 /** Campos que alteram geometria. Cores ficam de fora para não rebuildar. */
-export type MugGeometryParams = Omit<MugParams, 'bodyColor' | 'accentColor'>
+export const mugGeometryParamsSchema = mugParamsSchema.omit({
+  bodyColor: true,
+  accentColor: true,
+})
+
+export type MugGeometryParams = z.infer<typeof mugGeometryParamsSchema>
 
 export const defaultMugParams: MugParams = {
   productType: PRODUCT_TYPE,

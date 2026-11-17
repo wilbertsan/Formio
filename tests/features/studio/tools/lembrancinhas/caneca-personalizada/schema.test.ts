@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   defaultMugParams,
   getCapacityMl,
+  mugGeometryParamsSchema,
   mugParamsSchema,
   sanitizeFilename,
   CONTENT_DEPTH,
@@ -44,6 +45,16 @@ describe('caneca schema', () => {
   it('rejeita cor fora da paleta', () => {
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, bodyColor: '#000000' }).success).toBe(false)
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, accentColor: '#000000' }).success).toBe(false)
+  })
+
+  it('schema de geometria descarta as cores', () => {
+    const parsed = mugGeometryParamsSchema.safeParse(defaultMugParams)
+    expect(parsed.success).toBe(true)
+    expect(parsed.success && parsed.data).not.toHaveProperty('bodyColor')
+    expect(parsed.success && parsed.data).not.toHaveProperty('accentColor')
+    expect(
+      mugGeometryParamsSchema.safeParse({ ...defaultMugParams, height: 79 }).success,
+    ).toBe(false)
   })
 
   it('capacidade do default é 338 ml', () => {

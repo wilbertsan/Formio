@@ -2,7 +2,7 @@ import { FontLoader, type Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { fontUrls } from '../../chaveiros/chaveiro/fonts'
 import { buildMug } from './buildMug'
 import { serializeBuildResult, type MugWorkerResponse } from './workerGeometry'
-import { PRODUCT_TYPE, type FontStyle, type MugGeometryParams } from './schema'
+import { mugGeometryParamsSchema, type FontStyle, type MugGeometryParams } from './schema'
 
 const scope = self as unknown as {
   onmessage: ((event: MessageEvent<unknown>) => void) | null
@@ -20,14 +20,11 @@ function readParams(value: unknown): MugGeometryParams {
     throw new Error('Requisição inválida')
   }
   const params = (value as { params?: unknown }).params
-  if (
-    typeof params !== 'object' ||
-    params === null ||
-    (params as { productType?: unknown }).productType !== PRODUCT_TYPE
-  ) {
+  const parsed = mugGeometryParamsSchema.safeParse(params)
+  if (!parsed.success) {
     throw new Error('Parâmetros inválidos')
   }
-  return params as MugGeometryParams
+  return parsed.data
 }
 
 function loadFont(style: FontStyle): Promise<Font> {
@@ -46,10 +43,8 @@ scope.onmessage = async (event) => {
     const { data, transfer } = serializeBuildResult(buildMug(params, font))
     scope.postMessage({ id, data }, transfer)
   } catch (error) {
+    // O detalhe fica no console; a UI só distingue a falha de runtime do CSG.
     console.error(error)
-    scope.postMessage({
-      id,
-      error: error instanceof Error ? error.message : 'Falha ao gerar a geometria',
-    })
+    scope.postMessage({ id, error: 'mug-csg' })
   }
 }
