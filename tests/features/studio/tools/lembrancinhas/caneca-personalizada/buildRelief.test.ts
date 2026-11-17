@@ -11,8 +11,8 @@ import {
   MAX_TEXT_ARC,
   RELIEF_EMBED,
   defaultMugParams,
-  getOuterRadius,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
+import { getBodyOuterRadius } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/shapes'
 import {
   shapesToGeometry,
   textToShapes,
@@ -76,7 +76,7 @@ describe('buildRelief', () => {
 
     for (let i = 0; i < position.count; i++) {
       const offset = Math.hypot(position.getX(i), position.getZ(i))
-        - getOuterRadius(params, position.getY(i))
+        - getBodyOuterRadius(params, position.getY(i))
       minOffset = Math.min(minOffset, offset)
       maxOffset = Math.max(maxOffset, offset)
     }
@@ -157,6 +157,72 @@ describe('buildRelief', () => {
     }
 
     expect(maxAngle - minAngle).toBeLessThanOrEqual(MAX_TEXT_ARC + 0.02)
+    geometry.dispose()
+  })
+
+  it('mantém a superfície do relevo a ~1 mm da parede em glifos largos', () => {
+    const params = { ...defaultMugParams, textSize: 18 }
+    const geometry = buildRelief(rectangleFont(20, 10), params)!
+    const position = geometry.getAttribute('position')
+    const a = new Vector3()
+    const b = new Vector3()
+    const c = new Vector3()
+    const ab = new Vector3()
+    const ac = new Vector3()
+    const normal = new Vector3()
+    const radial = new Vector3()
+    const centroid = new Vector3()
+    let minVisible = Infinity
+
+    for (let i = 0; i < position.count; i += 3) {
+      a.fromBufferAttribute(position, i)
+      b.fromBufferAttribute(position, i + 1)
+      c.fromBufferAttribute(position, i + 2)
+      centroid.copy(a).add(b).add(c).divideScalar(3)
+
+      const radius = Math.hypot(centroid.x, centroid.z)
+      radial.set(centroid.x / radius, 0, centroid.z / radius)
+      normal.crossVectors(ab.subVectors(b, a), ac.subVectors(c, a)).normalize()
+      // Só a face da frente: normal radial para fora.
+      if (normal.dot(radial) <= 0.5) continue
+
+      minVisible = Math.min(
+        minVisible,
+        radius - getBodyOuterRadius(params, centroid.y),
+      )
+    }
+
+    // Um glifo largo sem subdivisão afunda no meio da corda (sag).
+    expect(minVisible).toBeGreaterThan(0.95)
+    expect(minVisible).toBeLessThanOrEqual(CONTENT_DEPTH + 0.02)
+    geometry.dispose()
+  })
+
+  it('mantém 1 mm de relevo em conicidade e chanfro extremos', () => {
+    // Conicidade além do slider (diâmetro inferior 100) de propósito: é onde o
+    // oráculo antigo errava o raio em quase 0,3 mm.
+    const params = {
+      ...defaultMugParams,
+      diameterTop: 70,
+      diameterBottom: 100,
+      height: 80,
+      wallThickness: 4,
+      rimChamfer: 2,
+    }
+    const geometry = buildRelief(rectangleFont(20, 10), params)!
+    const position = geometry.getAttribute('position')
+    let minOffset = Infinity
+    let maxOffset = -Infinity
+
+    for (let i = 0; i < position.count; i++) {
+      const offset = Math.hypot(position.getX(i), position.getZ(i))
+        - getBodyOuterRadius(params, position.getY(i))
+      minOffset = Math.min(minOffset, offset)
+      maxOffset = Math.max(maxOffset, offset)
+    }
+
+    expect(minOffset).toBeCloseTo(-RELIEF_EMBED, 5)
+    expect(maxOffset).toBeCloseTo(CONTENT_DEPTH, 5)
     geometry.dispose()
   })
 

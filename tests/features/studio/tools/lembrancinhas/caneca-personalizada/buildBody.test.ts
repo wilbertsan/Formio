@@ -4,12 +4,13 @@ import { buildBody } from '@/features/studio/tools/lembrancinhas/caneca-personal
 import {
   bodyProfile,
   dedupePoints,
+  getBodyOuterRadius,
+  getEffectiveRimChamfer,
   getInnerRadius,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/shapes'
 import {
   MINIMUM_WALL_MM,
   defaultMugParams,
-  getOuterRadius,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
 import { isClosed, signedVolume } from './geometryTestUtils'
 
@@ -48,9 +49,24 @@ describe('buildBody', () => {
     const { bottomThickness, height, wallThickness } = defaultMugParams
 
     expect(getInnerRadius(defaultMugParams, bottomThickness))
-      .toBeCloseTo(getOuterRadius(defaultMugParams, bottomThickness) - wallThickness, 6)
+      .toBeCloseTo(getBodyOuterRadius(defaultMugParams, bottomThickness) - wallThickness, 6)
     expect(getInnerRadius(defaultMugParams, height))
       .toBeCloseTo(defaultMugParams.diameterTop / 2 - wallThickness, 6)
+  })
+
+  it('o raio externo interpola até o fim do chanfro, não até a altura total', () => {
+    const params = { ...defaultMugParams, wallThickness: 4, rimChamfer: 2 }
+    const wallTop = params.height - getEffectiveRimChamfer(params)
+
+    expect(getEffectiveRimChamfer(params)).toBeCloseTo(params.rimChamfer, 9)
+    expect(getBodyOuterRadius(params, wallTop)).toBeCloseTo(params.diameterTop / 2, 6)
+    expect(getInnerRadius(params, wallTop))
+      .toBeCloseTo(params.diameterTop / 2 - params.wallThickness, 6)
+  })
+
+  it('o chanfro efetivo nunca come o anel mínimo da parede', () => {
+    const params = { ...defaultMugParams, wallThickness: MINIMUM_WALL_MM, rimChamfer: 2 }
+    expect(getEffectiveRimChamfer(params)).toBe(0)
   })
 
   it('o perfil é fechado e começa/termina no eixo', () => {
