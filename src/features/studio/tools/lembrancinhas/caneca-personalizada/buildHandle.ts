@@ -1,5 +1,6 @@
 import { BufferGeometry, ExtrudeGeometry } from 'three'
-import { ADDITION, Brush, Evaluator } from 'three-bvh-csg'
+import { ADDITION, Brush } from 'three-bvh-csg'
+import { createConformingEvaluator } from './csg'
 import {
   getBandInnerRadius,
   getBandOuterRadius,
@@ -20,13 +21,6 @@ export {
   handleRingShape,
 }
 export type { HandleMetrics }
-
-/**
- * `useCDTClipping` existe no runtime do three-bvh-csg, mas falta no
- * `index.d.ts` do pacote. O splitter CDT gera cortes conformes entre as duas
- * peças; o splitter legado deixa T-junctions nas bordas curvas da abraçadeira.
- */
-type ConformingEvaluator = Evaluator & { useCDTClipping: boolean }
 
 export function buildHandle(params: MugGeometryParams): BufferGeometry {
   const metrics = getHandleMetrics(params)
@@ -61,13 +55,7 @@ export function buildHandle(params: MugGeometryParams): BufferGeometry {
   })
   loop.translate(0, 0, -params.handleWidth / 2)
 
-  const evaluator = new Evaluator() as ConformingEvaluator
-  evaluator.useCDTClipping = true
-  if (!evaluator.useCDTClipping) {
-    throw new Error(
-      'buildHandle: three-bvh-csg sem useCDTClipping; o splitter legado deixa a alça aberta.',
-    )
-  }
+  const evaluator = createConformingEvaluator()
   const ringBrush = new Brush(ring)
   const loopBrush = new Brush(loop)
   ringBrush.updateMatrixWorld()
