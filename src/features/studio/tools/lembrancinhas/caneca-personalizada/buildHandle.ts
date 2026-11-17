@@ -60,10 +60,15 @@ export function buildHandle(params: MugGeometryParams): BufferGeometry {
   const loopBrush = new Brush(loop)
   ringBrush.updateMatrixWorld()
   loopBrush.updateMatrixWorld()
-  const result = evaluator.evaluate(ringBrush, loopBrush, ADDITION).geometry
 
-  ring.dispose()
-  loop.dispose()
-  result.computeVertexNormals()
-  return result
+  try {
+    const result = evaluator.evaluate(ringBrush, loopBrush, ADDITION).geometry
+    result.computeVertexNormals()
+    return result
+  } finally {
+    // As brushes não são donas da geometria; libera as entradas também se o
+    // CSG da alça falhar.
+    ring.dispose()
+    loop.dispose()
+  }
 }

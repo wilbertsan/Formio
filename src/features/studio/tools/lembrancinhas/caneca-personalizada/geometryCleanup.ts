@@ -1,10 +1,14 @@
 import {
+  BufferAttribute,
   BufferGeometry,
-  type BufferAttribute,
   type InterleavedBufferAttribute,
 } from 'three'
 
-/** Mesma precisão da checagem de manifold: 0,0001 mm. */
+/**
+ * Precisão da chave de posição: 1e-4 mm, a mesma de `positionKey` em
+ * `tests/features/studio/tools/lembrancinhas/caneca-personalizada/geometryTestUtils.ts`.
+ * Mantém a limpeza alinhada à checagem de manifold usada nos testes.
+ */
 const POSITION_DECIMALS = 4
 const ZERO_EPSILON = 5e-5
 
@@ -18,18 +22,26 @@ function positionKey(
 }
 
 /**
- * Remove triângulos com aresta colapsada (dois vértices na mesma posição), sem
- * tocar nos atributos existentes.
+ * Remove triângulos com aresta colapsada, sem tocar nos atributos existentes.
  *
  * O `LatheGeometry` gera esses triângulos no eixo de revolução e o CSG pode
  * deixá-los na saída de uniões próximas ao relevo. Eles contam a mesma aresta
  * duas vezes, o que quebra a checagem de malha fechada (aresta com 4 usos).
  *
- * O critério é posição repetida, não área: o CSG também produz slivers de área
- * minúscula porém finitos que fazem parte da superfície. Removê-los abriria a
- * malha — só a aresta colapsada é segura de descartar, pois suas duas
- * contribuições se cancelam. A geometria original é descartada; o chamador
- * decide quando recalcular normais.
+ * O critério é posição repetida, não área. O predicado usa chaves arredondadas
+ * em 1e-4 mm, então remove triângulos cujos vértices coincidem dentro dessa
+ * tolerância — não só os exatamente coincidentes. Isso acompanha a precisão da
+ * checagem de manifold. Slivers finitos abaixo da tolerância também podem ser
+ * removidos; na escala de impressão (1 unidade = 1 mm) isso é aceitável.
+ *
+ * Slivers finitos acima da tolerância são mantidos de propósito: o CSG produz
+ * vários deles que fazem parte da superfície fechada, e removê-los abriria a
+ * malha. A geometria original é consumida (descartada); o chamador decide
+ * quando recalcular normais. Entrada não indexada é devolvida como está, sem
+ * ser consumida.
+ *
+ * `groups` e `drawRange` não são copiados: o resultado é uma peça de material
+ * único (preview e STL), então os grupos de material do CSG não têm uso.
  */
 export function removeDegenerateTriangles(
   geometry: BufferGeometry,
@@ -65,7 +77,12 @@ export function removeDegenerateTriangles(
   for (const [name, attribute] of Object.entries(geometry.attributes)) {
     result.setAttribute(name, attribute.clone())
   }
-  result.setIndex(kept)
+  // Preserva a largura do índice (Uint16/Uint32) em vez de deixar o three
+  // reescolher pelo maior índice restante.
+  const IndexArray = index.array.constructor as new (
+    values: number[],
+  ) => Uint16Array | Uint32Array
+  result.setIndex(new BufferAttribute(new IndexArray(kept), 1))
   geometry.dispose()
 
   return result

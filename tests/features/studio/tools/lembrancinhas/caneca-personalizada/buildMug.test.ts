@@ -36,10 +36,10 @@ describe('buildMug', () => {
     const withoutText = buildMug({ ...defaultMugParams, text: '' }, realFont())
     const reliefVolume = signedVolume(withText.body) - signedVolume(withoutText.body)
 
-    expect(reliefVolume).toBeGreaterThan(0)
-    // O relevo visível é 1 mm sobre a parede: o volume extra fica na mesma
-    // ordem de grandeza da área do texto, não de uma subtração.
-    expect(reliefVolume).toBeLessThan(1000)
+    // Relevo visível de 1 mm sobre a parede: o delta fica na ordem da área do
+    // texto. Uma faixa estreita pega tanto subtração quanto relevo quase raso.
+    expect(reliefVolume).toBeGreaterThanOrEqual(80)
+    expect(reliefVolume).toBeLessThanOrEqual(300)
 
     disposeMugResult(withText)
     disposeMugResult(withoutText)
@@ -67,6 +67,18 @@ describe('buildMug', () => {
     {
       name: 'corpo pequeno',
       params: { diameterTop: 70, diameterBottom: 60, height: 80 },
+    },
+    {
+      name: 'parede mínima, texto grande e centro clampado',
+      params: {
+        diameterTop: 70,
+        diameterBottom: 60,
+        height: 80,
+        wallThickness: 1.8,
+        rimChamfer: 2,
+        textSize: 18,
+        textCenterY: 90,
+      },
     },
   ])('fecha o corpo nos extremos de tamanho ($name)', ({ params }) => {
     const result = buildMug({ ...defaultMugParams, ...params }, realFont())
