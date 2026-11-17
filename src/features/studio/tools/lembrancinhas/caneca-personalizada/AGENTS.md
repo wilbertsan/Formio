@@ -110,15 +110,18 @@ Parâmetros
 
 ## Validação
 
+- `mug-taper`: diâmetro do topo menor que o da base
 - `mug-wall`: parede abaixo de 1,8 mm (defensiva; a UI já limita)
 - `mug-bottom`: fundo abaixo de 2 mm
 - `mug-text-fit`: texto não cabe no arco útil da frente
 - `mug-text-band`: texto cruza a borda, o fundo ou a faixa da alça
 - `mug-text-rail`: texto invade o arco da abraçadeira (defensiva)
 - `mug-handle-gap`: abertura da mão pequena demais para o laço
-- `mug-handle-reach`: alcance insuficiente para a abertura da mão
-- `mug-handle-fit`: folga da abraçadeira abaixo de 0,2 mm
-- `mug-handle-band`: abraçadeira mais alta que a parede disponível
+- `mug-handle-reach`: a menor largura do furo trapezoidal da mão é insuficiente
+- `mug-handle-fit`: folga nominal da abraçadeira acima de 0,4 mm no meio da
+  altura; a interferência no topo é absoluta em 0,4 mm para qualquer folga
+- `mug-handle-band`: o vão vertical completo do laço
+  (`handleHeight ± (handleGap / 2 + handleBand)`) sai da parede disponível
 - `mug-capacity`: capacidade abaixo de 150 ml ou acima de 500 ml
 - `mug-csg`: a união do relevo falhou
 
