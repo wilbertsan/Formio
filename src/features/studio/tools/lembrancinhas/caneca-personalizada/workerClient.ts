@@ -1,11 +1,11 @@
 import type { MugGeometryParams } from './schema'
-import type { SerializedBuildResult } from './workerGeometry'
+import type { MugWorkerResponse, SerializedBuildResult } from './workerGeometry'
 
 export interface MugWorker {
   build(
     params: MugGeometryParams,
     onResult: (data: SerializedBuildResult) => void,
-    onError?: () => void,
+    onError?: (message?: string) => void,
   ): void
   terminate(): void
 }
@@ -16,6 +16,7 @@ export function createMugWorker(): MugWorker {
     { type: 'module' },
   )
   let terminated = false
+  let latestId = 0
 
   return {
     build(params, onResult, onError) {
@@ -23,10 +24,15 @@ export function createMugWorker(): MugWorker {
         onError?.()
         return
       }
-      worker.onmessage = (
-        event: MessageEvent<{ id: number; data?: SerializedBuildResult; error?: boolean }>,
-      ) => {
-        if (event.data.error || !event.data.data) {
+      const id = ++latestId
+      worker.onmessage = (event: MessageEvent<MugWorkerResponse>) => {
+        // Um build mais novo já foi pedido: descarta a resposta atrasada.
+        if (event.data.id !== id || event.data.id !== latestId) return
+        if (event.data.error) {
+          onError?.(event.data.error)
+          return
+        }
+        if (!event.data.data) {
           onError?.()
           return
         }
@@ -34,7 +40,7 @@ export function createMugWorker(): MugWorker {
       }
       worker.onerror = () => onError?.()
       worker.onmessageerror = () => onError?.()
-      worker.postMessage({ id: Date.now(), params })
+      worker.postMessage({ id, params })
     },
     terminate() {
       terminated = true

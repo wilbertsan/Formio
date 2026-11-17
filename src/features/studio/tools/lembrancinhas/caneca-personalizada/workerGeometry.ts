@@ -12,6 +12,13 @@ export interface SerializedBuildResult {
   handle: SerializedGeometry | null
 }
 
+/** Contrato de resposta do worker, usado pelo worker e pelo client. */
+export interface MugWorkerResponse {
+  id: number
+  data?: SerializedBuildResult
+  error?: string
+}
+
 export function serializeGeometry(geometry: BufferGeometry): {
   data: SerializedGeometry
   transfer: ArrayBuffer[]
@@ -25,15 +32,14 @@ export function serializeGeometry(geometry: BufferGeometry): {
     ? (normalAttribute.array as Float32Array).slice()
     : new Float32Array(0)
   const indexAttribute = geometry.getIndex()
-  const index = indexAttribute
-    ? new Uint32Array(indexAttribute.array).slice()
-    : null
+  // O construtor de Uint32Array já copia os valores, mesmo de um Uint16Array.
+  const index = indexAttribute ? new Uint32Array(indexAttribute.array) : null
 
   const transfer: ArrayBuffer[] = [
     position.buffer as ArrayBuffer,
     normal.buffer as ArrayBuffer,
   ]
-  if (index) transfer.push(index.buffer as ArrayBuffer)
+  if (index !== null) transfer.push(index.buffer as ArrayBuffer)
 
   return { data: { position, normal, index }, transfer }
 }
@@ -41,10 +47,14 @@ export function serializeGeometry(geometry: BufferGeometry): {
 export function deserializeGeometry(data: SerializedGeometry): BufferGeometry {
   const geometry = new BufferGeometry()
   geometry.setAttribute('position', new BufferAttribute(data.position, 3))
+  if (data.index !== null) {
+    geometry.setIndex(new BufferAttribute(data.index, 1))
+  }
   if (data.normal.length > 0) {
     geometry.setAttribute('normal', new BufferAttribute(data.normal, 3))
+  } else {
+    geometry.computeVertexNormals()
   }
-  if (data.index) geometry.setIndex(new BufferAttribute(data.index, 1))
   return geometry
 }
 
