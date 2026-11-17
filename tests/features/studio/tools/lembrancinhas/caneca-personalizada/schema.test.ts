@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   defaultMugParams,
   getCapacityMl,
+  getOuterRadius,
   mugParamsSchema,
   sanitizeFilename,
   CONTENT_DEPTH,
@@ -38,16 +39,40 @@ describe('caneca schema', () => {
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, height: 116 }).success).toBe(false)
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, wallThickness: 1.7 }).success).toBe(false)
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, text: 'x'.repeat(21) }).success).toBe(false)
+    expect(mugParamsSchema.safeParse({ ...defaultMugParams, text: 'x'.repeat(MAX_TEXT_LENGTH) }).success).toBe(true)
   })
 
   it('rejeita cor fora da paleta', () => {
     expect(mugParamsSchema.safeParse({ ...defaultMugParams, bodyColor: '#000000' }).success).toBe(false)
+    expect(mugParamsSchema.safeParse({ ...defaultMugParams, accentColor: '#000000' }).success).toBe(false)
   })
 
-  it('capacidade do default fica entre 300 e 380 ml', () => {
-    const capacity = getCapacityMl(defaultMugParams)
-    expect(capacity).toBeGreaterThan(300)
-    expect(capacity).toBeLessThan(380)
+  it('capacidade do default é 338 ml', () => {
+    expect(getCapacityMl(defaultMugParams)).toBeCloseTo(338, 0)
+  })
+
+  it('capacidade do corpo cônico usa tronco de cone, não cilindro', () => {
+    const conical = {
+      ...defaultMugParams,
+      diameterTop: 100,
+      diameterBottom: 60,
+      height: 115,
+      wallThickness: 2,
+      bottomThickness: 3,
+    }
+    // (π/3) · (115 - 3) · (28² + 28·48 + 48²) mm³ → ml, com raios internos 28 e 48
+    expect(getCapacityMl(conical)).toBeCloseTo(519.81, 2)
+  })
+
+  it('getOuterRadius interpola a parede cônica', () => {
+    expect(getOuterRadius(defaultMugParams, 0)).toBe(defaultMugParams.diameterBottom / 2)
+    expect(getOuterRadius(defaultMugParams, defaultMugParams.height)).toBe(defaultMugParams.diameterTop / 2)
+    expect(getOuterRadius(defaultMugParams, defaultMugParams.height / 2)).toBeCloseTo(38, 6)
+  })
+
+  it('getOuterRadius limita y fora do corpo', () => {
+    expect(getOuterRadius(defaultMugParams, -10)).toBe(defaultMugParams.diameterBottom / 2)
+    expect(getOuterRadius(defaultMugParams, defaultMugParams.height + 10)).toBe(defaultMugParams.diameterTop / 2)
   })
 
   it('sanitizeFilename', () => {
