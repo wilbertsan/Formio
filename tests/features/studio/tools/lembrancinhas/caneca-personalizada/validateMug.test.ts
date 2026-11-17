@@ -22,12 +22,24 @@ describe('validateMug', () => {
       text: 'A'.repeat(20),
       textSize: 18,
     })
-    expect(issues).toContainEqual(expect.objectContaining({ code: 'mug-text-fit' }))
+    expect(issues).toContainEqual(expect.objectContaining({ code: 'mug-text-fit', severity: 'warning' }))
   })
 
   it('aponta texto cruzando a borda', () => {
     const issues = validateMug({ ...defaultMugParams, textCenterY: 88 })
     expect(issues).toContainEqual(expect.objectContaining({ code: 'mug-text-band', severity: 'error' }))
+  })
+
+  it('aponta texto perto do arco da abraçadeira e abertura vertical pequena', () => {
+    const rail = validateMug({
+      ...defaultMugParams,
+      text: 'A'.repeat(20),
+      textSize: 8,
+    })
+    expect(rail).toContainEqual(expect.objectContaining({ code: 'mug-text-rail', severity: 'warning' }))
+
+    const narrow = validateMug({ ...defaultMugParams, handleGap: 16 })
+    expect(narrow).toContainEqual(expect.objectContaining({ code: 'mug-handle-gap', severity: 'warning' }))
   })
 
   it('aponta abraçadeira fora do corpo e abertura pequena', () => {
@@ -48,7 +60,7 @@ describe('validateMug', () => {
       wallThickness: 1.8,
       bottomThickness: 2,
     })
-    expect(big).toContainEqual(expect.objectContaining({ code: 'mug-capacity' }))
+    expect(big).toContainEqual(expect.objectContaining({ code: 'mug-capacity', severity: 'warning' }))
   })
 
   it('aponta parede e fundo defensivos', () => {
@@ -62,9 +74,12 @@ describe('validateMug', () => {
     const issues = validateMug({
       ...defaultMugParams,
       handleEnabled: false,
+      text: 'A'.repeat(20),
+      textSize: 8,
       textCenterY: 88,
     })
     expect(issues.some((issue) => issue.code.startsWith('mug-handle'))).toBe(false)
-    expect(issues.some((issue) => issue.code === 'mug-text-band')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'mug-text-rail')).toBe(false)
+    expect(issues).toContainEqual(expect.objectContaining({ code: 'mug-text-band', severity: 'error' }))
   })
 })

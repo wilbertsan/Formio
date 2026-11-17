@@ -113,9 +113,11 @@ Parâmetros
 - `mug-taper`: diâmetro do topo menor que o da base
 - `mug-wall`: parede abaixo de 1,8 mm (defensiva; a UI já limita)
 - `mug-bottom`: fundo abaixo de 2 mm
-- `mug-text-fit`: texto não cabe no arco útil da frente
-- `mug-text-band`: texto cruza a borda, o fundo ou a faixa da alça
-- `mug-text-rail`: texto invade o arco da abraçadeira (defensiva)
+- `mug-text-fit`: estimativa do texto (0,62 × tamanho por caractere) não cabe
+  no arco útil de 120° da frente
+- `mug-text-band`: texto cruza a borda ou o fundo, limitado por
+  `height − chanfro efetivo − 2`
+- `mug-text-rail`: texto invade o arco da abraçadeira com margem de 8° (defensiva)
 - `mug-handle-gap`: abertura da mão pequena demais para o laço
 - `mug-handle-reach`: a menor largura do furo trapezoidal da mão é insuficiente
 - `mug-handle-fit`: folga nominal da abraçadeira acima de 0,4 mm no meio da
