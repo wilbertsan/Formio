@@ -17,6 +17,7 @@ import {
   PLA_COLORS,
   type FontStyle,
   type MugParams,
+  type PlaColor,
 } from './schema'
 import type { ValidationIssue } from './validateMug'
 
@@ -34,14 +35,18 @@ const FONT_STYLE_LABELS: Record<FontStyle, string> = {
   serif: 'Serifada',
 }
 
+function isFontStyle(value: string): value is FontStyle {
+  return FONT_STYLES.some((style) => style === value)
+}
+
 function ColorSwatches({
   colors,
   selected,
   onSelect,
 }: {
-  colors: readonly string[]
-  selected: string
-  onSelect: (color: string) => void
+  colors: readonly PlaColor[]
+  selected: PlaColor
+  onSelect: (color: PlaColor) => void
 }) {
   return (
     <Flex direction="row" gap="xs" wrap="wrap">
@@ -101,7 +106,7 @@ function LabeledSlider({
         max={max}
         step={step}
         value={value}
-        onChange={(next) => onChange(next as number)}
+        onChange={onChange}
       />
     </>
   )
@@ -168,6 +173,11 @@ export function StudioPanel({
               <LabeledSlider label="Banda da alça" value={params.handleBand} min={5} max={10} step={0.5} isDisabled={!params.handleEnabled} onChange={(value) => onUpdateParam('handleBand', value)} />
               <LabeledSlider label="Largura da alça" value={params.handleWidth} min={8} max={16} step={1} isDisabled={!params.handleEnabled} onChange={(value) => onUpdateParam('handleWidth', value)} />
               <LabeledSlider label="Folga da alça" value={params.handleClearance} min={0.2} max={0.5} step={0.05} isDisabled={!params.handleEnabled} onChange={(value) => onUpdateParam('handleClearance', value)} />
+              {!params.handleEnabled && (
+                <Text fontSize="xs" color="font.secondary">
+                  Ligue a alça para ajustar os parâmetros.
+                </Text>
+              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
@@ -190,7 +200,11 @@ export function StudioPanel({
               <SelectField
                 label="Fonte"
                 value={params.fontStyle}
-                onChange={(event) => onUpdateParam('fontStyle', event.target.value)}
+                onChange={(event) => {
+                  if (isFontStyle(event.target.value)) {
+                    onUpdateParam('fontStyle', event.target.value)
+                  }
+                }}
               >
                 {FONT_STYLES.map((style) => (
                   <option key={style} value={style}>{FONT_STYLE_LABELS[style]}</option>
