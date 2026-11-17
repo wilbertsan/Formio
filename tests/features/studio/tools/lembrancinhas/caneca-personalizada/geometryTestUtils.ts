@@ -46,6 +46,64 @@ export function isClosed(geometry: BufferGeometry): boolean {
   return true
 }
 
+/**
+ * Conta as cascas conectadas: triângulos que compartilham uma aresta caem no
+ * mesmo conjunto (union-find). Uma peça solta ou uma malha partida gera > 1.
+ */
+export function countShells(geometry: BufferGeometry): number {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const count = index ? index.count : position.count
+  const triangleCount = Math.floor(count / 3)
+  const parent = Array.from({ length: triangleCount }, (_, i) => i)
+
+  const find = (triangle: number): number => {
+    let root = triangle
+    while (parent[root] !== root) root = parent[root]
+    let node = triangle
+    while (parent[node] !== node) {
+      const next = parent[node]
+      parent[node] = root
+      node = next
+    }
+    return root
+  }
+
+  const union = (a: number, b: number): void => {
+    const rootA = find(a)
+    const rootB = find(b)
+    if (rootA !== rootB) parent[rootB] = rootA
+  }
+
+  const vertex = (i: number): string => {
+    const idx = index ? index.getX(i) : i
+    return positionKey(position.getX(idx), position.getY(idx), position.getZ(idx))
+  }
+  const edge = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`)
+
+  const owners = new Map<string, number>()
+  for (let t = 0; t < triangleCount; t++) {
+    const base = t * 3
+    const keys = [vertex(base), vertex(base + 1), vertex(base + 2)]
+    const pairs = [
+      [keys[0], keys[1]],
+      [keys[1], keys[2]],
+      [keys[2], keys[0]],
+    ] as const
+
+    for (const [p, q] of pairs) {
+      const key = edge(p, q)
+      const owner = owners.get(key)
+      if (owner === undefined) owners.set(key, t)
+      else union(owner, t)
+    }
+  }
+
+  const roots = new Set<number>()
+  for (let t = 0; t < triangleCount; t++) roots.add(find(t))
+  return roots.size
+}
+
 /** Volume orientado pelo teorema da divergência; positivo indica winding para fora. */
 export function signedVolume(geometry: BufferGeometry): number {
   const position = geometry.getAttribute('position')

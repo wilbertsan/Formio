@@ -1,5 +1,7 @@
 import { Path, Shape, Vector2 } from 'three'
 import {
+  HANDLE_FIT_INTERFERENCE,
+  HANDLE_LOOP_INSET,
   HANDLE_RING_THICKNESS,
   HANDLE_WRAP,
   MINIMUM_WALL_MM,
@@ -83,11 +85,33 @@ export function getHandleMetrics(params: MugGeometryParams): HandleMetrics {
     innerRadius,
     outerRadius,
     handOpeningWidth:
-      params.handleReach - HANDLE_RING_THICKNESS - 2 * params.handleBand,
+      params.handleReach -
+      params.handleClearance -
+      HANDLE_LOOP_INSET -
+      2 * params.handleBand,
     handOpeningHeight: params.handleGap,
-    loopMinX: outerRadius - 1,
+    loopMinX: bodyRadius + params.handleClearance + HANDLE_LOOP_INSET,
     loopMaxX: bodyRadius + params.handleReach,
   }
+}
+
+/**
+ * Raio interno da abraçadeira na altura `y`: 0,4 mm mais justo no topo e 0,4 mm
+ * mais folgado na base que a folga nominal em `handleHeight`. O encaixe é por
+ * pressão, montado por baixo.
+ */
+export function getBandInnerRadius(
+  params: MugGeometryParams,
+  y: number,
+): number {
+  const yBottom = params.handleHeight - params.handleWidth / 2
+  const t = Math.min(1, Math.max(0, (y - yBottom) / params.handleWidth))
+  return (
+    getBodyOuterRadius(params, y) +
+    params.handleClearance +
+    HANDLE_FIT_INTERFERENCE -
+    2 * HANDLE_FIT_INTERFERENCE * t
+  )
 }
 
 /** Setor anular de 200° centrado no +X, desenhado no plano XY. */
@@ -101,48 +125,55 @@ export function handleRingShape(metrics: HandleMetrics): Shape {
   return shape
 }
 
-function roundedRect(
-  shape: Shape | Path,
-  minX: number,
-  minY: number,
-  maxX: number,
-  maxY: number,
-  radius: number,
-): void {
-  const r = Math.max(0, Math.min(radius, (maxX - minX) / 2, (maxY - minY) / 2))
-  shape.moveTo(minX + r, minY)
-  shape.lineTo(maxX - r, minY)
-  shape.quadraticCurveTo(maxX, minY, maxX, minY + r)
-  shape.lineTo(maxX, maxY - r)
-  shape.quadraticCurveTo(maxX, maxY, maxX - r, maxY)
-  shape.lineTo(minX + r, maxY)
-  shape.quadraticCurveTo(minX, maxY, minX, maxY - r)
-  shape.lineTo(minX, minY + r)
-  shape.quadraticCurveTo(minX, minY, minX + r, minY)
-  shape.closePath()
+/**
+ * Borda esquerda do laço: acompanha a conicidade do corpo, sempre a
+ * `handleClearance + HANDLE_LOOP_INSET` da parede.
+ */
+function loopLeftX(params: MugGeometryParams, y: number): number {
+  return (
+    getBodyOuterRadius(params, y) +
+    params.handleClearance +
+    HANDLE_LOOP_INSET
+  )
 }
 
-/** Laço em D no plano XY, com a abertura da mão como furo. */
+/**
+ * Laço em D no plano XY, com a abertura da mão como furo.
+ *
+ * A borda esquerda segue o perfil do corpo em todo o vão vertical do laço, e
+ * não a reta de `loopMinX`, para não colidir com a parede cônica. Ela fica
+ * dentro da espessura da abraçadeira em `HANDLE_RING_THICKNESS -
+ * HANDLE_FIT_INTERFERENCE - HANDLE_LOOP_INSET` (≈1,1 mm) no topo e mais que
+ * isso na base, garantindo sobreposição sólida para o CSG em toda a altura.
+ */
 export function handleLoopShape(params: MugGeometryParams): Shape {
   const metrics = getHandleMetrics(params)
-  const halfHeight = params.handleGap / 2 + params.handleBand
-  const minY = params.handleHeight - halfHeight
-  const maxY = params.handleHeight + halfHeight
-  const minX = metrics.loopMinX
+  const halfSpan = params.handleGap / 2 + params.handleBand
+  const minY = params.handleHeight - halfSpan
+  const maxY = params.handleHeight + halfSpan
   const maxX = metrics.loopMaxX
+  const corner = params.handleBand
 
   const shape = new Shape()
-  roundedRect(shape, minX, minY, maxX, maxY, params.handleBand)
+  shape.moveTo(loopLeftX(params, minY), minY)
+  shape.lineTo(maxX - corner, minY)
+  shape.quadraticCurveTo(maxX, minY, maxX, minY + corner)
+  shape.lineTo(maxX, maxY - corner)
+  shape.quadraticCurveTo(maxX, maxY, maxX - corner, maxY)
+  shape.lineTo(loopLeftX(params, maxY), maxY)
+  shape.closePath()
+
+  const holeMinY = params.handleHeight - params.handleGap / 2
+  const holeMaxY = params.handleHeight + params.handleGap / 2
+  const holeMinX = loopLeftX(params, holeMinY) + params.handleBand
+  const holeMaxX = maxX - params.handleBand
 
   const hole = new Path()
-  roundedRect(
-    hole,
-    metrics.outerRadius + params.handleBand,
-    params.handleHeight - params.handleGap / 2,
-    maxX - params.handleBand,
-    params.handleHeight + params.handleGap / 2,
-    params.handleBand / 2,
-  )
+  hole.moveTo(holeMinX, holeMinY)
+  hole.lineTo(holeMaxX, holeMinY)
+  hole.lineTo(holeMaxX, holeMaxY)
+  hole.lineTo(loopLeftX(params, holeMaxY) + params.handleBand, holeMaxY)
+  hole.closePath()
   shape.holes.push(hole)
   return shape
 }

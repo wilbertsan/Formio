@@ -1,7 +1,7 @@
 import { BufferGeometry, ExtrudeGeometry } from 'three'
 import { ADDITION, Brush, Evaluator } from 'three-bvh-csg'
 import {
-  getBodyOuterRadius,
+  getBandInnerRadius,
   getHandleMetrics,
   handleLoopShape,
   handleRingShape,
@@ -9,7 +9,7 @@ import {
 } from './shapes'
 import type { MugGeometryParams } from './schema'
 
-export { getHandleMetrics, handleLoopShape, handleRingShape }
+export { getBandInnerRadius, getHandleMetrics, handleLoopShape, handleRingShape }
 export type { HandleMetrics }
 
 /**
@@ -25,19 +25,17 @@ export function buildHandle(params: MugGeometryParams): BufferGeometry {
   const ring = new ExtrudeGeometry(handleRingShape(metrics), {
     depth: params.handleWidth,
     bevelEnabled: false,
-    curveSegments: 48,
+    curveSegments: 96,
   })
   // Anel no plano XZ, altura em +Y, centrado na altura da alça.
   ring.rotateX(-Math.PI / 2)
 
-  // Acompanha a conicidade do corpo: escala radial por altura.
+  // Acompanha a conicidade do corpo e a interferência do encaixe por pressão.
   const ringPosition = ring.getAttribute('position')
   for (let i = 0; i < ringPosition.count; i++) {
     const yLocal = ringPosition.getY(i)
     const yGlobal = params.handleHeight - params.handleWidth / 2 + yLocal
-    const scale =
-      (getBodyOuterRadius(params, yGlobal) + params.handleClearance) /
-      metrics.innerRadius
+    const scale = getBandInnerRadius(params, yGlobal) / metrics.innerRadius
     ringPosition.setX(i, ringPosition.getX(i) * scale)
     ringPosition.setZ(i, ringPosition.getZ(i) * scale)
   }
@@ -53,6 +51,11 @@ export function buildHandle(params: MugGeometryParams): BufferGeometry {
 
   const evaluator = new Evaluator() as ConformingEvaluator
   evaluator.useCDTClipping = true
+  if (!evaluator.useCDTClipping) {
+    throw new Error(
+      'buildHandle: three-bvh-csg sem useCDTClipping; o splitter legado deixa a alça aberta.',
+    )
+  }
   const ringBrush = new Brush(ring)
   const loopBrush = new Brush(loop)
   ringBrush.updateMatrixWorld()
