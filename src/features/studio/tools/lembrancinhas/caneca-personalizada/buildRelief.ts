@@ -65,7 +65,9 @@ export function buildRelief(
 
     const globalY = centerYGlobal + localY
     const radius = getOuterRadius(params, globalY) + localZ - RELIEF_EMBED
-    const angle = Math.PI + localX / centerRadius
+    // Sinal negativo: mantém a leitura da esquerda para a direita e o winding
+    // para fora (um sinal positivo reflete o texto e inverte a orientação).
+    const angle = Math.PI - localX / centerRadius
 
     position.setXYZ(i, radius * Math.cos(angle), globalY, radius * Math.sin(angle))
   }

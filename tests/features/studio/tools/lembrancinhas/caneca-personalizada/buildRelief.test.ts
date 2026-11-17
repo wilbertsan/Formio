@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { Shape } from 'three'
-import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
+import { Shape, Vector3, type BufferGeometry } from 'three'
+import { FontLoader, type Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
+import helvetikerRegular from '@/assets/fonts/helvetiker_regular.typeface.json'
 import {
   buildRelief,
   fitRelief,
@@ -12,10 +13,41 @@ import {
   defaultMugParams,
   getOuterRadius,
 } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/schema'
-import { isClosed } from './geometryTestUtils'
+import {
+  shapesToGeometry,
+  textToShapes,
+} from '@/features/studio/tools/confeitaria/shared/textOutline'
+import { isClosed, signedVolume } from './geometryTestUtils'
 
 /** Posições são Float32Array: ~1e-6 de erro absoluto em coordenadas de mm. */
 const POSITION_EPSILON = 1e-5
+
+/** Centro de massa do sólido (tetraedros a partir da origem). */
+function volumeCentroid(geometry: BufferGeometry): Vector3 {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const count = index ? index.count : position.count
+  const a = new Vector3()
+  const b = new Vector3()
+  const c = new Vector3()
+  const cross = new Vector3()
+  const sum = new Vector3()
+  let volume = 0
+
+  for (let i = 0; i < count; i += 3) {
+    const ia = index ? index.getX(i) : i
+    const ib = index ? index.getX(i + 1) : i + 1
+    const ic = index ? index.getX(i + 2) : i + 2
+    a.fromBufferAttribute(position, ia)
+    b.fromBufferAttribute(position, ib)
+    c.fromBufferAttribute(position, ic)
+    const tetVolume = a.dot(cross.crossVectors(b, c)) / 6
+    volume += tetVolume
+    sum.addScaledVector(a.add(b).add(c), tetVolume / 4)
+  }
+
+  return sum.divideScalar(volume)
+}
 
 function rectangleFont(width: number, height: number): Font {
   return {
@@ -53,6 +85,38 @@ describe('buildRelief', () => {
     expect(maxOffset).toBeCloseTo(CONTENT_DEPTH, 5)
     expect(isClosed(geometry)).toBe(true)
     geometry.dispose()
+  })
+
+  it('gera relevo com volume positivo (winding para fora)', () => {
+    const geometry = buildRelief(rectangleFont(20, 10), { ...defaultMugParams, text: 'Festa' })!
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+    geometry.dispose()
+  })
+
+  it('não espelha o texto: o eixo z acompanha o x do texto plano', () => {
+    const font = new FontLoader().parse(helvetikerRegular as unknown as FontData)
+    const params = { ...defaultMugParams, text: 'F' }
+    const flat = shapesToGeometry(
+      textToShapes(font, params.text, params.textSize),
+      CONTENT_DEPTH + RELIEF_EMBED,
+      false,
+    )
+    flat.computeBoundingBox()
+    const centerX = (flat.boundingBox!.min.x + flat.boundingBox!.max.x) / 2
+    const flatOffsetX = volumeCentroid(flat).x - centerX
+    const bent = buildRelief(font, params)!
+    const bentCentroidZ = volumeCentroid(bent).z
+
+    // 'F' tem a haste à esquerda e os braços à direita: o centro de massa fica
+    // longe do centro da caixa, então o sinal é observável.
+    expect(Math.abs(flatOffsetX)).toBeGreaterThan(0.5)
+    // O mapeamento é z ≈ +x. Com `Math.PI + x / R` o z sairia com o sinal
+    // oposto (texto espelhado). A caixa delimitadora não pega a reflexão, pois
+    // ela preserva os extremos; o centro de massa sim.
+    expect(Math.sign(bentCentroidZ)).toBe(Math.sign(flatOffsetX))
+
+    flat.dispose()
+    bent.dispose()
   })
 
   it('centraliza o texto em 180° (lado oposto à alça)', () => {
