@@ -6,6 +6,7 @@ import {
   Raycaster,
   Vector2,
   Vector3,
+  type BufferGeometry,
   type Path,
 } from 'three'
 import {
@@ -47,6 +48,20 @@ function holeWidthAt(hole: Path, y: number): number {
 
   expect(xs).toHaveLength(2)
   return Math.max(...xs) - Math.min(...xs)
+}
+
+/** Raio interno da abraçadeira medido na malha, no plano z≈0 e na altura `y`. */
+function innerBandRadiusAt(geometry: BufferGeometry, y: number): number {
+  const position = geometry.getAttribute('position')
+  let inner = Infinity
+
+  for (let i = 0; i < position.count; i++) {
+    if (Math.abs(position.getY(i) - y) > 1e-3) continue
+    if (Math.abs(position.getZ(i)) > 1e-3) continue
+    if (position.getX(i) > 0) inner = Math.min(inner, position.getX(i))
+  }
+
+  return inner
 }
 
 const strongTaper: MugGeometryParams = {
@@ -144,6 +159,20 @@ describe('buildHandle', () => {
     expect(isClosed(geometry)).toBe(true)
     expect(countShells(geometry)).toBe(1)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
+    geometry.dispose()
+  })
+
+  it.each([
+    { name: 'default', params: defaultMugParams },
+    { name: 'conicidade forte', params: strongTaper },
+  ])('a malha realiza a folga nominal no meio da abraçadeira ($name)', ({ params }) => {
+    const geometry = buildHandle(params)
+    const midY = params.handleHeight
+    const bodyRadius = getBodyOuterRadius(params, midY)
+    const measured = innerBandRadiusAt(geometry, midY)
+
+    expect(Number.isFinite(measured)).toBe(true)
+    expect(measured - bodyRadius).toBeCloseTo(params.handleClearance, 3)
     geometry.dispose()
   })
 

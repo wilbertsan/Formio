@@ -35,6 +35,9 @@ export function buildHandle(params: MugGeometryParams): BufferGeometry {
     depth: params.handleWidth,
     bevelEnabled: false,
     curveSegments: 96,
+    // Anéis intermediários para que a escala radial realize a parábola de
+    // interferência, não a corda entre base e topo.
+    steps: 8,
   })
   // Anel no plano XZ, altura em +Y, centrado na altura da alça.
   ring.rotateX(-Math.PI / 2)
