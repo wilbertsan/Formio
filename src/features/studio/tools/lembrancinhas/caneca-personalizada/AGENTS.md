@@ -75,8 +75,8 @@ SVG e 3MF/STEP ficam para versões seguintes.
   `handleReach - handleClearance - HANDLE_LOOP_INSET - 2 * handleBand` na
   horizontal, medida em `handleHeight`; a validação usa a menor largura do furo
   trapezoidal (`handOpeningMinWidth`).
-- A alça é impressa em pé, apoiada na borda inferior do laço; o arco de 200° da
-  abraçadeira pode exigir suporte leve por baixo.
+- A alça é impressa em pé, apoiada na borda inferior do laço; a abraçadeira de
+  200° exige suporte sob toda a sua face inferior, não apenas um apoio pontual.
 - O corpo é impresso em pé, com o fundo na mesa, sem suporte.
 - O texto não pode invadir a borda, o fundo, o arco da abraçadeira nem a área do
   laço; a validação garante margem.
@@ -165,7 +165,8 @@ anterior e mostra erro no overlay.
   restante da ferramenta.
 - Se o spike de CSG falhar, a implementação migra para a abordagem C
   (plaqueta curva com o nome) antes de seguir.
-- O export usa o snapshot `builtParams` do build para preparar as peças.
+- O export usa os snapshots de geometria do build (`body` e `handle`) e não
+  recebe parâmetros; cada peça é clonada antes de centralizar na mesa.
 - `handleWrap` (200°), `HANDLE_RING_THICKNESS` (3,5 mm),
   `HANDLE_FIT_INTERFERENCE` (0,4 mm), `HANDLE_LOOP_INSET` (2 mm),
   `MUG_SEGMENTS` (128) e `CONTENT_DEPTH` (1 mm) são constantes do schema, não

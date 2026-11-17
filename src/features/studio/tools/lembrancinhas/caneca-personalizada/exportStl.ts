@@ -25,17 +25,26 @@ function downloadStl(geometry: BufferGeometry, filename: string): void {
   const scene = new Scene()
   scene.add(new Mesh(geometry))
   const exporter = new STLExporter()
-  const result = exporter.parse(scene, { binary: true })
-  const blob = new Blob([result as unknown as BlobPart], { type: 'model/stl' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-  URL.revokeObjectURL(url)
-  geometry.dispose()
+  let url: string | null = null
+  try {
+    const result = exporter.parse(scene, { binary: true })
+    const blob = new Blob([result], { type: 'model/stl' })
+    url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    try {
+      anchor.click()
+    } finally {
+      document.body.removeChild(anchor)
+    }
+  } finally {
+    // Revoga só a URL que chegou a ser criada e sempre descarta a geometria
+    // consumida, inclusive se o parse ou o clique falharem.
+    if (url !== null) URL.revokeObjectURL(url)
+    geometry.dispose()
+  }
 }
 
 export function prepareBodyForPrint(geometry: BufferGeometry): BufferGeometry {
@@ -43,8 +52,9 @@ export function prepareBodyForPrint(geometry: BufferGeometry): BufferGeometry {
 }
 
 export function prepareHandleForPrint(geometry: BufferGeometry): BufferGeometry {
-  // A alça imprime em pé, apoiada na borda inferior do laço; a abraçadeira
-  // recebe suporte sob o arco. Não rotacione: preserve a orientação do build.
+  // A alça imprime em pé, apoiada na borda inferior do laço; a abraçadeira de
+  // 200° exige suporte sob toda a face inferior. Não rotacione: preserve a
+  // orientação do build.
   return centerOnBed(geometry.clone())
 }
 
