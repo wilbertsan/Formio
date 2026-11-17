@@ -13,17 +13,22 @@ export interface BuildMugResult {
 }
 
 function unionRelief(body: BufferGeometry, relief: BufferGeometry): BufferGeometry {
-  const evaluator = createConformingEvaluator()
-  const bodyBrush = new Brush(body)
-  const reliefBrush = new Brush(relief)
-  bodyBrush.updateMatrixWorld()
-  reliefBrush.updateMatrixWorld()
+  try {
+    const evaluator = createConformingEvaluator()
+    const bodyBrush = new Brush(body)
+    const reliefBrush = new Brush(relief)
+    bodyBrush.updateMatrixWorld()
+    reliefBrush.updateMatrixWorld()
 
-  const result = evaluator.evaluate(bodyBrush, reliefBrush, ADDITION).geometry
-  body.dispose()
-  relief.dispose()
-  result.computeVertexNormals()
-  return result
+    const result = evaluator.evaluate(bodyBrush, reliefBrush, ADDITION).geometry
+    result.computeVertexNormals()
+    return result
+  } finally {
+    // As duas entradas viram lixo em qualquer caminho, inclusive se o CSG
+    // falhar: as brushes não são donas da geometria.
+    body.dispose()
+    relief.dispose()
+  }
 }
 
 export function buildMug(
@@ -31,11 +36,23 @@ export function buildMug(
   font: Font,
 ): BuildMugResult {
   const body = buildBody(params)
-  const relief = buildRelief(font, params)
+  let relief: BufferGeometry | null
+  try {
+    relief = buildRelief(font, params)
+  } catch (error) {
+    body.dispose()
+    throw error
+  }
 
-  return {
-    body: relief ? unionRelief(body, relief) : body,
-    handle: params.handleEnabled ? buildHandle(params) : null,
+  const finalBody = relief ? unionRelief(body, relief) : body
+  if (!params.handleEnabled) return { body: finalBody, handle: null }
+
+  try {
+    return { body: finalBody, handle: buildHandle(params) }
+  } catch (error) {
+    // Falha do CSG da alça mantém o corpo sem vazar a geometria já unida.
+    finalBody.dispose()
+    throw error
   }
 }
 

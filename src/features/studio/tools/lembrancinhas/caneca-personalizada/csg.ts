@@ -9,6 +9,11 @@ import { Evaluator } from 'three-bvh-csg'
 export type ConformingEvaluator = Evaluator & { useCDTClipping: boolean }
 
 export function createConformingEvaluator(): ConformingEvaluator {
+  if (!Reflect.has(Evaluator.prototype, 'useCDTClipping')) {
+    throw new Error(
+      'three-bvh-csg sem useCDTClipping; o splitter legado deixa a malha aberta.',
+    )
+  }
   const evaluator = new Evaluator() as ConformingEvaluator
   evaluator.useCDTClipping = true
   if (!evaluator.useCDTClipping) {

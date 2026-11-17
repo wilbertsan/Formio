@@ -13,8 +13,12 @@ import {
   type MugGeometryParams,
 } from './schema'
 
-/** Aresta máxima do relevo plano antes de curvar; limita o sag da corda. */
-const MAX_RELIEF_EDGE = 1.2
+/**
+ * Aresta máxima do relevo plano antes de curvar; limita o sag da corda.
+ * O desvio da corda é `edge² / (8·R)`: com 2,5 mm e R ≈ 39 mm dá ≈0,02 mm,
+ * então o relevo visível de 1 mm fica em ≈0,98 mm (orçamento de 2%).
+ */
+const MAX_RELIEF_EDGE = 2.5
 const MAX_SUBDIVISIONS = 8
 
 interface Point {

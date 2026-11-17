@@ -24,7 +24,9 @@ describe('buildMug', () => {
     expect(result.handle).not.toBeNull()
     expect(isClosed(result.handle!)).toBe(true)
     expect(countShells(result.handle!)).toBe(1)
-    expect(elapsed).toBeLessThan(3000)
+    // Default medido em ≈1,2–1,6 s (primeiro build, sem JIT quente). A meta de
+    // projeto é <1,5 s; o gate de 4 s cobre máquinas de CI mais lentas.
+    expect(elapsed).toBeLessThan(4000)
 
     disposeMugResult(result)
   })
