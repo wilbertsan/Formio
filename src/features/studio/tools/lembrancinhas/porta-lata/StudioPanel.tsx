@@ -189,6 +189,33 @@ export function StudioPanel({
           </Accordion.Content>
         </Accordion.Item>
 
+        <Accordion.Item value="bordas">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">Bordas</Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <SwitchField
+                label="Bordas decorativas"
+                isChecked={params.edgeRimEnabled}
+                onChange={(event) => onUpdateParam('edgeRimEnabled', event.target.checked)}
+              />
+              <LabeledSlider label="Salto das bordas" value={params.edgeRimProtrusion} min={0.4} max={1.5} step={0.1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimProtrusion', value)} />
+              <LabeledSlider label="Largura das bordas" value={params.edgeRimWidth} min={4} max={14} step={1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimWidth', value)} />
+              {params.edgeRimEnabled ? (
+                <Text fontSize="xs" color="font.secondary">
+                  Faixa livre entre as bordas: {formatMm(outerHeight - 2 * params.edgeRimWidth)} mm
+                </Text>
+              ) : (
+                <Text fontSize="xs" color="font.secondary">
+                  Ligue as bordas para ajustar os parâmetros.
+                </Text>
+              )}
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
         <Accordion.Item value="alca">
           <Accordion.Trigger>
             <Heading level={3} fontSize="small">Alça</Heading>
