@@ -373,7 +373,7 @@ git commit -m "feat: add decorative rims to can holder profile"
 
 A revisão da Tarefa 2 mostrou que `clampCenterY` (buildRelief) e a validação
 calculam a faixa do texto separadamente; com anéis, o build precisa da mesma
-regra para não deixar o relevo sobre o anel. Extraia um helper em `schema.ts`,
+regra para não deixar o relevo sobre o anel. Extraia os helpers em `schema.ts`,
 depois de `getTopLand`:
 
 ```ts
@@ -383,17 +383,26 @@ export interface TextBand {
 }
 
 /**
+ * Faixa vertical da parede cilíndrica entre os anéis decorativos, sem margem.
+ * `max` é o fim da parede em `height - ringWidth` quando os anéis estão
+ * ligados, ou a altura do corpo quando desligados.
+ */
+export function getRingWallBand(params: CanHolderGeometryParams): TextBand {
+  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  return { min: ringWidth, max: getOuterHeight(params) - ringWidth }
+}
+
+/**
  * Faixa vertical disponível para o texto: entre o fundo e a borda de entrada,
  * descontando os anéis decorativos quando ligados, com `TEXT_BAND_MARGIN_MM` de
  * margem em cada ponta.
  */
 export function getTextBand(params: CanHolderGeometryParams): TextBand {
-  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  const wall = getRingWallBand(params)
   return {
-    min: Math.max(params.bottomThickness, ringWidth) + TEXT_BAND_MARGIN_MM,
+    min: Math.max(params.bottomThickness, wall.min) + TEXT_BAND_MARGIN_MM,
     max:
-      getOuterHeight(params) -
-      Math.max(getEffectiveRimChamfer(params), ringWidth) -
+      Math.min(getOuterHeight(params) - getEffectiveRimChamfer(params), wall.max) -
       TEXT_BAND_MARGIN_MM,
   }
 }
@@ -579,7 +588,8 @@ Em `validateCanHolder.ts`, use o mesmo helper no bloco do texto:
     ) {
 ```
 
-Importe `getTextBand` de `./schema`. O restante da validação segue como abaixo.
+Importe `getRingWallBand` e `getTextBand` de `./schema`. O restante da validação
+segue como abaixo.
 
 No import de `schema`, adicione `MIN_EDGE_RIM_FLAT_MM` e remova
 `TEXT_BAND_MARGIN_MM`, que fica sem uso em `validateCanHolder.ts`.
@@ -618,13 +628,12 @@ Depois da regra `can-bottom`:
 No bloco da alça, troque os limites:
 
 ```ts
-    const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+    const wall = getRingWallBand(params)
     const bandMinY = params.handleHeight - params.handleWidth / 2
     const bandMaxY = params.handleHeight + params.handleWidth / 2
-    const lowerLimit = ringWidth + HANDLE_MARGIN_MM
-    const upperLimit = params.edgeRimEnabled
-      ? getOuterHeight(params) - ringWidth - HANDLE_MARGIN_MM
-      : getOuterHeight(params) - chamfer - HANDLE_MARGIN_MM
+    const lowerLimit = wall.min + HANDLE_MARGIN_MM
+    const upperLimit =
+      Math.min(getOuterHeight(params) - chamfer, wall.max) - HANDLE_MARGIN_MM
     if (bandMinY < lowerLimit || bandMaxY > upperLimit) {
       issues.push({
         code: 'can-handle-band',
@@ -978,13 +987,13 @@ git commit -m "test: cover can holder edge rims in full build"
 **Step 1: `porta-lata/AGENTS.md`**
 
 - Objetivo: citar os dois anéis decorativos colados nas extremidades.
-- Parâmetros do corpo: adicionar a tabela dos três campos, a faixa 0,4–1,5/1,0
-  e 4–14/6, e a nota de clamp `(largura − 1) / 2`.
+- Parâmetros: adicionar a subseção **Bordas** com a tabela dos três campos, a
+  faixa 0,4–1,5/1,0 e 4–14/6, e a nota de clamp `(largura − 1) / 2`.
 - Dimensões derivadas: diâmetro externo default **74,6 mm** (72,6 do corpo +
   2 × 1,0), parede do topo **2,0 mm**, faixa útil do texto **8,0–103,2 mm**.
-- Regras do domínio: descrever o perfil com anéis (dois flancos de 45°), anel
-  inferior apoiado na mesa, anel superior sem suporte, `getTopLand` somando o
-  salto e `getMaxOuterDiameter` para painel/status.
+- Regras do domínio: descrever o perfil com anéis (um flanco de 45° por anel),
+  anel inferior apoiado na mesa, anel superior sem suporte, `getTopLand` somando
+  o salto e `getMaxOuterDiameter` para painel/status.
 - Validação: `can-edge-rim` na tabela; `can-text-band` e `can-handle-band`
   descontando a largura dos anéis.
 - Decisões da v1: anéis compartilhados, perfil trapezoidal, sem recorte na alça,
@@ -1019,7 +1028,11 @@ para `design aprovado; implementado` e registrar os desvios encontrados:
   corpo com os anéis, coerente com a convenção de medidas nominais do status
   bar;
 - o clamp de `getEffectiveRingProtrusion` e a regra `can-edge-rim` são
-  defensivos: inalcançáveis pelo schema e pela UI.
+  defensivos: inalcançáveis pelo schema e pela UI;
+- a linha do painel virou `Texto entre X e Y mm` via `getTextBand` (faixa útil
+  real), em vez da faixa geométrica `altura - 2w`;
+- `getRingWallBand` é a fonte única da extensão dos anéis; `getTextBand` parte
+  dela, e o build (`clampCenterY`) e a validação do texto compartilham o helper.
 
 **Step 5: commit**
 

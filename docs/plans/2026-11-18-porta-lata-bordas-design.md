@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-18
 **Ferramenta:** `lembrancinhas/porta-lata`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado
 
 ## Objetivo
 
@@ -122,7 +122,7 @@ Perfil fechado em `(r, y)` com anéis ligados:
   topo de 1,0 para 2,0 mm. A altura externa, a cavidade e o furo não mudam.
 - Texto default (`Festa`, 10 mm, centro 60 mm) continua dentro da faixa
   `[8, 103,2]` mm.
-- Alça default (banda 54–66 mm) continua dentro da faixa `[8, 100,8]` mm.
+- Alça default (banda 54–66 mm) continua dentro da faixa `[8, 103,2]` mm.
 - Export continua com dois STLs, sem cor e sem peça solta.
 
 ## Testes
@@ -134,6 +134,25 @@ Perfil fechado em `(r, y)` com anéis ligados:
 - `StudioPanel.test`: seção nova, 17 sliders, ranges, estado desabilitado.
 - `useCanHolder.test`: ranges, params do build, diâmetro máximo.
 - `buildCanHolder.test`: bbox com anéis.
+
+## Desvios da implementação
+
+- A constante da face plana foi implementada como `MIN_EDGE_RIM_FLAT_MM`; o
+  design a chamava `MIN_RING_FLAT_MM`.
+- O perfil implementado inclui o ponto vertical `(ringR, height - chamfer)`
+  entre o flanco superior e o chanfro da borda. O design o omitia; sem ele o
+  anel superior perde a face vertical e o `getTopLand` não fecha.
+- `getMaxOuterDiameter` não inclui o relevo de 1 mm do texto: é o diâmetro do
+  corpo com os anéis, coerente com as medidas nominais do painel e do status
+  bar.
+- O clamp de `getEffectiveRingProtrusion` e a validação `can-edge-rim` são
+  defensivos: inalcançáveis pelo schema e pela UI.
+- A linha do painel usa `getTextBand` e mostra `Texto entre X e Y mm` (faixa
+  útil real, com 2 mm de margem), em vez da faixa geométrica `altura - 2w`.
+- `getRingWallBand` é a fonte única da extensão dos anéis: `getTextBand` parte
+  dela e `can-handle-band` usa a mesma faixa. O build (`clampCenterY`) e a
+  validação do texto também compartilham `getTextBand`, evitando regras
+  duplicadas no design.
 
 ## Documentação
 
