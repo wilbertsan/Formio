@@ -85,6 +85,12 @@ describe('can holder body', () => {
     { name: 'folga máxima', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },
     { name: 'parede máxima', params: { wallThickness: 4 } },
+    { name: 'furo mínimo', params: { ventHoleDiameter: 6 } },
+    { name: 'furo máximo', params: { ventHoleDiameter: 14 } },
+    { name: 'fundo mínimo', params: { bottomThickness: 2 } },
+    { name: 'fundo máximo', params: { bottomThickness: 6 } },
+    { name: 'borda de entrada mínima', params: { rimLeadIn: 0.5 } },
+    { name: 'borda de entrada máxima', params: { rimLeadIn: 2 } },
     { name: 'chanfro zero', params: { rimChamfer: 0 } },
     { name: 'chanfro máximo', params: { rimChamfer: 1.5, wallThickness: 4 } },
   ])('fecha e mantém volume positivo nos extremos ($name)', ({ params }) => {

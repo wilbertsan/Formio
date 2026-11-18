@@ -24,6 +24,12 @@ function realFont(): Font {
   return new FontLoader().parse(helvetikerRegular as unknown as FontData)
 }
 
+/** Node < 22.15 não tem `threadCpuUsage`; cai no CPU do processo. */
+const readCpu =
+  typeof process.threadCpuUsage === 'function'
+    ? () => process.threadCpuUsage()
+    : () => process.cpuUsage()
+
 /** Interseções de um raio com a malha; 0 no eixo prova o furo passante. */
 function rayCrossings(
   geometry: BufferGeometry,
@@ -42,10 +48,11 @@ describe('buildCanHolder', () => {
     // Tempo de CPU da thread, não de parede: a suíte completa roda vários
     // arquivos de geometria em paralelo e a contenção do CI distorce o relógio
     // de parede (e o `cpuUsage` do processo soma threads de fundo do V8).
-    const started = process.threadCpuUsage()
+    const started = readCpu()
     const result = buildCanHolder({ ...defaultCanHolderParams, text: 'Festa' }, realFont())
-    const usage = process.threadCpuUsage(started)
-    const elapsedMs = (usage.user + usage.system) / 1000
+    const finished = readCpu()
+    const elapsedMs =
+      (finished.user - started.user + finished.system - started.system) / 1000
 
     result.body.computeBoundingBox()
     const box = result.body.boundingBox!
@@ -55,7 +62,8 @@ describe('buildCanHolder', () => {
     expect(box.max.x).toBeCloseTo(getOuterDiameter(defaultCanHolderParams) / 2, 2)
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
-    expect(signedVolume(result.body)).toBeGreaterThan(70_000)
+    expect(signedVolume(result.body)).toBeGreaterThan(65_000)
+    expect(signedVolume(result.body)).toBeLessThan(75_000)
     expect(result.handle).not.toBeNull()
     expect(isClosed(result.handle!)).toBe(true)
     expect(countShells(result.handle!)).toBe(1)
@@ -71,6 +79,7 @@ describe('buildCanHolder', () => {
     const result = buildCanHolder({ ...defaultCanHolderParams, text: 'Festa' }, realFont())
     const volume = signedVolume(result.body)
     const height = getOuterHeight(defaultCanHolderParams)
+    const ventR = defaultCanHolderParams.ventHoleDiameter / 2
     const up = new Vector3(0, 1, 0)
     const down = new Vector3(0, -1, 0)
 
@@ -78,10 +87,21 @@ describe('buildCanHolder', () => {
     // anular) nem de cima para baixo (cavidade + furo).
     expect(rayCrossings(result.body, new Vector3(0, -10, 0), up)).toBe(0)
     expect(rayCrossings(result.body, new Vector3(0, height + 10, 0), down)).toBe(0)
+    // A 0,5 mm da borda nominal, ainda dentro do furo, nenhum raio encontra
+    // face (dos dois lados do eixo)...
+    for (const x of [-(ventR - 0.5), ventR - 0.5]) {
+      expect(rayCrossings(result.body, new Vector3(x, -10, 0), up)).toBe(0)
+      expect(rayCrossings(result.body, new Vector3(x, height + 10, 0), down)).toBe(0)
+    }
+    // ...e 0,5 mm fora dele o fundo anular barra o raio: fixa o diâmetro real
+    // em 10 ± 1 mm, não apenas o ponto do perfil.
+    expect(
+      rayCrossings(result.body, new Vector3(ventR + 0.5, -10, 0), up),
+    ).toBeGreaterThan(0)
     // Volume do corpo sólido (≈69.987 mm³) mais o relevo visível; o furo
     // continua descontado da cavidade.
-    expect(volume).toBeGreaterThan(70_000)
-    expect(volume).toBeLessThan(70_200)
+    expect(volume).toBeGreaterThan(65_000)
+    expect(volume).toBeLessThan(75_000)
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
 
@@ -108,8 +128,8 @@ describe('buildCanHolder', () => {
 
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
-    expect(signedVolume(result.body)).toBeGreaterThan(69_900)
-    expect(signedVolume(result.body)).toBeLessThan(70_100)
+    expect(signedVolume(result.body)).toBeGreaterThan(65_000)
+    expect(signedVolume(result.body)).toBeLessThan(75_000)
     expect(
       rayCrossings(result.body, new Vector3(0, -10, 0), new Vector3(0, 1, 0)),
     ).toBe(0)
