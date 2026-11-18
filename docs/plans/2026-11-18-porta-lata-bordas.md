@@ -1074,7 +1074,7 @@ Esperado: build concluído.
 - Verificar o painel: 17 sliders, faixa livre 99,2 mm e parede do topo 2,0 mm.
 - Conferir o status bar: `74.6 × 111.2 × 2.4 mm`.
 - Testar `handleHeight` 85 com `edgeRimWidth` 14: `can-handle-band` deve
-  aparecer e bloquear apenas o build inválido (avisos não bloqueiam).
+  aparecer no painel sem impedir o build nem o export (validação é consultiva).
 - Exportar e conferir que os dois STLs continuam fechados.
 
 **Step 7: commit final (se houver ajuste)**
