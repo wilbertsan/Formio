@@ -2,7 +2,30 @@
 
 **Data:** 2026-11-17
 **Ferramenta:** `lembrancinhas/porta-lata`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado (v1)
+
+## Desvios da implementação (v1)
+
+O código entregue prevalece sobre as seções históricas deste design.
+
+- **`can-handle-band` cobre só a banda:** a regra valida
+  `handleHeight ± handleWidth / 2` contra a parede disponível, não o vão
+  completo do laço. O laço em D pode ultrapassar a borda superior do corpo sem
+  invalidar a peça; a v1 não recorta o laço.
+- **Clamps de borda efetivos:** `getEffectiveLeadIn` e
+  `getEffectiveRimChamfer` reduzem os valores pedidos para preservar 0,8 mm de
+  parede no topo. `can-rim` valida a regra crua antes do clamp.
+- **Defaults confirmados:** `rimChamfer` 0,4 mm, `handleHeight` 60 mm e parede
+  do topo (top land) 1,0 mm. O painel mostra `Parede do topo: 1,0 mm`, usando
+  `getTopLand`, para expor o valor efetivo.
+- **Build medido:** ~0,8 s de CPU no primeiro build default e ~0,6 s com JIT
+  quente; 20 caracteres em 18 mm levam ~1,1 s. O teste usa
+  `process.threadCpuUsage` (fallback `process.cpuUsage` em Node < 22.15) e gate
+  de 4 s, não relógio de parede.
+- **Sem capacidade em ml:** o painel e o hook expõem diâmetro externo, altura
+  externa, altura exposta e parede do topo; a capacidade é da lata.
+- **Histórico:** a caneca antiga foi substituída; os docs
+  `2026-11-17-caneca-personalizada*` ficam apenas como registro histórico.
 
 ## Objetivo
 
@@ -156,7 +179,7 @@ Perfil fechado no plano `(r, y)`, com o furo do fundo:
 | `can-handle-gap` | warning | abertura vertical da mão abaixo de 26 mm |
 | `can-handle-reach` | warning | menor largura do furo da mão abaixo de 16 mm |
 | `can-handle-fit` | warning | folga nominal acima de `HANDLE_FIT_INTERFERENCE` |
-| `can-handle-band` | error | vão completo do laço sai da altura do corpo |
+| `can-handle-band` | error | banda da abraçadeira (`handleHeight ± handleWidth / 2`) sai da altura do corpo; o laço pode passar da borda |
 
 Falhas de runtime do worker usam `can-invalid`, `can-font`, `can-csg` e
 `can-build`; o detalhe fica no `console.error` e o hook traduz em mensagem
@@ -224,7 +247,8 @@ Painel em acordeões:
 1. **Corpo** — `cavityDepth`, `canClearance`, `wallThickness`,
    `bottomThickness`, `ventHoleDiameter`, `rimLeadIn`, `rimChamfer`; mostra
    `Lata 350 ml · Ø66,2 × 122,2 mm`, `Diâmetro externo: 72,6 mm`,
-   `Altura externa: 111,2 mm` e `Altura exposta: 14,2 mm`.
+   `Altura externa: 111,2 mm`, `Altura exposta: 14,2 mm` e
+   `Parede do topo: 1,0 mm`. Valores de slider e derivados usam vírgula decimal.
 2. **Alça** — os mesmos parâmetros e o switch; desabilita quando desligada.
 3. **Personalização** — texto, tamanho, fonte e altura.
 4. **Aparência** — cores do corpo e da alça.

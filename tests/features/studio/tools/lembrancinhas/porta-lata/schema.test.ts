@@ -45,11 +45,10 @@ describe('porta-lata schema', () => {
     })
   })
 
-  it('não mantém os campos da caneca nem capacidade', () => {
-    expect(defaultCanHolderParams).not.toHaveProperty('diameterTop')
-    expect(defaultCanHolderParams).not.toHaveProperty('diameterBottom')
-    expect(defaultCanHolderParams).not.toHaveProperty('height')
-    expect(defaultCanHolderParams).not.toHaveProperty('capacityMl')
+  it('mantém exatamente os campos do schema', () => {
+    expect(Object.keys(defaultCanHolderParams).sort()).toEqual(
+      Object.keys(canHolderParamsSchema.shape).sort(),
+    )
   })
 
   it('rejeita dimensões e folgas fora da faixa', () => {

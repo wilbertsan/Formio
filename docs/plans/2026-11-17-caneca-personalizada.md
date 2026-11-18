@@ -1,5 +1,7 @@
 # Caneca Personalizada Implementation Plan
 
+> **Substituída pelo Porta-lata em 2026-11-18; ver 2026-11-17-porta-lata-design.md.**
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Implementar a ferramenta Caneca Personalizada no Studio 3D: corpo de revolução com nome em relevo de 1 mm e alça removível de abraçadeira, em dois STLs.

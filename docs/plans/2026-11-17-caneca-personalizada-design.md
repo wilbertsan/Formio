@@ -1,5 +1,7 @@
 # Caneca Personalizada — Design da v1
 
+> **Substituída pelo Porta-lata em 2026-11-18; ver 2026-11-17-porta-lata-design.md.**
+
 **Data:** 2026-11-17
 **Ferramenta:** `lembrancinhas/caneca-personalizada`
 **Status:** design aprovado; implementado (v1)

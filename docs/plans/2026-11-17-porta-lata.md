@@ -1,5 +1,20 @@
 # Porta-lata 350 ml Implementation Plan
 
+## Execução
+
+- As Tasks 3–6 foram executadas juntas: o perfil do corpo, o relevo, a alça e a
+  orquestração são acoplados pela geometria (raio, altura e furo), então separar
+  os commits deixaria estados intermediários sem teste de malha fechada.
+- O schema entrou primeiro de forma aditiva (Task 2), preservando o build antigo
+  até a troca do perfil; a renomeação mecânica já estava feita na Task 1.
+- `can-handle-band` valida apenas a banda da abraçadeira
+  (`handleHeight ± handleWidth / 2`); o laço em D pode passar da borda superior.
+- O gate de tempo do teste usa `process.threadCpuUsage` (fallback
+  `process.cpuUsage` em Node < 22.15), porque a suíte roda vários arquivos de
+  geometria em paralelo e o relógio de parede distorce o CI.
+- O material da caneca neste plano é histórico: o código ativo é
+  `porta-lata`/`CanHolder` e os docs antigos têm nota de substituição.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Substituir a Caneca Personalizada por um Porta-lata 350 ml com cavidade cilíndrica para a lata, furo de ventilação, alça removível e nome em relevo, em dois STLs.

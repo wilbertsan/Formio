@@ -37,7 +37,7 @@ Ao trabalhar em, leia o AGENTS.md do segmento:
 | Ferramenta: chaveiros | `src/features/studio/tools/chaveiros/AGENTS.md` |
 | Ferramenta: letreiros | `src/features/studio/tools/letreiros/AGENTS.md` |
 | Ferramenta: lembrancinhas | `src/features/studio/tools/lembrancinhas/AGENTS.md` |
-| Ferramenta: caneca personalizada | `src/features/studio/tools/lembrancinhas/caneca-personalizada/AGENTS.md` |
+| Ferramenta: porta-lata | `src/features/studio/tools/lembrancinhas/porta-lata/AGENTS.md` |
 | Backend / banco | `amplify/AGENTS.md` |
 
 Regra: ao alterar um segmento, leia APENAS o AGENTS.md daquele segmento + este arquivo. Não leia os demais.

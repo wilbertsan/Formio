@@ -72,7 +72,7 @@ describe('StudioPanel (porta-lata)', () => {
     }
   })
 
-  it('não expõe os sliders antigos da caneca', () => {
+  it('não expõe os sliders antigos', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.queryByRole('slider', { name: 'Diâmetro do topo' })).toBeNull()
     expect(screen.queryByRole('slider', { name: 'Diâmetro da base' })).toBeNull()
@@ -130,6 +130,15 @@ describe('StudioPanel (porta-lata)', () => {
     expect(screen.getByText('Diâmetro externo: 72,6 mm')).toBeDefined()
     expect(screen.getByText('Altura externa: 111,2 mm')).toBeDefined()
     expect(screen.getByText('Altura exposta: 14,2 mm')).toBeDefined()
+    expect(screen.getByText('Parede do topo: 1,0 mm')).toBeDefined()
+  })
+
+  it('usa vírgula decimal no valor dos sliders', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText('0,8 mm')).toBeDefined()
+    expect(screen.getByText('2,4 mm')).toBeDefined()
+    expect(screen.queryByText('0.8 mm')).toBeNull()
+    expect(screen.queryByText('2.4 mm')).toBeNull()
   })
 
   it('usa as dimensões derivadas fornecidas pelo hook', () => {

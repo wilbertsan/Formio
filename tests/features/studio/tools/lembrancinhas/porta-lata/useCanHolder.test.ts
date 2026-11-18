@@ -117,7 +117,6 @@ describe('useCanHolder', () => {
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.error).toBeNull()
     expect(result.current.issues).toEqual([])
-    expect(result.current).not.toHaveProperty('capacityMl')
     expect(result.current.dimensions).toEqual({ width: 72.6, height: 111.2, thickness: 2.4 })
     expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
     expect(result.current.outerHeight).toBeCloseTo(111.2, 5)

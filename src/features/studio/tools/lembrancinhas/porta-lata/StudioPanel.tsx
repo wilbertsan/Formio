@@ -19,6 +19,7 @@ import {
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
+  getTopLand,
   type FontStyle,
   type CanHolderParams,
   type PlaColor,
@@ -43,6 +44,11 @@ const FONT_STYLE_LABELS: Record<FontStyle, string> = {
 
 function isFontStyle(value: string): value is FontStyle {
   return FONT_STYLES.some((style) => style === value)
+}
+
+/** Número com vírgula decimal, como no restante da UI. */
+function formatNumber(value: number): string {
+  return String(value).replace('.', ',')
 }
 
 /** Medidas em mm com vírgula decimal, como no restante da UI. */
@@ -96,7 +102,9 @@ function LabeledSlider({
   isDisabled?: boolean
   onChange: (value: number) => void
 }) {
-  const display = step < 1 ? value.toFixed(step < 0.1 ? 2 : 1) : value
+  const display = formatNumber(
+    step < 1 ? Number(value.toFixed(step < 0.1 ? 2 : 1)) : value,
+  )
 
   return (
     <>
@@ -173,6 +181,9 @@ export function StudioPanel({
               </Text>
               <Text fontSize="xs" color="font.secondary">
                 Altura exposta: {formatMm(exposedHeight)} mm
+              </Text>
+              <Text fontSize="xs" color="font.secondary">
+                Parede do topo: {formatMm(getTopLand(params))} mm
               </Text>
             </Flex>
           </Accordion.Content>
