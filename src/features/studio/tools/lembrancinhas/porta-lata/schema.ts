@@ -142,11 +142,10 @@ export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number 
  * Salto radial efetivo dos anéis: 0 quando desligados e limitado para preservar
  * `MIN_EDGE_RIM_FLAT_MM` de largura no anel.
  *
- * Cada anel tem um flanco de 45° e um chanfro fixo na base — não uma face plana
- * entre dois flancos de 45°. O limite
- * `(edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2` reserva `MIN_EDGE_RIM_FLAT_MM`
- * (1 mm) de folga além dos dois flancos de 45°, então a face plana real é maior
- * que esse mínimo.
+ * Cada anel tem um único flanco de 45°; a aresta oposta é o chanfro de base
+ * (anel inferior) ou o `rimChamfer` efetivo (anel superior). O limite
+ * `(edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2` reserva 1 mm além do flanco,
+ * então a face vertical real é ≥ 1 mm (igual no pior caso).
  *
  * O clamp é defensivo; inalcançável pelo schema (`edgeRimWidth` ≥ 4 e
  * `edgeRimProtrusion` ≤ 1.5). Ele só reduz objetos construídos fora do Zod.
@@ -174,6 +173,27 @@ export function getTopLand(params: CanHolderGeometryParams): number {
     getEffectiveLeadIn(params) +
     getEffectiveRingProtrusion(params)
   )
+}
+
+export interface TextBand {
+  min: number
+  max: number
+}
+
+/**
+ * Faixa vertical disponível para o texto: entre o fundo e a borda de entrada,
+ * descontando os anéis decorativos quando ligados, com `TEXT_BAND_MARGIN_MM` de
+ * margem em cada ponta.
+ */
+export function getTextBand(params: CanHolderGeometryParams): TextBand {
+  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  return {
+    min: Math.max(params.bottomThickness, ringWidth) + TEXT_BAND_MARGIN_MM,
+    max:
+      getOuterHeight(params) -
+      Math.max(getEffectiveRimChamfer(params), ringWidth) -
+      TEXT_BAND_MARGIN_MM,
+  }
 }
 
 export function sanitizeFilename(name: string): string {
