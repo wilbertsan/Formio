@@ -85,7 +85,8 @@ describe('can holder body', () => {
   it('gera os anéis decorativos colados na base e no topo', () => {
     const params = defaultCanHolderParams
     const protrusion = getEffectiveRingProtrusion(params)
-    const ringRadius = getOuterRadius(params) + protrusion
+    const outerRadius = getOuterRadius(params)
+    const ringRadius = outerRadius + protrusion
     const height = getOuterHeight(params)
     const points = bodyProfile(params)
 
@@ -99,6 +100,25 @@ describe('can holder body', () => {
     expect(ringPoints[1]).toBeCloseTo(params.edgeRimWidth - protrusion, 6)
     expect(ringPoints[2]).toBeCloseTo(height - params.edgeRimWidth + protrusion, 6)
     expect(ringPoints[3]).toBeCloseTo(height - getEffectiveRimChamfer(params), 6)
+
+    // Os dois flancos que ligam o raio do anel à parede ficam a 45°: avançam e
+    // sobem o mesmo tanto, então |Δr| === Δy === protrusion.
+    const isRing = (radius: number) => Math.abs(radius - ringRadius) < 1e-6
+    const isWall = (radius: number) => Math.abs(radius - outerRadius) < 1e-6
+    const flanks = points
+      .slice(0, -1)
+      .map((point, index) => [point, points[index + 1]] as const)
+      .filter(([from, to]) => (
+        (isRing(from.x) && isWall(to.x)) || (isWall(from.x) && isRing(to.x))
+      ))
+
+    expect(flanks).toHaveLength(2)
+    for (const [from, to] of flanks) {
+      const deltaRadius = Math.abs(to.x - from.x)
+      const deltaHeight = Math.abs(to.y - from.y)
+      expect(deltaRadius).toBeCloseTo(protrusion, 6)
+      expect(deltaHeight).toBeCloseTo(protrusion, 6)
+    }
   })
 
   it('sem anéis, o perfil volta ao corpo reto', () => {
@@ -106,6 +126,7 @@ describe('can holder body', () => {
     const radius = getOuterRadius(params)
     const points = bodyProfile(params)
 
+    expect(points).toHaveLength(10)
     expect(points.some((point) => point.x > radius + 1e-6)).toBe(false)
     expect(points.some((point) => Math.abs(point.x - radius) < 1e-6)).toBe(true)
   })
@@ -128,6 +149,8 @@ describe('can holder body', () => {
     { name: 'bordas desligadas', params: { edgeRimEnabled: false } },
     { name: 'bordas mínimas', params: { edgeRimProtrusion: 0.4, edgeRimWidth: 4 } },
     { name: 'bordas máximas', params: { edgeRimProtrusion: 1.5, edgeRimWidth: 14 } },
+    { name: 'bordas máximas com corpo mínimo', params: { edgeRimWidth: 14, edgeRimProtrusion: 1.5, cavityDepth: 80, bottomThickness: 2 } },
+    { name: 'bordas máximas com parede e borda mínimas', params: { edgeRimWidth: 4, edgeRimProtrusion: 1.5, wallThickness: 1.8, rimLeadIn: 2, rimChamfer: 1.5 } },
   ])('fecha e mantém volume positivo nos extremos ($name)', ({ params }) => {
     const merged = { ...defaultCanHolderParams, ...params }
     const geometry = buildBody(merged)

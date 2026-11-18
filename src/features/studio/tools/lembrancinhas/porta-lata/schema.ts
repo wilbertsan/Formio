@@ -139,8 +139,14 @@ export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number 
 }
 
 /**
- * Salto radial efetivo dos anéis: 0 quando desligados e limitado para sobrar
- * `MIN_EDGE_RIM_FLAT_MM` de face plana entre os flancos de 45°.
+ * Salto radial efetivo dos anéis: 0 quando desligados e limitado para preservar
+ * `MIN_EDGE_RIM_FLAT_MM` de largura no anel.
+ *
+ * Cada anel tem um flanco de 45° e um chanfro fixo na base — não uma face plana
+ * entre dois flancos de 45°. O limite
+ * `(edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2` reserva `MIN_EDGE_RIM_FLAT_MM`
+ * (1 mm) de folga além dos dois flancos de 45°, então a face plana real é maior
+ * que esse mínimo.
  *
  * O clamp é defensivo; inalcançável pelo schema (`edgeRimWidth` ≥ 4 e
  * `edgeRimProtrusion` ≤ 1.5). Ele só reduz objetos construídos fora do Zod.
