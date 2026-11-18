@@ -131,22 +131,22 @@ export function useCanHolder(
   const workerRef = useRef<CanHolderWorker | null>(null)
 
   const {
-    productType, diameterTop, diameterBottom, height, wallThickness,
-    bottomThickness, rimChamfer, handleEnabled, handleHeight, handleGap,
-    handleReach, handleBand, handleWidth, handleClearance, text, textSize,
-    fontStyle, textCenterY,
+    productType, diameterTop, diameterBottom, height, cavityDepth, canClearance,
+    wallThickness, bottomThickness, ventHoleDiameter, rimLeadIn, rimChamfer,
+    handleEnabled, handleHeight, handleGap, handleReach, handleBand, handleWidth,
+    handleClearance, text, textSize, fontStyle, textCenterY,
   } = params
 
   const buildParams = useMemo<CanHolderGeometryParams>(() => ({
-    productType, diameterTop, diameterBottom, height, wallThickness,
-    bottomThickness, rimChamfer, handleEnabled, handleHeight, handleGap,
-    handleReach, handleBand, handleWidth, handleClearance, text, textSize,
-    fontStyle, textCenterY,
+    productType, diameterTop, diameterBottom, height, cavityDepth, canClearance,
+    wallThickness, bottomThickness, ventHoleDiameter, rimLeadIn, rimChamfer,
+    handleEnabled, handleHeight, handleGap, handleReach, handleBand, handleWidth,
+    handleClearance, text, textSize, fontStyle, textCenterY,
   }), [
-    productType, diameterTop, diameterBottom, height, wallThickness,
-    bottomThickness, rimChamfer, handleEnabled, handleHeight, handleGap,
-    handleReach, handleBand, handleWidth, handleClearance, text, textSize,
-    fontStyle, textCenterY,
+    productType, diameterTop, diameterBottom, height, cavityDepth, canClearance,
+    wallThickness, bottomThickness, ventHoleDiameter, rimLeadIn, rimChamfer,
+    handleEnabled, handleHeight, handleGap, handleReach, handleBand, handleWidth,
+    handleClearance, text, textSize, fontStyle, textCenterY,
   ])
 
   useEffect(() => {

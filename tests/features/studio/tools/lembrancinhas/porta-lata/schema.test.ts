@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import {
+  CAN_DIAMETER,
+  CAN_HEIGHT,
+  CAN_VOLUME_ML,
   defaultCanHolderParams,
   getCapacityMl,
+  getEffectiveLeadIn,
+  getEffectiveRimChamfer,
+  getExposedHeight,
+  getInnerDiameter,
+  getOuterDiameter,
+  getOuterHeight,
+  getTopLand,
   canHolderGeometryParamsSchema,
   canHolderParamsSchema,
   sanitizeFilename,
@@ -92,5 +102,73 @@ describe('porta-lata schema', () => {
     expect(CONTENT_DEPTH).toBe(1)
     expect(HANDLE_RING_THICKNESS).toBe(3.5)
     expect(MAX_TEXT_LENGTH).toBe(20)
+  })
+})
+
+describe('preset da lata e derivados', () => {
+  it('preset da Coca-Cola 350 ml', () => {
+    expect(CAN_DIAMETER).toBe(66.2)
+    expect(CAN_HEIGHT).toBe(122.2)
+    expect(CAN_VOLUME_ML).toBe(350)
+  })
+
+  it('aceita os novos campos com os defaults', () => {
+    expect(canHolderParamsSchema.safeParse(defaultCanHolderParams).success).toBe(true)
+    expect(defaultCanHolderParams).toMatchObject({
+      cavityDepth: 108,
+      canClearance: 0.8,
+      ventHoleDiameter: 10,
+      rimLeadIn: 1.0,
+    })
+  })
+
+  it('rejeita os novos campos fora da faixa', () => {
+    expect(
+      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 0.4 }).success,
+    ).toBe(false)
+    expect(
+      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 15 }).success,
+    ).toBe(false)
+    expect(
+      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 119 }).success,
+    ).toBe(false)
+    expect(
+      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 2.1 }).success,
+    ).toBe(false)
+  })
+
+  it('calcula as dimensões derivadas no default', () => {
+    expect(getInnerDiameter(defaultCanHolderParams)).toBeCloseTo(67.8, 5)
+    expect(getOuterDiameter(defaultCanHolderParams)).toBeCloseTo(72.6, 5)
+    expect(getOuterHeight(defaultCanHolderParams)).toBeCloseTo(111.2, 5)
+    expect(getExposedHeight(defaultCanHolderParams)).toBeCloseTo(14.2, 5)
+    expect(getTopLand(defaultCanHolderParams)).toBeCloseTo(0.8, 5)
+  })
+
+  it('limita a borda de entrada para preservar a parede do topo', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      wallThickness: 1.8,
+      rimLeadIn: 2,
+    }
+    expect(getEffectiveLeadIn(params)).toBeCloseTo(1.0, 5)
+    expect(getTopLand(params)).toBeCloseTo(0.8, 5)
+  })
+
+  it('limita o chanfro externo quando a parede não comporta', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      wallThickness: 1.8,
+      rimLeadIn: 1.0,
+      rimChamfer: 1.5,
+    }
+    expect(getEffectiveRimChamfer(params)).toBeCloseTo(0, 5)
+
+    const partial = {
+      ...defaultCanHolderParams,
+      rimLeadIn: 1.0,
+      rimChamfer: 1.5,
+    }
+    expect(getEffectiveRimChamfer(partial)).toBeCloseTo(0.6, 5)
   })
 })

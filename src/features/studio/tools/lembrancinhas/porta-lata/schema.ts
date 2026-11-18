@@ -9,6 +9,14 @@ export type PlaColor = (typeof PLA_COLORS)[number]
 
 export const PRODUCT_TYPE = 'porta-lata' as const
 
+export const CAN_DIAMETER = 66.2
+export const CAN_HEIGHT = 122.2
+export const CAN_TOP_DIAMETER = 54
+export const CAN_VOLUME_ML = 350
+export const MIN_EXPOSED_MM = 6
+export const MIN_TOP_LAND_MM = 0.8
+export const BASE_CHAMFER_MM = 0.4
+
 export const MINIMUM_WALL_MM = 1.8
 export const MINIMUM_BOTTOM_MM = 2
 export const CONTENT_DEPTH = 1
@@ -29,8 +37,12 @@ export const canHolderParamsSchema = z.object({
   diameterTop: z.number().min(70).max(100),
   diameterBottom: z.number().min(60).max(95),
   height: z.number().min(80).max(115),
+  cavityDepth: z.number().min(80).max(118),
+  canClearance: z.number().min(0.5).max(1.2),
   wallThickness: z.number().min(MINIMUM_WALL_MM).max(4),
   bottomThickness: z.number().min(MINIMUM_BOTTOM_MM).max(6),
+  ventHoleDiameter: z.number().min(6).max(14),
+  rimLeadIn: z.number().min(0.5).max(2),
   rimChamfer: z.number().min(0).max(2),
   handleEnabled: z.boolean(),
   handleHeight: z.number().min(35).max(85),
@@ -66,8 +78,12 @@ export const defaultCanHolderParams: CanHolderParams = {
   diameterTop: 80,
   diameterBottom: 72,
   height: 88,
+  cavityDepth: 108,
+  canClearance: 0.8,
   wallThickness: 2.4,
   bottomThickness: 3.2,
+  ventHoleDiameter: 10,
+  rimLeadIn: 1.0,
   rimChamfer: 0.6,
   handleEnabled: true,
   handleHeight: 52,
@@ -82,6 +98,44 @@ export const defaultCanHolderParams: CanHolderParams = {
   textCenterY: 60,
   bodyColor: '#14b8a6',
   accentColor: '#f5f5f5',
+}
+
+export function getInnerDiameter(params: CanHolderGeometryParams): number {
+  return CAN_DIAMETER + 2 * params.canClearance
+}
+
+export function getOuterRadius(params: CanHolderGeometryParams): number {
+  return (getInnerDiameter(params) + 2 * params.wallThickness) / 2
+}
+
+export function getOuterDiameter(params: CanHolderGeometryParams): number {
+  return getOuterRadius(params) * 2
+}
+
+export function getOuterHeight(params: CanHolderGeometryParams): number {
+  return params.cavityDepth + params.bottomThickness
+}
+
+export function getExposedHeight(params: CanHolderGeometryParams): number {
+  return CAN_HEIGHT - params.cavityDepth
+}
+
+export function getEffectiveLeadIn(params: CanHolderGeometryParams): number {
+  return Math.max(0, Math.min(params.rimLeadIn, params.wallThickness - MIN_TOP_LAND_MM))
+}
+
+export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number {
+  return Math.max(
+    0,
+    Math.min(
+      params.rimChamfer,
+      params.wallThickness - getEffectiveLeadIn(params) - MIN_TOP_LAND_MM,
+    ),
+  )
+}
+
+export function getTopLand(params: CanHolderGeometryParams): number {
+  return params.wallThickness - getEffectiveRimChamfer(params) - getEffectiveLeadIn(params)
 }
 
 /** Volume interno útil em ml (tronco de cone). */
