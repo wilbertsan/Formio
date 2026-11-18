@@ -31,7 +31,7 @@ describe('porta-lata schema', () => {
       wallThickness: 2.4,
       bottomThickness: 3.2,
       handleEnabled: true,
-      handleHeight: 52,
+      handleHeight: 60,
       handleGap: 30,
       handleReach: 40,
       handleBand: 6.5,
@@ -142,7 +142,7 @@ describe('preset da lata e derivados', () => {
     expect(getOuterDiameter(defaultCanHolderParams)).toBeCloseTo(72.6, 5)
     expect(getOuterHeight(defaultCanHolderParams)).toBeCloseTo(111.2, 5)
     expect(getExposedHeight(defaultCanHolderParams)).toBeCloseTo(14.2, 5)
-    expect(getTopLand(defaultCanHolderParams)).toBeCloseTo(0.8, 5)
+    expect(getTopLand(defaultCanHolderParams)).toBeCloseTo(1.0, 5)
   })
 
   it('limita a borda de entrada para preservar a parede do topo', () => {

@@ -1,37 +1,34 @@
 import { describe, it, expect } from 'vitest'
 import { Vector2 } from 'three'
 import { buildBody } from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
+import { bodyProfile, dedupePoints } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
-  bodyProfile,
-  dedupePoints,
-  getBodyOuterRadius,
-  getEffectiveRimChamfer,
-  getInnerRadius,
-} from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
-import {
-  MINIMUM_WALL_MM,
+  CAN_DIAMETER,
+  MIN_TOP_LAND_MM,
   defaultCanHolderParams,
+  getInnerDiameter,
+  getOuterDiameter,
+  getOuterHeight,
+  getTopLand,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
-import { isClosed, signedVolume } from './geometryTestUtils'
+import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
 function pointsAtHeight(points: Vector2[], y: number): Vector2[] {
   return points.filter((point) => Math.abs(point.y - y) < 1e-6)
 }
 
-describe('buildBody', () => {
-  it('gera corpo fechado com volume positivo e altura correta', () => {
+describe('can holder body', () => {
+  it('gera corpo fechado, single-shell, com o furo passante', () => {
     const geometry = buildBody(defaultCanHolderParams)
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
 
     expect(box.min.y).toBeCloseTo(0, 3)
-    expect(box.max.y).toBeCloseTo(defaultCanHolderParams.height, 3)
-    expect(box.max.x).toBeCloseTo(defaultCanHolderParams.diameterTop / 2, 2)
+    expect(box.max.y).toBeCloseTo(getOuterHeight(defaultCanHolderParams), 3)
+    expect(box.max.x).toBeCloseTo(getOuterDiameter(defaultCanHolderParams) / 2, 2)
     expect(isClosed(geometry)).toBe(true)
-
-    const volume = signedVolume(geometry)
-    expect(volume).toBeGreaterThan(55_000)
-    expect(volume).toBeLessThan(70_000)
+    expect(countShells(geometry)).toBe(1)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
     geometry.dispose()
   })
 
@@ -45,91 +42,60 @@ describe('buildBody', () => {
     geometry.dispose()
   })
 
-  it('a cavidade interna respeita a parede', () => {
-    const { bottomThickness, height, wallThickness } = defaultCanHolderParams
-
-    expect(getInnerRadius(defaultCanHolderParams, bottomThickness))
-      .toBeCloseTo(getBodyOuterRadius(defaultCanHolderParams, bottomThickness) - wallThickness, 6)
-    expect(getInnerRadius(defaultCanHolderParams, height))
-      .toBeCloseTo(defaultCanHolderParams.diameterTop / 2 - wallThickness, 6)
-  })
-
-  it('o raio externo interpola até o fim do chanfro, não até a altura total', () => {
-    const params = { ...defaultCanHolderParams, wallThickness: 4, rimChamfer: 2 }
-    const wallTop = params.height - getEffectiveRimChamfer(params)
-
-    expect(getEffectiveRimChamfer(params)).toBeCloseTo(params.rimChamfer, 9)
-    expect(getBodyOuterRadius(params, wallTop)).toBeCloseTo(params.diameterTop / 2, 6)
-    expect(getInnerRadius(params, wallTop))
-      .toBeCloseTo(params.diameterTop / 2 - params.wallThickness, 6)
-  })
-
-  it('o chanfro efetivo nunca come o anel mínimo da parede', () => {
-    const params = { ...defaultCanHolderParams, wallThickness: MINIMUM_WALL_MM, rimChamfer: 2 }
-    expect(getEffectiveRimChamfer(params)).toBe(0)
-  })
-
-  it('o perfil é fechado e começa/termina no eixo', () => {
+  it('a cavidade aceita a lata com a folga pedida', () => {
+    expect(getInnerDiameter(defaultCanHolderParams)).toBeCloseTo(CAN_DIAMETER + 1.6, 5)
     const points = bodyProfile(defaultCanHolderParams)
-    expect(points[0].x).toBeCloseTo(0, 6)
-    expect(points[points.length - 1].x).toBeCloseTo(0, 6)
+    const inner = getInnerDiameter(defaultCanHolderParams) / 2
+    expect(points.some((point) => Math.abs(point.x - inner) < 1e-6)).toBe(true)
   })
 
-  it('o perfil usa o mesmo raio interno de getInnerRadius', () => {
+  it('o furo de ventilação tem o diâmetro pedido', () => {
     const points = bodyProfile(defaultCanHolderParams)
-
-    const bottom = pointsAtHeight(points, defaultCanHolderParams.bottomThickness)
-    expect(Math.max(...bottom.map((point) => point.x)))
-      .toBeCloseTo(getInnerRadius(defaultCanHolderParams, defaultCanHolderParams.bottomThickness), 6)
-
-    const rim = pointsAtHeight(points, defaultCanHolderParams.height)
-    expect(Math.min(...rim.map((point) => point.x)))
-      .toBeCloseTo(getInnerRadius(defaultCanHolderParams, defaultCanHolderParams.height), 6)
+    const vent = defaultCanHolderParams.ventHoleDiameter / 2
+    expect(points.some((point) => Math.abs(point.x - vent) < 1e-6)).toBe(true)
   })
 
-  it('o chanfro da borda não fura a parede', () => {
-    const geometry = buildBody({ ...defaultCanHolderParams, rimChamfer: 2 })
+  it('a borda de entrada deixa parede mínima no topo', () => {
+    const geometry = buildBody(defaultCanHolderParams)
+    const points = bodyProfile(defaultCanHolderParams)
+    const top = pointsAtHeight(points, getOuterHeight(defaultCanHolderParams))
+    expect(top.length).toBeGreaterThanOrEqual(2)
+
+    const land = Math.max(...top.map((point) => point.x))
+      - Math.min(...top.map((point) => point.x))
+    expect(land).toBeCloseTo(getTopLand(defaultCanHolderParams), 6)
+    expect(land).toBeGreaterThanOrEqual(MIN_TOP_LAND_MM - 1e-9)
     expect(isClosed(geometry)).toBe(true)
     geometry.dispose()
   })
 
+  it('o perfil começa e termina no furo, sem tocar o eixo', () => {
+    const points = bodyProfile(defaultCanHolderParams)
+    const vent = defaultCanHolderParams.ventHoleDiameter / 2
+
+    expect(points[0].x).toBeCloseTo(vent, 6)
+    expect(points[points.length - 1].x).toBeCloseTo(vent, 6)
+    expect(points.every((point) => point.x > 0)).toBe(true)
+  })
+
   it.each([
-    { wallThickness: 1.8, rimChamfer: 2 },
-    { wallThickness: 4, rimChamfer: 2 },
-  ])(
-    'mantém o anel da borda com a parede mínima (parede $wallThickness, chanfro $rimChamfer)',
-    ({ wallThickness, rimChamfer }) => {
-      const params = { ...defaultCanHolderParams, wallThickness, rimChamfer }
-      const rim = pointsAtHeight(bodyProfile(params), params.height)
-      const land = Math.max(...rim.map((point) => point.x))
-        - Math.min(...rim.map((point) => point.x))
+    { name: 'cavidade rasa', params: { cavityDepth: 80 } },
+    { name: 'cavidade profunda', params: { cavityDepth: 118 } },
+    { name: 'folga mínima', params: { canClearance: 0.5 } },
+    { name: 'folga máxima', params: { canClearance: 1.2 } },
+    { name: 'parede mínima', params: { wallThickness: 1.8 } },
+    { name: 'parede máxima', params: { wallThickness: 4 } },
+    { name: 'chanfro zero', params: { rimChamfer: 0 } },
+    { name: 'chanfro máximo', params: { rimChamfer: 1.5, wallThickness: 4 } },
+  ])('fecha e mantém volume positivo nos extremos ($name)', ({ params }) => {
+    const merged = { ...defaultCanHolderParams, ...params }
+    const geometry = buildBody(merged)
 
-      expect(land).toBeGreaterThanOrEqual(MINIMUM_WALL_MM - 1e-9)
-    },
-  )
-
-  it('fecha o corpo no chanfro zero', () => {
-    const geometry = buildBody({ ...defaultCanHolderParams, rimChamfer: 0 })
     expect(isClosed(geometry)).toBe(true)
+    expect(countShells(geometry)).toBe(1)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
     geometry.dispose()
   })
-
-  it.each([
-    { wallThickness: 1.8, rimChamfer: 0 },
-    { wallThickness: 1.8, rimChamfer: 2 },
-    { wallThickness: 4, rimChamfer: 0 },
-    { wallThickness: 4, rimChamfer: 2 },
-  ])(
-    'fecha e mantém volume positivo nos extremos (parede $wallThickness, chanfro $rimChamfer)',
-    ({ wallThickness, rimChamfer }) => {
-      const geometry = buildBody({ ...defaultCanHolderParams, wallThickness, rimChamfer })
-
-      expect(isClosed(geometry)).toBe(true)
-      expect(signedVolume(geometry)).toBeGreaterThan(0)
-      geometry.dispose()
-    },
-  )
 })
 
 describe('dedupePoints', () => {

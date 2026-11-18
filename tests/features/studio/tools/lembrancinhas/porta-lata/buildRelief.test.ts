@@ -11,8 +11,10 @@ import {
   MAX_TEXT_ARC,
   RELIEF_EMBED,
   defaultCanHolderParams,
+  getEffectiveRimChamfer,
+  getOuterHeight,
+  getOuterRadius,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
-import { getBodyOuterRadius, getEffectiveRimChamfer } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
   shapesToGeometry,
   textToShapes,
@@ -65,18 +67,18 @@ function rectangleFont(width: number, height: number): Font {
 }
 
 describe('buildRelief', () => {
-  it('curva o texto no raio do corpo e mantém 1 mm de relevo', () => {
+  it('curva o texto no raio cilíndrico e mantém 1 mm de relevo', () => {
     const params = { ...defaultCanHolderParams, text: 'Festa' }
     const geometry = buildRelief(rectangleFont(20, 10), params)!
     const position = geometry.getAttribute('position')
-    // O relevo acompanha a conicidade do corpo: cada vértice fica entre
-    // RELIEF_EMBED dentro da parede e CONTENT_DEPTH acima dela, no próprio y.
+    // O corpo é cilíndrico: cada vértice fica entre RELIEF_EMBED dentro da
+    // parede e CONTENT_DEPTH acima dela, em qualquer y.
     let minOffset = Infinity
     let maxOffset = -Infinity
 
     for (let i = 0; i < position.count; i++) {
       const offset = Math.hypot(position.getX(i), position.getZ(i))
-        - getBodyOuterRadius(params, position.getY(i))
+        - getOuterRadius(params)
       minOffset = Math.min(minOffset, offset)
       maxOffset = Math.max(maxOffset, offset)
     }
@@ -130,15 +132,16 @@ describe('buildRelief', () => {
   })
 
   it('clampa o texto para dentro da parede quando o centro pede a borda', () => {
-    const params = { ...defaultCanHolderParams, textCenterY: 88 }
+    const params = { ...defaultCanHolderParams, textCenterY: 120 }
     const geometry = buildRelief(rectangleFont(10, 4), params)!
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
+    const ceiling =
+      getOuterHeight(params) - getEffectiveRimChamfer(params) - 2
 
     expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + 2 - POSITION_EPSILON)
-    expect(box.max.y).toBeLessThanOrEqual(
-      params.height - params.rimChamfer - 2 + POSITION_EPSILON,
-    )
+    expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
+    expect(box.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()
   })
 
@@ -148,19 +151,38 @@ describe('buildRelief', () => {
       ...defaultCanHolderParams,
       rimChamfer: 2,
       wallThickness: 2.4,
-      textCenterY: 90,
+      textCenterY: 120,
     }
     const chamfer = getEffectiveRimChamfer(params)
     expect(chamfer).toBeLessThan(params.rimChamfer)
 
     const geometry = buildRelief(rectangleFont(10, 4), params)!
     geometry.computeBoundingBox()
-    const ceiling = params.height - chamfer - 2
+    const ceiling = getOuterHeight(params) - chamfer - 2
 
     // O topo fica exatamente no limite efetivo: com o rimChamfer cru (2 mm) o
-    // clamp antigo pararia 1,4 mm abaixo.
+    // clamp antigo pararia mais abaixo.
     expect(geometry.boundingBox!.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
     expect(geometry.boundingBox!.max.y).toBeCloseTo(ceiling, 5)
+    geometry.dispose()
+  })
+
+  it('clampa o texto dentro do corpo mais curto (cavidade 80)', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      cavityDepth: 80,
+      textCenterY: 120,
+    }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+    const ceiling =
+      getOuterHeight(params) - getEffectiveRimChamfer(params) - 2
+
+    expect(getOuterHeight(params)).toBeCloseTo(83.2, 5)
+    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + 2 - POSITION_EPSILON)
+    expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
+    expect(box.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()
   })
 
@@ -210,7 +232,7 @@ describe('buildRelief', () => {
 
       minVisible = Math.min(
         minVisible,
-        radius - getBodyOuterRadius(params, centroid.y),
+        radius - getOuterRadius(params),
       )
     }
 
@@ -220,16 +242,14 @@ describe('buildRelief', () => {
     geometry.dispose()
   })
 
-  it('mantém 1 mm de relevo em conicidade e chanfro extremos', () => {
-    // Conicidade além do slider (diâmetro inferior 100) de propósito: é onde o
-    // oráculo antigo errava o raio em quase 0,3 mm.
+  it('mantém 1 mm de relevo em parede, folga e profundidade extremas', () => {
     const params = {
       ...defaultCanHolderParams,
-      diameterTop: 70,
-      diameterBottom: 100,
-      height: 80,
+      cavityDepth: 118,
+      canClearance: 0.5,
       wallThickness: 4,
-      rimChamfer: 2,
+      rimChamfer: 1.5,
+      textCenterY: 90,
     }
     const geometry = buildRelief(rectangleFont(20, 10), params)!
     const position = geometry.getAttribute('position')
@@ -238,7 +258,7 @@ describe('buildRelief', () => {
 
     for (let i = 0; i < position.count; i++) {
       const offset = Math.hypot(position.getX(i), position.getZ(i))
-        - getBodyOuterRadius(params, position.getY(i))
+        - getOuterRadius(params)
       minOffset = Math.min(minOffset, offset)
       maxOffset = Math.max(maxOffset, offset)
     }

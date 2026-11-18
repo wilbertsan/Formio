@@ -5,17 +5,19 @@ import {
 } from 'three'
 import type { Font } from 'three/examples/jsm/loaders/FontLoader.js'
 import { shapesToGeometry, textToShapes } from '../../confeitaria/shared/textOutline'
-import { getBodyOuterRadius, getEffectiveRimChamfer } from './shapes'
 import {
   CONTENT_DEPTH,
   MAX_TEXT_ARC,
   RELIEF_EMBED,
+  getEffectiveRimChamfer,
+  getOuterHeight,
+  getOuterRadius,
   type CanHolderGeometryParams,
 } from './schema'
 
 /**
  * Aresta máxima do relevo plano antes de curvar; limita o sag da corda.
- * O desvio da corda é `edge² / (8·R)`: com 2,5 mm e R ≈ 39 mm dá ≈0,02 mm,
+ * O desvio da corda é `edge² / (8·R)`: com 2,5 mm e R ≈ 36 mm dá ≈0,02 mm,
  * então o relevo visível de 1 mm fica em ≈0,98 mm (orçamento de 2%).
  */
 const MAX_RELIEF_EDGE = 2.5
@@ -47,7 +49,7 @@ export function fitRelief(
 
 function clampCenterY(params: CanHolderGeometryParams, halfHeight: number): number {
   const minY = params.bottomThickness + 2 + halfHeight
-  const maxY = params.height - getEffectiveRimChamfer(params) - 2 - halfHeight
+  const maxY = getOuterHeight(params) - getEffectiveRimChamfer(params) - 2 - halfHeight
   if (minY > maxY) return params.textCenterY
   return Math.min(maxY, Math.max(minY, params.textCenterY))
 }
@@ -200,7 +202,7 @@ export function buildRelief(
     return null
   }
 
-  const centerRadius = getBodyOuterRadius(params, params.textCenterY)
+  const centerRadius = getOuterRadius(params)
   const scale = fitRelief(width, centerRadius)
   const centerX = ((box.min.x + box.max.x) / 2) * scale
   const centerY = ((box.min.y + box.max.y) / 2) * scale
@@ -219,7 +221,7 @@ export function buildRelief(
     const localZ = position.getZ(i)
 
     const globalY = centerYGlobal + localY
-    const radius = getBodyOuterRadius(params, globalY) + localZ - RELIEF_EMBED
+    const radius = getOuterRadius(params) + localZ - RELIEF_EMBED
     // Sinal negativo: mantém a leitura da esquerda para a direita e o winding
     // para fora (um sinal positivo reflete o texto e inverte a orientação).
     const angle = Math.PI - localX / centerRadius

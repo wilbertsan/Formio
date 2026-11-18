@@ -1,33 +1,39 @@
 import { Path, Shape, Vector2 } from 'three'
 import {
+  BASE_CHAMFER_MM,
   HANDLE_FIT_INTERFERENCE,
   HANDLE_LOOP_INSET,
   HANDLE_RING_THICKNESS,
   HANDLE_WRAP,
   MINIMUM_WALL_MM,
+  getEffectiveLeadIn,
+  getEffectiveRimChamfer as getSchemaRimChamfer,
+  getInnerDiameter,
+  getOuterHeight,
+  getOuterRadius,
   type CanHolderGeometryParams,
 } from './schema'
 
 const DEDUPE_EPSILON = 1e-6
 
-/** Chanfro efetivo da borda: nunca come o anel mínimo da parede. */
+/**
+ * Compatibilidade temporária com `validateCanHolder` (regras `mug-*`): a
+ * validação ainda parte dos campos antigos `height`/`diameterTop`/
+ * `diameterBottom`. Será removida na tarefa de validação `can-*`.
+ */
 export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number {
   return Math.max(0, Math.min(params.rimChamfer, params.wallThickness - MINIMUM_WALL_MM))
 }
 
 /**
- * Raio externo do corpo na altura `y`. A parede cônica termina em
- * `height - chamfer`, não em `height`, então a interpolação usa esse topo.
+ * Compatibilidade temporária com `validateCanHolder`: raio externo do corpo
+ * cônico antigo na altura `y`. Será removida na tarefa de validação `can-*`.
  */
 export function getBodyOuterRadius(params: CanHolderGeometryParams, y: number): number {
   const chamfer = getEffectiveRimChamfer(params)
   const wallTop = Math.max(1e-6, params.height - chamfer)
   const t = Math.min(1, Math.max(0, y / wallTop))
   return (params.diameterBottom / 2) * (1 - t) + (params.diameterTop / 2) * t
-}
-
-export function getInnerRadius(params: CanHolderGeometryParams, y: number): number {
-  return Math.max(0.5, getBodyOuterRadius(params, y) - params.wallThickness)
 }
 
 export function dedupePoints(points: Vector2[]): Vector2[] {
@@ -41,31 +47,31 @@ export function dedupePoints(points: Vector2[]): Vector2[] {
 
 /**
  * Perfil fechado no plano (r, y) para o LatheGeometry:
- * eixo do fundo → fundo externo → parede externa → borda → parede interna →
- * fundo interno → eixo.
+ * furo de ventilação → fundo externo → parede externa → borda → parede interna
+ * → fundo interno → furo. O primeiro e o último ponto coincidem para fechar a
+ * superfície; o perfil não toca o eixo, então não há leques degenerados.
  */
 export function bodyProfile(params: CanHolderGeometryParams): Vector2[] {
-  const outerBottom = params.diameterBottom / 2
-  const outerTop = params.diameterTop / 2
-  const innerTop = getInnerRadius(params, params.height)
-  const innerBottom = getInnerRadius(params, params.bottomThickness)
-  // O anel plano da borda nunca desce abaixo da parede mínima.
-  const chamfer = getEffectiveRimChamfer(params)
+  const outerR = getOuterRadius(params)
+  const innerR = getInnerDiameter(params) / 2
+  const ventR = params.ventHoleDiameter / 2
+  const height = getOuterHeight(params)
+  const leadIn = getEffectiveLeadIn(params)
+  const chamfer = getSchemaRimChamfer(params)
+  const base = Math.min(BASE_CHAMFER_MM, outerR * 0.2)
 
-  const points: Vector2[] = [
-    new Vector2(0, 0),
-    new Vector2(outerBottom, 0),
-    new Vector2(outerTop, params.height - chamfer),
-  ]
-
-  if (chamfer > 0) {
-    points.push(new Vector2(outerTop - chamfer, params.height))
-  }
-  points.push(new Vector2(innerTop, params.height))
-  points.push(new Vector2(innerBottom, params.bottomThickness))
-  points.push(new Vector2(0, params.bottomThickness))
-
-  return dedupePoints(points)
+  return dedupePoints([
+    new Vector2(ventR, 0),
+    new Vector2(outerR - base, 0),
+    new Vector2(outerR, base),
+    new Vector2(outerR, height - chamfer),
+    new Vector2(outerR - chamfer, height),
+    new Vector2(innerR + leadIn, height),
+    new Vector2(innerR, height - leadIn),
+    new Vector2(innerR, params.bottomThickness),
+    new Vector2(ventR, params.bottomThickness),
+    new Vector2(ventR, 0),
+  ])
 }
 
 export interface HandleMetrics {
