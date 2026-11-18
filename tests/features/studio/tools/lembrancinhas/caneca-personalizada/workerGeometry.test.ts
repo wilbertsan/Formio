@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   BoxGeometry,
   BufferGeometry,
@@ -163,5 +163,25 @@ describe('workerGeometry', () => {
     data.handle!.position[0] += 1
     expect(bodyPosition[0]).toBe(bodyValues[0])
     expect(handlePosition[0]).toBe(handleValues[0])
+  })
+
+  it('descarta o corpo se a alça falhar ao desserializar', () => {
+    const disposeSpy = vi.spyOn(BufferGeometry.prototype, 'dispose')
+    const { data } = serializeBuildResult({
+      body: track(new BoxGeometry(80, 88, 80)),
+      handle: null,
+    })
+    const malformed = {
+      body: data.body,
+      handle: {
+        position: null as unknown as Float32Array,
+        normal: new Float32Array(0),
+        index: null,
+      },
+    }
+
+    expect(() => deserializeBuildResult(malformed)).toThrow()
+    expect(disposeSpy).toHaveBeenCalledTimes(1)
+    disposeSpy.mockRestore()
   })
 })

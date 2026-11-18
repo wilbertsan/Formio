@@ -80,8 +80,13 @@ export function serializeBuildResult(result: BuildMugResult): {
 export function deserializeBuildResult(
   data: SerializedBuildResult,
 ): BuildMugResult {
-  return {
-    body: deserializeGeometry(data.body),
-    handle: data.handle ? deserializeGeometry(data.handle) : null,
+  const body = deserializeGeometry(data.body)
+  if (!data.handle) return { body, handle: null }
+
+  try {
+    return { body, handle: deserializeGeometry(data.handle) }
+  } catch (error) {
+    body.dispose()
+    throw error
   }
 }
