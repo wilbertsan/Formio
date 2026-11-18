@@ -30,8 +30,8 @@ semânticos; toda validação de entrada via Zod; o corpo continua single-shell.
 
 **Step 1: escrever os testes que falham**
 
-No import de `schema.test.ts`, adicione `getEffectiveRingProtrusion`,
-`getMaxOuterDiameter` e `MIN_EDGE_RIM_FLAT_MM` à lista.
+No import de `schema.test.ts`, adicione `getEffectiveRingProtrusion` e
+`getMaxOuterDiameter` à lista.
 
 No teste `defaults válidos`, adicione ao `toMatchObject`:
 
@@ -85,14 +85,28 @@ Adicione um teste novo:
     ).toBe(0)
 
     // Defensivo: fora do schema (largura < 4) o salto encolhe para sobrar 1 mm
-    // de face plana no centro do anel.
+    // de face plana no centro do anel: (3 - 1) / 2 = 1 mm de cada lado.
     expect(
       getEffectiveRingProtrusion({
         ...defaultCanHolderParams,
         edgeRimWidth: 3,
         edgeRimProtrusion: 1.5,
       }),
-    ).toBeCloseTo(MIN_EDGE_RIM_FLAT_MM, 5)
+    ).toBeCloseTo(1, 5)
+
+    // Entrada válida na fronteira: o clamp não altera.
+    expect(
+      getEffectiveRingProtrusion({
+        ...defaultCanHolderParams,
+        edgeRimWidth: 4,
+        edgeRimProtrusion: 1.5,
+      }),
+    ).toBeCloseTo(1.5, 5)
+  })
+
+  it('desliga os anéis sem alterar o diâmetro externo', () => {
+    const params = { ...defaultCanHolderParams, edgeRimEnabled: false }
+    expect(getMaxOuterDiameter(params)).toBeCloseTo(getOuterDiameter(params), 5)
   })
 ```
 
@@ -136,6 +150,9 @@ Depois de `getEffectiveRimChamfer`:
 /**
  * Salto radial efetivo dos anéis: 0 quando desligados e limitado para sobrar
  * `MIN_EDGE_RIM_FLAT_MM` de face plana entre os flancos de 45°.
+ *
+ * O clamp é defensivo; inalcançável pelo schema (`edgeRimWidth` ≥ 4 e
+ * `edgeRimProtrusion` ≤ 1,5). Ele só reduz objetos construídos fora do Zod.
  */
 export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): number {
   if (!params.edgeRimEnabled) return 0
@@ -148,7 +165,7 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
   )
 }
 
-/** Diâmetro máximo impresso, incluindo os anéis decorativos. */
+/** Diâmetro externo do corpo com os anéis decorativos (não inclui o relevo do texto). */
 export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
   return (getOuterRadius(params) + getEffectiveRingProtrusion(params)) * 2
 }
@@ -699,6 +716,13 @@ seções`, adicione `Bordas` e ajuste a ordem:
 Em `expõe nome acessível nos 15 sliders` e `expõe aria-valuemin e aria-valuemax
 dos 15 sliders`, troque "15" por "17" e a asserção de comprimento para 17.
 
+Em `mostra o preset da lata e as dimensões derivadas`, atualize a parede do topo
+para o valor com anel:
+
+```ts
+    expect(screen.getByText('Parede do topo: 2,0 mm')).toBeDefined()
+```
+
 Adicione:
 
 ```ts
@@ -890,7 +914,18 @@ Na seção **Porta-lata**:
 **Step 4: marcar o design como implementado**
 
 No topo de `docs/plans/2026-11-18-porta-lata-bordas-design.md`, trocar o status
-para `design aprovado; implementado` e registrar qualquer desvio encontrado.
+para `design aprovado; implementado` e registrar os desvios encontrados:
+
+- a constante da face plana foi implementada como `MIN_EDGE_RIM_FLAT_MM`
+  (o design a chamava `MIN_RING_FLAT_MM`);
+- o perfil do design omite o ponto vertical `(ringR, height − chamfer)` entre o
+  flanco superior e o chanfro da borda; a implementação o inclui, senão o anel
+  superior perde a face vertical e o `getTopLand` não fecha;
+- `getMaxOuterDiameter` não inclui o relevo de 1 mm do texto — é o diâmetro do
+  corpo com os anéis, coerente com a convenção de medidas nominais do status
+  bar;
+- o clamp de `getEffectiveRingProtrusion` e a regra `can-edge-rim` são
+  defensivos: inalcançáveis pelo schema e pela UI.
 
 **Step 5: commit**
 
