@@ -981,7 +981,7 @@ git commit -m "test: cover can holder edge rims in full build"
 - Parâmetros do corpo: adicionar a tabela dos três campos, a faixa 0,4–1,5/1,0
   e 4–14/6, e a nota de clamp `(largura − 1) / 2`.
 - Dimensões derivadas: diâmetro externo default **74,6 mm** (72,6 do corpo +
-  2 × 1,0), parede do topo **2,0 mm**, faixa livre entre bordas **99,2 mm**.
+  2 × 1,0), parede do topo **2,0 mm**, faixa útil do texto **8,0–103,2 mm**.
 - Regras do domínio: descrever o perfil com anéis (dois flancos de 45°), anel
   inferior apoiado na mesa, anel superior sem suporte, `getTopLand` somando o
   salto e `getMaxOuterDiameter` para painel/status.
@@ -1076,7 +1076,8 @@ Esperado: build concluído.
 
 - Abrir o Studio, conferir no preview os anéis na base e no topo.
 - Desligar as bordas e confirmar que o corpo volta ao cilindro reto.
-- Verificar o painel: 17 sliders, faixa livre 99,2 mm e parede do topo 2,0 mm.
+- Verificar o painel: 17 sliders, "Texto entre 8,0 e 103,2 mm" e parede do topo
+  2,0 mm.
 - Conferir o status bar: `74.6 × 111.2 × 2.4 mm`.
 - Testar `handleHeight` 85 com `edgeRimWidth` 14: `can-handle-band` deve
   aparecer no painel sem impedir o build nem o export (validação é consultiva).

@@ -108,7 +108,8 @@ Perfil fechado em `(r, y)` com anéis ligados:
 - Acordeão **Bordas** entre "Corpo" e "Alça": switch, `Salto das bordas`
   (0,4–1,5 mm, passo 0,1), `Largura das bordas` (4–14 mm, passo 1), dica
   "Ligue as bordas para ajustar os parâmetros." quando desligado e a linha
-  "Faixa livre entre as bordas: X mm" (`altura − 2w`).
+  "Texto entre X e Y mm", usando `getTextBand` (faixa útil real, com a margem de
+  2 mm), em vez da faixa geométrica `altura − 2w`.
 - Componentes existentes: `SwitchField`, `SliderField` via `LabeledSlider`,
   `Text`.
 - "Diâmetro externo" usa `getMaxOuterDiameter`; "Parede do topo" usa
