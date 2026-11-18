@@ -259,7 +259,7 @@ describe('preparos de impressão', () => {
     expect(box.min.x).toBeCloseTo(-box.max.x, 3)
     expect(box.min.z).toBeCloseTo(-box.max.z, 3)
 
-    // Original não é mutado (min Y = handleHeight − loopHeight / 2 = 30,5 mm).
+    // Original não é mutado (min Y = handleHeight − loopHeight / 2 = 38,5 mm).
     handle.computeBoundingBox()
     expect(handle.boundingBox!.min.y).toBeCloseTo(
       defaultCanHolderParams.handleHeight - loopHeight / 2,

@@ -1,32 +1,89 @@
 import { describe, it, expect } from 'vitest'
+import process from 'node:process'
+import {
+  Mesh,
+  MeshBasicMaterial,
+  Raycaster,
+  Vector3,
+  type BufferGeometry,
+} from 'three'
 import { FontLoader, type Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
 import helvetikerRegular from '@/assets/fonts/helvetiker_regular.typeface.json'
 import {
   buildCanHolder,
   disposeCanHolderResult,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/buildCanHolder'
-import { defaultCanHolderParams } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
+import {
+  defaultCanHolderParams,
+  getOuterDiameter,
+  getOuterHeight,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
 function realFont(): Font {
   return new FontLoader().parse(helvetikerRegular as unknown as FontData)
 }
 
+/** Interseções de um raio com a malha; 0 no eixo prova o furo passante. */
+function rayCrossings(
+  geometry: BufferGeometry,
+  from: Vector3,
+  direction: Vector3,
+): number {
+  const material = new MeshBasicMaterial()
+  const mesh = new Mesh(geometry, material)
+  const hits = new Raycaster(from, direction).intersectObject(mesh).length
+  material.dispose()
+  return hits
+}
+
 describe('buildCanHolder', () => {
   it('une o relevo ao corpo e devolve a alça separada', () => {
-    const started = performance.now()
+    // Tempo de CPU da thread, não de parede: a suíte completa roda vários
+    // arquivos de geometria em paralelo e a contenção do CI distorce o relógio
+    // de parede (e o `cpuUsage` do processo soma threads de fundo do V8).
+    const started = process.threadCpuUsage()
     const result = buildCanHolder({ ...defaultCanHolderParams, text: 'Festa' }, realFont())
-    const elapsed = performance.now() - started
+    const usage = process.threadCpuUsage(started)
+    const elapsedMs = (usage.user + usage.system) / 1000
 
+    result.body.computeBoundingBox()
+    const box = result.body.boundingBox!
+
+    expect(box.min.y).toBeCloseTo(0, 3)
+    expect(box.max.y).toBeCloseTo(getOuterHeight(defaultCanHolderParams), 3)
+    expect(box.max.x).toBeCloseTo(getOuterDiameter(defaultCanHolderParams) / 2, 2)
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
-    expect(signedVolume(result.body)).toBeGreaterThan(0)
+    expect(signedVolume(result.body)).toBeGreaterThan(70_000)
     expect(result.handle).not.toBeNull()
     expect(isClosed(result.handle!)).toBe(true)
     expect(countShells(result.handle!)).toBe(1)
-    // Default medido em ≈1,2–1,6 s (primeiro build, sem JIT quente). A meta de
-    // projeto é <1,5 s; o gate de 4 s cobre máquinas de CI mais lentas.
-    expect(elapsed).toBeLessThan(4000)
+    expect(signedVolume(result.handle!)).toBeGreaterThan(0)
+    // Default medido em ≈1,7 s de CPU (primeiro build, sem JIT quente). O gate
+    // de 4 s cobre máquinas de CI mais lentas.
+    expect(elapsedMs).toBeLessThan(4000)
+
+    disposeCanHolderResult(result)
+  })
+
+  it('o furo de ventilação continua aberto depois da união do relevo', () => {
+    const result = buildCanHolder({ ...defaultCanHolderParams, text: 'Festa' }, realFont())
+    const volume = signedVolume(result.body)
+    const height = getOuterHeight(defaultCanHolderParams)
+    const up = new Vector3(0, 1, 0)
+    const down = new Vector3(0, -1, 0)
+
+    // O eixo do furo não encontra nenhuma face: nem de baixo para cima (fundo
+    // anular) nem de cima para baixo (cavidade + furo).
+    expect(rayCrossings(result.body, new Vector3(0, -10, 0), up)).toBe(0)
+    expect(rayCrossings(result.body, new Vector3(0, height + 10, 0), down)).toBe(0)
+    // Volume do corpo sólido (≈69.987 mm³) mais o relevo visível; o furo
+    // continua descontado da cavidade.
+    expect(volume).toBeGreaterThan(70_000)
+    expect(volume).toBeLessThan(70_200)
+    expect(isClosed(result.body)).toBe(true)
+    expect(countShells(result.body)).toBe(1)
 
     disposeCanHolderResult(result)
   })
@@ -45,10 +102,20 @@ describe('buildCanHolder', () => {
     disposeCanHolderResult(withoutText)
   })
 
-  it('sem texto devolve só o corpo de revolução', () => {
+  it('sem texto devolve só o corpo de revolução com o furo', () => {
     const result = buildCanHolder({ ...defaultCanHolderParams, text: '' }, realFont())
+    const height = getOuterHeight(defaultCanHolderParams)
+
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
+    expect(signedVolume(result.body)).toBeGreaterThan(69_900)
+    expect(signedVolume(result.body)).toBeLessThan(70_100)
+    expect(
+      rayCrossings(result.body, new Vector3(0, -10, 0), new Vector3(0, 1, 0)),
+    ).toBe(0)
+    expect(
+      rayCrossings(result.body, new Vector3(0, height + 10, 0), new Vector3(0, -1, 0)),
+    ).toBe(0)
     expect(result.handle).not.toBeNull()
     disposeCanHolderResult(result)
   })
@@ -56,36 +123,28 @@ describe('buildCanHolder', () => {
   it('alça desligada devolve handle nulo', () => {
     const result = buildCanHolder({ ...defaultCanHolderParams, handleEnabled: false }, realFont())
     expect(result.handle).toBeNull()
+    expect(isClosed(result.body)).toBe(true)
+    expect(countShells(result.body)).toBe(1)
     disposeCanHolderResult(result)
   })
 
   it.each([
-    {
-      name: 'corpo grande',
-      params: { diameterTop: 100, diameterBottom: 95, height: 115 },
-    },
-    {
-      name: 'corpo pequeno',
-      params: { diameterTop: 70, diameterBottom: 60, height: 80 },
-    },
-    {
-      name: 'parede mínima, texto grande e centro clampado',
-      params: {
-        diameterTop: 70,
-        diameterBottom: 60,
-        height: 80,
-        wallThickness: 1.8,
-        rimChamfer: 2,
-        textSize: 18,
-        textCenterY: 90,
-      },
-    },
-  ])('fecha o corpo nos extremos de tamanho ($name)', ({ params }) => {
+    { name: 'cavidade rasa', params: { cavityDepth: 80 } },
+    { name: 'cavidade profunda', params: { cavityDepth: 118 } },
+    { name: 'folga mínima da lata', params: { canClearance: 0.5 } },
+    { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
+    { name: 'parede mínima', params: { wallThickness: 1.8 } },
+    { name: 'parede máxima', params: { wallThickness: 4 } },
+  ])('fecha corpo e alça nos extremos ($name)', ({ params }) => {
     const result = buildCanHolder({ ...defaultCanHolderParams, ...params }, realFont())
 
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
     expect(signedVolume(result.body)).toBeGreaterThan(0)
+    expect(result.handle).not.toBeNull()
+    expect(isClosed(result.handle!)).toBe(true)
+    expect(countShells(result.handle!)).toBe(1)
+    expect(signedVolume(result.handle!)).toBeGreaterThan(0)
     disposeCanHolderResult(result)
   })
 })
