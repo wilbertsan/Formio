@@ -137,19 +137,22 @@ export function useCanHolder(
 
   const {
     productType, cavityDepth, canClearance, wallThickness, bottomThickness,
-    ventHoleDiameter, rimLeadIn, rimChamfer, handleEnabled, handleHeight,
+    ventHoleDiameter, rimLeadIn, rimChamfer, edgeRimEnabled, edgeRimProtrusion,
+    edgeRimWidth, handleEnabled, handleHeight,
     handleGap, handleReach, handleBand, handleWidth, handleClearance,
     text, textSize, fontStyle, textCenterY,
   } = params
 
   const buildParams = useMemo<CanHolderGeometryParams>(() => ({
     productType, cavityDepth, canClearance, wallThickness, bottomThickness,
-    ventHoleDiameter, rimLeadIn, rimChamfer, handleEnabled, handleHeight,
+    ventHoleDiameter, rimLeadIn, rimChamfer, edgeRimEnabled, edgeRimProtrusion,
+    edgeRimWidth, handleEnabled, handleHeight,
     handleGap, handleReach, handleBand, handleWidth, handleClearance,
     text, textSize, fontStyle, textCenterY,
   }), [
     productType, cavityDepth, canClearance, wallThickness, bottomThickness,
-    ventHoleDiameter, rimLeadIn, rimChamfer, handleEnabled, handleHeight,
+    ventHoleDiameter, rimLeadIn, rimChamfer, edgeRimEnabled, edgeRimProtrusion,
+    edgeRimWidth, handleEnabled, handleHeight,
     handleGap, handleReach, handleBand, handleWidth, handleClearance,
     text, textSize, fontStyle, textCenterY,
   ])
