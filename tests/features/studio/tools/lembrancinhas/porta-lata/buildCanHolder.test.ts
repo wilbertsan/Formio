@@ -15,7 +15,7 @@ import {
 } from '@/features/studio/tools/lembrancinhas/porta-lata/buildCanHolder'
 import {
   defaultCanHolderParams,
-  getOuterDiameter,
+  getMaxOuterDiameter,
   getOuterHeight,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
@@ -59,7 +59,7 @@ describe('buildCanHolder', () => {
 
     expect(box.min.y).toBeCloseTo(0, 3)
     expect(box.max.y).toBeCloseTo(getOuterHeight(defaultCanHolderParams), 3)
-    expect(box.max.x).toBeCloseTo(getOuterDiameter(defaultCanHolderParams) / 2, 2)
+    expect(box.max.x).toBeCloseTo(getMaxOuterDiameter(defaultCanHolderParams) / 2, 2)
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
     expect(signedVolume(result.body)).toBeGreaterThan(65_000)
@@ -155,6 +155,8 @@ describe('buildCanHolder', () => {
     { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },
     { name: 'parede máxima', params: { wallThickness: 4 } },
+    { name: 'bordas máximas', params: { edgeRimWidth: 14, edgeRimProtrusion: 1.5 } },
+    { name: 'bordas desligadas', params: { edgeRimEnabled: false } },
     {
       name: 'extremas combinadas',
       params: { wallThickness: 4, canClearance: 1.2, handleClearance: 0.5 },

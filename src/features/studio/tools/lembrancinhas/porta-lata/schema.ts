@@ -18,6 +18,8 @@ export const MIN_TOP_LAND_MM = 0.8
 /** Margem entre o texto e a borda ou o fundo do corpo. */
 export const TEXT_BAND_MARGIN_MM = 2
 export const BASE_CHAMFER_MM = 0.4
+/** Face plana mínima no centro do anel decorativo. */
+export const MIN_EDGE_RIM_FLAT_MM = 1
 
 export const MINIMUM_WALL_MM = 1.8
 export const MINIMUM_BOTTOM_MM = 2
@@ -43,6 +45,9 @@ export const canHolderParamsSchema = z.object({
   ventHoleDiameter: z.number().min(6).max(14),
   rimLeadIn: z.number().min(0.5).max(2),
   rimChamfer: z.number().min(0).max(1.5),
+  edgeRimEnabled: z.boolean(),
+  edgeRimProtrusion: z.number().min(0.4).max(1.5),
+  edgeRimWidth: z.number().min(4).max(14),
   handleEnabled: z.boolean(),
   handleHeight: z.number().min(35).max(85),
   handleGap: z.number().min(24).max(40),
@@ -81,6 +86,9 @@ export const defaultCanHolderParams: CanHolderParams = {
   ventHoleDiameter: 10,
   rimLeadIn: 1.0,
   rimChamfer: 0.4,
+  edgeRimEnabled: true,
+  edgeRimProtrusion: 1.0,
+  edgeRimWidth: 6,
   handleEnabled: true,
   handleHeight: 60,
   handleGap: 30,
@@ -130,8 +138,71 @@ export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number 
   )
 }
 
+/**
+ * Salto radial efetivo dos anéis: 0 quando desligados e limitado para preservar
+ * `MIN_EDGE_RIM_FLAT_MM` de largura no anel.
+ *
+ * Cada anel tem um único flanco de 45°; a aresta oposta é o chanfro de base
+ * (anel inferior) ou o `rimChamfer` efetivo (anel superior). O limite
+ * `(edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2` reserva 1 mm além do flanco,
+ * então a face vertical real é ≥ 1 mm (igual no pior caso).
+ *
+ * O clamp é defensivo; inalcançável pelo schema (`edgeRimWidth` ≥ 4 e
+ * `edgeRimProtrusion` ≤ 1.5). Ele só reduz objetos construídos fora do Zod.
+ */
+export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): number {
+  if (!params.edgeRimEnabled) return 0
+  return Math.max(
+    0,
+    Math.min(
+      params.edgeRimProtrusion,
+      (params.edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2,
+    ),
+  )
+}
+
+/** Diâmetro externo do corpo com os anéis decorativos (não inclui o relevo do texto). */
+export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
+  return getOuterDiameter(params) + 2 * getEffectiveRingProtrusion(params)
+}
+
 export function getTopLand(params: CanHolderGeometryParams): number {
-  return params.wallThickness - getEffectiveRimChamfer(params) - getEffectiveLeadIn(params)
+  return (
+    params.wallThickness -
+    getEffectiveRimChamfer(params) -
+    getEffectiveLeadIn(params) +
+    getEffectiveRingProtrusion(params)
+  )
+}
+
+export interface TextBand {
+  min: number
+  max: number
+}
+
+/**
+ * Faixa vertical da parede cilíndrica entre os anéis decorativos, sem margem.
+ * `max` é o fim da parede em `height - ringWidth` quando os anéis estão
+ * ligados, ou a altura do corpo quando desligados.
+ */
+export function getRingWallBand(params: CanHolderGeometryParams): TextBand {
+  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  return { min: ringWidth, max: getOuterHeight(params) - ringWidth }
+}
+
+/**
+ * Faixa vertical disponível para o texto: entre o fundo e a borda de entrada,
+ * descontando os anéis decorativos quando ligados, com `TEXT_BAND_MARGIN_MM` de
+ * margem em cada ponta.
+ */
+export function getTextBand(params: CanHolderGeometryParams): TextBand {
+  const wall = getRingWallBand(params)
+  return {
+    min: Math.max(params.bottomThickness, wall.min) + TEXT_BAND_MARGIN_MM,
+    max:
+      Math.min(getOuterHeight(params) - getEffectiveRimChamfer(params), wall.max) -
+      TEXT_BAND_MARGIN_MM,
+  }
 }
 
 export function sanitizeFilename(name: string): string {

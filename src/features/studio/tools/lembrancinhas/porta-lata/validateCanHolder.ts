@@ -3,20 +3,27 @@ import {
   MAX_TEXT_ARC,
   MINIMUM_BOTTOM_MM,
   MINIMUM_WALL_MM,
+  MIN_EDGE_RIM_FLAT_MM,
   MIN_EXPOSED_MM,
   MIN_TOP_LAND_MM,
-  TEXT_BAND_MARGIN_MM,
   getEffectiveRimChamfer,
   getExposedHeight,
   getInnerDiameter,
   getOuterHeight,
   getOuterRadius,
+  getRingWallBand,
+  getTextBand,
   type CanHolderGeometryParams,
 } from './schema'
 import { getHandleMetrics } from './shapes'
 
-/** Margem entre o vão vertical da alça e a borda ou o fundo. */
+/**
+ * Margem por ponta entre a banda da alça e a borda ou o fundo: 2 mm em cada
+ * extremidade.
+ */
 const HANDLE_MARGIN_MM = 2
+/** Margem entre a altura dos anéis e as extremidades do corpo. */
+const RING_HEIGHT_MARGIN_MM = 2
 /** Abertura horizontal mínima confortável para a mão. */
 const MIN_HAND_OPENING_MM = 16
 /** Abertura vertical mínima confortável para a mão. */
@@ -55,6 +62,7 @@ export type CanHolderIssueCode =
   | 'can-rim'
   | 'can-wall'
   | 'can-bottom'
+  | 'can-edge-rim'
   | 'can-text-fit'
   | 'can-text-band'
   | 'can-handle-gap'
@@ -135,6 +143,33 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
     })
   }
 
+  if (params.edgeRimEnabled) {
+    // Regra crua, antes do clamp de `getEffectiveRingProtrusion`.
+    if (
+      2 * params.edgeRimProtrusion + MIN_EDGE_RIM_FLAT_MM >
+      params.edgeRimWidth + BOUNDARY_EPSILON
+    ) {
+      issues.push({
+        code: 'can-edge-rim',
+        severity: 'error',
+        message: `As bordas decorativas precisam de ${MIN_EDGE_RIM_FLAT_MM} mm de face plana. Reduza o salto ou aumente a largura.`,
+      })
+    }
+
+    // Defensiva: com a altura mínima do schema (82 mm) os anéis nunca ocupam o
+    // corpo todo.
+    if (
+      2 * params.edgeRimWidth + 2 * RING_HEIGHT_MARGIN_MM >
+      getOuterHeight(params) + BOUNDARY_EPSILON
+    ) {
+      issues.push({
+        code: 'can-edge-rim',
+        severity: 'error',
+        message: 'As bordas decorativas não cabem na altura do corpo.',
+      })
+    }
+  }
+
   if (text.length > 0) {
     const outerRadius = getOuterRadius(params)
     const arc = estimateTextWidth(text, params.textSize) / outerRadius
@@ -148,13 +183,16 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
 
     const fitScale = Math.min(1, MAX_TEXT_ARC / arc)
     const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
-    const minY = params.bottomThickness + TEXT_BAND_MARGIN_MM
-    const maxY = getOuterHeight(params) - chamfer - TEXT_BAND_MARGIN_MM
-    if (params.textCenterY - halfHeight < minY || params.textCenterY + halfHeight > maxY) {
+    const band = getTextBand(params)
+    if (
+      params.textCenterY - halfHeight < band.min ||
+      params.textCenterY + halfHeight > band.max
+    ) {
       issues.push({
         code: 'can-text-band',
         severity: 'error',
-        message: 'O texto cruza a borda ou o fundo do porta-lata. Ajuste a altura ou o tamanho.',
+        message:
+          'O texto cruza a borda, o fundo ou as bordas decorativas do porta-lata. Ajuste a altura ou o tamanho.',
       })
     }
   }
@@ -185,16 +223,15 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
 
     // A regra cobre só a banda da abraçadeira (handleHeight ± handleWidth/2):
     // é ela que precisa ficar sobre a parede. O laço em D pode passar da borda
-    // superior do porta-lata sem invalidar a peça. Os docs de plano/design
-    // ainda falam do vão completo do laço e serão alinhados na tarefa de docs.
+    // superior do porta-lata sem invalidar a peça; a v1 não recorta o laço.
+    // Os anéis decorativos encurtam a parede disponível nas duas pontas.
+    const wall = getRingWallBand(params)
     const bandMinY = params.handleHeight - params.handleWidth / 2
     const bandMaxY = params.handleHeight + params.handleWidth / 2
-    // O limite inferior é defensivo: com handleHeight ≥ 35 e handleWidth ≤ 16 a
-    // banda nunca começa abaixo de 27 mm.
-    if (
-      bandMinY < HANDLE_MARGIN_MM ||
-      bandMaxY > getOuterHeight(params) - chamfer - HANDLE_MARGIN_MM
-    ) {
+    const lowerLimit = wall.min + HANDLE_MARGIN_MM
+    const upperLimit =
+      Math.min(getOuterHeight(params) - chamfer, wall.max) - HANDLE_MARGIN_MM
+    if (bandMinY < lowerLimit || bandMaxY > upperLimit) {
       issues.push({
         code: 'can-handle-band',
         severity: 'error',

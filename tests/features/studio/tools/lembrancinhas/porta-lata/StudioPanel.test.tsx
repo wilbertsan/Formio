@@ -7,7 +7,7 @@ import type { ValidationIssue } from '@/features/studio/tools/lembrancinhas/port
 const defaultProps = {
   params: defaultCanHolderParams,
   issues: [] as ValidationIssue[],
-  outerDiameter: 72.6,
+  outerDiameter: 74.6,
   outerHeight: 111.2,
   exposedHeight: 14.2,
   onUpdateParam: vi.fn(),
@@ -22,6 +22,8 @@ const SLIDER_RANGES = [
   { name: 'Furo de ventilação', min: 6, max: 14 },
   { name: 'Borda de entrada', min: 0.5, max: 2 },
   { name: 'Chanfro da borda', min: 0, max: 1.5 },
+  { name: 'Salto das bordas', min: 0.4, max: 1.5 },
+  { name: 'Largura das bordas', min: 4, max: 14 },
   { name: 'Altura da alça', min: 35, max: 85 },
   { name: 'Abertura da mão', min: 24, max: 40 },
   { name: 'Alcance da alça', min: 30, max: 50 },
@@ -43,28 +45,33 @@ const HANDLE_SLIDERS = [
 
 const HANDLE_DISABLED_HINT = 'Ligue a alça para ajustar os parâmetros.'
 
+const RIM_SLIDERS = ['Salto das bordas', 'Largura das bordas'] as const
+const RIM_DISABLED_HINT = 'Ligue as bordas para ajustar os parâmetros.'
+
 describe('StudioPanel (porta-lata)', () => {
-  it('renderiza heading, restaurar e as cinco seções', () => {
+  it('renderiza heading, restaurar e as seis seções', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.getByText('Porta-lata')).toBeDefined()
     expect(screen.getByText('Restaurar')).toBeDefined()
     expect(screen.getByText('Corpo')).toBeDefined()
+    expect(screen.getByText('Bordas')).toBeDefined()
     expect(screen.getByText('Alça')).toBeDefined()
     expect(screen.getByText('Personalização')).toBeDefined()
     expect(screen.getByText('Aparência')).toBeDefined()
     expect(screen.getByText('Validação')).toBeDefined()
   })
 
-  it('expõe nome acessível nos 15 sliders', () => {
+  it('expõe nome acessível nos 17 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
+    expect(screen.getAllByRole('slider')).toHaveLength(17)
     for (const { name } of SLIDER_RANGES) {
       expect.soft(screen.getByRole('slider', { name }), name).toBeDefined()
     }
   })
 
-  it('expõe aria-valuemin e aria-valuemax dos 15 sliders', () => {
+  it('expõe aria-valuemin e aria-valuemax dos 17 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(SLIDER_RANGES).toHaveLength(15)
+    expect(SLIDER_RANGES).toHaveLength(17)
     for (const { name, min, max } of SLIDER_RANGES) {
       const slider = screen.getByRole('slider', { name })
       expect.soft(slider, name).toHaveAttribute('aria-valuemin', String(min))
@@ -104,6 +111,16 @@ describe('StudioPanel (porta-lata)', () => {
     })
     expect(onUpdateParam).toHaveBeenLastCalledWith('rimChamfer', 0.5)
 
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Salto das bordas' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('edgeRimProtrusion', 1.1)
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Largura das bordas' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('edgeRimWidth', 7)
+
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Banda da alça' }), {
       key: 'ArrowRight',
     })
@@ -127,10 +144,10 @@ describe('StudioPanel (porta-lata)', () => {
     expect(
       screen.getByText('Lata 350 ml · Ø66,2 × 122,2 mm · topo 54 mm'),
     ).toBeDefined()
-    expect(screen.getByText('Diâmetro externo: 72,6 mm')).toBeDefined()
+    expect(screen.getByText('Diâmetro externo: 74,6 mm')).toBeDefined()
     expect(screen.getByText('Altura externa: 111,2 mm')).toBeDefined()
     expect(screen.getByText('Altura exposta: 14,2 mm')).toBeDefined()
-    expect(screen.getByText('Parede do topo: 1,0 mm')).toBeDefined()
+    expect(screen.getByText('Parede do topo: 2,0 mm')).toBeDefined()
   })
 
   it('usa vírgula decimal no valor dos sliders', () => {
@@ -229,6 +246,58 @@ describe('StudioPanel (porta-lata)', () => {
       key: 'ArrowRight',
     })
     expect(onUpdateParam).not.toHaveBeenCalled()
+  })
+
+  it('desabilita os sliders das bordas quando elas estão desligadas', () => {
+    const onUpdateParam = vi.fn()
+    const { rerender } = render(
+      <StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />,
+    )
+    for (const name of RIM_SLIDERS) {
+      expect.soft(screen.getByRole('slider', { name }), name).not.toHaveAttribute(
+        'data-disabled',
+      )
+    }
+    expect(screen.queryByText(RIM_DISABLED_HINT)).toBeNull()
+
+    fireEvent.click(screen.getByLabelText('Habilitar bordas'))
+    expect(onUpdateParam).toHaveBeenCalledWith('edgeRimEnabled', false)
+
+    onUpdateParam.mockClear()
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, edgeRimEnabled: false }}
+        onUpdateParam={onUpdateParam}
+      />,
+    )
+    for (const name of RIM_SLIDERS) {
+      expect.soft(screen.getByRole('slider', { name }), name).toHaveAttribute(
+        'data-disabled',
+      )
+    }
+    expect(screen.getByText(RIM_DISABLED_HINT)).toBeDefined()
+    expect(screen.queryByText(/Texto entre/)).toBeNull()
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Largura das bordas' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).not.toHaveBeenCalled()
+  })
+
+  it('mostra a faixa útil do texto entre as bordas', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText('Texto entre 8,0 e 103,2 mm')).toBeDefined()
+  })
+
+  it('acompanha a largura das bordas na faixa do texto', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, edgeRimWidth: 14 }}
+      />,
+    )
+    expect(screen.getByText('Texto entre 16,0 e 95,2 mm')).toBeDefined()
   })
 
   it('atualiza as cores pelos swatches agrupados', () => {

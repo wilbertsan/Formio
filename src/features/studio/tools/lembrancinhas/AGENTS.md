@@ -25,10 +25,12 @@ lembrancinhas.
 - Caixa personalizada: paredes ≥ 0,8 mm, elementos e furos ≥ 0,8 mm
 - Porta-lata 350 ml: cavidade interna de 67,8 mm (folga 0,8 mm sobre a lata de
   66,2 mm) e furo de ventilação de 10 mm; parede ≥ 1,8 mm e fundo ≥ 2 mm; texto
-  em relevo de 1 mm; alça separada de abraçadeira com folga de 0,2–0,5 mm;
-  corpo e alça impressos em pé, a alça apoiada na borda inferior do laço, com
-  suporte sob a abraçadeira de 200°. Não há capacidade em ml: a capacidade é da
-  lata
+  em relevo de 1 mm; bordas decorativas de 0,4–1,5 mm de salto e 4–14 mm de
+  largura, coladas na base e no topo, com flancos a 45° (o anel inferior apoia
+  na mesa e o superior imprime sem suporte); alça separada de abraçadeira com
+  folga de 0,2–0,5 mm; corpo e alça impressos em pé, a alça apoiada na borda
+  inferior do laço, com suporte sob a abraçadeira de 200°. Não há capacidade em
+  ml: a capacidade é da lata
 
 ## Invariantes
 

@@ -138,20 +138,59 @@ describe('buildRelief', () => {
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
     const ceiling =
-      getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM
+    const floor = params.edgeRimWidth + TEXT_BAND_MARGIN_MM
 
-    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
+    expect(box.min.y).toBeGreaterThanOrEqual(floor - POSITION_EPSILON)
     expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
     expect(box.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()
   })
 
+  it('clampa o texto entre os anéis', () => {
+    const params = { ...defaultCanHolderParams, edgeRimWidth: 14, textCenterY: 120 }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+
+    expect(box.min.y).toBeGreaterThanOrEqual(
+      params.edgeRimWidth + TEXT_BAND_MARGIN_MM - POSITION_EPSILON,
+    )
+    expect(box.max.y).toBeCloseTo(
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM,
+      5,
+    )
+    geometry.dispose()
+  })
+
+  it('clampa o texto acima do anel inferior', () => {
+    // Glifo de 18 mm (o mesmo `textSize`): metade de 9 mm. Centrado em 20 mm o
+    // texto começaria em 11 mm, abaixo dos 16 mm do anel mais a margem.
+    const params = {
+      ...defaultCanHolderParams,
+      edgeRimWidth: 14,
+      textCenterY: 20,
+      textSize: 18,
+    }
+    const geometry = buildRelief(rectangleFont(10, 18), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+
+    expect(box.min.y).toBeCloseTo(params.edgeRimWidth + TEXT_BAND_MARGIN_MM, 5)
+    expect(box.max.y).toBeLessThanOrEqual(
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM + POSITION_EPSILON,
+    )
+    geometry.dispose()
+  })
+
   it('clampa o texto com o chanfro efetivo quando o chanfro pedido é limitado', () => {
-    // Parede 2,4 mm: o chanfro efetivo é 0,6 mm, não os 2 mm pedidos.
+    // Parede 2,4 mm: o chanfro efetivo é 0,6 mm, não os 2 mm pedidos. Anéis
+    // desligados: eles têm teste próprio.
     const params = {
       ...defaultCanHolderParams,
       rimChamfer: 2,
       wallThickness: 2.4,
+      edgeRimEnabled: false,
       textCenterY: 120,
     }
     const chamfer = getEffectiveRimChamfer(params)
@@ -171,11 +210,13 @@ describe('buildRelief', () => {
   it('respeita o chanfro efetivo quando o lead-in limita o perfil', () => {
     // Com lead-in 2 mm e parede 2,6 mm o schema zera o chanfro (lead-in
     // efetivo 1,8 mm), então o topo do relevo pode subir até o limite real.
+    // Anéis desligados: eles têm teste próprio.
     const params = {
       ...defaultCanHolderParams,
       rimChamfer: 2,
       rimLeadIn: 2,
       wallThickness: 2.6,
+      edgeRimEnabled: false,
       textCenterY: 120,
     }
     expect(getEffectiveRimChamfer(params)).toBeCloseTo(0, 6)
@@ -189,9 +230,11 @@ describe('buildRelief', () => {
   })
 
   it('clampa o texto dentro do corpo mais curto (cavidade 80)', () => {
+    // Anéis desligados: eles têm teste próprio.
     const params = {
       ...defaultCanHolderParams,
       cavityDepth: 80,
+      edgeRimEnabled: false,
       textCenterY: 120,
     }
     const geometry = buildRelief(rectangleFont(10, 4), params)!

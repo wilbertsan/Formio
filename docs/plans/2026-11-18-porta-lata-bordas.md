@@ -30,8 +30,8 @@ semânticos; toda validação de entrada via Zod; o corpo continua single-shell.
 
 **Step 1: escrever os testes que falham**
 
-No import de `schema.test.ts`, adicione `getEffectiveRingProtrusion`,
-`getMaxOuterDiameter` e `MIN_EDGE_RIM_FLAT_MM` à lista.
+No import de `schema.test.ts`, adicione `getEffectiveRingProtrusion` e
+`getMaxOuterDiameter` à lista.
 
 No teste `defaults válidos`, adicione ao `toMatchObject`:
 
@@ -85,14 +85,28 @@ Adicione um teste novo:
     ).toBe(0)
 
     // Defensivo: fora do schema (largura < 4) o salto encolhe para sobrar 1 mm
-    // de face plana no centro do anel.
+    // de face plana no centro do anel: (3 - 1) / 2 = 1 mm de cada lado.
     expect(
       getEffectiveRingProtrusion({
         ...defaultCanHolderParams,
         edgeRimWidth: 3,
         edgeRimProtrusion: 1.5,
       }),
-    ).toBeCloseTo(MIN_EDGE_RIM_FLAT_MM, 5)
+    ).toBeCloseTo(1, 5)
+
+    // Entrada válida na fronteira: o clamp não altera.
+    expect(
+      getEffectiveRingProtrusion({
+        ...defaultCanHolderParams,
+        edgeRimWidth: 4,
+        edgeRimProtrusion: 1.5,
+      }),
+    ).toBeCloseTo(1.5, 5)
+  })
+
+  it('desliga os anéis sem alterar o diâmetro externo', () => {
+    const params = { ...defaultCanHolderParams, edgeRimEnabled: false }
+    expect(getMaxOuterDiameter(params)).toBeCloseTo(getOuterDiameter(params), 5)
   })
 ```
 
@@ -136,6 +150,9 @@ Depois de `getEffectiveRimChamfer`:
 /**
  * Salto radial efetivo dos anéis: 0 quando desligados e limitado para sobrar
  * `MIN_EDGE_RIM_FLAT_MM` de face plana entre os flancos de 45°.
+ *
+ * O clamp é defensivo; inalcançável pelo schema (`edgeRimWidth` ≥ 4 e
+ * `edgeRimProtrusion` ≤ 1,5). Ele só reduz objetos construídos fora do Zod.
  */
 export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): number {
   if (!params.edgeRimEnabled) return 0
@@ -148,7 +165,7 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
   )
 }
 
-/** Diâmetro máximo impresso, incluindo os anéis decorativos. */
+/** Diâmetro externo do corpo com os anéis decorativos (não inclui o relevo do texto). */
 export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
   return (getOuterRadius(params) + getEffectiveRingProtrusion(params)) * 2
 }
@@ -343,11 +360,53 @@ git commit -m "feat: add decorative rims to can holder profile"
 
 ---
 
-## Task 3: Validação dos anéis, da alça e do texto
+## Task 3: Faixa do texto, relevo e validação dos anéis
 
 **Arquivos:**
+- Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/schema.ts` (helper `getTextBand`)
+- Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/buildRelief.ts` (`clampCenterY`)
 - Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts`
 - Testar: `tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts`
+- Testar: `tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts`
+
+**Step 0: helper único da faixa do texto**
+
+A revisão da Tarefa 2 mostrou que `clampCenterY` (buildRelief) e a validação
+calculam a faixa do texto separadamente; com anéis, o build precisa da mesma
+regra para não deixar o relevo sobre o anel. Extraia os helpers em `schema.ts`,
+depois de `getTopLand`:
+
+```ts
+export interface TextBand {
+  min: number
+  max: number
+}
+
+/**
+ * Faixa vertical da parede cilíndrica entre os anéis decorativos, sem margem.
+ * `max` é o fim da parede em `height - ringWidth` quando os anéis estão
+ * ligados, ou a altura do corpo quando desligados.
+ */
+export function getRingWallBand(params: CanHolderGeometryParams): TextBand {
+  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  return { min: ringWidth, max: getOuterHeight(params) - ringWidth }
+}
+
+/**
+ * Faixa vertical disponível para o texto: entre o fundo e a borda de entrada,
+ * descontando os anéis decorativos quando ligados, com `TEXT_BAND_MARGIN_MM` de
+ * margem em cada ponta.
+ */
+export function getTextBand(params: CanHolderGeometryParams): TextBand {
+  const wall = getRingWallBand(params)
+  return {
+    min: Math.max(params.bottomThickness, wall.min) + TEXT_BAND_MARGIN_MM,
+    max:
+      Math.min(getOuterHeight(params) - getEffectiveRimChamfer(params), wall.max) -
+      TEXT_BAND_MARGIN_MM,
+  }
+}
+```
 
 **Step 1: escrever os testes que falham**
 
@@ -452,24 +511,88 @@ Adicione os testes:
   })
 ```
 
+Em `buildRelief.test.ts`:
+
+1. Nos testes focados no chanfro (`clampa o texto com o chanfro efetivo quando o
+   chanfro pedido é limitado`, `respeita o chanfro efetivo quando o lead-in
+   limita o perfil`, `clampa o texto dentro do corpo mais curto`), adicione
+   `edgeRimEnabled: false` aos params e um comentário de uma linha: os anéis têm
+   teste próprio e mudariam o teto.
+2. Em `clampa o texto para dentro da parede quando o centro pede a borda`, o
+   teto e o piso agora incluem os anéis:
+
+```ts
+    const ceiling =
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM
+    ...
+    expect(box.min.y).toBeGreaterThanOrEqual(params.edgeRimWidth + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
+    expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
+```
+
+3. Adicione o teste do anel largo:
+
+```ts
+  it('clampa o texto entre os anéis', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      edgeRimWidth: 14,
+      textCenterY: 120,
+    }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+    const ceiling =
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM
+
+    expect(box.min.y).toBeGreaterThanOrEqual(14 + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
+    expect(box.max.y).toBeCloseTo(ceiling, 5)
+    geometry.dispose()
+  })
+```
+
 **Step 2: rodar e confirmar a falha**
 
 ```bash
-npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
+npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts
 ```
 
-Esperado: `can-edge-rim` desconhecido/ausente e os testes de faixa falhando.
+Esperado: `can-edge-rim` desconhecido/ausente, testes de faixa falhando e os
+testes de clamp do relevo com teto antigo.
 
 **Step 3: implementar o mínimo**
 
-No import de `schema`, adicione `MIN_EDGE_RIM_FLAT_MM`.
-
-Adicione a constante perto de `HANDLE_MARGIN_MM`:
+Em `buildRelief.ts`, troque o corpo de `clampCenterY` e limpe os imports:
 
 ```ts
-/** Faixa livre mínima que os dois anéis precisam deixar no corpo. */
-const MIN_FREE_RING_BAND_MM = 2
+function clampCenterY(params: CanHolderGeometryParams, halfHeight: number): number {
+  const band = getTextBand(params)
+  const minY = band.min + halfHeight
+  const maxY = band.max - halfHeight
+  if (minY > maxY) return params.textCenterY
+  return Math.min(maxY, Math.max(minY, params.textCenterY))
+}
 ```
+
+Importe `getTextBand` de `./schema` e remova `TEXT_BAND_MARGIN_MM`,
+`getEffectiveRimChamfer` e `getOuterHeight` do import (ficam sem uso).
+
+Em `validateCanHolder.ts`, use o mesmo helper no bloco do texto:
+
+```ts
+    const band = getTextBand(params)
+    const fitScale = Math.min(1, MAX_TEXT_ARC / arc)
+    const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
+    if (
+      params.textCenterY - halfHeight < band.min ||
+      params.textCenterY + halfHeight > band.max
+    ) {
+```
+
+Importe `getRingWallBand` e `getTextBand` de `./schema`. O restante da validação
+segue como abaixo.
+
+No import de `schema`, adicione `MIN_EDGE_RIM_FLAT_MM` e remova
+`TEXT_BAND_MARGIN_MM`, que fica sem uso em `validateCanHolder.ts`.
 
 Adicione `'can-edge-rim'` ao tipo `CanHolderIssueCode`.
 
@@ -490,7 +613,7 @@ Depois da regra `can-bottom`:
     }
 
     if (
-      2 * params.edgeRimWidth + 2 * MIN_FREE_RING_BAND_MM >
+      2 * params.edgeRimWidth + 2 * HANDLE_MARGIN_MM >
       getOuterHeight(params) + BOUNDARY_EPSILON
     ) {
       issues.push({
@@ -502,30 +625,15 @@ Depois da regra `can-bottom`:
   }
 ```
 
-No bloco do texto, troque o cálculo de `minY`/`maxY`:
-
-```ts
-    const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
-    const fitScale = Math.min(1, MAX_TEXT_ARC / arc)
-    const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
-    const minY =
-      Math.max(params.bottomThickness, ringWidth) + TEXT_BAND_MARGIN_MM
-    const maxY =
-      getOuterHeight(params) -
-      Math.max(chamfer, ringWidth) -
-      TEXT_BAND_MARGIN_MM
-```
-
 No bloco da alça, troque os limites:
 
 ```ts
-    const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+    const wall = getRingWallBand(params)
     const bandMinY = params.handleHeight - params.handleWidth / 2
     const bandMaxY = params.handleHeight + params.handleWidth / 2
-    const lowerLimit = ringWidth + HANDLE_MARGIN_MM
-    const upperLimit = params.edgeRimEnabled
-      ? getOuterHeight(params) - ringWidth - HANDLE_MARGIN_MM
-      : getOuterHeight(params) - chamfer - HANDLE_MARGIN_MM
+    const lowerLimit = wall.min + HANDLE_MARGIN_MM
+    const upperLimit =
+      Math.min(getOuterHeight(params) - chamfer, wall.max) - HANDLE_MARGIN_MM
     if (bandMinY < lowerLimit || bandMaxY > upperLimit) {
       issues.push({
         code: 'can-handle-band',
@@ -540,7 +648,7 @@ Atualize o comentário acima da regra para citar os anéis.
 **Step 4: rodar e confirmar o sucesso**
 
 ```bash
-npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
+npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts
 ```
 
 Esperado: todos passando.
@@ -548,8 +656,8 @@ Esperado: todos passando.
 **Step 5: commit**
 
 ```bash
-git add src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
-git commit -m "feat: validate can holder edge rims"
+git add src/features/studio/tools/lembrancinhas/porta-lata/schema.ts src/features/studio/tools/lembrancinhas/porta-lata/buildRelief.ts src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts
+git commit -m "feat: keep can holder text inside the edge rims"
 ```
 
 ---
@@ -699,6 +807,13 @@ seções`, adicione `Bordas` e ajuste a ordem:
 Em `expõe nome acessível nos 15 sliders` e `expõe aria-valuemin e aria-valuemax
 dos 15 sliders`, troque "15" por "17" e a asserção de comprimento para 17.
 
+Em `mostra o preset da lata e as dimensões derivadas`, atualize a parede do topo
+para o valor com anel:
+
+```ts
+    expect(screen.getByText('Parede do topo: 2,0 mm')).toBeDefined()
+```
+
 Adicione:
 
 ```ts
@@ -717,7 +832,7 @@ const RIM_DISABLED_HINT = 'Ligue as bordas para ajustar os parâmetros.'
     }
     expect(screen.queryByText(RIM_DISABLED_HINT)).toBeNull()
 
-    fireEvent.click(screen.getByLabelText('Bordas decorativas'))
+    fireEvent.click(screen.getByLabelText('Habilitar bordas'))
     expect(onUpdateParam).toHaveBeenCalledWith('edgeRimEnabled', false)
 
     onUpdateParam.mockClear()
@@ -736,9 +851,19 @@ const RIM_DISABLED_HINT = 'Ligue as bordas para ajustar os parâmetros.'
     expect(screen.getByText(RIM_DISABLED_HINT)).toBeDefined()
   })
 
-  it('mostra a faixa livre entre as bordas', () => {
+  it('mostra a faixa útil do texto entre as bordas', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText('Faixa livre entre as bordas: 99,2 mm')).toBeDefined()
+    expect(screen.getByText('Texto entre 8,0 e 103,2 mm')).toBeDefined()
+  })
+
+  it('acompanha a largura das bordas na faixa do texto', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, edgeRimWidth: 14 }}
+      />,
+    )
+    expect(screen.getByText('Texto entre 16,0 e 95,2 mm')).toBeDefined()
   })
 ```
 
@@ -766,7 +891,9 @@ Esperado: seção/sliders ausentes.
 
 **Step 3: implementar o mínimo**
 
-Em `StudioPanel.tsx`, adicione um `Accordion.Item` entre `corpo` e `alca`:
+Em `StudioPanel.tsx`, importe `getTextBand` de `./schema`, calcule
+`const textBand = getTextBand(params)` no corpo do componente e adicione um
+`Accordion.Item` entre `corpo` e `alca`:
 
 ```tsx
         <Accordion.Item value="bordas">
@@ -777,7 +904,7 @@ Em `StudioPanel.tsx`, adicione um `Accordion.Item` entre `corpo` e `alca`:
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <SwitchField
-                label="Bordas decorativas"
+                label="Habilitar bordas"
                 isChecked={params.edgeRimEnabled}
                 onChange={(event) => onUpdateParam('edgeRimEnabled', event.target.checked)}
               />
@@ -785,7 +912,7 @@ Em `StudioPanel.tsx`, adicione um `Accordion.Item` entre `corpo` e `alca`:
               <LabeledSlider label="Largura das bordas" value={params.edgeRimWidth} min={4} max={14} step={1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimWidth', value)} />
               {params.edgeRimEnabled ? (
                 <Text fontSize="xs" color="font.secondary">
-                  Faixa livre entre as bordas: {formatMm(outerHeight - 2 * params.edgeRimWidth)} mm
+                  Texto entre {formatMm(textBand.min)} e {formatMm(textBand.max)} mm
                 </Text>
               ) : (
                 <Text fontSize="xs" color="font.secondary">
@@ -860,13 +987,13 @@ git commit -m "test: cover can holder edge rims in full build"
 **Step 1: `porta-lata/AGENTS.md`**
 
 - Objetivo: citar os dois anéis decorativos colados nas extremidades.
-- Parâmetros do corpo: adicionar a tabela dos três campos, a faixa 0,4–1,5/1,0
-  e 4–14/6, e a nota de clamp `(largura − 1) / 2`.
+- Parâmetros: adicionar a subseção **Bordas** com a tabela dos três campos, a
+  faixa 0,4–1,5/1,0 e 4–14/6, e a nota de clamp `(largura − 1) / 2`.
 - Dimensões derivadas: diâmetro externo default **74,6 mm** (72,6 do corpo +
-  2 × 1,0), parede do topo **2,0 mm**, faixa livre entre bordas **99,2 mm**.
-- Regras do domínio: descrever o perfil com anéis (dois flancos de 45°), anel
-  inferior apoiado na mesa, anel superior sem suporte, `getTopLand` somando o
-  salto e `getMaxOuterDiameter` para painel/status.
+  2 × 1,0), parede do topo **2,0 mm**, faixa útil do texto **8,0–103,2 mm**.
+- Regras do domínio: descrever o perfil com anéis (um flanco de 45° por anel),
+  anel inferior apoiado na mesa, anel superior sem suporte, `getTopLand` somando
+  o salto e `getMaxOuterDiameter` para painel/status.
 - Validação: `can-edge-rim` na tabela; `can-text-band` e `can-handle-band`
   descontando a largura dos anéis.
 - Decisões da v1: anéis compartilhados, perfil trapezoidal, sem recorte na alça,
@@ -890,7 +1017,22 @@ Na seção **Porta-lata**:
 **Step 4: marcar o design como implementado**
 
 No topo de `docs/plans/2026-11-18-porta-lata-bordas-design.md`, trocar o status
-para `design aprovado; implementado` e registrar qualquer desvio encontrado.
+para `design aprovado; implementado` e registrar os desvios encontrados:
+
+- a constante da face plana foi implementada como `MIN_EDGE_RIM_FLAT_MM`
+  (o design a chamava `MIN_RING_FLAT_MM`);
+- o perfil do design omite o ponto vertical `(ringR, height − chamfer)` entre o
+  flanco superior e o chanfro da borda; a implementação o inclui, senão o anel
+  superior perde a face vertical e o `getTopLand` não fecha;
+- `getMaxOuterDiameter` não inclui o relevo de 1 mm do texto — é o diâmetro do
+  corpo com os anéis, coerente com a convenção de medidas nominais do status
+  bar;
+- o clamp de `getEffectiveRingProtrusion` e a regra `can-edge-rim` são
+  defensivos: inalcançáveis pelo schema e pela UI;
+- a linha do painel virou `Texto entre X e Y mm` via `getTextBand` (faixa útil
+  real), em vez da faixa geométrica `altura - 2w`;
+- `getRingWallBand` é a fonte única da extensão dos anéis; `getTextBand` parte
+  dela, e o build (`clampCenterY`) e a validação do texto compartilham o helper.
 
 **Step 5: commit**
 
@@ -917,7 +1059,10 @@ Esperado: todos os arquivos passando, incluindo worker, export e CSG.
 npm test
 ```
 
-Esperado: sem regressões fora do porta-lata.
+Esperado: sem regressões fora do porta-lata. Ao rodar, `StudioPage.test.tsx`
+precisou do mesmo ajuste do status bar (`72.6 × 111.2 × 2.4 mm` → `74.6 ×
+111.2 × 2.4 mm`); o teste está fora da pasta da ferramenta e não apareceu na
+varredura inicial do plano.
 
 **Step 3: typecheck**
 
@@ -947,10 +1092,11 @@ Esperado: build concluído.
 
 - Abrir o Studio, conferir no preview os anéis na base e no topo.
 - Desligar as bordas e confirmar que o corpo volta ao cilindro reto.
-- Verificar o painel: 17 sliders, faixa livre 99,2 mm e parede do topo 2,0 mm.
+- Verificar o painel: 17 sliders, "Texto entre 8,0 e 103,2 mm" e parede do topo
+  2,0 mm.
 - Conferir o status bar: `74.6 × 111.2 × 2.4 mm`.
 - Testar `handleHeight` 85 com `edgeRimWidth` 14: `can-handle-band` deve
-  aparecer e bloquear apenas o build inválido (avisos não bloqueiam).
+  aparecer no painel sem impedir o build nem o export (validação é consultiva).
 - Exportar e conferir que os dois STLs continuam fechados.
 
 **Step 7: commit final (se houver ajuste)**

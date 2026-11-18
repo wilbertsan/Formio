@@ -19,6 +19,7 @@ import {
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
+  getTextBand,
   getTopLand,
   type FontStyle,
   type CanHolderParams,
@@ -140,6 +141,8 @@ export function StudioPanel({
   onUpdateParam,
   onReset,
 }: StudioPanelProps) {
+  const textBand = getTextBand(params)
+
   return (
     <View
       as="aside"
@@ -185,6 +188,33 @@ export function StudioPanel({
               <Text fontSize="xs" color="font.secondary">
                 Parede do topo: {formatMm(getTopLand(params))} mm
               </Text>
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="bordas">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">Bordas</Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <SwitchField
+                label="Habilitar bordas"
+                isChecked={params.edgeRimEnabled}
+                onChange={(event) => onUpdateParam('edgeRimEnabled', event.target.checked)}
+              />
+              <LabeledSlider label="Salto das bordas" value={params.edgeRimProtrusion} min={0.4} max={1.5} step={0.1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimProtrusion', value)} />
+              <LabeledSlider label="Largura das bordas" value={params.edgeRimWidth} min={4} max={14} step={1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimWidth', value)} />
+              {params.edgeRimEnabled ? (
+                <Text fontSize="xs" color="font.secondary">
+                  Texto entre {formatMm(textBand.min)} e {formatMm(textBand.max)} mm
+                </Text>
+              ) : (
+                <Text fontSize="xs" color="font.secondary">
+                  Ligue as bordas para ajustar os parâmetros.
+                </Text>
+              )}
             </Flex>
           </Accordion.Content>
         </Accordion.Item>

@@ -83,6 +83,32 @@ describe('validateCanHolder', () => {
     expect(shallow).toContainEqual(expect.objectContaining({ code: 'can-bottom', severity: 'error' }))
   })
 
+  it('aponta salto grande demais para a largura da borda (defensivo)', () => {
+    // Fora do schema (largura < 4): 2 × 1,5 + 1 mm de face plana não cabem em
+    // 3 mm. O clamp do perfil reduziria o salto, mas a regra é crua.
+    const issues = validateCanHolder(withParams({ edgeRimWidth: 3, edgeRimProtrusion: 1.5 }))
+    expect(issues).toContainEqual(
+      expect.objectContaining({ code: 'can-edge-rim', severity: 'error' }),
+    )
+    expect(
+      validateCanHolder(defaultCanHolderParams).some((issue) => issue.code === 'can-edge-rim'),
+    ).toBe(false)
+    // Fronteira do schema: 2 × 1,5 + 1 mm cabem exatamente nos 4 mm.
+    expect(
+      validateCanHolder(withParams({ edgeRimWidth: 4, edgeRimProtrusion: 1.5 })).some(
+        (issue) => issue.code === 'can-edge-rim',
+      ),
+    ).toBe(false)
+  })
+
+  it('aponta bordas que ocupam a altura toda do corpo (defensivo)', () => {
+    // Dois anéis de 60 mm mais 2 mm livres em cada ponta passam dos 111,2 mm.
+    const issues = validateCanHolder(withParams({ edgeRimWidth: 60 }))
+    expect(issues).toContainEqual(
+      expect.objectContaining({ code: 'can-edge-rim', severity: 'error' }),
+    )
+  })
+
   it('aponta texto que pode não caber no arco', () => {
     const issues = validateCanHolder(
       withParams({ text: 'A'.repeat(20), textSize: 18 }),
@@ -105,7 +131,9 @@ describe('validateCanHolder', () => {
     const params = withParams({ cavityDepth: 90 })
     const halfHeight = (params.textSize * GLYPH_HEIGHT_FACTOR) / 2
     const ceiling =
-      getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM
+      getOuterHeight(params) -
+      Math.max(getEffectiveRimChamfer(params), params.edgeRimWidth) -
+      TEXT_BAND_MARGIN_MM
 
     const issues = validateCanHolder({ ...params, textCenterY: ceiling - halfHeight })
     expect(issues.some((issue) => issue.code === 'can-text-band')).toBe(false)
@@ -167,11 +195,13 @@ describe('validateCanHolder', () => {
   })
 
   it('aceita a banda exatamente no limite superior do corpo', () => {
-    // Corpo de 95 mm + chanfro 0 → topo útil 93 mm; banda 85 ± 8 → 93 mm.
+    // Anéis desligados: o teste é sobre o chanfro. Corpo de 95 mm + chanfro 0
+    // → topo útil 93 mm; banda 85 ± 8 → 93 mm.
     const params = withParams({
       cavityDepth: 91.8,
       bottomThickness: 3.2,
       rimChamfer: 0,
+      edgeRimEnabled: false,
       handleHeight: 85,
       handleWidth: 16,
     })
@@ -183,6 +213,53 @@ describe('validateCanHolder', () => {
 
     const issues = validateCanHolder(params)
     expect(issues.some((issue) => issue.code === 'can-handle-band')).toBe(false)
+  })
+
+  it('mantém a banda da alça entre os anéis', () => {
+    // Corpo de 103,2 mm com anéis de 14 mm: a banda (85 ± 8 → 77 a 93 mm)
+    // passa do topo útil de 87,2 mm.
+    const params = withParams({
+      cavityDepth: 100,
+      edgeRimWidth: 14,
+      handleHeight: 85,
+      handleWidth: 16,
+    })
+    const issues = validateCanHolder(params)
+    expect(issues).toContainEqual(
+      expect.objectContaining({ code: 'can-handle-band', severity: 'error' }),
+    )
+    expect(issues.some((issue) => issue.code === 'can-cavity')).toBe(false)
+    expect(
+      validateCanHolder({ ...params, edgeRimEnabled: false }).some(
+        (issue) => issue.code === 'can-handle-band',
+      ),
+    ).toBe(false)
+  })
+
+  it('mantém o texto entre os anéis', () => {
+    // Corpo de 103,2 mm com anéis de 6 mm: o topo útil é 95,2 mm e o texto de
+    // 18 mm centrado em 90 mm chega a 99,9 mm.
+    const high = withParams({ cavityDepth: 100, textCenterY: 90, textSize: 18 })
+    expect(validateCanHolder(high)).toContainEqual(
+      expect.objectContaining({ code: 'can-text-band', severity: 'error' }),
+    )
+    expect(
+      validateCanHolder({ ...high, edgeRimEnabled: false }).some(
+        (issue) => issue.code === 'can-text-band',
+      ),
+    ).toBe(false)
+
+    // Anéis de 14 mm sobem o piso para 16 mm; o texto centrado em 20 mm chega
+    // a 10,1 mm.
+    const low = withParams({ textCenterY: 20, textSize: 18, edgeRimWidth: 14 })
+    expect(validateCanHolder(low)).toContainEqual(
+      expect.objectContaining({ code: 'can-text-band', severity: 'error' }),
+    )
+    expect(
+      validateCanHolder({ ...low, edgeRimEnabled: false }).some(
+        (issue) => issue.code === 'can-text-band',
+      ),
+    ).toBe(false)
   })
 
   it('aceita os limites exatos de cavidade, folga, borda, fundo, texto e alça', () => {
@@ -207,7 +284,7 @@ describe('validateCanHolder', () => {
     const bottom = withParams({ bottomThickness: 2 })
     expect(validateCanHolder(bottom).some((issue) => issue.code === 'can-bottom')).toBe(false)
     const halfHeight = (bottom.textSize * GLYPH_HEIGHT_FACTOR) / 2
-    const floor = bottom.bottomThickness + TEXT_BAND_MARGIN_MM
+    const floor = Math.max(bottom.bottomThickness, bottom.edgeRimWidth) + TEXT_BAND_MARGIN_MM
     const lowerBand = validateCanHolder({ ...bottom, textCenterY: floor + halfHeight })
     expect(lowerBand.some((issue) => issue.code === 'can-text-band')).toBe(false)
 

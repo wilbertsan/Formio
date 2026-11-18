@@ -6,6 +6,7 @@ import {
   HANDLE_RING_THICKNESS,
   HANDLE_WRAP,
   getEffectiveLeadIn,
+  getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
   getInnerDiameter,
   getOuterHeight,
@@ -26,9 +27,10 @@ export function dedupePoints(points: Vector2[]): Vector2[] {
 
 /**
  * Perfil fechado no plano (r, y) para o LatheGeometry:
- * furo de ventilação → fundo externo → parede externa → borda → parede interna
- * → fundo interno → furo. O primeiro e o último ponto coincidem para fechar a
- * superfície; o perfil não toca o eixo, então não há leques degenerados.
+ * furo de ventilação → fundo externo → anel inferior → parede → anel superior →
+ * borda → parede interna → fundo interno → furo. O primeiro e o último ponto
+ * coincidem para fechar a superfície; o perfil não toca o eixo, então não há
+ * leques degenerados.
  */
 export function bodyProfile(params: CanHolderGeometryParams): Vector2[] {
   const outerR = getOuterRadius(params)
@@ -38,13 +40,36 @@ export function bodyProfile(params: CanHolderGeometryParams): Vector2[] {
   const leadIn = getEffectiveLeadIn(params)
   const chamfer = getEffectiveRimChamfer(params)
   const base = Math.min(BASE_CHAMFER_MM, outerR * 0.2)
+  const protrusion = getEffectiveRingProtrusion(params)
+
+  if (protrusion === 0) {
+    return dedupePoints([
+      new Vector2(ventR, 0),
+      new Vector2(outerR - base, 0),
+      new Vector2(outerR, base),
+      new Vector2(outerR, height - chamfer),
+      new Vector2(outerR - chamfer, height),
+      new Vector2(innerR + leadIn, height),
+      new Vector2(innerR, height - leadIn),
+      new Vector2(innerR, params.bottomThickness),
+      new Vector2(ventR, params.bottomThickness),
+      new Vector2(ventR, 0),
+    ])
+  }
+
+  const ringR = outerR + protrusion
+  const width = params.edgeRimWidth
 
   return dedupePoints([
     new Vector2(ventR, 0),
-    new Vector2(outerR - base, 0),
-    new Vector2(outerR, base),
-    new Vector2(outerR, height - chamfer),
-    new Vector2(outerR - chamfer, height),
+    new Vector2(ringR - base, 0),
+    new Vector2(ringR, base),
+    new Vector2(ringR, width - protrusion),
+    new Vector2(outerR, width),
+    new Vector2(outerR, height - width),
+    new Vector2(ringR, height - width + protrusion),
+    new Vector2(ringR, height - chamfer),
+    new Vector2(ringR - chamfer, height),
     new Vector2(innerR + leadIn, height),
     new Vector2(innerR, height - leadIn),
     new Vector2(innerR, params.bottomThickness),
