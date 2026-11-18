@@ -24,9 +24,8 @@ import {
   HANDLE_RING_THICKNESS,
   HANDLE_WRAP,
   defaultCanHolderParams,
-  type CanHolderGeometryParams,
+  getOuterRadius,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
-import { getBodyOuterRadius } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
 function pointsAtY(points: Vector2[], y: number): Vector2[] {
@@ -64,30 +63,28 @@ function innerBandRadiusAt(geometry: BufferGeometry, y: number): number {
   return inner
 }
 
-const strongTaper: CanHolderGeometryParams = {
-  ...defaultCanHolderParams,
-  diameterTop: 100,
-  diameterBottom: 60,
-  height: 80,
-  handleHeight: 52,
-  handleGap: 40,
-  handleBand: 5,
-  handleClearance: 0.2,
-}
+const extremes = [
+  { name: 'folga mínima da lata', params: { canClearance: 0.5 } },
+  { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
+  { name: 'parede mínima', params: { wallThickness: 1.8 } },
+  { name: 'parede máxima', params: { wallThickness: 4 } },
+]
 
 describe('buildHandle', () => {
-  it('calcula a folga da abraçadeira no raio da altura', () => {
+  it('calcula a folga da abraçadeira no raio constante do corpo', () => {
     const metrics = getHandleMetrics(defaultCanHolderParams)
-    const radius = getBodyOuterRadius(defaultCanHolderParams, defaultCanHolderParams.handleHeight)
+    const radius = getOuterRadius(defaultCanHolderParams)
     const { handleReach, handleClearance, handleBand } = defaultCanHolderParams
 
+    expect(radius).toBeCloseTo(36.3, 5)
+    expect(defaultCanHolderParams.handleHeight).toBe(60)
     expect(metrics.innerRadius).toBeCloseTo(radius + handleClearance, 5)
     expect(metrics.outerRadius).toBeCloseTo(metrics.innerRadius + HANDLE_RING_THICKNESS, 5)
     expect(metrics.handOpeningWidth).toBeCloseTo(
       handleReach - handleClearance - HANDLE_LOOP_INSET - 2 * handleBand,
       6,
     )
-    expect(metrics.handOpeningMinWidth).toBeLessThanOrEqual(metrics.handOpeningWidth)
+    expect(metrics.handOpeningMinWidth).toBeCloseTo(metrics.handOpeningWidth, 6)
     expect(metrics.handOpeningWidth).toBeGreaterThan(16)
   })
 
@@ -95,39 +92,38 @@ describe('buildHandle', () => {
     'a abraçadeira trava no topo com 0,4 mm absolutos (folga %s)',
     (handleClearance) => {
       const params = { ...defaultCanHolderParams, handleClearance }
+      const outerR = getOuterRadius(params)
       const midY = params.handleHeight
       const topY = params.handleHeight + params.handleWidth / 2
       const bottomY = params.handleHeight - params.handleWidth / 2
 
       expect(getBandInnerRadius(params, midY)).toBeCloseTo(
-        getBodyOuterRadius(params, midY) + handleClearance,
+        outerR + handleClearance,
         6,
       )
       expect(getBandInnerRadius(params, topY)).toBeCloseTo(
-        getBodyOuterRadius(params, topY) - HANDLE_FIT_INTERFERENCE,
+        outerR - HANDLE_FIT_INTERFERENCE,
         6,
       )
       expect(getBandInnerRadius(params, bottomY)).toBeCloseTo(
-        getBodyOuterRadius(params, bottomY) +
-          handleClearance +
-          HANDLE_FIT_INTERFERENCE,
+        outerR + handleClearance + HANDLE_FIT_INTERFERENCE,
         6,
       )
-      expect(getBandInnerRadius(params, topY)).toBeLessThan(
-        getBodyOuterRadius(params, topY),
-      )
+      expect(getBandInnerRadius(params, topY)).toBeLessThan(outerR)
     },
   )
 
   it.each([
-    { name: 'default', params: defaultCanHolderParams },
-    { name: 'conicidade forte', params: strongTaper },
-  ])('o laço sobrepõe a espessura da abraçadeira ($name)', ({ params }) => {
+    { name: 'default', params: {} },
+    ...extremes,
+    { name: 'folga da alça mínima', params: { handleClearance: 0.2 } },
+  ])('o laço sobrepõe a espessura da abraçadeira ($name)', ({ params: patch }) => {
+    const params = { ...defaultCanHolderParams, ...patch }
     const yBottom = params.handleHeight - params.handleWidth / 2
 
     for (let step = 0; step <= 8; step++) {
       const y = yBottom + (params.handleWidth * step) / 8
-      expect(getLoopLeftX(params, y)).toBeLessThan(
+      expect(getLoopLeftX(params)).toBeLessThan(
         getBandOuterRadius(params, y) - 0.5,
       )
     }
@@ -152,10 +148,16 @@ describe('buildHandle', () => {
   it('a alça é uma peça fechada, de uma casca, com volume positivo', () => {
     const geometry = buildHandle(defaultCanHolderParams)
     geometry.computeBoundingBox()
-    expect(geometry.boundingBox!.max.x).toBeCloseTo(
-      getBodyOuterRadius(defaultCanHolderParams, defaultCanHolderParams.handleHeight) + defaultCanHolderParams.handleReach,
+    const box = geometry.boundingBox!
+    const halfSpan =
+      defaultCanHolderParams.handleGap / 2 + defaultCanHolderParams.handleBand
+
+    expect(box.max.x).toBeCloseTo(
+      getOuterRadius(defaultCanHolderParams) + defaultCanHolderParams.handleReach,
       1,
     )
+    expect(box.min.y).toBeCloseTo(defaultCanHolderParams.handleHeight - halfSpan, 3)
+    expect(box.max.y).toBeCloseTo(defaultCanHolderParams.handleHeight + halfSpan, 3)
     expect(isClosed(geometry)).toBe(true)
     expect(countShells(geometry)).toBe(1)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
@@ -163,12 +165,13 @@ describe('buildHandle', () => {
   })
 
   it.each([
-    { name: 'default', params: defaultCanHolderParams },
-    { name: 'conicidade forte', params: strongTaper },
-  ])('a malha realiza a folga nominal no meio da abraçadeira ($name)', ({ params }) => {
+    { name: 'default', params: {} },
+    ...extremes,
+  ])('a malha realiza a folga nominal no meio da abraçadeira ($name)', ({ params: patch }) => {
+    const params = { ...defaultCanHolderParams, ...patch }
     const geometry = buildHandle(params)
     const midY = params.handleHeight
-    const bodyRadius = getBodyOuterRadius(params, midY)
+    const bodyRadius = getOuterRadius(params)
     const measured = innerBandRadiusAt(geometry, midY)
 
     expect(Number.isFinite(measured)).toBe(true)
@@ -193,7 +196,7 @@ describe('buildHandle', () => {
     expect(minY).toBeCloseTo(params.handleHeight - params.handleGap / 2, 6)
     expect(maxY).toBeCloseTo(params.handleHeight + params.handleGap / 2, 6)
     expect(Math.max(...xs)).toBeCloseTo(metrics.loopMaxX - params.handleBand, 6)
-    expect(Math.min(...xs)).toBeCloseTo(getLoopLeftX(params, minY) + params.handleBand, 6)
+    expect(Math.min(...xs)).toBeCloseTo(getLoopLeftX(params) + params.handleBand, 6)
     expect(holeWidthAt(hole, params.handleHeight)).toBeCloseTo(metrics.handOpeningWidth, 6)
 
     const geometry = buildHandle(params)
@@ -207,53 +210,44 @@ describe('buildHandle', () => {
     geometry.dispose()
   })
 
-  it.each([
-    { name: 'cone abre para o topo', patch: {} },
-    {
-      name: 'cone fecha para o topo',
-      patch: { diameterTop: 70, diameterBottom: 95 },
-    },
-  ])(
-    'a abertura mínima é o menor extremo do furo trapezoidal ($name)',
-    ({ patch }) => {
-      const params = { ...defaultCanHolderParams, ...patch }
-      const metrics = getHandleMetrics(params)
-      const hole = handleLoopShape(params).holes[0]
-      const halfGap = params.handleGap / 2
-      const bottomWidth = holeWidthAt(hole, params.handleHeight - halfGap)
-      const topWidth = holeWidthAt(hole, params.handleHeight + halfGap)
+  it('a borda vertical mantém a abertura da mão igual em toda a altura', () => {
+    const params = defaultCanHolderParams
+    const metrics = getHandleMetrics(params)
+    const hole = handleLoopShape(params).holes[0]
+    const halfGap = params.handleGap / 2
+    const bottomWidth = holeWidthAt(hole, params.handleHeight - halfGap)
+    const topWidth = holeWidthAt(hole, params.handleHeight + halfGap)
 
-      expect(topWidth).not.toBeCloseTo(bottomWidth, 3)
-      expect(metrics.handOpeningWidth).toBeCloseTo(
-        holeWidthAt(hole, params.handleHeight),
-        6,
-      )
-      expect(metrics.handOpeningMinWidth).toBeCloseTo(
-        Math.min(topWidth, bottomWidth),
-        6,
-      )
+    expect(topWidth).toBeCloseTo(bottomWidth, 6)
+    expect(metrics.handOpeningWidth).toBeCloseTo(
+      holeWidthAt(hole, params.handleHeight),
+      6,
+    )
+    expect(metrics.handOpeningMinWidth).toBeCloseTo(metrics.handOpeningWidth, 6)
+  })
+
+  it.each(extremes)(
+    'fecha a alça e afasta o laço do corpo ($name)',
+    ({ params: patch }) => {
+      const params = { ...defaultCanHolderParams, ...patch }
+      const geometry = buildHandle(params)
+
+      expect(isClosed(geometry)).toBe(true)
+      expect(countShells(geometry)).toBe(1)
+      expect(signedVolume(geometry)).toBeGreaterThan(0)
+      geometry.dispose()
+
+      const halfSpan = params.handleGap / 2 + params.handleBand
+      const loopPoints = handleLoopShape(params).getPoints(64)
+      for (const y of [params.handleHeight - halfSpan, params.handleHeight + halfSpan]) {
+        const matches = pointsAtY(loopPoints, y)
+        expect(matches.length).toBeGreaterThan(0)
+        const leftEdge = Math.min(...matches.map((point) => point.x))
+        expect(leftEdge).toBeCloseTo(getLoopLeftX(params), 6)
+        expect(leftEdge).toBeGreaterThanOrEqual(
+          getOuterRadius(params) + params.handleClearance + HANDLE_LOOP_INSET - 1e-6,
+        )
+      }
     },
   )
-
-  it('fecha e afasta o laço do corpo na conicidade forte', () => {
-    const params = strongTaper
-    const geometry = buildHandle(params)
-
-    expect(isClosed(geometry)).toBe(true)
-    expect(countShells(geometry)).toBe(1)
-    expect(signedVolume(geometry)).toBeGreaterThan(0)
-    geometry.dispose()
-
-    const halfSpan = params.handleGap / 2 + params.handleBand
-    const loopPoints = handleLoopShape(params).getPoints(64)
-    for (const y of [params.handleHeight - halfSpan, params.handleHeight + halfSpan]) {
-      const matches = pointsAtY(loopPoints, y)
-      expect(matches.length).toBeGreaterThan(0)
-      const leftEdge = Math.min(...matches.map((point) => point.x))
-      expect(leftEdge).toBeCloseTo(getLoopLeftX(params, y), 6)
-      expect(leftEdge).toBeGreaterThanOrEqual(
-        getBodyOuterRadius(params, y) + params.handleClearance + HANDLE_LOOP_INSET - 1e-6,
-      )
-    }
-  })
 })

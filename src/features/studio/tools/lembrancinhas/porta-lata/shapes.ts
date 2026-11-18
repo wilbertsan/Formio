@@ -85,12 +85,12 @@ export interface HandleMetrics {
 }
 
 /**
- * Borda esquerda do laço: acompanha a conicidade do corpo, sempre a
+ * Borda esquerda do laço: o corpo é cilíndrico, então a borda é vertical, a
  * `handleClearance + HANDLE_LOOP_INSET` da parede.
  */
-export function getLoopLeftX(params: CanHolderGeometryParams, y: number): number {
+export function getLoopLeftX(params: CanHolderGeometryParams): number {
   return (
-    getBodyOuterRadius(params, y) +
+    getOuterRadius(params) +
     params.handleClearance +
     HANDLE_LOOP_INSET
   )
@@ -116,7 +116,7 @@ export function getBandInnerRadius(
   const c = params.handleClearance
   const i = HANDLE_FIT_INTERFERENCE
   const gap = -2 * c * t * t + (c - 2 * i) * t + c + i
-  return getBodyOuterRadius(params, y) + gap
+  return getOuterRadius(params) + gap
 }
 
 /**
@@ -127,34 +127,28 @@ export function getBandOuterRadius(
   params: CanHolderGeometryParams,
   y: number,
 ): number {
-  const nominal =
-    getBodyOuterRadius(params, params.handleHeight) + params.handleClearance
+  const nominal = getOuterRadius(params) + params.handleClearance
   return (
     (nominal + HANDLE_RING_THICKNESS) * (getBandInnerRadius(params, y) / nominal)
   )
 }
 
 export function getHandleMetrics(params: CanHolderGeometryParams): HandleMetrics {
-  const bodyRadius = getBodyOuterRadius(params, params.handleHeight)
+  const bodyRadius = getOuterRadius(params)
   const innerRadius = bodyRadius + params.handleClearance
   const outerRadius = innerRadius + HANDLE_RING_THICKNESS
+  const loopMinX = getLoopLeftX(params)
   const loopMaxX = bodyRadius + params.handleReach
-  // O furo é trapezoidal: a largura varia linearmente com a altura, então o
-  // mínimo está sempre em um dos extremos.
-  const widthAt = (y: number): number =>
-    loopMaxX - getLoopLeftX(params, y) - 2 * params.handleBand
-  const halfGap = params.handleGap / 2
+  const handOpeningWidth = loopMaxX - loopMinX - 2 * params.handleBand
 
   return {
     innerRadius,
     outerRadius,
-    handOpeningWidth: widthAt(params.handleHeight),
-    handOpeningMinWidth: Math.min(
-      widthAt(params.handleHeight - halfGap),
-      widthAt(params.handleHeight + halfGap),
-    ),
+    handOpeningWidth,
+    // A borda esquerda é vertical: a largura não varia com a altura.
+    handOpeningMinWidth: handOpeningWidth,
     handOpeningHeight: params.handleGap,
-    loopMinX: getLoopLeftX(params, params.handleHeight),
+    loopMinX,
     loopMaxX,
   }
 }
@@ -171,17 +165,17 @@ export function handleRingShape(metrics: HandleMetrics): Shape {
 }
 
 /**
- * Laço em D no plano XY, com a abertura da mão como furo.
+ * Laço em D no plano XY, com a abertura da mão como furo retangular.
  *
- * A borda esquerda segue o perfil do corpo em todo o vão vertical do laço, e
- * não a reta de `loopMinX`, para não colidir com a parede cônica. No topo ela
- * fica dentro da espessura efetiva da abraçadeira por
+ * A borda esquerda é vertical na parede cilíndrica e fica dentro da espessura
+ * efetiva da abraçadeira no topo por
  * `HANDLE_RING_THICKNESS - HANDLE_FIT_INTERFERENCE - handleClearance -
- * HANDLE_LOOP_INSET` (≈0,8 mm no default e ≈0,9 mm com folga 0,2 mm), o que
+ * HANDLE_LOOP_INSET` (≈0,7 mm no default e ≈0,8 mm com folga 0,2 mm), o que
  * garante sobreposição sólida para o CSG em toda a altura.
  */
 export function handleLoopShape(params: CanHolderGeometryParams): Shape {
   const metrics = getHandleMetrics(params)
+  const left = getLoopLeftX(params)
   const halfSpan = params.handleGap / 2 + params.handleBand
   const minY = params.handleHeight - halfSpan
   const maxY = params.handleHeight + halfSpan
@@ -189,24 +183,24 @@ export function handleLoopShape(params: CanHolderGeometryParams): Shape {
   const corner = params.handleBand
 
   const shape = new Shape()
-  shape.moveTo(getLoopLeftX(params, minY), minY)
+  shape.moveTo(left, minY)
   shape.lineTo(maxX - corner, minY)
   shape.quadraticCurveTo(maxX, minY, maxX, minY + corner)
   shape.lineTo(maxX, maxY - corner)
   shape.quadraticCurveTo(maxX, maxY, maxX - corner, maxY)
-  shape.lineTo(getLoopLeftX(params, maxY), maxY)
+  shape.lineTo(left, maxY)
   shape.closePath()
 
   const holeMinY = params.handleHeight - params.handleGap / 2
   const holeMaxY = params.handleHeight + params.handleGap / 2
-  const holeMinX = getLoopLeftX(params, holeMinY) + params.handleBand
+  const holeMinX = left + params.handleBand
   const holeMaxX = maxX - params.handleBand
 
   const hole = new Path()
   hole.moveTo(holeMinX, holeMinY)
   hole.lineTo(holeMaxX, holeMinY)
   hole.lineTo(holeMaxX, holeMaxY)
-  hole.lineTo(getLoopLeftX(params, holeMaxY) + params.handleBand, holeMaxY)
+  hole.lineTo(holeMinX, holeMaxY)
   hole.closePath()
   shape.holes.push(hole)
   return shape
