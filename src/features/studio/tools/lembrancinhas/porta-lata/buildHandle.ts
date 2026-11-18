@@ -1,6 +1,7 @@
 import { BufferGeometry, ExtrudeGeometry } from 'three'
 import { ADDITION, Brush } from 'three-bvh-csg'
 import { createConformingEvaluator } from './csg'
+import { removeDegenerateTriangles } from './geometryCleanup'
 import {
   getBandInnerRadius,
   getBandOuterRadius,
@@ -62,7 +63,12 @@ export function buildHandle(params: CanHolderGeometryParams): BufferGeometry {
   loopBrush.updateMatrixWorld()
 
   try {
-    const result = evaluator.evaluate(ringBrush, loopBrush, ADDITION).geometry
+    // A limpeza remove os triângulos colapsados que o CSG deixa quando o anel
+    // escalado encosta no laço (extremos de parede/folga); sem ela a malha
+    // pode ficar com arestas usadas 4 vezes.
+    const result = removeDegenerateTriangles(
+      evaluator.evaluate(ringBrush, loopBrush, ADDITION).geometry,
+    )
     result.computeVertexNormals()
     return result
   } finally {

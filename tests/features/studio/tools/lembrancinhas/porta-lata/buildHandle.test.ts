@@ -164,6 +164,24 @@ describe('buildHandle', () => {
     geometry.dispose()
   })
 
+  it('fecha a alça nos extremos combinados de parede, folga da lata e folga da alça', () => {
+    // Regressão de manifold: com esses três extremos juntos o CSG do anel
+    // escalado com o laço deixava arestas usadas 4 vezes e triângulos
+    // degenerados. A limpeza em `buildHandle` remove esses triângulos.
+    const params = {
+      ...defaultCanHolderParams,
+      wallThickness: 4,
+      canClearance: 1.2,
+      handleClearance: 0.5,
+    }
+    const geometry = buildHandle(params)
+
+    expect(isClosed(geometry)).toBe(true)
+    expect(countShells(geometry)).toBe(1)
+    expect(signedVolume(geometry)).toBeGreaterThan(0)
+    geometry.dispose()
+  })
+
   it.each([
     { name: 'default', params: {} },
     ...extremes,

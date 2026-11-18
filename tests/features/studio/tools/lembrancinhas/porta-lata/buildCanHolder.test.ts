@@ -135,6 +135,10 @@ describe('buildCanHolder', () => {
     { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },
     { name: 'parede máxima', params: { wallThickness: 4 } },
+    {
+      name: 'extremas combinadas',
+      params: { wallThickness: 4, canClearance: 1.2, handleClearance: 0.5 },
+    },
   ])('fecha corpo e alça nos extremos ($name)', ({ params }) => {
     const result = buildCanHolder({ ...defaultCanHolderParams, ...params }, realFont())
 
