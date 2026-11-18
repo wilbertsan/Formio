@@ -584,13 +584,6 @@ Importe `getTextBand` de `./schema`. O restante da validação segue como abaixo
 No import de `schema`, adicione `MIN_EDGE_RIM_FLAT_MM` e remova
 `TEXT_BAND_MARGIN_MM`, que fica sem uso em `validateCanHolder.ts`.
 
-Adicione a constante perto de `HANDLE_MARGIN_MM`:
-
-```ts
-/** Faixa livre mínima que os dois anéis precisam deixar no corpo. */
-const MIN_FREE_RING_BAND_MM = 2
-```
-
 Adicione `'can-edge-rim'` ao tipo `CanHolderIssueCode`.
 
 Depois da regra `can-bottom`:
@@ -610,7 +603,7 @@ Depois da regra `can-bottom`:
     }
 
     if (
-      2 * params.edgeRimWidth + 2 * MIN_FREE_RING_BAND_MM >
+      2 * params.edgeRimWidth + 2 * HANDLE_MARGIN_MM >
       getOuterHeight(params) + BOUNDARY_EPSILON
     ) {
       issues.push({
@@ -830,7 +823,7 @@ const RIM_DISABLED_HINT = 'Ligue as bordas para ajustar os parâmetros.'
     }
     expect(screen.queryByText(RIM_DISABLED_HINT)).toBeNull()
 
-    fireEvent.click(screen.getByLabelText('Bordas decorativas'))
+    fireEvent.click(screen.getByLabelText('Habilitar bordas'))
     expect(onUpdateParam).toHaveBeenCalledWith('edgeRimEnabled', false)
 
     onUpdateParam.mockClear()
@@ -849,9 +842,19 @@ const RIM_DISABLED_HINT = 'Ligue as bordas para ajustar os parâmetros.'
     expect(screen.getByText(RIM_DISABLED_HINT)).toBeDefined()
   })
 
-  it('mostra a faixa livre entre as bordas', () => {
+  it('mostra a faixa útil do texto entre as bordas', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText('Faixa livre entre as bordas: 99,2 mm')).toBeDefined()
+    expect(screen.getByText('Texto entre 8,0 e 103,2 mm')).toBeDefined()
+  })
+
+  it('acompanha a largura das bordas na faixa do texto', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, edgeRimWidth: 14 }}
+      />,
+    )
+    expect(screen.getByText('Texto entre 16,0 e 95,2 mm')).toBeDefined()
   })
 ```
 
@@ -879,7 +882,9 @@ Esperado: seção/sliders ausentes.
 
 **Step 3: implementar o mínimo**
 
-Em `StudioPanel.tsx`, adicione um `Accordion.Item` entre `corpo` e `alca`:
+Em `StudioPanel.tsx`, importe `getTextBand` de `./schema`, calcule
+`const textBand = getTextBand(params)` no corpo do componente e adicione um
+`Accordion.Item` entre `corpo` e `alca`:
 
 ```tsx
         <Accordion.Item value="bordas">
@@ -890,7 +895,7 @@ Em `StudioPanel.tsx`, adicione um `Accordion.Item` entre `corpo` e `alca`:
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <SwitchField
-                label="Bordas decorativas"
+                label="Habilitar bordas"
                 isChecked={params.edgeRimEnabled}
                 onChange={(event) => onUpdateParam('edgeRimEnabled', event.target.checked)}
               />
@@ -898,7 +903,7 @@ Em `StudioPanel.tsx`, adicione um `Accordion.Item` entre `corpo` e `alca`:
               <LabeledSlider label="Largura das bordas" value={params.edgeRimWidth} min={4} max={14} step={1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimWidth', value)} />
               {params.edgeRimEnabled ? (
                 <Text fontSize="xs" color="font.secondary">
-                  Faixa livre entre as bordas: {formatMm(outerHeight - 2 * params.edgeRimWidth)} mm
+                  Texto entre {formatMm(textBand.min)} e {formatMm(textBand.max)} mm
                 </Text>
               ) : (
                 <Text fontSize="xs" color="font.secondary">
