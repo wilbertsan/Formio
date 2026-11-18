@@ -117,8 +117,8 @@ describe('useCanHolder', () => {
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.error).toBeNull()
     expect(result.current.issues).toEqual([])
-    expect(result.current.dimensions).toEqual({ width: 72.6, height: 111.2, thickness: 2.4 })
-    expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
+    expect(result.current.dimensions).toEqual({ width: 74.6, height: 111.2, thickness: 2.4 })
+    expect(result.current.outerDiameter).toBeCloseTo(74.6, 5)
     expect(result.current.outerHeight).toBeCloseTo(111.2, 5)
     expect(result.current.exposedHeight).toBeCloseTo(14.2, 5)
   })
@@ -137,6 +137,8 @@ describe('useCanHolder', () => {
       result.current.updateParam('rimLeadIn', 0)
       result.current.updateParam('rimChamfer', 99)
       result.current.updateParam('rimChamfer', -1)
+      result.current.updateParam('edgeRimProtrusion', 9)
+      result.current.updateParam('edgeRimWidth', 1)
       result.current.updateParam('handleGap', 999)
       result.current.updateParam('handleGap', 1)
       result.current.updateParam('textSize', 999)
@@ -147,6 +149,8 @@ describe('useCanHolder', () => {
     expect(result.current.params.ventHoleDiameter).toBe(6)
     expect(result.current.params.rimLeadIn).toBe(0.5)
     expect(result.current.params.rimChamfer).toBe(0)
+    expect(result.current.params.edgeRimProtrusion).toBe(1.5)
+    expect(result.current.params.edgeRimWidth).toBe(4)
     expect(result.current.params.handleGap).toBe(24)
     expect(result.current.params.textSize).toBe(6)
 
@@ -156,6 +160,8 @@ describe('useCanHolder', () => {
       result.current.updateParam('ventHoleDiameter', 14)
       result.current.updateParam('rimLeadIn', 2)
       result.current.updateParam('rimChamfer', 1.5)
+      result.current.updateParam('edgeRimProtrusion', 0)
+      result.current.updateParam('edgeRimWidth', 99)
       result.current.updateParam('handleGap', 40)
       result.current.updateParam('textSize', 18)
     })
@@ -164,6 +170,8 @@ describe('useCanHolder', () => {
     expect(result.current.params.ventHoleDiameter).toBe(14)
     expect(result.current.params.rimLeadIn).toBe(2)
     expect(result.current.params.rimChamfer).toBe(1.5)
+    expect(result.current.params.edgeRimProtrusion).toBe(0.4)
+    expect(result.current.params.edgeRimWidth).toBe(14)
     expect(result.current.params.handleGap).toBe(40)
     expect(result.current.params.textSize).toBe(18)
   })
@@ -194,13 +202,22 @@ describe('useCanHolder', () => {
     expect(result.current.params.handleEnabled).toBe(true)
   })
 
+  it('mantém edgeRimEnabled booleano e ajusta o diâmetro', () => {
+    const { factory, getParams } = makeWorkerFixture()
+    const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
+    act(() => { result.current.updateParam('edgeRimEnabled', false) })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(getParams()?.edgeRimEnabled).toBe(false)
+    expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
+  })
+
   it('expõe dimensões, fitRadius e câmera finitos antes do primeiro build', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
 
     const { dimensions, fitRadius, cameraPosition } = result.current
     expect(dimensions).toEqual({
-      width: 72.6,
+      width: 74.6,
       height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
@@ -374,7 +391,7 @@ describe('useCanHolder', () => {
     act(() => { respond() })
 
     expect(result.current.dimensions).toEqual({
-      width: 72.6,
+      width: 74.6,
       height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
@@ -421,13 +438,13 @@ describe('useCanHolder', () => {
       result.current.updateParam('cavityDepth', 100)
       result.current.updateParam('bottomThickness', 4)
     })
-    expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
+    expect(result.current.outerDiameter).toBeCloseTo(74.6, 5)
     expect(result.current.outerHeight).toBeCloseTo(111.2, 5)
     expect(result.current.exposedHeight).toBeCloseTo(14.2, 5)
 
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
-    expect(result.current.outerDiameter).toBeCloseTo(73.8, 5)
+    expect(result.current.outerDiameter).toBeCloseTo(75.8, 5)
     expect(result.current.outerHeight).toBeCloseTo(104, 5)
     expect(result.current.exposedHeight).toBeCloseTo(22.2, 5)
   })
@@ -444,7 +461,7 @@ describe('useCanHolder', () => {
     expect(result.current.fitRadius).toBeCloseTo(0.5 * Math.hypot(80, 88, 80), 2)
     expect(Number.isFinite(result.current.fitRadius)).toBe(true)
     expect(result.current.dimensions).toEqual({
-      width: 72.6,
+      width: 74.6,
       height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
@@ -468,7 +485,7 @@ describe('useCanHolder', () => {
 
     expect(result.current.geometry).not.toBeNull()
     expect(result.current.dimensions).toEqual({
-      width: 72.6,
+      width: 74.6,
       height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })

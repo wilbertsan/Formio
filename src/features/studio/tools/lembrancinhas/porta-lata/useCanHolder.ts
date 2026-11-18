@@ -11,7 +11,7 @@ import { disposeCanHolderResult, type CanHolderBuildResult } from './buildCanHol
 import {
   defaultCanHolderParams,
   getExposedHeight,
-  getOuterDiameter,
+  getMaxOuterDiameter,
   getOuterHeight,
   MAX_TEXT_LENGTH,
   MINIMUM_BOTTOM_MM,
@@ -40,6 +40,8 @@ const NUMERIC_RANGES: Partial<Record<keyof CanHolderParams, { min: number; max: 
   ventHoleDiameter: { min: 6, max: 14 },
   rimLeadIn: { min: 0.5, max: 2 },
   rimChamfer: { min: 0, max: 1.5 },
+  edgeRimProtrusion: { min: 0.4, max: 1.5 },
+  edgeRimWidth: { min: 4, max: 14 },
   handleHeight: { min: 35, max: 85 },
   handleGap: { min: 24, max: 40 },
   handleReach: { min: 30, max: 50 },
@@ -210,7 +212,7 @@ export function useCanHolder(
   const nominalParams = builtParams ?? buildParams
 
   const derived = useMemo(() => ({
-    outerDiameter: getOuterDiameter(nominalParams),
+    outerDiameter: getMaxOuterDiameter(nominalParams),
     outerHeight: getOuterHeight(nominalParams),
     exposedHeight: getExposedHeight(nominalParams),
   }), [nominalParams])
@@ -220,9 +222,9 @@ export function useCanHolder(
     return Math.max(
       1,
       0.5 * Math.hypot(
-        getOuterDiameter(nominalParams) + handleExtra,
+        getMaxOuterDiameter(nominalParams) + handleExtra,
         getOuterHeight(nominalParams),
-        getOuterDiameter(nominalParams),
+        getMaxOuterDiameter(nominalParams),
       ),
     )
   }, [nominalParams, handleEnabled, handleReach])
@@ -245,7 +247,7 @@ export function useCanHolder(
     // O bbox do corpo inclui 1 mm de relevo a 180°; o status bar usa as
     // dimensões nominais do snapshot que gerou a geometria.
     return {
-      width: Number(getOuterDiameter(nominalParams).toFixed(1)),
+      width: Number(getMaxOuterDiameter(nominalParams).toFixed(1)),
       height: Number(getOuterHeight(nominalParams).toFixed(1)),
       thickness: Number(nominalParams.wallThickness.toFixed(1)),
     }
