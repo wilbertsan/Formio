@@ -6,13 +6,16 @@ import {
   CONTENT_DEPTH,
   HANDLE_RING_THICKNESS,
   MAX_TEXT_LENGTH,
+  MIN_EDGE_RIM_FLAT_MM,
   canHolderGeometryParamsSchema,
   canHolderParamsSchema,
   defaultCanHolderParams,
   getEffectiveLeadIn,
+  getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
   getExposedHeight,
   getInnerDiameter,
+  getMaxOuterDiameter,
   getOuterDiameter,
   getOuterHeight,
   getTopLand,
@@ -31,6 +34,9 @@ describe('porta-lata schema', () => {
       ventHoleDiameter: 10,
       rimLeadIn: 1.0,
       rimChamfer: 0.4,
+      edgeRimEnabled: true,
+      edgeRimProtrusion: 1.0,
+      edgeRimWidth: 6,
       handleEnabled: true,
       handleHeight: 60,
       handleGap: 30,
@@ -66,6 +72,10 @@ describe('porta-lata schema', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 2.1 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: -0.1 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: 1.6 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimProtrusion: 0.3 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimProtrusion: 1.6 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 3 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 15 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, text: 'x'.repeat(21) }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, text: 'x'.repeat(MAX_TEXT_LENGTH) }).success).toBe(true)
   })
@@ -81,6 +91,10 @@ describe('porta-lata schema', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 2 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: 0 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: 1.5 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimProtrusion: 0.4 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimProtrusion: 1.5 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 4 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 14 }).success).toBe(true)
   })
 
   it('limita o texto por code points', () => {
@@ -131,7 +145,25 @@ describe('preset da lata e derivados', () => {
     expect(getOuterDiameter(defaultCanHolderParams)).toBeCloseTo(72.6, 5)
     expect(getOuterHeight(defaultCanHolderParams)).toBeCloseTo(111.2, 5)
     expect(getExposedHeight(defaultCanHolderParams)).toBeCloseTo(14.2, 5)
-    expect(getTopLand(defaultCanHolderParams)).toBeCloseTo(1.0, 5)
+    expect(getTopLand(defaultCanHolderParams)).toBeCloseTo(2.0, 5)
+    expect(getMaxOuterDiameter(defaultCanHolderParams)).toBeCloseTo(74.6, 5)
+  })
+
+  it('calcula o salto efetivo dos anéis', () => {
+    expect(getEffectiveRingProtrusion(defaultCanHolderParams)).toBeCloseTo(1, 5)
+    expect(
+      getEffectiveRingProtrusion({ ...defaultCanHolderParams, edgeRimEnabled: false }),
+    ).toBe(0)
+
+    // Defensivo: fora do schema (largura < 4) o salto encolhe para sobrar 1 mm
+    // de face plana no centro do anel.
+    expect(
+      getEffectiveRingProtrusion({
+        ...defaultCanHolderParams,
+        edgeRimWidth: 3,
+        edgeRimProtrusion: 1.5,
+      }),
+    ).toBeCloseTo(MIN_EDGE_RIM_FLAT_MM, 5)
   })
 
   it('limita a borda de entrada para preservar a parede do topo', () => {
@@ -141,7 +173,7 @@ describe('preset da lata e derivados', () => {
       rimLeadIn: 2,
     }
     expect(getEffectiveLeadIn(params)).toBeCloseTo(1.0, 5)
-    expect(getTopLand(params)).toBeCloseTo(0.8, 5)
+    expect(getTopLand(params)).toBeCloseTo(1.8, 5)
   })
 
   it('limita o chanfro externo quando a parede não comporta', () => {

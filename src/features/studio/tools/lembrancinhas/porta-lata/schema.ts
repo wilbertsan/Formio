@@ -18,6 +18,8 @@ export const MIN_TOP_LAND_MM = 0.8
 /** Margem entre o texto e a borda ou o fundo do corpo. */
 export const TEXT_BAND_MARGIN_MM = 2
 export const BASE_CHAMFER_MM = 0.4
+/** Face plana mínima no centro do anel decorativo. */
+export const MIN_EDGE_RIM_FLAT_MM = 1
 
 export const MINIMUM_WALL_MM = 1.8
 export const MINIMUM_BOTTOM_MM = 2
@@ -43,6 +45,9 @@ export const canHolderParamsSchema = z.object({
   ventHoleDiameter: z.number().min(6).max(14),
   rimLeadIn: z.number().min(0.5).max(2),
   rimChamfer: z.number().min(0).max(1.5),
+  edgeRimEnabled: z.boolean(),
+  edgeRimProtrusion: z.number().min(0.4).max(1.5),
+  edgeRimWidth: z.number().min(4).max(14),
   handleEnabled: z.boolean(),
   handleHeight: z.number().min(35).max(85),
   handleGap: z.number().min(24).max(40),
@@ -81,6 +86,9 @@ export const defaultCanHolderParams: CanHolderParams = {
   ventHoleDiameter: 10,
   rimLeadIn: 1.0,
   rimChamfer: 0.4,
+  edgeRimEnabled: true,
+  edgeRimProtrusion: 1.0,
+  edgeRimWidth: 6,
   handleEnabled: true,
   handleHeight: 60,
   handleGap: 30,
@@ -130,8 +138,33 @@ export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number 
   )
 }
 
+/**
+ * Salto radial efetivo dos anéis: 0 quando desligados e limitado para sobrar
+ * `MIN_EDGE_RIM_FLAT_MM` de face plana entre os flancos de 45°.
+ */
+export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): number {
+  if (!params.edgeRimEnabled) return 0
+  return Math.max(
+    0,
+    Math.min(
+      params.edgeRimProtrusion,
+      (params.edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2,
+    ),
+  )
+}
+
+/** Diâmetro máximo impresso, incluindo os anéis decorativos. */
+export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
+  return (getOuterRadius(params) + getEffectiveRingProtrusion(params)) * 2
+}
+
 export function getTopLand(params: CanHolderGeometryParams): number {
-  return params.wallThickness - getEffectiveRimChamfer(params) - getEffectiveLeadIn(params)
+  return (
+    params.wallThickness -
+    getEffectiveRimChamfer(params) -
+    getEffectiveLeadIn(params) +
+    getEffectiveRingProtrusion(params)
+  )
 }
 
 export function sanitizeFilename(name: string): string {
