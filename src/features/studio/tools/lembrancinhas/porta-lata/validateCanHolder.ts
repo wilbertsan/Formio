@@ -21,7 +21,10 @@ const HANDLE_MARGIN_MM = 2
 const MIN_HAND_OPENING_MM = 16
 /** Abertura vertical mínima confortável para a mão. */
 export const MIN_HANDLE_GAP_MM = 26
-/** Faixa defensiva da profundidade da cavidade, espelhando o schema. */
+/**
+ * Faixa defensiva da profundidade da cavidade. O schema limita a 116 mm; o teto
+ * de 118 mantém a regra de exposição `< 6 mm` testável em objetos diretos.
+ */
 const MIN_CAVITY_MM = 80
 const MAX_CAVITY_MM = 118
 /** Faixa defensiva da folga da lata, espelhando o schema. */

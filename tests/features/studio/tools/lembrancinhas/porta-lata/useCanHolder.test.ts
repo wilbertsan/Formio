@@ -15,7 +15,7 @@ import {
 import type { CanHolderWorker } from '@/features/studio/tools/lembrancinhas/porta-lata/workerClient'
 
 const BUILD_ERROR = 'Falha ao gerar a geometria'
-const CSG_ERROR = 'Falha ao gerar o relevo. Tente outro texto.'
+const CSG_ERROR = 'Falha ao gerar a geometria. Ajuste o texto ou a alça e tente novamente.'
 const ELEVATION = (25 * Math.PI) / 180
 
 function serializedCanHolder(): SerializedBuildResult {
@@ -151,7 +151,7 @@ describe('useCanHolder', () => {
     expect(result.current.params.textSize).toBe(6)
 
     act(() => {
-      result.current.updateParam('cavityDepth', 118)
+      result.current.updateParam('cavityDepth', 116)
       result.current.updateParam('canClearance', 1.2)
       result.current.updateParam('ventHoleDiameter', 14)
       result.current.updateParam('rimLeadIn', 2)
@@ -159,7 +159,7 @@ describe('useCanHolder', () => {
       result.current.updateParam('handleGap', 40)
       result.current.updateParam('textSize', 18)
     })
-    expect(result.current.params.cavityDepth).toBe(118)
+    expect(result.current.params.cavityDepth).toBe(116)
     expect(result.current.params.canClearance).toBe(1.2)
     expect(result.current.params.ventHoleDiameter).toBe(14)
     expect(result.current.params.rimLeadIn).toBe(2)
@@ -355,7 +355,7 @@ describe('useCanHolder', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => {
-      result.current.updateParam('cavityDepth', 118)
+      result.current.updateParam('cavityDepth', 116)
       result.current.updateParam('text', 'Ana')
     })
     act(() => { result.current.reset() })

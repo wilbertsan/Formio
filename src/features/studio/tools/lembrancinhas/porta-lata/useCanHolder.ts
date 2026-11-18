@@ -33,7 +33,7 @@ type CanHolderAction =
   | { type: 'reset' }
 
 const NUMERIC_RANGES: Partial<Record<keyof CanHolderParams, { min: number; max: number }>> = {
-  cavityDepth: { min: 80, max: 118 },
+  cavityDepth: { min: 80, max: 116 },
   canClearance: { min: 0.5, max: 1.2 },
   wallThickness: { min: MINIMUM_WALL_MM, max: 4 },
   bottomThickness: { min: MINIMUM_BOTTOM_MM, max: 6 },
@@ -54,7 +54,7 @@ const BUILD_ERROR = 'Falha ao gerar a geometria'
 const DEBOUNCE_MS = 250
 
 const ERROR_MESSAGES: Record<CanHolderErrorCode, string> = {
-  'can-csg': 'Falha ao gerar o relevo. Tente outro texto.',
+  'can-csg': 'Falha ao gerar a geometria. Ajuste o texto ou a alça e tente novamente.',
   'can-font': 'Falha ao carregar a fonte.',
   'can-invalid': 'Parâmetros inválidos.',
   'can-build': BUILD_ERROR,

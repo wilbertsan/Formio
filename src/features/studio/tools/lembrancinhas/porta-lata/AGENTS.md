@@ -32,7 +32,7 @@ a alça e o texto.
 
 | Parâmetro | Faixa | Default |
 |---|---|---|
-| `cavityDepth` | 80–118 mm | 108 |
+| `cavityDepth` | 80–116 mm | 108 |
 | `canClearance` | 0,5–1,2 mm | 0,8 |
 | `wallThickness` | 1,8–4 mm | 2,4 |
 | `bottomThickness` | 2–6 mm | 3,2 |
@@ -180,7 +180,7 @@ Parâmetros
 
 | Código | Severidade | Regra |
 |---|---|---|
-| `can-cavity` | error | profundidade fora de 80–118 mm ou lata exposta abaixo de 6 mm |
+| `can-cavity` | error | profundidade fora de 80–116 mm (schema/UI) ou lata exposta abaixo de 6 mm |
 | `can-clearance` | warning | folga fora de 0,5–1,2 mm (defensiva) |
 | `can-vent` | error | furo grande demais: raio do furo > raio interno − 3 mm |
 | `can-rim` | error | parede do topo abaixo de 0,8 mm (valores crus, antes do clamp) |

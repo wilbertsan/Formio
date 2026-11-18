@@ -266,7 +266,7 @@ describe('buildRelief', () => {
   it('mantém 1 mm de relevo em parede, folga e profundidade extremas', () => {
     const params = {
       ...defaultCanHolderParams,
-      cavityDepth: 118,
+      cavityDepth: 116,
       canClearance: 0.5,
       wallThickness: 4,
       rimChamfer: 1.5,

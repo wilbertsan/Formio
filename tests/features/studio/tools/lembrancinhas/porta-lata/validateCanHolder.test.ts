@@ -29,6 +29,8 @@ describe('validateCanHolder', () => {
   })
 
   it('aponta lata exposta abaixo de 6 mm e profundidade fora da faixa', () => {
+    // Objeto direto, fora do schema (máx. 116): a regra defensiva continua
+    // valendo para chamadas internas que não passam pelo Zod.
     const deep = validateCanHolder(withParams({ cavityDepth: 118 }))
     expect(deep).toContainEqual(expect.objectContaining({ code: 'can-cavity', severity: 'error' }))
     expect(getExposedHeight(withParams({ cavityDepth: 118 }))).toBeCloseTo(4.2, 5)
@@ -37,6 +39,11 @@ describe('validateCanHolder', () => {
     expect(outOfRange).toContainEqual(
       expect.objectContaining({ code: 'can-cavity', severity: 'error' }),
     )
+    expect(
+      validateCanHolder(withParams({ cavityDepth: 116 })).some(
+        (issue) => issue.code === 'can-cavity',
+      ),
+    ).toBe(false)
   })
 
   it('aponta folga da lata fora da faixa (defensiva)', () => {

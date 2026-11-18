@@ -68,8 +68,8 @@ describe('buildCanHolder', () => {
     expect(isClosed(result.handle!)).toBe(true)
     expect(countShells(result.handle!)).toBe(1)
     expect(signedVolume(result.handle!)).toBeGreaterThan(0)
-    // Default medido em ≈1,7 s de CPU (primeiro build, sem JIT quente). O gate
-    // de 4 s cobre máquinas de CI mais lentas.
+    // Default medido em ≈0,6–0,8 s de CPU (primeiro build sem JIT quente; com
+    // JIT quente fica no piso da faixa). O gate de 4 s cobre CI mais lento.
     expect(elapsedMs).toBeLessThan(4000)
 
     disposeCanHolderResult(result)
@@ -150,7 +150,7 @@ describe('buildCanHolder', () => {
 
   it.each([
     { name: 'cavidade rasa', params: { cavityDepth: 80 } },
-    { name: 'cavidade profunda', params: { cavityDepth: 118 } },
+    { name: 'cavidade profunda', params: { cavityDepth: 116 } },
     { name: 'folga mínima da lata', params: { canClearance: 0.5 } },
     { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },

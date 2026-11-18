@@ -336,7 +336,7 @@ Pipeline completo de geração do porta-lata 350 ml:
    `<nome>-alca.stl`; cada peça é clonada e centralizada na mesa com a base em
    `y = 0`.
 
-Parâmetros do corpo: `cavityDepth` 80–118/108, `canClearance` 0,5–1,2/0,8,
+Parâmetros do corpo: `cavityDepth` 80–116/108, `canClearance` 0,5–1,2/0,8,
 `wallThickness` 1,8–4/2,4, `bottomThickness` 2–6/3,2, `ventHoleDiameter` 6–14/10,
 `rimLeadIn` 0,5–2/1,0 e `rimChamfer` 0–1,5/0,4 mm. Na alça: `handleHeight`
 35–85/60, `handleGap` 24–40/30, `handleReach` 30–50/40, `handleBand` 5–10/6,5,

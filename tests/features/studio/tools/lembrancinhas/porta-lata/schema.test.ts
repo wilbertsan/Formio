@@ -53,7 +53,7 @@ describe('porta-lata schema', () => {
 
   it('rejeita dimensões e folgas fora da faixa', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 79 }).success).toBe(false)
-    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 119 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 117 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 0.4 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 1.3 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, wallThickness: 1.7 }).success).toBe(false)
@@ -72,7 +72,7 @@ describe('porta-lata schema', () => {
 
   it('aceita os limites da faixa', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 80 }).success).toBe(true)
-    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 118 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 116 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 0.5 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 1.2 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 6 }).success).toBe(true)

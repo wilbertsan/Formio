@@ -80,7 +80,7 @@ describe('can holder body', () => {
 
   it.each([
     { name: 'cavidade rasa', params: { cavityDepth: 80 } },
-    { name: 'cavidade profunda', params: { cavityDepth: 118 } },
+    { name: 'cavidade profunda', params: { cavityDepth: 116 } },
     { name: 'folga mínima', params: { canClearance: 0.5 } },
     { name: 'folga máxima', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },

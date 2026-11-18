@@ -15,7 +15,7 @@ const defaultProps = {
 }
 
 const SLIDER_RANGES = [
-  { name: 'Profundidade da cavidade', min: 80, max: 118 },
+  { name: 'Profundidade da cavidade', min: 80, max: 116 },
   { name: 'Folga da lata', min: 0.5, max: 1.2 },
   { name: 'Espessura da parede', min: 1.8, max: 4 },
   { name: 'Espessura do fundo', min: 2, max: 6 },

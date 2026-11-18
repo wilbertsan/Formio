@@ -14,6 +14,8 @@
   geometria em paralelo e o relógio de parede distorce o CI.
 - O material da caneca neste plano é histórico: o código ativo é
   `porta-lata`/`CanHolder` e os docs antigos têm nota de substituição.
+- A status bar mantém ponto decimal (`72.6 × 111.2 × 2.4 mm`), como o restante
+  do Studio; só o painel usa vírgula (`72,6 mm`).
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -206,7 +208,7 @@ export type FontStyle = (typeof FONT_STYLES)[number]
 
 export const canHolderParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),
-  cavityDepth: z.number().min(80).max(118),
+  cavityDepth: z.number().min(80).max(116),
   canClearance: z.number().min(0.5).max(1.2),
   wallThickness: z.number().min(MINIMUM_WALL_MM).max(4),
   bottomThickness: z.number().min(MINIMUM_BOTTOM_MM).max(6),
@@ -523,7 +525,7 @@ git commit -m "refactor: fit can holder handle to cylindrical body"
 - O corpo tem furo passante; a união do relevo não deve atrapalhar o furo.
 - `disposeCanHolderResult`.
 - Testes: corpo fechado/single-shell, alça fechada/single-shell, delta de volume
-  do relevo (80–300 mm³), extremos (`cavityDepth 80/118`, clearance 0.5/1.2),
+  do relevo (80–300 mm³), extremos (`cavityDepth 80/116`, clearance 0.5/1.2),
   `text: ''`, `handleEnabled: false`, tempo < 4 s.
 - Rodar um probe de CSG com a lata? Não modelamos a lata; validar o furo com
   `isClosed`.
@@ -608,7 +610,7 @@ Regras:
 
 **Changes:**
 - `CanHolderParams`/`CanHolderGeometryParams`; clamps:
-  `cavityDepth` 80–118, `canClearance` 0.5–1.2, `wallThickness` 1.8–4,
+  `cavityDepth` 80–116, `canClearance` 0.5–1.2, `wallThickness` 1.8–4,
   `bottomThickness` 2–6, `ventHoleDiameter` 6–14, `rimLeadIn` 0.5–2,
   `rimChamfer` 0–1.5, handle e texto como hoje.
 - `buildParams` sem cores; debounce 250 ms; worker factory; stale/dispose.
@@ -670,7 +672,8 @@ Regras:
 - StudioPage: lazy imports, `CanHolderToolWrapper`, `activeTool === 'porta-lata'`,
   viewport/status bar, export `exportCanHolderStl`, `productType` do worker
   `'porta-lata'`.
-- Testes: card, abrir, `Gerando…`, dimensões `72,6 × 111,2 × 2,4 mm`, export,
+- Testes: card, abrir, `Gerando…`, dimensões `72.6 × 111.2 × 2.4 mm` (status
+  bar usa ponto; o painel usa vírgula), export,
   falha, voltar.
 - Commit `feat: wire can holder into studio`.
 
@@ -694,7 +697,7 @@ Regras:
 - Rota raiz: `porta-lata`.
 - `docs/frontend/studio.md`: substituir a seção Caneca pela Porta-lata; atualizar
   a lista, tabela de arquivos e decisões.
-- Nota histórica nos docs antigos: "substituída por porta-lata em 2026-11-17".
+- Nota histórica nos docs antigos: "substituída por porta-lata em 2026-11-18".
 - Rodar `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`.
 - Varredura final:
   `rg -n "caneca|Caneca|Mug|mug" src tests docs/frontend/studio.md`

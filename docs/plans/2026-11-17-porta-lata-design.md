@@ -131,7 +131,7 @@ Perfil fechado no plano `(r, y)`, com o furo do fundo:
 
 | Parâmetro | Faixa | Default |
 |---|---|---|
-| `cavityDepth` | 80–118 mm | 108 |
+| `cavityDepth` | 80–116 mm | 108 |
 | `canClearance` | 0,5–1,2 mm | 0,8 |
 | `wallThickness` | 1,8–4 mm | 2,4 |
 | `bottomThickness` | 2–6 mm | 3,2 |
@@ -168,7 +168,7 @@ Perfil fechado no plano `(r, y)`, com o furo do fundo:
 
 | Código | Severidade | Regra |
 |---|---|---|
-| `can-cavity` | error | profundidade fora de 80–118 mm ou lata exposta abaixo de 6 mm |
+| `can-cavity` | error | profundidade fora de 80–116 mm (schema/UI) ou lata exposta abaixo de 6 mm |
 | `can-clearance` | warning | folga fora de 0,5–1,2 mm (defensiva) |
 | `can-vent` | error | furo grande demais para sobrar apoio para a lata |
 | `can-rim` | error | parede do topo abaixo de 0,8 mm |
@@ -310,6 +310,8 @@ Painel em acordeões:
 - Alça de abraçadeira e nome em relevo de 1 mm funcionam como na caneca.
 - Export gera `<nome>-corpo.stl` e `<nome>-alca.stl`, fechados e manifold.
 - Validação lista `can-*` sem bloquear.
+- A status bar mostra a dimensão com ponto decimal
+  (`72.6 × 111.2 × 2.4 mm`), como o resto do Studio; o painel usa vírgula.
 - Typecheck, lint, testes e build passam.
 - `porta-lata/AGENTS.md`, `lembrancinhas/AGENTS.md`, `docs/frontend/studio.md` e
   os docs da caneca (nota histórica) atualizados.

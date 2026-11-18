@@ -36,7 +36,7 @@ export type FontStyle = (typeof FONT_STYLES)[number]
 
 export const canHolderParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),
-  cavityDepth: z.number().min(80).max(118),
+  cavityDepth: z.number().min(80).max(116),
   canClearance: z.number().min(0.5).max(1.2),
   wallThickness: z.number().min(MINIMUM_WALL_MM).max(4),
   bottomThickness: z.number().min(MINIMUM_BOTTOM_MM).max(6),

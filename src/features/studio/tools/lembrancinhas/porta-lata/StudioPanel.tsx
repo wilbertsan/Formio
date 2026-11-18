@@ -163,7 +163,7 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <LabeledSlider label="Profundidade da cavidade" value={params.cavityDepth} min={80} max={118} step={1} onChange={(value) => onUpdateParam('cavityDepth', value)} />
+              <LabeledSlider label="Profundidade da cavidade" value={params.cavityDepth} min={80} max={116} step={1} onChange={(value) => onUpdateParam('cavityDepth', value)} />
               <LabeledSlider label="Folga da lata" value={params.canClearance} min={0.5} max={1.2} step={0.1} onChange={(value) => onUpdateParam('canClearance', value)} />
               <LabeledSlider label="Espessura da parede" value={params.wallThickness} min={1.8} max={4} step={0.1} onChange={(value) => onUpdateParam('wallThickness', value)} />
               <LabeledSlider label="Espessura do fundo" value={params.bottomThickness} min={2} max={6} step={0.1} onChange={(value) => onUpdateParam('bottomThickness', value)} />
