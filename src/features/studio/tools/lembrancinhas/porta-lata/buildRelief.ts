@@ -9,6 +9,7 @@ import {
   CONTENT_DEPTH,
   MAX_TEXT_ARC,
   RELIEF_EMBED,
+  TEXT_BAND_MARGIN_MM,
   getEffectiveRimChamfer,
   getOuterHeight,
   getOuterRadius,
@@ -48,8 +49,9 @@ export function fitRelief(
 }
 
 function clampCenterY(params: CanHolderGeometryParams, halfHeight: number): number {
-  const minY = params.bottomThickness + 2 + halfHeight
-  const maxY = getOuterHeight(params) - getEffectiveRimChamfer(params) - 2 - halfHeight
+  const minY = params.bottomThickness + TEXT_BAND_MARGIN_MM + halfHeight
+  const maxY =
+    getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM - halfHeight
   if (minY > maxY) return params.textCenterY
   return Math.min(maxY, Math.max(minY, params.textCenterY))
 }

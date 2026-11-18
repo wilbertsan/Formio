@@ -15,6 +15,8 @@ export const CAN_TOP_DIAMETER = 54
 export const CAN_VOLUME_ML = 350
 export const MIN_EXPOSED_MM = 6
 export const MIN_TOP_LAND_MM = 0.8
+/** Margem entre o texto e a borda ou o fundo do corpo. */
+export const TEXT_BAND_MARGIN_MM = 2
 export const BASE_CHAMFER_MM = 0.4
 
 export const MINIMUM_WALL_MM = 1.8

@@ -5,6 +5,7 @@ import {
   MINIMUM_WALL_MM,
   MIN_EXPOSED_MM,
   MIN_TOP_LAND_MM,
+  TEXT_BAND_MARGIN_MM,
   getEffectiveRimChamfer,
   getExposedHeight,
   getInnerDiameter,
@@ -14,8 +15,6 @@ import {
 } from './schema'
 import { getHandleMetrics } from './shapes'
 
-/** Margem entre o texto e a borda ou o fundo da porta-lata. */
-export const TEXT_MARGIN_MM = 2
 /** Margem entre o vão vertical da alça e a borda ou o fundo. */
 const HANDLE_MARGIN_MM = 2
 /** Abertura horizontal mínima confortável para a mão. */
@@ -30,6 +29,8 @@ const MIN_CAN_CLEARANCE_MM = 0.5
 const MAX_CAN_CLEARANCE_MM = 1.2
 /** Anel de apoio mínimo entre o furo de ventilação e a parede interna. */
 const MIN_VENT_RING_MM = 3
+/** Tolerância para limites exatos, evitando falso positivo do ponto flutuante. */
+const BOUNDARY_EPSILON = 1e-9
 /**
  * Largura média por caractere da Helvetiker em caixa mista (medida: 0,675 a
  * 0,694). É uma estimativa conservadora; o build usa a fonte real e faz
@@ -64,7 +65,7 @@ export interface ValidationIssue {
   message: string
 }
 
-/** Mesma estimativa usada no painel; o build real usa a fonte e faz auto-fit. */
+/** Estimativa conservadora usada na validação; o build usa a fonte real e faz auto-fit. */
 export function estimateTextWidth(text: string, size: number): number {
   return text.trim().length * size * TEXT_WIDTH_FACTOR
 }
@@ -107,7 +108,7 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
 
   // Regra crua, antes do clamp do perfil: avisa quando a borda de entrada e o
   // chanfro precisam ser reduzidos para preservar a parede do topo.
-  if (params.wallThickness - params.rimChamfer - params.rimLeadIn < MIN_TOP_LAND_MM) {
+  if (params.wallThickness - params.rimChamfer - params.rimLeadIn < MIN_TOP_LAND_MM - BOUNDARY_EPSILON) {
     issues.push({
       code: 'can-rim',
       severity: 'error',
@@ -142,10 +143,10 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
       })
     }
 
-    const fitScale = arc > 0 ? Math.min(1, MAX_TEXT_ARC / arc) : 1
+    const fitScale = Math.min(1, MAX_TEXT_ARC / arc)
     const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
-    const minY = params.bottomThickness + TEXT_MARGIN_MM
-    const maxY = getOuterHeight(params) - chamfer - TEXT_MARGIN_MM
+    const minY = params.bottomThickness + TEXT_BAND_MARGIN_MM
+    const maxY = getOuterHeight(params) - chamfer - TEXT_BAND_MARGIN_MM
     if (params.textCenterY - halfHeight < minY || params.textCenterY + halfHeight > maxY) {
       issues.push({
         code: 'can-text-band',
@@ -179,10 +180,14 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
       })
     }
 
-    // Só a banda da abraçadeira precisa caber na parede; o laço em D pode
-    // passar da borda superior do corpo.
+    // A regra cobre só a banda da abraçadeira (handleHeight ± handleWidth/2):
+    // é ela que precisa ficar sobre a parede. O laço em D pode passar da borda
+    // superior do porta-lata sem invalidar a peça. Os docs de plano/design
+    // ainda falam do vão completo do laço e serão alinhados na tarefa de docs.
     const bandMinY = params.handleHeight - params.handleWidth / 2
     const bandMaxY = params.handleHeight + params.handleWidth / 2
+    // O limite inferior é defensivo: com handleHeight ≥ 35 e handleWidth ≤ 16 a
+    // banda nunca começa abaixo de 27 mm.
     if (
       bandMinY < HANDLE_MARGIN_MM ||
       bandMaxY > getOuterHeight(params) - chamfer - HANDLE_MARGIN_MM

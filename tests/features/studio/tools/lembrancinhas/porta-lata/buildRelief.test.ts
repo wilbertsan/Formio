@@ -10,6 +10,7 @@ import {
   CONTENT_DEPTH,
   MAX_TEXT_ARC,
   RELIEF_EMBED,
+  TEXT_BAND_MARGIN_MM,
   defaultCanHolderParams,
   getEffectiveRimChamfer,
   getOuterHeight,
@@ -137,9 +138,9 @@ describe('buildRelief', () => {
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
     const ceiling =
-      getOuterHeight(params) - getEffectiveRimChamfer(params) - 2
+      getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM
 
-    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + 2 - POSITION_EPSILON)
+    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
     expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
     expect(box.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()
@@ -158,7 +159,7 @@ describe('buildRelief', () => {
 
     const geometry = buildRelief(rectangleFont(10, 4), params)!
     geometry.computeBoundingBox()
-    const ceiling = getOuterHeight(params) - chamfer - 2
+    const ceiling = getOuterHeight(params) - chamfer - TEXT_BAND_MARGIN_MM
 
     // O topo fica exatamente no limite efetivo: com o rimChamfer cru (2 mm) o
     // clamp antigo pararia mais abaixo.
@@ -181,7 +182,7 @@ describe('buildRelief', () => {
 
     const geometry = buildRelief(rectangleFont(10, 4), params)!
     geometry.computeBoundingBox()
-    const ceiling = getOuterHeight(params) - getEffectiveRimChamfer(params) - 2
+    const ceiling = getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM
 
     expect(geometry.boundingBox!.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()
@@ -197,10 +198,10 @@ describe('buildRelief', () => {
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
     const ceiling =
-      getOuterHeight(params) - getEffectiveRimChamfer(params) - 2
+      getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM
 
     expect(getOuterHeight(params)).toBeCloseTo(83.2, 5)
-    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + 2 - POSITION_EPSILON)
+    expect(box.min.y).toBeGreaterThanOrEqual(params.bottomThickness + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
     expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
     expect(box.max.y).toBeCloseTo(ceiling, 5)
     geometry.dispose()

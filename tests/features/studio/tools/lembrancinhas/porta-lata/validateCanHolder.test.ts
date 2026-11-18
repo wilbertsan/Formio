@@ -2,10 +2,10 @@ import { describe, it, expect } from 'vitest'
 import {
   GLYPH_HEIGHT_FACTOR,
   MIN_HANDLE_GAP_MM,
-  TEXT_MARGIN_MM,
   validateCanHolder,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder'
 import {
+  TEXT_BAND_MARGIN_MM,
   defaultCanHolderParams,
   getEffectiveRimChamfer,
   getExposedHeight,
@@ -98,7 +98,7 @@ describe('validateCanHolder', () => {
     const params = withParams({ cavityDepth: 90 })
     const halfHeight = (params.textSize * GLYPH_HEIGHT_FACTOR) / 2
     const ceiling =
-      getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_MARGIN_MM
+      getOuterHeight(params) - getEffectiveRimChamfer(params) - TEXT_BAND_MARGIN_MM
 
     const issues = validateCanHolder({ ...params, textCenterY: ceiling - halfHeight })
     expect(issues.some((issue) => issue.code === 'can-text-band')).toBe(false)
@@ -147,6 +147,69 @@ describe('validateCanHolder', () => {
     // A banda vai de 74 a 86 mm; o topo útil do corpo de 83,2 mm é 80,8 mm.
     expect(high.some((issue) => issue.code === 'can-cavity')).toBe(false)
     expect(validateCanHolder(defaultCanHolderParams).some((issue) => issue.code === 'can-handle-band')).toBe(false)
+  })
+
+  it('aceita o laço em D acima da borda quando a banda fica no corpo', () => {
+    // Vão completo do laço: 85 ± (40 / 2 + 10) → 55 a 115 mm, acima dos
+    // 111,2 mm do corpo. Só a banda (85 ± 6 → 79 a 91 mm) precisa caber.
+    const params = withParams({ handleHeight: 85, handleGap: 40, handleBand: 10 })
+    expect(params.handleHeight + params.handleGap / 2 + params.handleBand).toBeGreaterThan(
+      getOuterHeight(params),
+    )
+    expect(validateCanHolder(params).some((issue) => issue.code === 'can-handle-band')).toBe(false)
+  })
+
+  it('aceita a banda exatamente no limite superior do corpo', () => {
+    // Corpo de 95 mm + chanfro 0 → topo útil 93 mm; banda 85 ± 8 → 93 mm.
+    const params = withParams({
+      cavityDepth: 91.8,
+      bottomThickness: 3.2,
+      rimChamfer: 0,
+      handleHeight: 85,
+      handleWidth: 16,
+    })
+    expect(getOuterHeight(params)).toBeCloseTo(95, 10)
+    expect(getEffectiveRimChamfer(params)).toBe(0)
+    expect(params.handleHeight + params.handleWidth / 2).toBe(
+      getOuterHeight(params) - getEffectiveRimChamfer(params) - 2,
+    )
+
+    const issues = validateCanHolder(params)
+    expect(issues.some((issue) => issue.code === 'can-handle-band')).toBe(false)
+  })
+
+  it('aceita os limites exatos de cavidade, folga, borda, fundo, texto e alça', () => {
+    // Lata exposta exatamente em 6 mm.
+    const exposed = withParams({ cavityDepth: 116.2 })
+    expect(getExposedHeight(exposed)).toBe(6)
+    expect(validateCanHolder(exposed).some((issue) => issue.code === 'can-cavity')).toBe(false)
+
+    // Folga nos dois extremos do schema.
+    for (const canClearance of [0.5, 1.2]) {
+      const issues = validateCanHolder(withParams({ canClearance }))
+      expect(issues.some((issue) => issue.code === 'can-clearance')).toBe(false)
+    }
+
+    // Parede do topo exatamente em 0,8 mm; o épsilon cobre o arredondamento.
+    const rim = withParams({ rimChamfer: 0.6, rimLeadIn: 1.0 })
+    expect(rim.wallThickness - rim.rimChamfer - rim.rimLeadIn).toBeCloseTo(0.8, 12)
+    expect(validateCanHolder(rim).some((issue) => issue.code === 'can-rim')).toBe(false)
+
+    // Fundo exatamente em 2 mm e faixa de texto no limite inferior. O centro
+    // fica abaixo do mínimo do schema: é um caso de regra, não de UI.
+    const bottom = withParams({ bottomThickness: 2 })
+    expect(validateCanHolder(bottom).some((issue) => issue.code === 'can-bottom')).toBe(false)
+    const halfHeight = (bottom.textSize * GLYPH_HEIGHT_FACTOR) / 2
+    const floor = bottom.bottomThickness + TEXT_BAND_MARGIN_MM
+    const lowerBand = validateCanHolder({ ...bottom, textCenterY: floor + halfHeight })
+    expect(lowerBand.some((issue) => issue.code === 'can-text-band')).toBe(false)
+
+    // Abertura vertical da mão exatamente em 26 mm.
+    expect(
+      validateCanHolder(withParams({ handleGap: MIN_HANDLE_GAP_MM })).some(
+        (issue) => issue.code === 'can-handle-gap',
+      ),
+    ).toBe(false)
   })
 
   it('não aponta problemas de alça quando a alça está desligada', () => {
