@@ -6,7 +6,6 @@ import {
   CONTENT_DEPTH,
   HANDLE_RING_THICKNESS,
   MAX_TEXT_LENGTH,
-  MIN_EDGE_RIM_FLAT_MM,
   canHolderGeometryParamsSchema,
   canHolderParamsSchema,
   defaultCanHolderParams,
@@ -156,14 +155,29 @@ describe('preset da lata e derivados', () => {
     ).toBe(0)
 
     // Defensivo: fora do schema (largura < 4) o salto encolhe para sobrar 1 mm
-    // de face plana no centro do anel.
+    // de face plana no centro do anel; (3 - 1) / 2 = 1 mm de cada lado.
     expect(
       getEffectiveRingProtrusion({
         ...defaultCanHolderParams,
         edgeRimWidth: 3,
         edgeRimProtrusion: 1.5,
       }),
-    ).toBeCloseTo(MIN_EDGE_RIM_FLAT_MM, 5)
+    ).toBeCloseTo(1, 5)
+
+    // Limite válido do schema: o clamp não altera o valor pedido.
+    expect(
+      getEffectiveRingProtrusion({
+        ...defaultCanHolderParams,
+        edgeRimWidth: 4,
+        edgeRimProtrusion: 1.5,
+      }),
+    ).toBeCloseTo(1.5, 5)
+  })
+
+  it('desliga os anéis sem alterar o diâmetro externo', () => {
+    expect(
+      getMaxOuterDiameter({ ...defaultCanHolderParams, edgeRimEnabled: false }),
+    ).toBeCloseTo(getOuterDiameter(defaultCanHolderParams), 5)
   })
 
   it('limita a borda de entrada para preservar a parede do topo', () => {

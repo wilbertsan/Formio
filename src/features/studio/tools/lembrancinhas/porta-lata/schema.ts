@@ -141,6 +141,9 @@ export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number 
 /**
  * Salto radial efetivo dos anéis: 0 quando desligados e limitado para sobrar
  * `MIN_EDGE_RIM_FLAT_MM` de face plana entre os flancos de 45°.
+ *
+ * O clamp é defensivo; inalcançável pelo schema (`edgeRimWidth` ≥ 4 e
+ * `edgeRimProtrusion` ≤ 1.5). Ele só reduz objetos construídos fora do Zod.
  */
 export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): number {
   if (!params.edgeRimEnabled) return 0
@@ -153,7 +156,7 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
   )
 }
 
-/** Diâmetro máximo impresso, incluindo os anéis decorativos. */
+/** Diâmetro externo do corpo com os anéis decorativos (não inclui o relevo do texto). */
 export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
   return (getOuterRadius(params) + getEffectiveRingProtrusion(params)) * 2
 }
