@@ -163,7 +163,7 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
 
 /** Diâmetro externo do corpo com os anéis decorativos (não inclui o relevo do texto). */
 export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
-  return (getOuterRadius(params) + getEffectiveRingProtrusion(params)) * 2
+  return getOuterDiameter(params) + 2 * getEffectiveRingProtrusion(params)
 }
 
 export function getTopLand(params: CanHolderGeometryParams): number {

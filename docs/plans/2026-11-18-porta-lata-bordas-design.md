@@ -73,9 +73,8 @@ Perfil fechado em `(r, y)` com anéis ligados:
 
 - `p` = protrusão efetiva, `w` = largura, `base` = `BASE_CHAMFER_MM` limitado a
   20% do raio externo, `chamfer`/`leadIn` = valores efetivos atuais.
-- `w - p > base` por construção? Não é garantido pelo schema; o perfil usa
-  `dedupePoints` e a validação crua garante `2p + 1 ≤ w`. Com `w ≥ 2p + 1` e
-  `base ≤ 0,4`, `w - p ≥ p + 1 > base` para `p ≥ 0,4`. Fica seguro.
+- Com `w ≥ 2p + 1` (schema) e `base ≤ 0,4 mm`, a face vertical do anel é sempre
+  positiva; o `dedupePoints` ainda cobre o caso `rimChamfer = 0`.
 - O anel inferior apoia na mesa com a face em `y = 0`; o chanfro da base mantém
   a aresta viva fora do contato.
 - O anel superior tem a face inferior a 45°, imprimível sem suporte; o

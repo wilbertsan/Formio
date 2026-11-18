@@ -294,7 +294,8 @@ mostra erro no overlay.
 - **Furo de ventilação:** 10 mm no centro do fundo; a lata apoia no anel
   externo de 28,9 mm, o ar entra, a condensação sai e a remoção não cria sucção.
 - **Borda de entrada:** 1,0 mm de cone interno e 0,4 mm de chanfro externo
-  deixam 1,0 mm de parede no topo e guiam a lata.
+  deixam 1,0 mm de parede no topo sem os anéis (2,0 mm com o anel) e guiam a
+  lata.
 - **Alça reaproveitada:** a abraçadeira de 200° com interferência no topo já foi
   validada; o corpo cilíndrico mantém o encaixe e o laço tem borda esquerda
   vertical. A fixação é por pressão e a peça é removível.

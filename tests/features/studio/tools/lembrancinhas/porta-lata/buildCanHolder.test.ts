@@ -155,6 +155,8 @@ describe('buildCanHolder', () => {
     { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },
     { name: 'parede máxima', params: { wallThickness: 4 } },
+    { name: 'bordas máximas', params: { edgeRimWidth: 14, edgeRimProtrusion: 1.5 } },
+    { name: 'bordas desligadas', params: { edgeRimEnabled: false } },
     {
       name: 'extremas combinadas',
       params: { wallThickness: 4, canClearance: 1.2, handleClearance: 0.5 },

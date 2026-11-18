@@ -22,6 +22,8 @@ import { getHandleMetrics } from './shapes'
  * extremidade.
  */
 const HANDLE_MARGIN_MM = 2
+/** Margem entre a altura dos anéis e as extremidades do corpo. */
+const RING_HEIGHT_MARGIN_MM = 2
 /** Abertura horizontal mínima confortável para a mão. */
 const MIN_HAND_OPENING_MM = 16
 /** Abertura vertical mínima confortável para a mão. */
@@ -157,7 +159,7 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
     // Defensiva: com a altura mínima do schema (82 mm) os anéis nunca ocupam o
     // corpo todo.
     if (
-      2 * params.edgeRimWidth + 2 * HANDLE_MARGIN_MM >
+      2 * params.edgeRimWidth + 2 * RING_HEIGHT_MARGIN_MM >
       getOuterHeight(params) + BOUNDARY_EPSILON
     ) {
       issues.push({
@@ -221,8 +223,7 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
 
     // A regra cobre só a banda da abraçadeira (handleHeight ± handleWidth/2):
     // é ela que precisa ficar sobre a parede. O laço em D pode passar da borda
-    // superior do porta-lata sem invalidar a peça. Os docs de plano/design
-    // ainda falam do vão completo do laço e serão alinhados na tarefa de docs.
+    // superior do porta-lata sem invalidar a peça; a v1 não recorta o laço.
     // Os anéis decorativos encurtam a parede disponível nas duas pontas.
     const wall = getRingWallBand(params)
     const bandMinY = params.handleHeight - params.handleWidth / 2
