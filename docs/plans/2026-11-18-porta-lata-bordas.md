@@ -360,11 +360,44 @@ git commit -m "feat: add decorative rims to can holder profile"
 
 ---
 
-## Task 3: Validação dos anéis, da alça e do texto
+## Task 3: Faixa do texto, relevo e validação dos anéis
 
 **Arquivos:**
+- Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/schema.ts` (helper `getTextBand`)
+- Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/buildRelief.ts` (`clampCenterY`)
 - Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts`
 - Testar: `tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts`
+- Testar: `tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts`
+
+**Step 0: helper único da faixa do texto**
+
+A revisão da Tarefa 2 mostrou que `clampCenterY` (buildRelief) e a validação
+calculam a faixa do texto separadamente; com anéis, o build precisa da mesma
+regra para não deixar o relevo sobre o anel. Extraia um helper em `schema.ts`,
+depois de `getTopLand`:
+
+```ts
+export interface TextBand {
+  min: number
+  max: number
+}
+
+/**
+ * Faixa vertical disponível para o texto: entre o fundo e a borda de entrada,
+ * descontando os anéis decorativos quando ligados, com `TEXT_BAND_MARGIN_MM` de
+ * margem em cada ponta.
+ */
+export function getTextBand(params: CanHolderGeometryParams): TextBand {
+  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  return {
+    min: Math.max(params.bottomThickness, ringWidth) + TEXT_BAND_MARGIN_MM,
+    max:
+      getOuterHeight(params) -
+      Math.max(getEffectiveRimChamfer(params), ringWidth) -
+      TEXT_BAND_MARGIN_MM,
+  }
+}
+```
 
 **Step 1: escrever os testes que falham**
 
@@ -469,17 +502,87 @@ Adicione os testes:
   })
 ```
 
+Em `buildRelief.test.ts`:
+
+1. Nos testes focados no chanfro (`clampa o texto com o chanfro efetivo quando o
+   chanfro pedido é limitado`, `respeita o chanfro efetivo quando o lead-in
+   limita o perfil`, `clampa o texto dentro do corpo mais curto`), adicione
+   `edgeRimEnabled: false` aos params e um comentário de uma linha: os anéis têm
+   teste próprio e mudariam o teto.
+2. Em `clampa o texto para dentro da parede quando o centro pede a borda`, o
+   teto e o piso agora incluem os anéis:
+
+```ts
+    const ceiling =
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM
+    ...
+    expect(box.min.y).toBeGreaterThanOrEqual(params.edgeRimWidth + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
+    expect(box.max.y).toBeLessThanOrEqual(ceiling + POSITION_EPSILON)
+```
+
+3. Adicione o teste do anel largo:
+
+```ts
+  it('clampa o texto entre os anéis', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      edgeRimWidth: 14,
+      textCenterY: 120,
+    }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+    const ceiling =
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM
+
+    expect(box.min.y).toBeGreaterThanOrEqual(14 + TEXT_BAND_MARGIN_MM - POSITION_EPSILON)
+    expect(box.max.y).toBeCloseTo(ceiling, 5)
+    geometry.dispose()
+  })
+```
+
 **Step 2: rodar e confirmar a falha**
 
 ```bash
-npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
+npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts
 ```
 
-Esperado: `can-edge-rim` desconhecido/ausente e os testes de faixa falhando.
+Esperado: `can-edge-rim` desconhecido/ausente, testes de faixa falhando e os
+testes de clamp do relevo com teto antigo.
 
 **Step 3: implementar o mínimo**
 
-No import de `schema`, adicione `MIN_EDGE_RIM_FLAT_MM`.
+Em `buildRelief.ts`, troque o corpo de `clampCenterY` e limpe os imports:
+
+```ts
+function clampCenterY(params: CanHolderGeometryParams, halfHeight: number): number {
+  const band = getTextBand(params)
+  const minY = band.min + halfHeight
+  const maxY = band.max - halfHeight
+  if (minY > maxY) return params.textCenterY
+  return Math.min(maxY, Math.max(minY, params.textCenterY))
+}
+```
+
+Importe `getTextBand` de `./schema` e remova `TEXT_BAND_MARGIN_MM`,
+`getEffectiveRimChamfer` e `getOuterHeight` do import (ficam sem uso).
+
+Em `validateCanHolder.ts`, use o mesmo helper no bloco do texto:
+
+```ts
+    const band = getTextBand(params)
+    const fitScale = Math.min(1, MAX_TEXT_ARC / arc)
+    const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
+    if (
+      params.textCenterY - halfHeight < band.min ||
+      params.textCenterY + halfHeight > band.max
+    ) {
+```
+
+Importe `getTextBand` de `./schema`. O restante da validação segue como abaixo.
+
+No import de `schema`, adicione `MIN_EDGE_RIM_FLAT_MM` e remova
+`TEXT_BAND_MARGIN_MM`, que fica sem uso em `validateCanHolder.ts`.
 
 Adicione a constante perto de `HANDLE_MARGIN_MM`:
 
@@ -519,20 +622,6 @@ Depois da regra `can-bottom`:
   }
 ```
 
-No bloco do texto, troque o cálculo de `minY`/`maxY`:
-
-```ts
-    const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
-    const fitScale = Math.min(1, MAX_TEXT_ARC / arc)
-    const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
-    const minY =
-      Math.max(params.bottomThickness, ringWidth) + TEXT_BAND_MARGIN_MM
-    const maxY =
-      getOuterHeight(params) -
-      Math.max(chamfer, ringWidth) -
-      TEXT_BAND_MARGIN_MM
-```
-
 No bloco da alça, troque os limites:
 
 ```ts
@@ -557,7 +646,7 @@ Atualize o comentário acima da regra para citar os anéis.
 **Step 4: rodar e confirmar o sucesso**
 
 ```bash
-npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
+npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts
 ```
 
 Esperado: todos passando.
@@ -565,8 +654,8 @@ Esperado: todos passando.
 **Step 5: commit**
 
 ```bash
-git add src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
-git commit -m "feat: validate can holder edge rims"
+git add src/features/studio/tools/lembrancinhas/porta-lata/schema.ts src/features/studio/tools/lembrancinhas/porta-lata/buildRelief.ts src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts tests/features/studio/tools/lembrancinhas/porta-lata/buildRelief.test.ts
+git commit -m "feat: keep can holder text inside the edge rims"
 ```
 
 ---
