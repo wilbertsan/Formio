@@ -3,12 +3,16 @@ import { Vector2 } from 'three'
 import { buildBody } from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
 import { bodyProfile, dedupePoints } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
+  BASE_CHAMFER_MM,
   CAN_DIAMETER,
   MIN_TOP_LAND_MM,
   defaultCanHolderParams,
+  getEffectiveRingProtrusion,
+  getEffectiveRimChamfer,
   getInnerDiameter,
-  getOuterDiameter,
+  getMaxOuterDiameter,
   getOuterHeight,
+  getOuterRadius,
   getTopLand,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
@@ -25,7 +29,7 @@ describe('can holder body', () => {
 
     expect(box.min.y).toBeCloseTo(0, 3)
     expect(box.max.y).toBeCloseTo(getOuterHeight(defaultCanHolderParams), 3)
-    expect(box.max.x).toBeCloseTo(getOuterDiameter(defaultCanHolderParams) / 2, 2)
+    expect(box.max.x).toBeCloseTo(getMaxOuterDiameter(defaultCanHolderParams) / 2, 2)
     expect(isClosed(geometry)).toBe(true)
     expect(countShells(geometry)).toBe(1)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
@@ -78,6 +82,34 @@ describe('can holder body', () => {
     expect(points.every((point) => point.x > 0)).toBe(true)
   })
 
+  it('gera os anéis decorativos colados na base e no topo', () => {
+    const params = defaultCanHolderParams
+    const protrusion = getEffectiveRingProtrusion(params)
+    const ringRadius = getOuterRadius(params) + protrusion
+    const height = getOuterHeight(params)
+    const points = bodyProfile(params)
+
+    expect(protrusion).toBeGreaterThan(0)
+    const ringPoints = points
+      .filter((point) => Math.abs(point.x - ringRadius) < 1e-6)
+      .map((point) => point.y)
+
+    expect(ringPoints).toHaveLength(4)
+    expect(ringPoints[0]).toBeCloseTo(BASE_CHAMFER_MM, 6)
+    expect(ringPoints[1]).toBeCloseTo(params.edgeRimWidth - protrusion, 6)
+    expect(ringPoints[2]).toBeCloseTo(height - params.edgeRimWidth + protrusion, 6)
+    expect(ringPoints[3]).toBeCloseTo(height - getEffectiveRimChamfer(params), 6)
+  })
+
+  it('sem anéis, o perfil volta ao corpo reto', () => {
+    const params = { ...defaultCanHolderParams, edgeRimEnabled: false }
+    const radius = getOuterRadius(params)
+    const points = bodyProfile(params)
+
+    expect(points.some((point) => point.x > radius + 1e-6)).toBe(false)
+    expect(points.some((point) => Math.abs(point.x - radius) < 1e-6)).toBe(true)
+  })
+
   it.each([
     { name: 'cavidade rasa', params: { cavityDepth: 80 } },
     { name: 'cavidade profunda', params: { cavityDepth: 116 } },
@@ -93,6 +125,9 @@ describe('can holder body', () => {
     { name: 'borda de entrada máxima', params: { rimLeadIn: 2 } },
     { name: 'chanfro zero', params: { rimChamfer: 0 } },
     { name: 'chanfro máximo', params: { rimChamfer: 1.5, wallThickness: 4 } },
+    { name: 'bordas desligadas', params: { edgeRimEnabled: false } },
+    { name: 'bordas mínimas', params: { edgeRimProtrusion: 0.4, edgeRimWidth: 4 } },
+    { name: 'bordas máximas', params: { edgeRimProtrusion: 1.5, edgeRimWidth: 14 } },
   ])('fecha e mantém volume positivo nos extremos ($name)', ({ params }) => {
     const merged = { ...defaultCanHolderParams, ...params }
     const geometry = buildBody(merged)
