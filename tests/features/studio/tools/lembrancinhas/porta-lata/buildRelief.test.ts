@@ -19,9 +19,6 @@ import {
   shapesToGeometry,
   textToShapes,
 } from '@/features/studio/tools/confeitaria/shared/textOutline'
-import {
-  getEffectiveRimChamfer as getLegacyRimChamfer,
-} from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import { isClosed, signedVolume } from './geometryTestUtils'
 
 /** Posições são Float32Array: ~1e-6 de erro absoluto em coordenadas de mm. */
@@ -170,9 +167,9 @@ describe('buildRelief', () => {
     geometry.dispose()
   })
 
-  it('distingue o chanfro efetivo do schema do chanfro legado da validação', () => {
+  it('respeita o chanfro efetivo quando o lead-in limita o perfil', () => {
     // Com lead-in 2 mm e parede 2,6 mm o schema zera o chanfro (lead-in
-    // efetivo 1,8 mm); o helper legado de `shapes` ainda devolve 0,8 mm.
+    // efetivo 1,8 mm), então o topo do relevo pode subir até o limite real.
     const params = {
       ...defaultCanHolderParams,
       rimChamfer: 2,
@@ -181,18 +178,12 @@ describe('buildRelief', () => {
       textCenterY: 120,
     }
     expect(getEffectiveRimChamfer(params)).toBeCloseTo(0, 6)
-    expect(getLegacyRimChamfer(params)).toBeCloseTo(0.8, 6)
 
     const geometry = buildRelief(rectangleFont(10, 4), params)!
     geometry.computeBoundingBox()
     const ceiling = getOuterHeight(params) - getEffectiveRimChamfer(params) - 2
 
-    // Se o buildRelief voltar a importar o helper legado, o topo para 0,8 mm
-    // abaixo deste limite e o teste falha.
     expect(geometry.boundingBox!.max.y).toBeCloseTo(ceiling, 5)
-    expect(geometry.boundingBox!.max.y).toBeGreaterThan(
-      getOuterHeight(params) - getLegacyRimChamfer(params) - 2 + 0.5,
-    )
     geometry.dispose()
   })
 

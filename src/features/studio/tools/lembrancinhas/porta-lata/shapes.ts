@@ -5,9 +5,8 @@ import {
   HANDLE_LOOP_INSET,
   HANDLE_RING_THICKNESS,
   HANDLE_WRAP,
-  MINIMUM_WALL_MM,
   getEffectiveLeadIn,
-  getEffectiveRimChamfer as getSchemaRimChamfer,
+  getEffectiveRimChamfer,
   getInnerDiameter,
   getOuterHeight,
   getOuterRadius,
@@ -15,26 +14,6 @@ import {
 } from './schema'
 
 const DEDUPE_EPSILON = 1e-6
-
-/**
- * Compatibilidade temporária com `validateCanHolder` (regras `mug-*`): a
- * validação ainda parte dos campos antigos `height`/`diameterTop`/
- * `diameterBottom`. Será removida na tarefa de validação `can-*`.
- */
-export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number {
-  return Math.max(0, Math.min(params.rimChamfer, params.wallThickness - MINIMUM_WALL_MM))
-}
-
-/**
- * Compatibilidade temporária com `validateCanHolder`: raio externo do corpo
- * cônico antigo na altura `y`. Será removida na tarefa de validação `can-*`.
- */
-export function getBodyOuterRadius(params: CanHolderGeometryParams, y: number): number {
-  const chamfer = getEffectiveRimChamfer(params)
-  const wallTop = Math.max(1e-6, params.height - chamfer)
-  const t = Math.min(1, Math.max(0, y / wallTop))
-  return (params.diameterBottom / 2) * (1 - t) + (params.diameterTop / 2) * t
-}
 
 export function dedupePoints(points: Vector2[]): Vector2[] {
   const result: Vector2[] = []
@@ -57,7 +36,7 @@ export function bodyProfile(params: CanHolderGeometryParams): Vector2[] {
   const ventR = params.ventHoleDiameter / 2
   const height = getOuterHeight(params)
   const leadIn = getEffectiveLeadIn(params)
-  const chamfer = getSchemaRimChamfer(params)
+  const chamfer = getEffectiveRimChamfer(params)
   const base = Math.min(BASE_CHAMFER_MM, outerR * 0.2)
 
   return dedupePoints([

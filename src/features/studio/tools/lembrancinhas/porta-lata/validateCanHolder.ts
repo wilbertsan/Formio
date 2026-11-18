@@ -3,10 +3,16 @@ import {
   MAX_TEXT_ARC,
   MINIMUM_BOTTOM_MM,
   MINIMUM_WALL_MM,
-  getCapacityMl,
+  MIN_EXPOSED_MM,
+  MIN_TOP_LAND_MM,
+  getEffectiveRimChamfer,
+  getExposedHeight,
+  getInnerDiameter,
+  getOuterHeight,
+  getOuterRadius,
   type CanHolderGeometryParams,
 } from './schema'
-import { getBodyOuterRadius, getEffectiveRimChamfer, getHandleMetrics } from './shapes'
+import { getHandleMetrics } from './shapes'
 
 /** Margem entre o texto e a borda ou o fundo da porta-lata. */
 export const TEXT_MARGIN_MM = 2
@@ -16,9 +22,14 @@ const HANDLE_MARGIN_MM = 2
 const MIN_HAND_OPENING_MM = 16
 /** Abertura vertical mínima confortável para a mão. */
 export const MIN_HANDLE_GAP_MM = 26
-/** Faixa útil de capacidade exibida. */
-const MIN_CAPACITY_ML = 150
-const MAX_CAPACITY_ML = 500
+/** Faixa defensiva da profundidade da cavidade, espelhando o schema. */
+const MIN_CAVITY_MM = 80
+const MAX_CAVITY_MM = 118
+/** Faixa defensiva da folga da lata, espelhando o schema. */
+const MIN_CAN_CLEARANCE_MM = 0.5
+const MAX_CAN_CLEARANCE_MM = 1.2
+/** Anel de apoio mínimo entre o furo de ventilação e a parede interna. */
+const MIN_VENT_RING_MM = 3
 /**
  * Largura média por caractere da Helvetiker em caixa mista (medida: 0,675 a
  * 0,694). É uma estimativa conservadora; o build usa a fonte real e faz
@@ -34,16 +45,18 @@ export const GLYPH_HEIGHT_FACTOR = 1.1
 export type IssueSeverity = 'error' | 'warning'
 
 export type CanHolderIssueCode =
-  | 'mug-taper'
-  | 'mug-wall'
-  | 'mug-bottom'
-  | 'mug-text-fit'
-  | 'mug-text-band'
-  | 'mug-handle-gap'
-  | 'mug-handle-reach'
-  | 'mug-handle-fit'
-  | 'mug-handle-band'
-  | 'mug-capacity'
+  | 'can-cavity'
+  | 'can-clearance'
+  | 'can-vent'
+  | 'can-rim'
+  | 'can-wall'
+  | 'can-bottom'
+  | 'can-text-fit'
+  | 'can-text-band'
+  | 'can-handle-gap'
+  | 'can-handle-reach'
+  | 'can-handle-fit'
+  | 'can-handle-band'
 
 export interface ValidationIssue {
   code: CanHolderIssueCode
@@ -60,19 +73,51 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
   const issues: ValidationIssue[] = []
   const text = params.text.trim()
   const chamfer = getEffectiveRimChamfer(params)
-  const textRadius = getBodyOuterRadius(params, params.textCenterY)
 
-  if (params.diameterTop < params.diameterBottom) {
+  if (
+    params.cavityDepth < MIN_CAVITY_MM ||
+    params.cavityDepth > MAX_CAVITY_MM ||
+    getExposedHeight(params) < MIN_EXPOSED_MM
+  ) {
     issues.push({
-      code: 'mug-taper',
+      code: 'can-cavity',
       severity: 'error',
-      message: 'O diâmetro do topo precisa ser maior ou igual ao da base.',
+      message: `A cavidade precisa ficar entre ${MIN_CAVITY_MM} e ${MAX_CAVITY_MM} mm e deixar pelo menos ${MIN_EXPOSED_MM} mm da lata expostos.`,
+    })
+  }
+
+  if (
+    params.canClearance < MIN_CAN_CLEARANCE_MM ||
+    params.canClearance > MAX_CAN_CLEARANCE_MM
+  ) {
+    issues.push({
+      code: 'can-clearance',
+      severity: 'warning',
+      message: `A folga da lata precisa ficar entre ${MIN_CAN_CLEARANCE_MM} e ${MAX_CAN_CLEARANCE_MM} mm.`,
+    })
+  }
+
+  if (params.ventHoleDiameter / 2 > getInnerDiameter(params) / 2 - MIN_VENT_RING_MM) {
+    issues.push({
+      code: 'can-vent',
+      severity: 'error',
+      message: 'O furo de ventilação é grande demais e deixa pouco apoio para a lata.',
+    })
+  }
+
+  // Regra crua, antes do clamp do perfil: avisa quando a borda de entrada e o
+  // chanfro precisam ser reduzidos para preservar a parede do topo.
+  if (params.wallThickness - params.rimChamfer - params.rimLeadIn < MIN_TOP_LAND_MM) {
+    issues.push({
+      code: 'can-rim',
+      severity: 'error',
+      message: `A parede do topo precisa ter pelo menos ${MIN_TOP_LAND_MM} mm.`,
     })
   }
 
   if (params.wallThickness < MINIMUM_WALL_MM) {
     issues.push({
-      code: 'mug-wall',
+      code: 'can-wall',
       severity: 'error',
       message: `A parede precisa ter pelo menos ${MINIMUM_WALL_MM} mm.`,
     })
@@ -80,31 +125,32 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
 
   if (params.bottomThickness < MINIMUM_BOTTOM_MM) {
     issues.push({
-      code: 'mug-bottom',
+      code: 'can-bottom',
       severity: 'error',
       message: `O fundo precisa ter pelo menos ${MINIMUM_BOTTOM_MM} mm.`,
     })
   }
 
   if (text.length > 0) {
-    const arc = estimateTextWidth(text, params.textSize) / textRadius
+    const outerRadius = getOuterRadius(params)
+    const arc = estimateTextWidth(text, params.textSize) / outerRadius
     if (arc > MAX_TEXT_ARC) {
       issues.push({
-        code: 'mug-text-fit',
+        code: 'can-text-fit',
         severity: 'warning',
-        message: 'O texto pode ser reduzido para caber no arco da porta-lata.',
+        message: 'O texto pode ser reduzido para caber no arco do porta-lata.',
       })
     }
 
     const fitScale = arc > 0 ? Math.min(1, MAX_TEXT_ARC / arc) : 1
     const halfHeight = ((params.textSize * GLYPH_HEIGHT_FACTOR) / 2) * fitScale
     const minY = params.bottomThickness + TEXT_MARGIN_MM
-    const maxY = params.height - chamfer - TEXT_MARGIN_MM
+    const maxY = getOuterHeight(params) - chamfer - TEXT_MARGIN_MM
     if (params.textCenterY - halfHeight < minY || params.textCenterY + halfHeight > maxY) {
       issues.push({
-        code: 'mug-text-band',
+        code: 'can-text-band',
         severity: 'error',
-        message: 'O texto cruza a borda ou o fundo da porta-lata. Ajuste a altura ou o tamanho.',
+        message: 'O texto cruza a borda ou o fundo do porta-lata. Ajuste a altura ou o tamanho.',
       })
     }
   }
@@ -113,45 +159,40 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
     const metrics = getHandleMetrics(params)
     if (params.handleGap < MIN_HANDLE_GAP_MM) {
       issues.push({
-        code: 'mug-handle-gap',
+        code: 'can-handle-gap',
         severity: 'warning',
         message: 'A abertura vertical da mão está pequena; o conforto fica comprometido.',
       })
     }
     if (metrics.handOpeningMinWidth < MIN_HAND_OPENING_MM) {
       issues.push({
-        code: 'mug-handle-reach',
+        code: 'can-handle-reach',
         severity: 'warning',
         message: 'O alcance da alça não deixa abertura suficiente para a mão.',
       })
     }
     if (params.handleClearance > HANDLE_FIT_INTERFERENCE) {
       issues.push({
-        code: 'mug-handle-fit',
+        code: 'can-handle-fit',
         severity: 'warning',
         message: 'A folga no meio da abraçadeira está alta; a alça fica apoiada no topo.',
       })
     }
-    const span = params.handleGap / 2 + params.handleBand
+
+    // Só a banda da abraçadeira precisa caber na parede; o laço em D pode
+    // passar da borda superior do corpo.
+    const bandMinY = params.handleHeight - params.handleWidth / 2
+    const bandMaxY = params.handleHeight + params.handleWidth / 2
     if (
-      params.handleHeight - span < HANDLE_MARGIN_MM ||
-      params.handleHeight + span > params.height - chamfer - HANDLE_MARGIN_MM
+      bandMinY < HANDLE_MARGIN_MM ||
+      bandMaxY > getOuterHeight(params) - chamfer - HANDLE_MARGIN_MM
     ) {
       issues.push({
-        code: 'mug-handle-band',
+        code: 'can-handle-band',
         severity: 'error',
-        message: 'A alça não cabe na altura do corpo. Ajuste a altura, a abertura ou a banda.',
+        message: 'A alça não cabe na altura do corpo. Ajuste a altura ou a largura da alça.',
       })
     }
-  }
-
-  const capacity = getCapacityMl(params)
-  if (capacity < MIN_CAPACITY_ML || capacity > MAX_CAPACITY_ML) {
-    issues.push({
-      code: 'mug-capacity',
-      severity: 'warning',
-      message: `A capacidade aproximada é ${capacity.toFixed(0)} ml (fora da faixa de ${MIN_CAPACITY_ML}–${MAX_CAPACITY_ML} ml).`,
-    })
   }
 
   return issues

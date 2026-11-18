@@ -240,22 +240,22 @@ describe('StudioPanel (porta-lata)', () => {
         {...defaultProps}
         issues={[
           {
-            code: 'mug-taper',
+            code: 'can-rim',
             severity: 'error',
-            message: 'O diâmetro do topo precisa ser maior ou igual ao da base.',
+            message: 'A parede do topo precisa ter pelo menos 0.8 mm.',
           },
           {
-            code: 'mug-capacity',
+            code: 'can-cavity',
             severity: 'warning',
-            message: 'A capacidade aproximada está fora da faixa.',
+            message: 'A cavidade deixa pouca lata exposta.',
           },
         ]}
       />,
     )
     expect(
-      screen.getByText('O diâmetro do topo precisa ser maior ou igual ao da base.'),
+      screen.getByText('A parede do topo precisa ter pelo menos 0.8 mm.'),
     ).toBeDefined()
-    expect(screen.getByText('A capacidade aproximada está fora da faixa.')).toBeDefined()
+    expect(screen.getByText('A cavidade deixa pouca lata exposta.')).toBeDefined()
     expect(screen.getByText('Erro')).toBeDefined()
     expect(screen.getByText('Aviso')).toBeDefined()
   })

@@ -321,8 +321,12 @@ describe('useCanHolder', () => {
   it('expõe issues de validateCanHolder', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
-    act(() => { result.current.updateParam('textCenterY', 88) })
-    expect(result.current.issues.some((issue) => issue.code === 'mug-text-band')).toBe(true)
+    act(() => {
+      result.current.updateParam('cavityDepth', 80)
+      result.current.updateParam('textCenterY', 90)
+      result.current.updateParam('textSize', 18)
+    })
+    expect(result.current.issues.some((issue) => issue.code === 'can-text-band')).toBe(true)
   })
 
   it('reseta para os defaults', () => {
