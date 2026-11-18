@@ -19,6 +19,7 @@ import {
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
+  getTextBand,
   getTopLand,
   type FontStyle,
   type CanHolderParams,
@@ -140,6 +141,8 @@ export function StudioPanel({
   onUpdateParam,
   onReset,
 }: StudioPanelProps) {
+  const textBand = getTextBand(params)
+
   return (
     <View
       as="aside"
@@ -197,7 +200,7 @@ export function StudioPanel({
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <SwitchField
-                label="Bordas decorativas"
+                label="Habilitar bordas"
                 isChecked={params.edgeRimEnabled}
                 onChange={(event) => onUpdateParam('edgeRimEnabled', event.target.checked)}
               />
@@ -205,7 +208,7 @@ export function StudioPanel({
               <LabeledSlider label="Largura das bordas" value={params.edgeRimWidth} min={4} max={14} step={1} isDisabled={!params.edgeRimEnabled} onChange={(value) => onUpdateParam('edgeRimWidth', value)} />
               {params.edgeRimEnabled ? (
                 <Text fontSize="xs" color="font.secondary">
-                  Faixa livre entre as bordas: {formatMm(outerHeight - 2 * params.edgeRimWidth)} mm
+                  Texto entre {formatMm(textBand.min)} e {formatMm(textBand.max)} mm
                 </Text>
               ) : (
                 <Text fontSize="xs" color="font.secondary">

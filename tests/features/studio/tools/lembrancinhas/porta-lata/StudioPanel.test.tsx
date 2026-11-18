@@ -7,7 +7,7 @@ import type { ValidationIssue } from '@/features/studio/tools/lembrancinhas/port
 const defaultProps = {
   params: defaultCanHolderParams,
   issues: [] as ValidationIssue[],
-  outerDiameter: 72.6,
+  outerDiameter: 74.6,
   outerHeight: 111.2,
   exposedHeight: 14.2,
   onUpdateParam: vi.fn(),
@@ -63,6 +63,7 @@ describe('StudioPanel (porta-lata)', () => {
 
   it('expõe nome acessível nos 17 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
+    expect(screen.getAllByRole('slider')).toHaveLength(17)
     for (const { name } of SLIDER_RANGES) {
       expect.soft(screen.getByRole('slider', { name }), name).toBeDefined()
     }
@@ -143,7 +144,7 @@ describe('StudioPanel (porta-lata)', () => {
     expect(
       screen.getByText('Lata 350 ml · Ø66,2 × 122,2 mm · topo 54 mm'),
     ).toBeDefined()
-    expect(screen.getByText('Diâmetro externo: 72,6 mm')).toBeDefined()
+    expect(screen.getByText('Diâmetro externo: 74,6 mm')).toBeDefined()
     expect(screen.getByText('Altura externa: 111,2 mm')).toBeDefined()
     expect(screen.getByText('Altura exposta: 14,2 mm')).toBeDefined()
     expect(screen.getByText('Parede do topo: 2,0 mm')).toBeDefined()
@@ -259,7 +260,7 @@ describe('StudioPanel (porta-lata)', () => {
     }
     expect(screen.queryByText(RIM_DISABLED_HINT)).toBeNull()
 
-    fireEvent.click(screen.getByLabelText('Bordas decorativas'))
+    fireEvent.click(screen.getByLabelText('Habilitar bordas'))
     expect(onUpdateParam).toHaveBeenCalledWith('edgeRimEnabled', false)
 
     onUpdateParam.mockClear()
@@ -276,11 +277,27 @@ describe('StudioPanel (porta-lata)', () => {
       )
     }
     expect(screen.getByText(RIM_DISABLED_HINT)).toBeDefined()
+    expect(screen.queryByText(/Texto entre/)).toBeNull()
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Largura das bordas' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).not.toHaveBeenCalled()
   })
 
-  it('mostra a faixa livre entre as bordas', () => {
+  it('mostra a faixa útil do texto entre as bordas', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText('Faixa livre entre as bordas: 99,2 mm')).toBeDefined()
+    expect(screen.getByText('Texto entre 8,0 e 103,2 mm')).toBeDefined()
+  })
+
+  it('acompanha a largura das bordas na faixa do texto', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, edgeRimWidth: 14 }}
+      />,
+    )
+    expect(screen.getByText('Texto entre 16,0 e 95,2 mm')).toBeDefined()
   })
 
   it('atualiza as cores pelos swatches agrupados', () => {
