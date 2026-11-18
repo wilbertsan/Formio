@@ -10,6 +10,7 @@ import { Box3, Vector3 } from 'three'
 import { disposeCanHolderResult, type CanHolderBuildResult } from './buildCanHolder'
 import {
   defaultCanHolderParams,
+  getExposedHeight,
   getOuterDiameter,
   getOuterHeight,
   MAX_TEXT_LENGTH,
@@ -111,6 +112,9 @@ export interface UseCanHolderResult {
   error: string | null
   issues: ValidationIssue[]
   dimensions: { width: number; height: number; thickness: number }
+  outerDiameter: number
+  outerHeight: number
+  exposedHeight: number
   cameraPosition: [number, number, number]
   fitRadius: number
   updateParam: (key: keyof CanHolderParams, value: number | string | boolean) => void
@@ -202,6 +206,12 @@ export function useCanHolder(
 
   const nominalParams = builtParams ?? buildParams
 
+  const derived = useMemo(() => ({
+    outerDiameter: getOuterDiameter(nominalParams),
+    outerHeight: getOuterHeight(nominalParams),
+    exposedHeight: getExposedHeight(nominalParams),
+  }), [nominalParams])
+
   const fallbackFitRadius = useMemo(() => {
     const handleExtra = handleEnabled ? 2 * handleReach : 0
     return Math.max(
@@ -274,6 +284,9 @@ export function useCanHolder(
     error,
     issues,
     dimensions,
+    outerDiameter: derived.outerDiameter,
+    outerHeight: derived.outerHeight,
+    exposedHeight: derived.exposedHeight,
     cameraPosition,
     fitRadius,
     updateParam,

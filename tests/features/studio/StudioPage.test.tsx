@@ -498,6 +498,10 @@ describe('StudioPage', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'Aparência' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'Validação' })).toBeInTheDocument()
     expect(screen.queryByText(/capacidade/i)).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Lata 350 ml · Ø66,2 × 122,2 mm · topo 54 mm'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Altura externa: 111,2 mm')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
   })
 

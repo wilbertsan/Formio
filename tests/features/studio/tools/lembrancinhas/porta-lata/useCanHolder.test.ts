@@ -119,6 +119,9 @@ describe('useCanHolder', () => {
     expect(result.current.issues).toEqual([])
     expect(result.current).not.toHaveProperty('capacityMl')
     expect(result.current.dimensions).toEqual({ width: 72.6, height: 111.2, thickness: 2.4 })
+    expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
+    expect(result.current.outerHeight).toBeCloseTo(111.2, 5)
+    expect(result.current.exposedHeight).toBeCloseTo(14.2, 5)
   })
 
   it('faz clamp dos campos numéricos', () => {
@@ -403,6 +406,28 @@ describe('useCanHolder', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
     expect(result.current.dimensions.thickness).toBe(4)
+  })
+
+  it('usa o snapshot do build nos valores derivados', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+
+    act(() => {
+      result.current.updateParam('wallThickness', 3)
+      result.current.updateParam('cavityDepth', 100)
+      result.current.updateParam('bottomThickness', 4)
+    })
+    expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
+    expect(result.current.outerHeight).toBeCloseTo(111.2, 5)
+    expect(result.current.exposedHeight).toBeCloseTo(14.2, 5)
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    expect(result.current.outerDiameter).toBeCloseTo(73.8, 5)
+    expect(result.current.outerHeight).toBeCloseTo(104, 5)
+    expect(result.current.exposedHeight).toBeCloseTo(22.2, 5)
   })
 
   it('aceita build sem alça', () => {

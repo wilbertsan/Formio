@@ -14,13 +14,11 @@ import {
 import {
   CAN_DIAMETER,
   CAN_HEIGHT,
+  CAN_TOP_DIAMETER,
   CAN_VOLUME_ML,
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
-  getExposedHeight,
-  getOuterDiameter,
-  getOuterHeight,
   type FontStyle,
   type CanHolderParams,
   type PlaColor,
@@ -30,6 +28,9 @@ import type { ValidationIssue } from './validateCanHolder'
 interface StudioPanelProps {
   params: CanHolderParams
   issues: ValidationIssue[]
+  outerDiameter: number
+  outerHeight: number
+  exposedHeight: number
   onUpdateParam: (key: keyof CanHolderParams, value: number | string | boolean) => void
   onReset: () => void
 }
@@ -44,8 +45,8 @@ function isFontStyle(value: string): value is FontStyle {
   return FONT_STYLES.some((style) => style === value)
 }
 
-/** Medidas do preset são fixas; vírgula decimal acompanha o restante da UI. */
-function formatPresetMm(value: number): string {
+/** Medidas em mm com vírgula decimal, como no restante da UI. */
+function formatMm(value: number): string {
   return value.toFixed(1).replace('.', ',')
 }
 
@@ -125,6 +126,9 @@ function LabeledSlider({
 export function StudioPanel({
   params,
   issues,
+  outerDiameter,
+  outerHeight,
+  exposedHeight,
   onUpdateParam,
   onReset,
 }: StudioPanelProps) {
@@ -159,16 +163,16 @@ export function StudioPanel({
               <LabeledSlider label="Borda de entrada" value={params.rimLeadIn} min={0.5} max={2} step={0.1} onChange={(value) => onUpdateParam('rimLeadIn', value)} />
               <LabeledSlider label="Chanfro da borda" value={params.rimChamfer} min={0} max={1.5} step={0.1} onChange={(value) => onUpdateParam('rimChamfer', value)} />
               <Text fontSize="xs" color="font.secondary">
-                Lata {CAN_VOLUME_ML} ml · Ø{formatPresetMm(CAN_DIAMETER)} × {formatPresetMm(CAN_HEIGHT)} mm
+                Lata {CAN_VOLUME_ML} ml · Ø{formatMm(CAN_DIAMETER)} × {formatMm(CAN_HEIGHT)} mm · topo {CAN_TOP_DIAMETER} mm
               </Text>
               <Text fontSize="xs" color="font.secondary">
-                Diâmetro externo: {getOuterDiameter(params).toFixed(1)} mm
+                Diâmetro externo: {formatMm(outerDiameter)} mm
               </Text>
               <Text fontSize="xs" color="font.secondary">
-                Altura externa: {getOuterHeight(params).toFixed(1)} mm
+                Altura externa: {formatMm(outerHeight)} mm
               </Text>
               <Text fontSize="xs" color="font.secondary">
-                Altura exposta: {getExposedHeight(params).toFixed(1)} mm
+                Altura exposta: {formatMm(exposedHeight)} mm
               </Text>
             </Flex>
           </Accordion.Content>

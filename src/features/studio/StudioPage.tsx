@@ -1280,6 +1280,9 @@ function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
     error,
     issues,
     dimensions,
+    outerDiameter,
+    outerHeight,
+    exposedHeight,
     cameraPosition,
     fitRadius,
     updateParam,
@@ -1336,6 +1339,9 @@ function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
           <CanHolderTool
             params={params}
             issues={issues}
+            outerDiameter={outerDiameter}
+            outerHeight={outerHeight}
+            exposedHeight={exposedHeight}
             onUpdateParam={updateParam}
             onReset={reset}
           />

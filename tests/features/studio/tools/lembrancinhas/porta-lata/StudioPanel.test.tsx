@@ -7,6 +7,9 @@ import type { ValidationIssue } from '@/features/studio/tools/lembrancinhas/port
 const defaultProps = {
   params: defaultCanHolderParams,
   issues: [] as ValidationIssue[],
+  outerDiameter: 72.6,
+  outerHeight: 111.2,
+  exposedHeight: 14.2,
   onUpdateParam: vi.fn(),
   onReset: vi.fn(),
 }
@@ -121,30 +124,27 @@ describe('StudioPanel (porta-lata)', () => {
 
   it('mostra o preset da lata e as dimensões derivadas', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText('Lata 350 ml · Ø66,2 × 122,2 mm')).toBeDefined()
-    expect(screen.getByText('Diâmetro externo: 72.6 mm')).toBeDefined()
-    expect(screen.getByText('Altura externa: 111.2 mm')).toBeDefined()
-    expect(screen.getByText('Altura exposta: 14.2 mm')).toBeDefined()
+    expect(
+      screen.getByText('Lata 350 ml · Ø66,2 × 122,2 mm · topo 54 mm'),
+    ).toBeDefined()
+    expect(screen.getByText('Diâmetro externo: 72,6 mm')).toBeDefined()
+    expect(screen.getByText('Altura externa: 111,2 mm')).toBeDefined()
+    expect(screen.getByText('Altura exposta: 14,2 mm')).toBeDefined()
   })
 
-  it('recalcula as dimensões derivadas ao mudar os parâmetros', () => {
-    const { rerender } = render(<StudioPanel {...defaultProps} />)
-
-    rerender(
+  it('usa as dimensões derivadas fornecidas pelo hook', () => {
+    render(
       <StudioPanel
         {...defaultProps}
-        params={{
-          ...defaultCanHolderParams,
-          cavityDepth: 100,
-          bottomThickness: 4,
-          wallThickness: 3,
-        }}
+        outerDiameter={73.8}
+        outerHeight={104}
+        exposedHeight={22.2}
       />,
     )
 
-    expect(screen.getByText('Diâmetro externo: 73.8 mm')).toBeDefined()
-    expect(screen.getByText('Altura externa: 104.0 mm')).toBeDefined()
-    expect(screen.getByText('Altura exposta: 22.2 mm')).toBeDefined()
+    expect(screen.getByText('Diâmetro externo: 73,8 mm')).toBeDefined()
+    expect(screen.getByText('Altura externa: 104,0 mm')).toBeDefined()
+    expect(screen.getByText('Altura exposta: 22,2 mm')).toBeDefined()
   })
 
   it('atualiza a profundidade da cavidade', () => {
