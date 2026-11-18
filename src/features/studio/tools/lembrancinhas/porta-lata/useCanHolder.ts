@@ -10,7 +10,8 @@ import { Box3, Vector3 } from 'three'
 import { disposeCanHolderResult, type CanHolderBuildResult } from './buildCanHolder'
 import {
   defaultCanHolderParams,
-  getCapacityMl,
+  getOuterDiameter,
+  getOuterHeight,
   MAX_TEXT_LENGTH,
   MINIMUM_BOTTOM_MM,
   MINIMUM_WALL_MM,
@@ -31,12 +32,13 @@ type CanHolderAction =
   | { type: 'reset' }
 
 const NUMERIC_RANGES: Partial<Record<keyof CanHolderParams, { min: number; max: number }>> = {
-  diameterTop: { min: 70, max: 100 },
-  diameterBottom: { min: 60, max: 95 },
-  height: { min: 80, max: 115 },
+  cavityDepth: { min: 80, max: 118 },
+  canClearance: { min: 0.5, max: 1.2 },
   wallThickness: { min: MINIMUM_WALL_MM, max: 4 },
   bottomThickness: { min: MINIMUM_BOTTOM_MM, max: 6 },
-  rimChamfer: { min: 0, max: 2 },
+  ventHoleDiameter: { min: 6, max: 14 },
+  rimLeadIn: { min: 0.5, max: 2 },
+  rimChamfer: { min: 0, max: 1.5 },
   handleHeight: { min: 35, max: 85 },
   handleGap: { min: 24, max: 40 },
   handleReach: { min: 30, max: 50 },
@@ -108,7 +110,6 @@ export interface UseCanHolderResult {
   isBuilding: boolean
   error: string | null
   issues: ValidationIssue[]
-  capacityMl: number
   dimensions: { width: number; height: number; thickness: number }
   cameraPosition: [number, number, number]
   fitRadius: number
@@ -131,22 +132,22 @@ export function useCanHolder(
   const workerRef = useRef<CanHolderWorker | null>(null)
 
   const {
-    productType, diameterTop, diameterBottom, height, cavityDepth, canClearance,
-    wallThickness, bottomThickness, ventHoleDiameter, rimLeadIn, rimChamfer,
-    handleEnabled, handleHeight, handleGap, handleReach, handleBand, handleWidth,
-    handleClearance, text, textSize, fontStyle, textCenterY,
+    productType, cavityDepth, canClearance, wallThickness, bottomThickness,
+    ventHoleDiameter, rimLeadIn, rimChamfer, handleEnabled, handleHeight,
+    handleGap, handleReach, handleBand, handleWidth, handleClearance,
+    text, textSize, fontStyle, textCenterY,
   } = params
 
   const buildParams = useMemo<CanHolderGeometryParams>(() => ({
-    productType, diameterTop, diameterBottom, height, cavityDepth, canClearance,
-    wallThickness, bottomThickness, ventHoleDiameter, rimLeadIn, rimChamfer,
-    handleEnabled, handleHeight, handleGap, handleReach, handleBand, handleWidth,
-    handleClearance, text, textSize, fontStyle, textCenterY,
+    productType, cavityDepth, canClearance, wallThickness, bottomThickness,
+    ventHoleDiameter, rimLeadIn, rimChamfer, handleEnabled, handleHeight,
+    handleGap, handleReach, handleBand, handleWidth, handleClearance,
+    text, textSize, fontStyle, textCenterY,
   }), [
-    productType, diameterTop, diameterBottom, height, cavityDepth, canClearance,
-    wallThickness, bottomThickness, ventHoleDiameter, rimLeadIn, rimChamfer,
-    handleEnabled, handleHeight, handleGap, handleReach, handleBand, handleWidth,
-    handleClearance, text, textSize, fontStyle, textCenterY,
+    productType, cavityDepth, canClearance, wallThickness, bottomThickness,
+    ventHoleDiameter, rimLeadIn, rimChamfer, handleEnabled, handleHeight,
+    handleGap, handleReach, handleBand, handleWidth, handleClearance,
+    text, textSize, fontStyle, textCenterY,
   ])
 
   useEffect(() => {
@@ -199,23 +200,21 @@ export function useCanHolder(
     [buildParams],
   )
 
-  const capacityMl = useMemo(() => getCapacityMl(buildParams), [buildParams])
-
-  const fallbackDimensions = useMemo(() => ({
-    width: Number(diameterTop.toFixed(1)),
-    height: Number(height.toFixed(1)),
-    thickness: Number(wallThickness.toFixed(1)),
-  }), [diameterTop, height, wallThickness])
+  const nominalParams = builtParams ?? buildParams
 
   const fallbackFitRadius = useMemo(() => {
     const handleExtra = handleEnabled ? 2 * handleReach : 0
     return Math.max(
       1,
-      0.5 * Math.hypot(diameterTop + handleExtra, height, diameterTop),
+      0.5 * Math.hypot(
+        getOuterDiameter(nominalParams) + handleExtra,
+        getOuterHeight(nominalParams),
+        getOuterDiameter(nominalParams),
+      ),
     )
-  }, [diameterTop, height, handleEnabled, handleReach])
+  }, [nominalParams, handleEnabled, handleReach])
 
-  const sizes = useMemo(() => {
+  const unionSize = useMemo(() => {
     if (!geometry) return null
     geometry.body.computeBoundingBox()
     const union = new Box3()
@@ -224,32 +223,25 @@ export function useCanHolder(
       geometry.handle.computeBoundingBox()
       if (geometry.handle.boundingBox) union.union(geometry.handle.boundingBox)
     }
-    const unionSize = union.getSize(new Vector3())
+    const size = union.getSize(new Vector3())
     // Uma malha corrompida pode gerar caixa vazia (Infinity/-Infinity).
-    if (!isFiniteSize(unionSize)) return null
-    const bodySize = geometry.body.boundingBox?.getSize(new Vector3()) ?? null
-    return {
-      body: bodySize && isFiniteSize(bodySize) ? bodySize : null,
-      union: unionSize,
-    }
+    return isFiniteSize(size) ? size : null
   }, [geometry])
 
   const dimensions = useMemo(() => {
-    if (!sizes?.body) return fallbackDimensions
+    // O bbox do corpo inclui 1 mm de relevo a 180°; o status bar usa as
+    // dimensões nominais do snapshot que gerou a geometria.
     return {
-      width: Number(sizes.body.x.toFixed(1)),
-      height: Number(sizes.body.y.toFixed(1)),
-      // Espessura acompanha a parede do snapshot que gerou a geometria.
-      thickness: Number(
-        (builtParams?.wallThickness ?? wallThickness).toFixed(1),
-      ),
+      width: Number(getOuterDiameter(nominalParams).toFixed(1)),
+      height: Number(getOuterHeight(nominalParams).toFixed(1)),
+      thickness: Number(nominalParams.wallThickness.toFixed(1)),
     }
-  }, [sizes, fallbackDimensions, builtParams, wallThickness])
+  }, [nominalParams])
 
   const fitRadius = useMemo(() => {
-    if (!sizes) return fallbackFitRadius
-    return Math.max(1, 0.5 * Math.hypot(sizes.union.x, sizes.union.y, sizes.union.z))
-  }, [sizes, fallbackFitRadius])
+    if (!unionSize) return fallbackFitRadius
+    return Math.max(1, 0.5 * Math.hypot(unionSize.x, unionSize.y, unionSize.z))
+  }, [unionSize, fallbackFitRadius])
 
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2
@@ -281,7 +273,6 @@ export function useCanHolder(
     isBuilding,
     error,
     issues,
-    capacityMl,
     dimensions,
     cameraPosition,
     fitRadius,

@@ -73,7 +73,7 @@ function serializedScreen(): SerializedThermoformerResult {
 
 function serializedCanHolder(): SerializedCanHolderResult {
   return serializeCanHolderResult({
-    body: new THREE.BoxGeometry(80, 88, 80),
+    body: new THREE.BoxGeometry(72.6, 111.2, 72.6),
     handle: new THREE.BoxGeometry(40, 52, 12),
   }).data
 }
@@ -493,7 +493,11 @@ describe('StudioPage', () => {
       await screen.findByRole('heading', { level: 2, name: 'Porta-lata' }, LAZY_TIMEOUT),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'Corpo' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Alça' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'Personalização' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Aparência' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 3, name: 'Validação' })).toBeInTheDocument()
+    expect(screen.queryByText(/capacidade/i)).not.toBeInTheDocument()
     expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
   })
 
@@ -545,7 +549,7 @@ describe('StudioPage', () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
-    expect(await screen.findByText('80 × 88 × 2.4 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(await screen.findByText('72.6 × 111.2 × 2.4 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
   })
 
   it('volta ao seletor de ferramentas a partir da Porta-lata', async () => {

@@ -108,7 +108,7 @@ afterEach(() => {
 })
 
 describe('useCanHolder', () => {
-  it('retorna os defaults e a capacidade', () => {
+  it('retorna os defaults e as dimensões nominais', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     expect(result.current.params).toEqual(defaultCanHolderParams)
@@ -117,29 +117,52 @@ describe('useCanHolder', () => {
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.error).toBeNull()
     expect(result.current.issues).toEqual([])
-    expect(result.current.capacityMl).toBeCloseTo(338, 0)
+    expect(result.current).not.toHaveProperty('capacityMl')
+    expect(result.current.dimensions).toEqual({ width: 72.6, height: 111.2, thickness: 2.4 })
   })
 
   it('faz clamp dos campos numéricos', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => {
-      result.current.updateParam('diameterTop', 999)
-      result.current.updateParam('diameterTop', 10)
+      result.current.updateParam('cavityDepth', 999)
+      result.current.updateParam('cavityDepth', 10)
+      result.current.updateParam('canClearance', 9)
+      result.current.updateParam('canClearance', 0)
+      result.current.updateParam('ventHoleDiameter', 99)
+      result.current.updateParam('ventHoleDiameter', 1)
+      result.current.updateParam('rimLeadIn', 99)
+      result.current.updateParam('rimLeadIn', 0)
+      result.current.updateParam('rimChamfer', 99)
+      result.current.updateParam('rimChamfer', -1)
       result.current.updateParam('handleGap', 999)
       result.current.updateParam('handleGap', 1)
       result.current.updateParam('textSize', 999)
       result.current.updateParam('textSize', 1)
     })
-    expect(result.current.params.diameterTop).toBe(70)
+    expect(result.current.params.cavityDepth).toBe(80)
+    expect(result.current.params.canClearance).toBe(0.5)
+    expect(result.current.params.ventHoleDiameter).toBe(6)
+    expect(result.current.params.rimLeadIn).toBe(0.5)
+    expect(result.current.params.rimChamfer).toBe(0)
     expect(result.current.params.handleGap).toBe(24)
     expect(result.current.params.textSize).toBe(6)
 
-    act(() => { result.current.updateParam('diameterTop', 100) })
-    expect(result.current.params.diameterTop).toBe(100)
-    act(() => { result.current.updateParam('handleGap', 40) })
+    act(() => {
+      result.current.updateParam('cavityDepth', 118)
+      result.current.updateParam('canClearance', 1.2)
+      result.current.updateParam('ventHoleDiameter', 14)
+      result.current.updateParam('rimLeadIn', 2)
+      result.current.updateParam('rimChamfer', 1.5)
+      result.current.updateParam('handleGap', 40)
+      result.current.updateParam('textSize', 18)
+    })
+    expect(result.current.params.cavityDepth).toBe(118)
+    expect(result.current.params.canClearance).toBe(1.2)
+    expect(result.current.params.ventHoleDiameter).toBe(14)
+    expect(result.current.params.rimLeadIn).toBe(2)
+    expect(result.current.params.rimChamfer).toBe(1.5)
     expect(result.current.params.handleGap).toBe(40)
-    act(() => { result.current.updateParam('textSize', 18) })
     expect(result.current.params.textSize).toBe(18)
   })
 
@@ -175,8 +198,8 @@ describe('useCanHolder', () => {
 
     const { dimensions, fitRadius, cameraPosition } = result.current
     expect(dimensions).toEqual({
-      width: 80,
-      height: 88,
+      width: 72.6,
+      height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
     expect(Number.isFinite(fitRadius)).toBe(true)
@@ -200,9 +223,6 @@ describe('useCanHolder', () => {
     expect(result.current.error).toBeNull()
     expect(getParams()).toEqual({
       productType: 'porta-lata',
-      diameterTop: 80,
-      diameterBottom: 72,
-      height: 88,
       cavityDepth: 108,
       canClearance: 0.8,
       wallThickness: 2.4,
@@ -263,14 +283,14 @@ describe('useCanHolder', () => {
     act(() => { respond() })
     const previous = result.current.geometry
 
-    act(() => { result.current.updateParam('height', 100) })
+    act(() => { result.current.updateParam('cavityDepth', 100) })
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { fail('can-csg') })
 
     expect(result.current.error).toBe(CSG_ERROR)
     expect(result.current.isBuilding).toBe(false)
     expect(result.current.geometry).toBe(previous)
-    expect(result.current.builtParams?.height).toBe(defaultCanHolderParams.height)
+    expect(result.current.builtParams?.cavityDepth).toBe(defaultCanHolderParams.cavityDepth)
   })
 
   it('mapeia os códigos de falha do worker em mensagens amigáveis', () => {
@@ -287,7 +307,7 @@ describe('useCanHolder', () => {
 
     for (const [index, testCase] of cases.entries()) {
       if (index > 0) {
-        act(() => { result.current.updateParam('height', 90 + index) })
+        act(() => { result.current.updateParam('cavityDepth', 90 + index) })
       }
       act(() => { vi.advanceTimersByTime(260) })
       act(() => { fail(testCase.code) })
@@ -302,7 +322,7 @@ describe('useCanHolder', () => {
     act(() => { fail('can-csg') })
     expect(result.current.error).toBe(CSG_ERROR)
 
-    act(() => { result.current.updateParam('height', 100) })
+    act(() => { result.current.updateParam('cavityDepth', 100) })
     act(() => { vi.advanceTimersByTime(260) })
     expect(result.current.error).toBeNull()
     expect(result.current.isBuilding).toBe(true)
@@ -333,25 +353,24 @@ describe('useCanHolder', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => {
-      result.current.updateParam('diameterTop', 100)
+      result.current.updateParam('cavityDepth', 118)
       result.current.updateParam('text', 'Ana')
     })
     act(() => { result.current.reset() })
     expect(result.current.params).toEqual(defaultCanHolderParams)
     expect(result.current.params).not.toBe(defaultCanHolderParams)
     expect(result.current.issues).toEqual([])
-    expect(result.current.capacityMl).toBeCloseTo(338, 0)
   })
 
-  it('calcula dimensões do corpo e fitRadius com a alça', () => {
+  it('calcula as dimensões nominais e o fitRadius com a alça', () => {
     const { factory, respond } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
     expect(result.current.dimensions).toEqual({
-      width: 80,
-      height: 88,
+      width: 72.6,
+      height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
     expect(result.current.fitRadius).toBeCloseTo(0.5 * Math.hypot(80, 88, 80), 2)
@@ -398,8 +417,8 @@ describe('useCanHolder', () => {
     expect(result.current.fitRadius).toBeCloseTo(0.5 * Math.hypot(80, 88, 80), 2)
     expect(Number.isFinite(result.current.fitRadius)).toBe(true)
     expect(result.current.dimensions).toEqual({
-      width: 80,
-      height: 88,
+      width: 72.6,
+      height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
   })
@@ -422,8 +441,8 @@ describe('useCanHolder', () => {
 
     expect(result.current.geometry).not.toBeNull()
     expect(result.current.dimensions).toEqual({
-      width: 80,
-      height: 88,
+      width: 72.6,
+      height: 111.2,
       thickness: defaultCanHolderParams.wallThickness,
     })
     expect(Number.isFinite(result.current.fitRadius)).toBe(true)
@@ -469,15 +488,15 @@ describe('useCanHolder', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
     expect(result.current.builtParams).toEqual(getParams())
-    expect(result.current.builtParams?.diameterTop).toBe(defaultCanHolderParams.diameterTop)
+    expect(result.current.builtParams?.cavityDepth).toBe(defaultCanHolderParams.cavityDepth)
 
-    act(() => { result.current.updateParam('diameterTop', 95) })
+    act(() => { result.current.updateParam('cavityDepth', 95) })
     act(() => { vi.advanceTimersByTime(260) })
     expect(result.current.geometry).not.toBeNull()
-    expect(result.current.builtParams?.diameterTop).toBe(defaultCanHolderParams.diameterTop)
+    expect(result.current.builtParams?.cavityDepth).toBe(defaultCanHolderParams.cavityDepth)
 
     act(() => { respond() })
-    expect(result.current.builtParams?.diameterTop).toBe(95)
+    expect(result.current.builtParams?.cavityDepth).toBe(95)
     expect(result.current.builtParams).toEqual(getParams())
   })
 
@@ -485,7 +504,7 @@ describe('useCanHolder', () => {
     const { factory, getInstances } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
-    act(() => { result.current.updateParam('height', 100) })
+    act(() => { result.current.updateParam('cavityDepth', 100) })
     act(() => { vi.advanceTimersByTime(260) })
 
     const [first, second] = getInstances()
@@ -497,7 +516,7 @@ describe('useCanHolder', () => {
     const { factory, respond, respondFirst } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
-    act(() => { result.current.updateParam('height', 100) })
+    act(() => { result.current.updateParam('cavityDepth', 100) })
     act(() => { vi.advanceTimersByTime(260) })
 
     act(() => { respondFirst() })
@@ -512,7 +531,7 @@ describe('useCanHolder', () => {
     const { factory, failFirst } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
-    act(() => { result.current.updateParam('height', 100) })
+    act(() => { result.current.updateParam('cavityDepth', 100) })
     act(() => { vi.advanceTimersByTime(260) })
 
     act(() => { failFirst('can-csg') })
@@ -529,7 +548,7 @@ describe('useCanHolder', () => {
     const disposeBody = vi.spyOn(first.body, 'dispose')
     const disposeHandle = vi.spyOn(first.handle!, 'dispose')
 
-    act(() => { result.current.updateParam('height', 100) })
+    act(() => { result.current.updateParam('cavityDepth', 100) })
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
@@ -557,8 +576,8 @@ describe('useCanHolder', () => {
     act(() => { vi.advanceTimersByTime(260) })
     const calls = getCalls()
     act(() => {
-      result.current.updateParam('diameterTop', 90)
-      result.current.updateParam('height', 100)
+      result.current.updateParam('cavityDepth', 100)
+      result.current.updateParam('canClearance', 1.0)
     })
     act(() => { vi.advanceTimersByTime(260) })
     expect(getCalls()).toBe(calls + 1)

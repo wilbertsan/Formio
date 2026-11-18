@@ -3,8 +3,12 @@ import {
   CAN_DIAMETER,
   CAN_HEIGHT,
   CAN_VOLUME_ML,
+  CONTENT_DEPTH,
+  HANDLE_RING_THICKNESS,
+  MAX_TEXT_LENGTH,
+  canHolderGeometryParamsSchema,
+  canHolderParamsSchema,
   defaultCanHolderParams,
-  getCapacityMl,
   getEffectiveLeadIn,
   getEffectiveRimChamfer,
   getExposedHeight,
@@ -12,12 +16,7 @@ import {
   getOuterDiameter,
   getOuterHeight,
   getTopLand,
-  canHolderGeometryParamsSchema,
-  canHolderParamsSchema,
   sanitizeFilename,
-  CONTENT_DEPTH,
-  HANDLE_RING_THICKNESS,
-  MAX_TEXT_LENGTH,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 
 describe('porta-lata schema', () => {
@@ -25,11 +24,13 @@ describe('porta-lata schema', () => {
     expect(canHolderParamsSchema.safeParse(defaultCanHolderParams).success).toBe(true)
     expect(defaultCanHolderParams).toMatchObject({
       productType: 'porta-lata',
-      diameterTop: 80,
-      diameterBottom: 72,
-      height: 88,
+      cavityDepth: 108,
+      canClearance: 0.8,
       wallThickness: 2.4,
       bottomThickness: 3.2,
+      ventHoleDiameter: 10,
+      rimLeadIn: 1.0,
+      rimChamfer: 0.4,
       handleEnabled: true,
       handleHeight: 60,
       handleGap: 30,
@@ -44,12 +45,43 @@ describe('porta-lata schema', () => {
     })
   })
 
-  it('rejeita dimensões fora da faixa', () => {
-    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, diameterTop: 69 }).success).toBe(false)
-    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, height: 116 }).success).toBe(false)
+  it('não mantém os campos da caneca nem capacidade', () => {
+    expect(defaultCanHolderParams).not.toHaveProperty('diameterTop')
+    expect(defaultCanHolderParams).not.toHaveProperty('diameterBottom')
+    expect(defaultCanHolderParams).not.toHaveProperty('height')
+    expect(defaultCanHolderParams).not.toHaveProperty('capacityMl')
+  })
+
+  it('rejeita dimensões e folgas fora da faixa', () => {
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 79 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 119 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 0.4 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 1.3 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, wallThickness: 1.7 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, wallThickness: 4.1 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, bottomThickness: 1.9 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, bottomThickness: 6.1 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 5 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 15 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 0.4 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 2.1 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: -0.1 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: 1.6 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, text: 'x'.repeat(21) }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, text: 'x'.repeat(MAX_TEXT_LENGTH) }).success).toBe(true)
+  })
+
+  it('aceita os limites da faixa', () => {
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 80 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 118 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 0.5 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 1.2 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 6 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 14 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 0.5 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 2 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: 0 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimChamfer: 1.5 }).success).toBe(true)
   })
 
   it('limita o texto por code points', () => {
@@ -72,25 +104,8 @@ describe('porta-lata schema', () => {
     expect(parsed.success && parsed.data).not.toHaveProperty('bodyColor')
     expect(parsed.success && parsed.data).not.toHaveProperty('accentColor')
     expect(
-      canHolderGeometryParamsSchema.safeParse({ ...defaultCanHolderParams, height: 79 }).success,
+      canHolderGeometryParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 79 }).success,
     ).toBe(false)
-  })
-
-  it('capacidade do default é 338 ml', () => {
-    expect(getCapacityMl(defaultCanHolderParams)).toBeCloseTo(338, 0)
-  })
-
-  it('capacidade do corpo cônico usa tronco de cone, não cilindro', () => {
-    const conical = {
-      ...defaultCanHolderParams,
-      diameterTop: 100,
-      diameterBottom: 60,
-      height: 115,
-      wallThickness: 2,
-      bottomThickness: 3,
-    }
-    // (π/3) · (115 - 3) · (28² + 28·48 + 48²) mm³ → ml, com raios internos 28 e 48
-    expect(getCapacityMl(conical)).toBeCloseTo(519.81, 2)
   })
 
   it('sanitizeFilename', () => {
@@ -110,31 +125,6 @@ describe('preset da lata e derivados', () => {
     expect(CAN_DIAMETER).toBe(66.2)
     expect(CAN_HEIGHT).toBe(122.2)
     expect(CAN_VOLUME_ML).toBe(350)
-  })
-
-  it('aceita os novos campos com os defaults', () => {
-    expect(canHolderParamsSchema.safeParse(defaultCanHolderParams).success).toBe(true)
-    expect(defaultCanHolderParams).toMatchObject({
-      cavityDepth: 108,
-      canClearance: 0.8,
-      ventHoleDiameter: 10,
-      rimLeadIn: 1.0,
-    })
-  })
-
-  it('rejeita os novos campos fora da faixa', () => {
-    expect(
-      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, canClearance: 0.4 }).success,
-    ).toBe(false)
-    expect(
-      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, ventHoleDiameter: 15 }).success,
-    ).toBe(false)
-    expect(
-      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, cavityDepth: 119 }).success,
-    ).toBe(false)
-    expect(
-      canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, rimLeadIn: 2.1 }).success,
-    ).toBe(false)
   })
 
   it('calcula as dimensões derivadas no default', () => {

@@ -7,18 +7,18 @@ import type { ValidationIssue } from '@/features/studio/tools/lembrancinhas/port
 const defaultProps = {
   params: defaultCanHolderParams,
   issues: [] as ValidationIssue[],
-  capacityMl: 338,
   onUpdateParam: vi.fn(),
   onReset: vi.fn(),
 }
 
 const SLIDER_RANGES = [
-  { name: 'Diâmetro do topo', min: 70, max: 100 },
-  { name: 'Diâmetro da base', min: 60, max: 95 },
-  { name: 'Altura', min: 80, max: 115 },
+  { name: 'Profundidade da cavidade', min: 80, max: 118 },
+  { name: 'Folga da lata', min: 0.5, max: 1.2 },
   { name: 'Espessura da parede', min: 1.8, max: 4 },
   { name: 'Espessura do fundo', min: 2, max: 6 },
-  { name: 'Chanfro da borda', min: 0, max: 2 },
+  { name: 'Furo de ventilação', min: 6, max: 14 },
+  { name: 'Borda de entrada', min: 0.5, max: 2 },
+  { name: 'Chanfro da borda', min: 0, max: 1.5 },
   { name: 'Altura da alça', min: 35, max: 85 },
   { name: 'Abertura da mão', min: 24, max: 40 },
   { name: 'Alcance da alça', min: 30, max: 50 },
@@ -52,27 +52,16 @@ describe('StudioPanel (porta-lata)', () => {
     expect(screen.getByText('Validação')).toBeDefined()
   })
 
-  it('expõe nome acessível nos sliders', () => {
+  it('expõe nome acessível nos 15 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByRole('slider', { name: 'Diâmetro do topo' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Diâmetro da base' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Altura' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Espessura da parede' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Espessura do fundo' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Chanfro da borda' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Altura da alça' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Abertura da mão' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Alcance da alça' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Banda da alça' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Largura da alça' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Folga da alça' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Tamanho do texto' })).toBeDefined()
-    expect(screen.getByRole('slider', { name: 'Altura do texto' })).toBeDefined()
+    for (const { name } of SLIDER_RANGES) {
+      expect.soft(screen.getByRole('slider', { name }), name).toBeDefined()
+    }
   })
 
-  it('expõe aria-valuemin e aria-valuemax dos 14 sliders', () => {
+  it('expõe aria-valuemin e aria-valuemax dos 15 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(SLIDER_RANGES).toHaveLength(14)
+    expect(SLIDER_RANGES).toHaveLength(15)
     for (const { name, min, max } of SLIDER_RANGES) {
       const slider = screen.getByRole('slider', { name })
       expect.soft(slider, name).toHaveAttribute('aria-valuemin', String(min))
@@ -80,14 +69,37 @@ describe('StudioPanel (porta-lata)', () => {
     }
   })
 
+  it('não expõe os sliders antigos da caneca', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.queryByRole('slider', { name: 'Diâmetro do topo' })).toBeNull()
+    expect(screen.queryByRole('slider', { name: 'Diâmetro da base' })).toBeNull()
+    expect(screen.queryByRole('slider', { name: 'Altura' })).toBeNull()
+    expect(screen.queryByText(/capacidade/i)).toBeNull()
+  })
+
   it('incrementa pelos passos decimais dos sliders', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Folga da lata' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('canClearance', 0.9)
 
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Espessura da parede' }), {
       key: 'ArrowRight',
     })
     expect(onUpdateParam).toHaveBeenLastCalledWith('wallThickness', 2.5)
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Borda de entrada' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('rimLeadIn', 1.1)
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Chanfro da borda' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('rimChamfer', 0.5)
 
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Banda da alça' }), {
       key: 'ArrowRight',
@@ -107,18 +119,50 @@ describe('StudioPanel (porta-lata)', () => {
     expect(value as number).toBeCloseTo(0.35, 5)
   })
 
-  it('mostra a capacidade aproximada', () => {
+  it('mostra o preset da lata e as dimensões derivadas', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText('Capacidade aproximada: 338 ml')).toBeDefined()
+    expect(screen.getByText('Lata 350 ml · Ø66,2 × 122,2 mm')).toBeDefined()
+    expect(screen.getByText('Diâmetro externo: 72.6 mm')).toBeDefined()
+    expect(screen.getByText('Altura externa: 111.2 mm')).toBeDefined()
+    expect(screen.getByText('Altura exposta: 14.2 mm')).toBeDefined()
   })
 
-  it('atualiza o diâmetro do topo', () => {
+  it('recalcula as dimensões derivadas ao mudar os parâmetros', () => {
+    const { rerender } = render(<StudioPanel {...defaultProps} />)
+
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={{
+          ...defaultCanHolderParams,
+          cavityDepth: 100,
+          bottomThickness: 4,
+          wallThickness: 3,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Diâmetro externo: 73.8 mm')).toBeDefined()
+    expect(screen.getByText('Altura externa: 104.0 mm')).toBeDefined()
+    expect(screen.getByText('Altura exposta: 22.2 mm')).toBeDefined()
+  })
+
+  it('atualiza a profundidade da cavidade', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
-    fireEvent.keyDown(screen.getByRole('slider', { name: 'Diâmetro do topo' }), {
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Profundidade da cavidade' }), {
       key: 'ArrowRight',
     })
-    expect(onUpdateParam).toHaveBeenCalledWith('diameterTop', 81)
+    expect(onUpdateParam).toHaveBeenCalledWith('cavityDepth', 109)
+  })
+
+  it('atualiza o furo de ventilação', () => {
+    const onUpdateParam = vi.fn()
+    render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Furo de ventilação' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenCalledWith('ventHoleDiameter', 11)
   })
 
   it('atualiza o texto', () => {

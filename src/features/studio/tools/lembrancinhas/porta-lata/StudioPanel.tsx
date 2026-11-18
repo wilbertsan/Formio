@@ -12,9 +12,15 @@ import {
   View,
 } from '@aws-amplify/ui-react'
 import {
+  CAN_DIAMETER,
+  CAN_HEIGHT,
+  CAN_VOLUME_ML,
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
+  getExposedHeight,
+  getOuterDiameter,
+  getOuterHeight,
   type FontStyle,
   type CanHolderParams,
   type PlaColor,
@@ -24,7 +30,6 @@ import type { ValidationIssue } from './validateCanHolder'
 interface StudioPanelProps {
   params: CanHolderParams
   issues: ValidationIssue[]
-  capacityMl: number
   onUpdateParam: (key: keyof CanHolderParams, value: number | string | boolean) => void
   onReset: () => void
 }
@@ -37,6 +42,11 @@ const FONT_STYLE_LABELS: Record<FontStyle, string> = {
 
 function isFontStyle(value: string): value is FontStyle {
   return FONT_STYLES.some((style) => style === value)
+}
+
+/** Medidas do preset são fixas; vírgula decimal acompanha o restante da UI. */
+function formatPresetMm(value: number): string {
+  return value.toFixed(1).replace('.', ',')
 }
 
 function ColorSwatches({
@@ -115,7 +125,6 @@ function LabeledSlider({
 export function StudioPanel({
   params,
   issues,
-  capacityMl,
   onUpdateParam,
   onReset,
 }: StudioPanelProps) {
@@ -142,14 +151,24 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              <LabeledSlider label="Diâmetro do topo" value={params.diameterTop} min={70} max={100} step={1} onChange={(value) => onUpdateParam('diameterTop', value)} />
-              <LabeledSlider label="Diâmetro da base" value={params.diameterBottom} min={60} max={95} step={1} onChange={(value) => onUpdateParam('diameterBottom', value)} />
-              <LabeledSlider label="Altura" value={params.height} min={80} max={115} step={1} onChange={(value) => onUpdateParam('height', value)} />
+              <LabeledSlider label="Profundidade da cavidade" value={params.cavityDepth} min={80} max={118} step={1} onChange={(value) => onUpdateParam('cavityDepth', value)} />
+              <LabeledSlider label="Folga da lata" value={params.canClearance} min={0.5} max={1.2} step={0.1} onChange={(value) => onUpdateParam('canClearance', value)} />
               <LabeledSlider label="Espessura da parede" value={params.wallThickness} min={1.8} max={4} step={0.1} onChange={(value) => onUpdateParam('wallThickness', value)} />
               <LabeledSlider label="Espessura do fundo" value={params.bottomThickness} min={2} max={6} step={0.1} onChange={(value) => onUpdateParam('bottomThickness', value)} />
-              <LabeledSlider label="Chanfro da borda" value={params.rimChamfer} min={0} max={2} step={0.1} onChange={(value) => onUpdateParam('rimChamfer', value)} />
+              <LabeledSlider label="Furo de ventilação" value={params.ventHoleDiameter} min={6} max={14} step={1} onChange={(value) => onUpdateParam('ventHoleDiameter', value)} />
+              <LabeledSlider label="Borda de entrada" value={params.rimLeadIn} min={0.5} max={2} step={0.1} onChange={(value) => onUpdateParam('rimLeadIn', value)} />
+              <LabeledSlider label="Chanfro da borda" value={params.rimChamfer} min={0} max={1.5} step={0.1} onChange={(value) => onUpdateParam('rimChamfer', value)} />
               <Text fontSize="xs" color="font.secondary">
-                Capacidade aproximada: {capacityMl.toFixed(0)} ml
+                Lata {CAN_VOLUME_ML} ml · Ø{formatPresetMm(CAN_DIAMETER)} × {formatPresetMm(CAN_HEIGHT)} mm
+              </Text>
+              <Text fontSize="xs" color="font.secondary">
+                Diâmetro externo: {getOuterDiameter(params).toFixed(1)} mm
+              </Text>
+              <Text fontSize="xs" color="font.secondary">
+                Altura externa: {getOuterHeight(params).toFixed(1)} mm
+              </Text>
+              <Text fontSize="xs" color="font.secondary">
+                Altura exposta: {getExposedHeight(params).toFixed(1)} mm
               </Text>
             </Flex>
           </Accordion.Content>

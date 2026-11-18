@@ -1279,7 +1279,6 @@ function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
     isBuilding,
     error,
     issues,
-    capacityMl,
     dimensions,
     cameraPosition,
     fitRadius,
@@ -1337,7 +1336,6 @@ function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
           <CanHolderTool
             params={params}
             issues={issues}
-            capacityMl={capacityMl}
             onUpdateParam={updateParam}
             onReset={reset}
           />

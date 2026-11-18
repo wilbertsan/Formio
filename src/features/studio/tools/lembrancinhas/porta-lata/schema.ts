@@ -36,16 +36,13 @@ export type FontStyle = (typeof FONT_STYLES)[number]
 
 export const canHolderParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),
-  diameterTop: z.number().min(70).max(100),
-  diameterBottom: z.number().min(60).max(95),
-  height: z.number().min(80).max(115),
   cavityDepth: z.number().min(80).max(118),
   canClearance: z.number().min(0.5).max(1.2),
   wallThickness: z.number().min(MINIMUM_WALL_MM).max(4),
   bottomThickness: z.number().min(MINIMUM_BOTTOM_MM).max(6),
   ventHoleDiameter: z.number().min(6).max(14),
   rimLeadIn: z.number().min(0.5).max(2),
-  rimChamfer: z.number().min(0).max(2),
+  rimChamfer: z.number().min(0).max(1.5),
   handleEnabled: z.boolean(),
   handleHeight: z.number().min(35).max(85),
   handleGap: z.number().min(24).max(40),
@@ -77,9 +74,6 @@ export type CanHolderGeometryParams = z.infer<typeof canHolderGeometryParamsSche
 
 export const defaultCanHolderParams: CanHolderParams = {
   productType: PRODUCT_TYPE,
-  diameterTop: 80,
-  diameterBottom: 72,
-  height: 88,
   cavityDepth: 108,
   canClearance: 0.8,
   wallThickness: 2.4,
@@ -138,15 +132,6 @@ export function getEffectiveRimChamfer(params: CanHolderGeometryParams): number 
 
 export function getTopLand(params: CanHolderGeometryParams): number {
   return params.wallThickness - getEffectiveRimChamfer(params) - getEffectiveLeadIn(params)
-}
-
-/** Volume interno útil em ml (tronco de cone). */
-export function getCapacityMl(params: CanHolderGeometryParams): number {
-  const rBottom = Math.max(0, params.diameterBottom / 2 - params.wallThickness)
-  const rTop = Math.max(0, params.diameterTop / 2 - params.wallThickness)
-  const innerHeight = Math.max(0, params.height - params.bottomThickness)
-  const volume = (Math.PI / 3) * innerHeight * (rBottom ** 2 + rBottom * rTop + rTop ** 2)
-  return volume / 1000
 }
 
 export function sanitizeFilename(name: string): string {
