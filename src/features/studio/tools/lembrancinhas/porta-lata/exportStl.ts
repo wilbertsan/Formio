@@ -1,0 +1,68 @@
+import { Mesh, Scene, type BufferGeometry } from 'three'
+import { STLExporter } from 'three/examples/jsm/exporters/STLExporter.js'
+import type { CanHolderBuildResult } from './buildCanHolder'
+import { sanitizeFilename } from './schema'
+
+function centerOnBed(geometry: BufferGeometry): BufferGeometry {
+  geometry.computeBoundingBox()
+  const box = geometry.boundingBox!
+  geometry.translate(
+    -(box.min.x + box.max.x) / 2,
+    -box.min.y,
+    -(box.min.z + box.max.z) / 2,
+  )
+  return geometry
+}
+
+/**
+ * Serializes a geometry as a binary STL and triggers the browser download.
+ *
+ * Consumes the supplied geometry: it is disposed before returning, so callers
+ * must pass a throwaway geometry (for example a print-preparation clone) and
+ * must not reuse the reference afterwards.
+ */
+function downloadStl(geometry: BufferGeometry, filename: string): void {
+  const scene = new Scene()
+  scene.add(new Mesh(geometry))
+  const exporter = new STLExporter()
+  let url: string | null = null
+  try {
+    const result = exporter.parse(scene, { binary: true })
+    const blob = new Blob([result], { type: 'model/stl' })
+    url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    try {
+      anchor.click()
+    } finally {
+      document.body.removeChild(anchor)
+    }
+  } finally {
+    // Revoga só a URL que chegou a ser criada e sempre descarta a geometria
+    // consumida, inclusive se o parse ou o clique falharem.
+    if (url !== null) URL.revokeObjectURL(url)
+    geometry.dispose()
+  }
+}
+
+export function prepareBodyForPrint(geometry: BufferGeometry): BufferGeometry {
+  return centerOnBed(geometry.clone())
+}
+
+export function prepareHandleForPrint(geometry: BufferGeometry): BufferGeometry {
+  // A alça imprime em pé, apoiada na borda inferior do laço; a abraçadeira de
+  // 200° exige suporte sob toda a face inferior. Não rotacione: preserve a
+  // orientação do build.
+  return centerOnBed(geometry.clone())
+}
+
+export function exportCanHolderStl(result: CanHolderBuildResult, projectName: string): void {
+  const name = sanitizeFilename(projectName)
+
+  downloadStl(prepareBodyForPrint(result.body), `${name}-corpo.stl`)
+  if (result.handle) {
+    downloadStl(prepareHandleForPrint(result.handle), `${name}-alca.stl`)
+  }
+}

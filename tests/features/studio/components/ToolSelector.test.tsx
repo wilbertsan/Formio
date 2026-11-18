@@ -64,15 +64,15 @@ describe('ToolSelector', () => {
     expect(onSelect).toHaveBeenCalledWith('termoformador')
   })
 
-  it('coloca Caneca Personalizada na seção Lembrancinhas e emite o id', async () => {
+  it('coloca Porta-lata na seção Lembrancinhas e emite o id', async () => {
     const onSelect = vi.fn()
     const user = userEvent.setup()
     render(<ToolSelector onSelect={onSelect} />)
     const section = screen.getByRole('heading', { name: 'Lembrancinhas' }).closest('section')!
-    const card = within(section).getByRole('button', { name: /caneca personalizada/i })
-    expect(card).toHaveTextContent('Caneca 3D com nome em relevo e alça removível de encaixe')
+    const card = within(section).getByRole('button', { name: /porta-lata/i })
+    expect(card).toHaveTextContent('Porta-lata 350 ml com nome em relevo e alça removível')
     await user.click(card)
-    expect(onSelect).toHaveBeenCalledWith('caneca-personalizada')
+    expect(onSelect).toHaveBeenCalledWith('porta-lata')
   })
 
   it('chama onSelect com o id da ferramenta clicada', async () => {

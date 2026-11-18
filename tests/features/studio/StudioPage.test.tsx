@@ -20,8 +20,8 @@ import '@/features/studio/tools/letreiros/suporte-foto/StudioPanel'
 import '@/features/studio/tools/letreiros/suporte-foto/PhotoPositionEditor'
 import '@/features/studio/tools/lembrancinhas/caixa-personalizada/StudioPanel'
 import '@/features/studio/tools/lembrancinhas/termoformador/StudioPanel'
-import '@/features/studio/tools/lembrancinhas/caneca-personalizada/StudioPanel'
-import '@/features/studio/tools/lembrancinhas/caneca-personalizada/MugPreview'
+import '@/features/studio/tools/lembrancinhas/porta-lata/StudioPanel'
+import '@/features/studio/tools/lembrancinhas/porta-lata/CanHolderPreview'
 import { exportStl as exportPhotoStandStl } from '@/features/studio/tools/letreiros/suporte-foto/exportStl'
 import {
   serializePhotoStandResult,
@@ -37,11 +37,11 @@ import {
   serializeThermoformerResult,
   type SerializedThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
-import { exportMugStl } from '@/features/studio/tools/lembrancinhas/caneca-personalizada/exportStl'
+import { exportCanHolderStl } from '@/features/studio/tools/lembrancinhas/porta-lata/exportStl'
 import {
-  serializeBuildResult as serializeMugResult,
-  type SerializedBuildResult as SerializedMugResult,
-} from '@/features/studio/tools/lembrancinhas/caneca-personalizada/workerGeometry'
+  serializeBuildResult as serializeCanHolderResult,
+  type SerializedBuildResult as SerializedCanHolderResult,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/workerGeometry'
 
 const LAZY_TIMEOUT = { timeout: 5000 }
 
@@ -61,7 +61,7 @@ let cardWorkerResponse: SerializedCardResult | null = null
 let photoWorkerResponse: SerializedPhotoStandResult | null = null
 let boxWorkerResponse: SerializedBuildResult | null = null
 let screenWorkerResponse: SerializedThermoformerResult | null = null
-let mugWorkerResponse: SerializedMugResult | null = null
+let canHolderWorkerResponse: SerializedCanHolderResult | null = null
 
 function serializedScreen(): SerializedThermoformerResult {
   return serializeThermoformerResult({
@@ -71,8 +71,8 @@ function serializedScreen(): SerializedThermoformerResult {
   }).data
 }
 
-function serializedMug(): SerializedMugResult {
-  return serializeMugResult({
+function serializedCanHolder(): SerializedCanHolderResult {
+  return serializeCanHolderResult({
     body: new THREE.BoxGeometry(80, 88, 80),
     handle: new THREE.BoxGeometry(40, 52, 12),
   }).data
@@ -91,7 +91,7 @@ class WorkerMock {
     if (request.params?.productType === 'photo-stand' && photoWorkerResponse) deliver(photoWorkerResponse)
     if (request.params?.productType === 'caixa-personalizada' && boxWorkerResponse) deliver(boxWorkerResponse)
     if (request.params?.productType === 'termoformador' && screenWorkerResponse) deliver(screenWorkerResponse)
-    if (request.params?.productType === 'caneca-personalizada' && mugWorkerResponse) deliver(mugWorkerResponse)
+    if (request.params?.productType === 'porta-lata' && canHolderWorkerResponse) deliver(canHolderWorkerResponse)
   }
   terminate(): void {}
 }
@@ -114,8 +114,8 @@ vi.mock('@/features/studio/tools/lembrancinhas/termoformador/exportStl', () => (
   exportThermoformerStl: vi.fn(),
 }))
 
-vi.mock('@/features/studio/tools/lembrancinhas/caneca-personalizada/exportStl', () => ({
-  exportMugStl: vi.fn(),
+vi.mock('@/features/studio/tools/lembrancinhas/porta-lata/exportStl', () => ({
+  exportCanHolderStl: vi.fn(),
 }))
 
 vi.mock('@react-three/fiber', () => {
@@ -151,12 +151,12 @@ describe('StudioPage', () => {
     photoWorkerResponse = null
     boxWorkerResponse = null
     screenWorkerResponse = null
-    mugWorkerResponse = null
+    canHolderWorkerResponse = null
     vi.mocked(exportCardStl).mockClear()
     vi.mocked(exportPhotoStandStl).mockClear()
     vi.mocked(exportBoxStl).mockClear()
     vi.mocked(exportThermoformerStl).mockClear()
-    vi.mocked(exportMugStl).mockClear()
+    vi.mocked(exportCanHolderStl).mockClear()
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
   })
 
@@ -485,52 +485,52 @@ describe('StudioPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Falha ao exportar STL')
   })
 
-  it('abre a ferramenta Caneca Personalizada', async () => {
+  it('abre a ferramenta Porta-lata', async () => {
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+    fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Caneca Personalizada' }, LAZY_TIMEOUT),
+      await screen.findByRole('heading', { level: 2, name: 'Porta-lata' }, LAZY_TIMEOUT),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'Corpo' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 3, name: 'Personalização' })).toBeInTheDocument()
     expect(screen.getByRole('img', { name: /visualização 3d do modelo/i })).toBeInTheDocument()
   })
 
-  it('mostra Gerando… na Caneca Personalizada após o debounce', async () => {
+  it('mostra Gerando… na Porta-lata após o debounce', async () => {
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+    fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
     const status = await screen.findByRole('status', {}, LAZY_TIMEOUT)
     expect(status).toHaveTextContent('Gerando…')
     expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
   })
 
-  it('habilita e executa a exportação da Caneca Personalizada', async () => {
-    mugWorkerResponse = serializedMug()
+  it('habilita e executa a exportação da Porta-lata', async () => {
+    canHolderWorkerResponse = serializedCanHolder()
 
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+    fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
     const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
     await waitFor(() => expect(exportButton).toBeEnabled(), LAZY_TIMEOUT)
     fireEvent.click(exportButton)
 
-    expect(exportMugStl).toHaveBeenCalledTimes(1)
-    const [result, projectName] = vi.mocked(exportMugStl).mock.calls[0]
+    expect(exportCanHolderStl).toHaveBeenCalledTimes(1)
+    const [result, projectName] = vi.mocked(exportCanHolderStl).mock.calls[0]
     expect(projectName).toBe('Projeto sem título')
     expect(result.body.getAttribute('position').count).toBeGreaterThan(0)
     expect(result.handle).not.toBeNull()
   })
 
-  it('mostra erro quando a exportação da Caneca Personalizada falha', async () => {
-    mugWorkerResponse = serializedMug()
-    vi.mocked(exportMugStl).mockImplementationOnce(() => {
+  it('mostra erro quando a exportação da Porta-lata falha', async () => {
+    canHolderWorkerResponse = serializedCanHolder()
+    vi.mocked(exportCanHolderStl).mockImplementationOnce(() => {
       throw new Error('falha')
     })
 
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+    fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
     const exportButton = screen.getByRole('button', { name: 'Exportar STL' })
     await waitFor(() => expect(exportButton).toBeEnabled(), LAZY_TIMEOUT)
@@ -539,28 +539,28 @@ describe('StudioPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Falha ao exportar STL')
   })
 
-  it('mostra as dimensões padronizadas da Caneca Personalizada', async () => {
-    mugWorkerResponse = serializedMug()
+  it('mostra as dimensões padronizadas da Porta-lata', async () => {
+    canHolderWorkerResponse = serializedCanHolder()
 
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+    fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
     expect(await screen.findByText('80 × 88 × 2.4 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
   })
 
-  it('volta ao seletor de ferramentas a partir da Caneca Personalizada', async () => {
+  it('volta ao seletor de ferramentas a partir da Porta-lata', async () => {
     renderStudioPage()
-    fireEvent.click(screen.getByRole('button', { name: /caneca personalizada/i }))
+    fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
     expect(
-      await screen.findByRole('heading', { level: 2, name: 'Caneca Personalizada' }, LAZY_TIMEOUT),
+      await screen.findByRole('heading', { level: 2, name: 'Porta-lata' }, LAZY_TIMEOUT),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /voltar/i }))
 
     expect(screen.getByRole('heading', { name: /escolha uma ferramenta/i })).toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { level: 2, name: 'Caneca Personalizada' }),
+      screen.queryByRole('heading', { level: 2, name: 'Porta-lata' }),
     ).not.toBeInTheDocument()
   })
 })

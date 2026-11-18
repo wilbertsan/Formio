@@ -31,8 +31,8 @@ import { useBox } from './tools/lembrancinhas/caixa-personalizada/useBox'
 import { exportBoxStl } from './tools/lembrancinhas/caixa-personalizada/exportStl'
 import { useThermoformer } from './tools/lembrancinhas/termoformador/useThermoformer'
 import { exportThermoformerStl } from './tools/lembrancinhas/termoformador/exportStl'
-import { useMug } from './tools/lembrancinhas/caneca-personalizada/useMug'
-import { exportMugStl } from './tools/lembrancinhas/caneca-personalizada/exportStl'
+import { useCanHolder } from './tools/lembrancinhas/porta-lata/useCanHolder'
+import { exportCanHolderStl } from './tools/lembrancinhas/porta-lata/exportStl'
 
 const ChaveiroTool = lazy(() =>
   import('./tools/chaveiros/chaveiro/StudioPanel').then((m) => ({
@@ -178,15 +178,15 @@ const ThermoformerPreview = lazy(() =>
   })),
 )
 
-const MugTool = lazy(() =>
-  import('./tools/lembrancinhas/caneca-personalizada/StudioPanel').then((m) => ({
+const CanHolderTool = lazy(() =>
+  import('./tools/lembrancinhas/porta-lata/StudioPanel').then((m) => ({
     default: m.StudioPanel,
   })),
 )
 
-const MugPreview = lazy(() =>
-  import('./tools/lembrancinhas/caneca-personalizada/MugPreview').then((m) => ({
-    default: m.MugPreview,
+const CanHolderPreview = lazy(() =>
+  import('./tools/lembrancinhas/porta-lata/CanHolderPreview').then((m) => ({
+    default: m.CanHolderPreview,
   })),
 )
 
@@ -1268,7 +1268,7 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
   )
 }
 
-function MugToolWrapper({ onBack }: { onBack: () => void }) {
+function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
   const [projectName, setProjectName] = useState('Projeto sem título')
   const [resetCameraSignal, setResetCameraSignal] = useState(0)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -1285,7 +1285,7 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
     fitRadius,
     updateParam,
     reset,
-  } = useMug()
+  } = useCanHolder()
 
   const handleResetCamera = useCallback(() => {
     setResetCameraSignal((signal) => signal + 1)
@@ -1301,7 +1301,7 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
     if (!geometry) return
     setExportError(null)
     try {
-      exportMugStl(geometry, projectName)
+      exportCanHolderStl(geometry, projectName)
     } catch {
       setExportError('Falha ao exportar STL')
     }
@@ -1334,7 +1334,7 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
           </div>
         ) : null}
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
-          <MugTool
+          <CanHolderTool
             params={params}
             issues={issues}
             capacityMl={capacityMl}
@@ -1352,7 +1352,7 @@ function MugToolWrapper({ onBack }: { onBack: () => void }) {
             resetAzimuth={210}
           >
             <Suspense fallback={null}>
-              <MugPreview
+              <CanHolderPreview
                 body={geometry?.body ?? null}
                 handle={geometry?.handle ?? null}
                 bodyColor={params.bodyColor}
@@ -1426,8 +1426,8 @@ export function StudioPage() {
       {activeTool === 'termoformador' && (
         <ThermoformerToolWrapper onBack={() => setActiveTool(null)} />
       )}
-      {activeTool === 'caneca-personalizada' && (
-        <MugToolWrapper onBack={() => setActiveTool(null)} />
+      {activeTool === 'porta-lata' && (
+        <CanHolderToolWrapper onBack={() => setActiveTool(null)} />
       )}
     </Suspense>
   )
