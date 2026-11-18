@@ -2,7 +2,30 @@
 
 **Data:** 2026-11-17
 **Ferramenta:** `lembrancinhas/caneca-personalizada`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado (v1)
+
+## Desvios da implementação (v1)
+
+O código entregue prevalece sobre as seções históricas deste design.
+
+- **Alça** — a folga é nominal no meio; o topo tem interferência absoluta de
+  0,4 mm e a base folga `handleClearance + 0,4 mm`. A abraçadeira acompanha a
+  conicidade, o laço segue o perfil do corpo e a peça imprime **em pé**,
+  apoiada na borda inferior do laço, com suporte sob o arco de 200°.
+- **Relevo** — subdivisão conforme de arestas até 2,5 mm para manter 1 mm
+  visível no centro de glifos largos, auto-fit de 120° e 0,2 mm embutidos para
+  a união. `mug-text-rail` foi removido: o auto-fit mantém o texto longe da
+  abraçadeira.
+- **CSG** — `ADDITION` com `useCDTClipping` (splitter CDT) em todas as uniões;
+  `csg.ts` centraliza o evaluator e `geometryCleanup.ts` remove triângulos
+  colapsados do corpo e do resultado do CSG.
+- **Validação** — `mug-handle-gap` avisa abaixo de 26 mm; `mug-handle-fit` é
+  warning para folga acima de `HANDLE_FIT_INTERFERENCE` (0,4 mm);
+  `mug-handle-band` usa o vão completo do laço; as falhas de runtime usam
+  `mug-invalid`, `mug-font`, `mug-csg` e `mug-build`.
+- **Export** — corpo e alça em pé, sem rotação, em dois STLs.
+- **Build** — ~0,6 s no worker com a fonte carregada; o teste inclui a fonte e
+  as asserções (~1,2–1,6 s) com gate de 4 s.
 
 ## Objetivo
 
@@ -120,8 +143,8 @@ A abertura horizontal da mão é derivada:
   extrudado em `handleWidth` no eixo Z.
 - Abraçadeira e laço são unidos por CSG dentro da alça, formando uma peça única
   e fechada.
-- A alça é impressa deitada (laço na mesa); o arco superior da abraçadeira pode
-  exigir suporte leve.
+- A alça é impressa em pé, apoiada na borda inferior do laço; a abraçadeira de
+  200° exige suporte sob toda a face inferior do arco.
 - A montagem não altera o corpo: a abraçadeira abraça a parede e a remoção é
   por pressão.
 
@@ -136,6 +159,8 @@ src/features/studio/tools/lembrancinhas/caneca-personalizada/
   buildRelief.ts           # texto → geometria curvada
   buildHandle.ts           # abraçadeira + laço + CSG interno
   buildMug.ts              # orquestração, CSG do relevo e snapshot
+  csg.ts                   # evaluator conforme (CDT)
+  geometryCleanup.ts       # remove triângulos colapsados
   validateMug.ts           # issues e severidade
   workerGeometry.ts        # serialização das duas peças
   workerClient.ts          # interface do worker
@@ -195,14 +220,15 @@ seguindo o tema claro do Studio. Nenhum componente novo de UI.
 | `mug-wall` | error | parede abaixo de 1,8 mm (defensiva) |
 | `mug-bottom` | error | fundo abaixo de 2 mm (defensiva) |
 | `mug-text-fit` | warning | texto não cabe no arco útil e a fonte foi reduzida |
-| `mug-text-band` | error | texto cruza a borda, o fundo ou a faixa da alça |
-| `mug-text-rail` | warning | texto invade o arco da abraçadeira |
-| `mug-handle-gap` | warning | abertura da mão menor que 18 mm |
-| `mug-handle-reach` | warning | alcance não deixa abertura horizontal de 16 mm |
-| `mug-handle-fit` | error | folga da abraçadeira abaixo de 0,2 mm |
-| `mug-handle-band` | error | abraçadeira não cabe na altura do corpo |
+| `mug-text-band` | error | texto cruza a borda ou o fundo (chanfro efetivo) |
+| `mug-handle-gap` | warning | abertura vertical da mão menor que 26 mm |
+| `mug-handle-reach` | warning | menor largura do furo da mão abaixo de 16 mm |
+| `mug-handle-fit` | warning | folga nominal acima de `HANDLE_FIT_INTERFERENCE` (0,4 mm) |
+| `mug-handle-band` | error | vão completo do laço não cabe na altura do corpo |
 | `mug-capacity` | warning | capacidade fora de 150–500 ml |
-| `mug-csg` | error | a união do relevo falhou |
+
+As falhas de runtime do worker usam `mug-invalid`, `mug-font`, `mug-csg` e
+`mug-build`; não são issues de validação.
 
 Avisos não bloqueiam o build nem o export. Falha de CSG mantém a geometria
 anterior e aparece no overlay.
@@ -211,7 +237,7 @@ anterior e aparece no overlay.
 
 - Dois STLs binários: `<nome>-corpo.stl` e `<nome>-alca.stl`.
 - O corpo é centralizado na mesa com o fundo em `y = 0`.
-- A alça é rotacionada para imprimir deitada (laço na mesa) e centralizada.
+- A alça é centralizada em pé, apoiada na borda inferior do laço, sem rotação.
 - O nome usa `sanitizeFilename(projectName)`.
 - A alça desabilitada não gera arquivo.
 
@@ -232,8 +258,8 @@ anterior e aparece no overlay.
   rebuilda geometria.
 - **Capacidade calculada:** o painel mostra o volume interno útil sem prometer
   estanqueidade ou uso alimentar.
-- **Spike primeiro:** a união do relevo por CSG é provada com uma palavra antes
-  do restante; se falhar, migra para a abordagem C (plaqueta curva com o nome).
+- **Spike primeiro:** a união do relevo por CSG foi provada com uma palavra
+  antes do restante; a abordagem A passou e o fallback C não foi necessário.
 - **Serialização local:** o contrato de duas peças é específico e não se acopla
   ao serializador da Caixa.
 - **`handleWrap` fixo em 200°:** menos sliders e encaixe previsível; a folga é o
@@ -245,10 +271,12 @@ anterior e aparece no overlay.
   fallback para plaqueta curva antes de seguir.
 - **Malha não-manifold na união:** validar corpo, relevo e alça separadamente
   e validar o corpo unido no teste de spike.
-- **Abraçadeira frouxa ou rígida demais:** folga padrão de 0,3 mm; a validação
-  impede folga abaixo de 0,2 mm e a peça é removível por projeto.
-- **Texto colidindo com a alça:** posição fixa a 180° e validação de arco.
-- **Alça com overhang:** impressão deitada documentada; suporte leve aceitável.
+- **Abraçadeira frouxa ou rígida demais:** folga nominal de 0,3 mm no meio,
+  interferência absoluta de 0,4 mm no topo e folga +0,4 mm na base; a peça é
+  removível por projeto.
+- **Texto colidindo com a alça:** posição fixa a 180° e auto-fit de 120°.
+- **Alça com overhang:** impressão em pé documentada; suporte sob toda a face
+  inferior do arco de 200°.
 - **Regressão em ferramentas existentes:** mudanças em `ToolSelector` e
   `StudioPage` cobertas por testes.
 - **Capacidade divergente da realidade:** o volume é geométrico, não

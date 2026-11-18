@@ -81,7 +81,8 @@ SVG e 3MF/STEP ficam para versões seguintes.
 - O texto não pode invadir a borda, o fundo, o arco da abraçadeira nem a área do
   laço; a validação garante margem.
 - O texto é curvado no raio externo do corpo na altura `textCenterY`; o arco
-  efetivo é calculado pelo comprimento do texto e limitado pelo Zod.
+  efetivo é calculado pelo comprimento do texto e limitado pelo auto-fit
+  (`MAX_TEXT_ARC`); o Zod limita apenas o comprimento e o tamanho.
 - Capacidade exibida é o volume interno útil (tronco de cone), em ml.
 - STL sempre manifold, fechado, sem auto-interseções e sem peças soltas.
 - Sem CSG para a alça no corpo; o CSG da alça é interno (abraçadeira + laço).
@@ -174,8 +175,9 @@ anterior e mostra erro no overlay.
   manter 1 mm de relevo visível também no centro de glifos largos
   (sag ≈ 0,02 mm). O auto-fit limita o arco a 120°.
 - O build padrão leva ~0,6 s no worker (fonte já carregada); 20 caracteres em
-  18 mm levam ~2,4 s. O gate de teste é 4 s e roda em worker para não travar a
-  UI.
+  18 mm levam ~2,4 s. O teste roda no processo do Vitest, inclui a fonte e as
+  asserções (~1,2–1,6 s no default) e usa gate de 4 s; o build real roda em
+  worker para não travar a UI.
 - A alça é impressa em pé, apoiada na borda inferior do laço, com suporte sob
   toda a face inferior da abraçadeira de 200°; não há rotação no export.
 - O export usa os snapshots de geometria do build (`body` e `handle`) e não

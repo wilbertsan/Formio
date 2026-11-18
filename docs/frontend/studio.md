@@ -319,8 +319,8 @@ Pipeline completo de geração da caneca:
    meio, interferência absoluta de 0,4 mm no topo e folga +0,4 mm na base;
    laço acompanha a conicidade do corpo. Abraçadeira + laço são unidos por CSG.
 6. **buildMug.ts** — Une o relevo ao corpo (`ADDITION`, `useCDTClipping`) e
-   devolve `{ body, handle }`; limpa triângulos colapsados e valida
-   fechamento/casca no spike.
+   devolve `{ body, handle }`; limpa triângulos colapsados. Fechamento e
+   casca única são verificados nos testes de spike.
 7. **useMug.ts** — Reducer + Zod, clamps, debounce de 250 ms, um worker por
    build, descarte de respostas obsoletas, snapshot `builtParams` e descarte da
    geometria anterior.
@@ -345,7 +345,8 @@ Detalhes:
   `mug-handle-band` e `mug-capacity`. Falhas de runtime do worker usam
   `mug-invalid`, `mug-font`, `mug-csg` e `mug-build`.
 - Build padrão ~0,6 s no worker (fonte carregada); 20 caracteres em 18 mm
-  levam ~2,4 s. O gate de teste é 4 s e roda em worker.
+  levam ~2,4 s. O teste roda no processo do Vitest, inclui a fonte e as
+  asserções (~1,2–1,6 s no default) e usa gate de 4 s.
 
 ## Decisões
 
