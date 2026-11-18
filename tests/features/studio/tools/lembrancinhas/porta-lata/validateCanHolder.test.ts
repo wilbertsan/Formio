@@ -93,6 +93,12 @@ describe('validateCanHolder', () => {
     expect(
       validateCanHolder(defaultCanHolderParams).some((issue) => issue.code === 'can-edge-rim'),
     ).toBe(false)
+    // Fronteira do schema: 2 × 1,5 + 1 mm cabem exatamente nos 4 mm.
+    expect(
+      validateCanHolder(withParams({ edgeRimWidth: 4, edgeRimProtrusion: 1.5 })).some(
+        (issue) => issue.code === 'can-edge-rim',
+      ),
+    ).toBe(false)
   })
 
   it('aponta bordas que ocupam a altura toda do corpo (defensivo)', () => {

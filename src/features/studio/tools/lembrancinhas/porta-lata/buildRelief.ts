@@ -50,6 +50,7 @@ function clampCenterY(params: CanHolderGeometryParams, halfHeight: number): numb
   const band = getTextBand(params)
   const minY = band.min + halfHeight
   const maxY = band.max - halfHeight
+  // Defensivo: a faixa mínima do schema sempre comporta o texto.
   if (minY > maxY) return params.textCenterY
   return Math.min(maxY, Math.max(minY, params.textCenterY))
 }

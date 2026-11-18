@@ -163,6 +163,26 @@ describe('buildRelief', () => {
     geometry.dispose()
   })
 
+  it('clampa o texto acima do anel inferior', () => {
+    // Glifo de 18 mm (o mesmo `textSize`): metade de 9 mm. Centrado em 20 mm o
+    // texto começaria em 11 mm, abaixo dos 16 mm do anel mais a margem.
+    const params = {
+      ...defaultCanHolderParams,
+      edgeRimWidth: 14,
+      textCenterY: 20,
+      textSize: 18,
+    }
+    const geometry = buildRelief(rectangleFont(10, 18), params)!
+    geometry.computeBoundingBox()
+    const box = geometry.boundingBox!
+
+    expect(box.min.y).toBeCloseTo(params.edgeRimWidth + TEXT_BAND_MARGIN_MM, 5)
+    expect(box.max.y).toBeLessThanOrEqual(
+      getOuterHeight(params) - params.edgeRimWidth - TEXT_BAND_MARGIN_MM + POSITION_EPSILON,
+    )
+    geometry.dispose()
+  })
+
   it('clampa o texto com o chanfro efetivo quando o chanfro pedido é limitado', () => {
     // Parede 2,4 mm: o chanfro efetivo é 0,6 mm, não os 2 mm pedidos. Anéis
     // desligados: eles têm teste próprio.

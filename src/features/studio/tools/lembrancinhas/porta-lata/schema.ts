@@ -181,17 +181,26 @@ export interface TextBand {
 }
 
 /**
+ * Faixa vertical da parede cilíndrica entre os anéis decorativos, sem margem.
+ * `max` é o fim da parede em `height - ringWidth` quando os anéis estão
+ * ligados, ou a altura do corpo quando desligados.
+ */
+export function getRingWallBand(params: CanHolderGeometryParams): TextBand {
+  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  return { min: ringWidth, max: getOuterHeight(params) - ringWidth }
+}
+
+/**
  * Faixa vertical disponível para o texto: entre o fundo e a borda de entrada,
  * descontando os anéis decorativos quando ligados, com `TEXT_BAND_MARGIN_MM` de
  * margem em cada ponta.
  */
 export function getTextBand(params: CanHolderGeometryParams): TextBand {
-  const ringWidth = params.edgeRimEnabled ? params.edgeRimWidth : 0
+  const wall = getRingWallBand(params)
   return {
-    min: Math.max(params.bottomThickness, ringWidth) + TEXT_BAND_MARGIN_MM,
+    min: Math.max(params.bottomThickness, wall.min) + TEXT_BAND_MARGIN_MM,
     max:
-      getOuterHeight(params) -
-      Math.max(getEffectiveRimChamfer(params), ringWidth) -
+      Math.min(getOuterHeight(params) - getEffectiveRimChamfer(params), wall.max) -
       TEXT_BAND_MARGIN_MM,
   }
 }
