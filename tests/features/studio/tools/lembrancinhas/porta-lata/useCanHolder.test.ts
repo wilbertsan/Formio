@@ -265,7 +265,7 @@ describe('useCanHolder', () => {
 
     act(() => { result.current.updateParam('height', 100) })
     act(() => { vi.advanceTimersByTime(260) })
-    act(() => { fail('mug-csg') })
+    act(() => { fail('can-csg') })
 
     expect(result.current.error).toBe(CSG_ERROR)
     expect(result.current.isBuilding).toBe(false)
@@ -278,10 +278,10 @@ describe('useCanHolder', () => {
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
 
     const cases: Array<{ code?: CanHolderErrorCode; message: string }> = [
-      { code: 'mug-csg', message: CSG_ERROR },
-      { code: 'mug-font', message: 'Falha ao carregar a fonte.' },
-      { code: 'mug-invalid', message: 'Parâmetros inválidos.' },
-      { code: 'mug-build', message: BUILD_ERROR },
+      { code: 'can-csg', message: CSG_ERROR },
+      { code: 'can-font', message: 'Falha ao carregar a fonte.' },
+      { code: 'can-invalid', message: 'Parâmetros inválidos.' },
+      { code: 'can-build', message: BUILD_ERROR },
       { message: BUILD_ERROR },
     ]
 
@@ -299,7 +299,7 @@ describe('useCanHolder', () => {
     const { factory, fail } = makeWorkerFixture()
     const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
     act(() => { vi.advanceTimersByTime(260) })
-    act(() => { fail('mug-csg') })
+    act(() => { fail('can-csg') })
     expect(result.current.error).toBe(CSG_ERROR)
 
     act(() => { result.current.updateParam('height', 100) })
@@ -515,7 +515,7 @@ describe('useCanHolder', () => {
     act(() => { result.current.updateParam('height', 100) })
     act(() => { vi.advanceTimersByTime(260) })
 
-    act(() => { failFirst('mug-csg') })
+    act(() => { failFirst('can-csg') })
     expect(result.current.error).toBeNull()
     expect(result.current.isBuilding).toBe(true)
   })

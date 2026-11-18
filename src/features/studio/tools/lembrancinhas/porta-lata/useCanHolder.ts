@@ -51,10 +51,10 @@ const BUILD_ERROR = 'Falha ao gerar a geometria'
 const DEBOUNCE_MS = 250
 
 const ERROR_MESSAGES: Record<CanHolderErrorCode, string> = {
-  'mug-csg': 'Falha ao gerar o relevo. Tente outro texto.',
-  'mug-font': 'Falha ao carregar a fonte.',
-  'mug-invalid': 'Parâmetros inválidos.',
-  'mug-build': BUILD_ERROR,
+  'can-csg': 'Falha ao gerar o relevo. Tente outro texto.',
+  'can-font': 'Falha ao carregar a fonte.',
+  'can-invalid': 'Parâmetros inválidos.',
+  'can-build': BUILD_ERROR,
 }
 
 function errorMessage(code?: CanHolderErrorCode): string {

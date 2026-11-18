@@ -108,9 +108,9 @@ describe('workerClient', () => {
     const onError = vi.fn()
 
     worker.build(params, vi.fn(), onError)
-    fake.respond({ id: 1, error: 'mug-csg' })
+    fake.respond({ id: 1, error: 'can-csg' })
 
-    expect(onError).toHaveBeenCalledWith('mug-csg')
+    expect(onError).toHaveBeenCalledWith('can-csg')
   })
 
   it('trata erro e erro de mensagem do worker', () => {

@@ -55,7 +55,7 @@ scope.onmessage = async (event) => {
     id = readRequestId(message)
     params = readParams(message)
   } catch (error) {
-    fail(id, 'mug-invalid', error)
+    fail(id, 'can-invalid', error)
     return
   }
 
@@ -63,7 +63,7 @@ scope.onmessage = async (event) => {
   try {
     font = await loadFont(params.fontStyle)
   } catch (error) {
-    fail(id, 'mug-font', error)
+    fail(id, 'can-font', error)
     return
   }
 
@@ -71,7 +71,7 @@ scope.onmessage = async (event) => {
   try {
     result = buildCanHolder(params, font)
   } catch (error) {
-    fail(id, 'mug-csg', error)
+    fail(id, 'can-csg', error)
     return
   }
 
@@ -81,6 +81,6 @@ scope.onmessage = async (event) => {
   } catch (error) {
     // A serialização falhou antes do transfer: a geometria ainda é nossa.
     disposeCanHolderResult(result)
-    fail(id, 'mug-build', error)
+    fail(id, 'can-build', error)
   }
 }

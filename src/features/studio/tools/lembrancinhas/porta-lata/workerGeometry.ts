@@ -13,7 +13,7 @@ export interface SerializedBuildResult {
 }
 
 /** Códigos de falha de runtime do worker, traduzidos pelo hook. */
-export type CanHolderErrorCode = 'mug-invalid' | 'mug-font' | 'mug-csg' | 'mug-build'
+export type CanHolderErrorCode = 'can-invalid' | 'can-font' | 'can-csg' | 'can-build'
 
 /** Contrato de resposta do worker, usado pelo worker e pelo client. */
 export interface CanHolderWorkerResponse {
