@@ -553,7 +553,7 @@ describe('StudioPage', () => {
     renderStudioPage()
     fireEvent.click(screen.getByRole('button', { name: /porta-lata/i }))
 
-    expect(await screen.findByText('72.6 × 111.2 × 2.4 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
+    expect(await screen.findByText('74.6 × 111.2 × 2.4 mm', {}, LAZY_TIMEOUT)).toBeInTheDocument()
   })
 
   it('volta ao seletor de ferramentas a partir da Porta-lata', async () => {

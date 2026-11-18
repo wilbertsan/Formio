@@ -1059,7 +1059,10 @@ Esperado: todos os arquivos passando, incluindo worker, export e CSG.
 npm test
 ```
 
-Esperado: sem regressões fora do porta-lata.
+Esperado: sem regressões fora do porta-lata. Ao rodar, `StudioPage.test.tsx`
+precisou do mesmo ajuste do status bar (`72.6 × 111.2 × 2.4 mm` → `74.6 ×
+111.2 × 2.4 mm`); o teste está fora da pasta da ferramenta e não apareceu na
+varredura inicial do plano.
 
 **Step 3: typecheck**
 
