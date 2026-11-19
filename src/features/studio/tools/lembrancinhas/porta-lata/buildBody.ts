@@ -21,6 +21,8 @@ export interface OuterWall {
 /**
  * Parede externa: o segmento vertical mais longo fora da cavidade. Com anéis é
  * o trecho entre eles; sem anéis, vai da base ao chanfro da borda.
+ * Válido porque a parede (≥ 54 mm no schema) é sempre mais longa que as faces
+ * dos anéis (≤ 12,1 mm).
  */
 export function findOuterWall(profile: Vector2[], innerRadius: number): OuterWall {
   let wall: OuterWall | null = null
@@ -80,7 +82,22 @@ function displaceWall(
   }
 
   position.needsUpdate = true
-  geometry.computeVertexNormals()
+}
+
+function weldSeamNormals(geometry: BufferGeometry, pointCount: number): void {
+  const normal = geometry.getAttribute('normal') as BufferAttribute
+  const last = TEXTURE_RADIAL_SEGMENTS * pointCount
+  for (let j = 0; j < pointCount; j++) {
+    const a = j
+    const b = last + j
+    const x = normal.getX(a) + normal.getX(b)
+    const y = normal.getY(a) + normal.getY(b)
+    const z = normal.getZ(a) + normal.getZ(b)
+    const length = Math.hypot(x, y, z) || 1
+    normal.setXYZ(a, x / length, y / length, z / length)
+    normal.setXYZ(b, x / length, y / length, z / length)
+  }
+  normal.needsUpdate = true
 }
 
 export function buildBody(params: CanHolderGeometryParams): BufferGeometry {
@@ -92,10 +109,10 @@ export function buildBody(params: CanHolderGeometryParams): BufferGeometry {
 
   const profile = bodyProfile(params)
   const wall = findOuterWall(profile, getInnerDiameter(params) / 2)
-  const geometry = new LatheGeometry(
-    subdivideWall(profile, wall),
-    TEXTURE_RADIAL_SEGMENTS,
-  )
+  const subdividedProfile = subdivideWall(profile, wall)
+  const geometry = new LatheGeometry(subdividedProfile, TEXTURE_RADIAL_SEGMENTS)
   displaceWall(geometry, params, wall)
+  geometry.computeVertexNormals()
+  weldSeamNormals(geometry, subdividedProfile.length)
   return removeDegenerateTriangles(geometry)
 }

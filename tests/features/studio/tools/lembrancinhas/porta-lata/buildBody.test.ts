@@ -215,7 +215,7 @@ describe('can holder body', () => {
   it('mantém a faixa da abraçadeira lisa', () => {
     const params = {
       ...defaultCanHolderParams,
-      textureStyle: 'spikes' as const,
+      textureStyle: 'wood' as const,
       textureDepth: 1.5,
     }
     const geometry = buildBody(params)
@@ -224,14 +224,62 @@ describe('can holder body', () => {
     const innerR = getInnerDiameter(params) / 2
     const bandMin = params.handleHeight - params.handleWidth / 2
     const bandMax = params.handleHeight + params.handleWidth / 2
+    let checked = 0
 
     for (let i = 0; i < position.count; i++) {
       const y = position.getY(i)
       if (y <= bandMin || y >= bandMax) continue
       const radius = Math.hypot(position.getX(i), position.getZ(i))
       if (radius < innerR + 0.5) continue
+      checked += 1
       expect.soft(radius, `vértice ${i} em y=${y}`).toBeCloseTo(outerR, 4)
     }
+    expect(checked).toBeGreaterThan(500)
+    geometry.dispose()
+  })
+
+  it('mantém posições e normais contínuas na emenda da textura', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.2,
+    }
+    const geometry = buildBody(params)
+    const position = geometry.getAttribute('position')
+    const normal = geometry.getAttribute('normal')
+    const rows = new Map<
+      string,
+      { radius: number; normal: [number, number, number] }[]
+    >()
+
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i)
+      const z = position.getZ(i)
+      // O LatheGeometry fecha a emenda em φ = 0 e φ = 2π, isto é, x ≈ 0 e
+      // z > 0 (não no eixo X como a textura usa em θ = 0).
+      if (Math.abs(x) > 1e-4 || z <= 0) continue
+      const key = position.getY(i).toFixed(3)
+      const entry = rows.get(key) ?? []
+      entry.push({
+        radius: Math.hypot(x, z),
+        normal: [normal.getX(i), normal.getY(i), normal.getZ(i)],
+      })
+      rows.set(key, entry)
+    }
+
+    let pairs = 0
+    for (const entry of rows.values()) {
+      if (entry.length < 2) continue
+      // Em alturas repetidas no perfil, os dois maiores raios são o par da
+      // emenda, pois todo ponto do perfil aparece nas duas colunas.
+      const [a, b] = [...entry].sort((left, right) => right.radius - left.radius)
+      pairs += 1
+      expect(a.radius).toBeCloseTo(b.radius, 4)
+      expect(a.normal[0]).toBeCloseTo(b.normal[0], 4)
+      expect(a.normal[1]).toBeCloseTo(b.normal[1], 4)
+      expect(a.normal[2]).toBeCloseTo(b.normal[2], 4)
+    }
+    expect(pairs).toBeGreaterThan(50)
     geometry.dispose()
   })
 })
