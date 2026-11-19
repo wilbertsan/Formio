@@ -22,7 +22,7 @@ export interface OuterWall {
  * Parede externa: o segmento vertical mais longo fora da cavidade. Com anéis é
  * o trecho entre eles; sem anéis, vai da base ao chanfro da borda.
  * Válido porque a parede (≥ 54 mm no schema) é sempre mais longa que as faces
- * dos anéis (≤ 12,1 mm).
+ * dos anéis (≤ 13,6 mm).
  */
 export function findOuterWall(profile: Vector2[], innerRadius: number): OuterWall {
   let wall: OuterWall | null = null
@@ -84,6 +84,7 @@ function displaceWall(
   position.needsUpdate = true
 }
 
+/** As colunas duplicadas da emenda só veem metade do leque, então a normal unilateral precisa ser soldada. */
 function weldSeamNormals(geometry: BufferGeometry, pointCount: number): void {
   const normal = geometry.getAttribute('normal') as BufferAttribute
   const last = TEXTURE_RADIAL_SEGMENTS * pointCount
@@ -93,7 +94,8 @@ function weldSeamNormals(geometry: BufferGeometry, pointCount: number): void {
     const x = normal.getX(a) + normal.getX(b)
     const y = normal.getY(a) + normal.getY(b)
     const z = normal.getZ(a) + normal.getZ(b)
-    const length = Math.hypot(x, y, z) || 1
+    const length = Math.hypot(x, y, z)
+    if (length < 1e-12) continue
     normal.setXYZ(a, x / length, y / length, z / length)
     normal.setXYZ(b, x / length, y / length, z / length)
   }
