@@ -6,17 +6,20 @@ import {
   CONTENT_DEPTH,
   HANDLE_RING_THICKNESS,
   MAX_TEXT_LENGTH,
+  TEXTURE_STYLES,
   canHolderGeometryParamsSchema,
   canHolderParamsSchema,
   defaultCanHolderParams,
   getEffectiveLeadIn,
   getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
+  getEffectiveTextureDepth,
   getExposedHeight,
   getInnerDiameter,
   getMaxOuterDiameter,
   getOuterDiameter,
   getOuterHeight,
+  getTextureEnvelope,
   getTopLand,
   sanitizeFilename,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
@@ -36,6 +39,9 @@ describe('porta-lata schema', () => {
       edgeRimEnabled: true,
       edgeRimProtrusion: 1.0,
       edgeRimWidth: 6,
+      textureStyle: 'none',
+      textureDepth: 0.8,
+      textureScale: 8,
       handleEnabled: true,
       handleHeight: 60,
       handleGap: 30,
@@ -94,6 +100,21 @@ describe('porta-lata schema', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimProtrusion: 1.5 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 4 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 14 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 0.4 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 1.5 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 4 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 16 }).success).toBe(true)
+  })
+
+  it('valida o estilo e as faixas da textura', () => {
+    for (const style of TEXTURE_STYLES) {
+      expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureStyle: style }).success).toBe(true)
+    }
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureStyle: 'sand' }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 0.3 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 1.6 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 3.9 }).success).toBe(false)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 16.1 }).success).toBe(false)
   })
 
   it('limita o texto por code points', () => {
@@ -172,6 +193,37 @@ describe('preset da lata e derivados', () => {
         edgeRimProtrusion: 1.5,
       }),
     ).toBeCloseTo(1.5, 5)
+  })
+
+  it('calcula o envelope e o diâmetro externo com textura', () => {
+    expect(getTextureEnvelope(defaultCanHolderParams)).toBe(0)
+    expect(getMaxOuterDiameter(defaultCanHolderParams)).toBeCloseTo(74.6, 5)
+
+    const textured = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 0.6,
+    }
+    // O anel (1,0 mm) ainda é o maior envelope.
+    expect(getTextureEnvelope(textured)).toBeCloseTo(0.6, 5)
+    expect(getMaxOuterDiameter(textured)).toBeCloseTo(74.6, 5)
+
+    const deep = { ...textured, textureDepth: 1.5 }
+    expect(getMaxOuterDiameter(deep)).toBeCloseTo(75.6, 5)
+
+    // Escala 4 limita a profundidade efetiva a 1,0 mm: o envelope empata com o
+    // anel e o diâmetro não cresce.
+    const tight = { ...textured, textureDepth: 1.5, textureScale: 4 }
+    expect(getEffectiveTextureDepth(tight)).toBeCloseTo(1, 6)
+    expect(getTextureEnvelope(tight)).toBeCloseTo(1, 6)
+    expect(getMaxOuterDiameter(tight)).toBeCloseTo(74.6, 5)
+
+    const off = { ...defaultCanHolderParams, textureStyle: 'none' as const, textureDepth: 1.5 }
+    expect(getTextureEnvelope(off)).toBe(0)
+    expect(getMaxOuterDiameter(off)).toBeCloseTo(74.6, 5)
+
+    const noRings = { ...defaultCanHolderParams, edgeRimEnabled: false, textureStyle: 'wood' as const, textureDepth: 1.5 }
+    expect(getMaxOuterDiameter(noRings)).toBeCloseTo(75.6, 5)
   })
 
   it('desliga os anéis sem alterar o diâmetro externo', () => {

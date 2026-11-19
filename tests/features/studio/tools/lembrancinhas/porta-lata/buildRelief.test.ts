@@ -15,6 +15,7 @@ import {
   getEffectiveRimChamfer,
   getOuterHeight,
   getOuterRadius,
+  getTextureEnvelope,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import {
   shapesToGeometry,
@@ -329,6 +330,30 @@ describe('buildRelief', () => {
 
     expect(minOffset).toBeCloseTo(-RELIEF_EMBED, 5)
     expect(maxOffset).toBeCloseTo(CONTENT_DEPTH, 5)
+    geometry.dispose()
+  })
+
+  it('eleva o relevo acima do envelope da textura', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.5,
+    }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    const position = geometry.getAttribute('position')
+    const envelope = getTextureEnvelope(params)
+    let minRadius = Infinity
+    let maxRadius = 0
+    for (let i = 0; i < position.count; i++) {
+      const radius = Math.hypot(position.getX(i), position.getZ(i))
+      minRadius = Math.min(minRadius, radius)
+      maxRadius = Math.max(maxRadius, radius)
+    }
+    expect(maxRadius).toBeCloseTo(
+      getOuterRadius(params) + envelope + CONTENT_DEPTH,
+      5,
+    )
+    expect(minRadius).toBeCloseTo(getOuterRadius(params) - RELIEF_EMBED, 5)
     geometry.dispose()
   })
 

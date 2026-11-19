@@ -139,6 +139,8 @@ describe('useCanHolder', () => {
       result.current.updateParam('rimChamfer', -1)
       result.current.updateParam('edgeRimProtrusion', 9)
       result.current.updateParam('edgeRimWidth', 1)
+      result.current.updateParam('textureDepth', 9)
+      result.current.updateParam('textureScale', 1)
       result.current.updateParam('handleGap', 999)
       result.current.updateParam('handleGap', 1)
       result.current.updateParam('textSize', 999)
@@ -151,6 +153,8 @@ describe('useCanHolder', () => {
     expect(result.current.params.rimChamfer).toBe(0)
     expect(result.current.params.edgeRimProtrusion).toBe(1.5)
     expect(result.current.params.edgeRimWidth).toBe(4)
+    expect(result.current.params.textureDepth).toBe(1.5)
+    expect(result.current.params.textureScale).toBe(4)
     expect(result.current.params.handleGap).toBe(24)
     expect(result.current.params.textSize).toBe(6)
 
@@ -162,6 +166,8 @@ describe('useCanHolder', () => {
       result.current.updateParam('rimChamfer', 1.5)
       result.current.updateParam('edgeRimProtrusion', 0)
       result.current.updateParam('edgeRimWidth', 99)
+      result.current.updateParam('textureDepth', 0)
+      result.current.updateParam('textureScale', 99)
       result.current.updateParam('handleGap', 40)
       result.current.updateParam('textSize', 18)
     })
@@ -172,6 +178,8 @@ describe('useCanHolder', () => {
     expect(result.current.params.rimChamfer).toBe(1.5)
     expect(result.current.params.edgeRimProtrusion).toBe(0.4)
     expect(result.current.params.edgeRimWidth).toBe(14)
+    expect(result.current.params.textureDepth).toBe(0.4)
+    expect(result.current.params.textureScale).toBe(16)
     expect(result.current.params.handleGap).toBe(40)
     expect(result.current.params.textSize).toBe(18)
   })
@@ -209,6 +217,24 @@ describe('useCanHolder', () => {
     act(() => { vi.advanceTimersByTime(260) })
     expect(getParams()?.edgeRimEnabled).toBe(false)
     expect(result.current.outerDiameter).toBeCloseTo(72.6, 5)
+  })
+
+  it('aumenta o diâmetro externo com textura profunda', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
+    act(() => {
+      result.current.updateParam('textureStyle', 'wood')
+      result.current.updateParam('textureDepth', 1.5)
+    })
+    expect(result.current.outerDiameter).toBeCloseTo(75.6, 5)
+  })
+
+  it('envia o estilo de textura ao worker', () => {
+    const { factory, getParams } = makeWorkerFixture()
+    const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
+    act(() => { result.current.updateParam('textureStyle', 'stone') })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(getParams()?.textureStyle).toBe('stone')
   })
 
   it('expõe dimensões, fitRadius e câmera finitos antes do primeiro build', () => {
@@ -252,6 +278,9 @@ describe('useCanHolder', () => {
       edgeRimEnabled: true,
       edgeRimProtrusion: 1.0,
       edgeRimWidth: 6,
+      textureStyle: 'none',
+      textureDepth: 0.8,
+      textureScale: 8,
       handleEnabled: true,
       handleHeight: 60,
       handleGap: 30,

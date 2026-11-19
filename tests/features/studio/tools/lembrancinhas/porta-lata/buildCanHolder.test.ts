@@ -13,15 +13,49 @@ import {
   buildCanHolder,
   disposeCanHolderResult,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/buildCanHolder'
+import { findOuterWall } from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
+import { bodyProfile } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
   defaultCanHolderParams,
+  getInnerDiameter,
   getMaxOuterDiameter,
   getOuterHeight,
+  getOuterRadius,
+  getTextureEnvelope,
+  type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
 function realFont(): Font {
   return new FontLoader().parse(helvetikerRegular as unknown as FontData)
+}
+
+const SEAM_EPSILON = 1e-3
+
+/** Vértices duplicados da emenda na faixa e no raio da parede externa. */
+function seamGroups(
+  geometry: BufferGeometry,
+  params: CanHolderGeometryParams,
+): Map<string, number[]> {
+  const position = geometry.getAttribute('position')
+  const outerR = getOuterRadius(params)
+  const envelope = getTextureEnvelope(params)
+  const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+  const groups = new Map<string, number[]>()
+
+  for (let i = 0; i < position.count; i++) {
+    if (Math.abs(position.getX(i)) > 1e-4 || position.getZ(i) <= 0) continue
+    const y = position.getY(i)
+    if (y < wall.min - SEAM_EPSILON || y > wall.max + SEAM_EPSILON) continue
+    const radius = Math.hypot(position.getX(i), position.getZ(i))
+    if (radius < outerR - 1e-4 || radius > outerR + envelope + 1e-3) continue
+    const key = y.toFixed(3)
+    const group = groups.get(key)
+    if (group) group.push(i)
+    else groups.set(key, [i])
+  }
+
+  return groups
 }
 
 /** Node < 22.15 não tem `threadCpuUsage`; cai no CPU do processo. */
@@ -122,6 +156,83 @@ describe('buildCanHolder', () => {
     disposeCanHolderResult(withoutText)
   })
 
+  it('une o texto sobre os picos da textura sem perder casca', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'scales' as const,
+      textureDepth: 1.2,
+      textCenterY: 30,
+    }
+    const result = buildCanHolder(params, realFont())
+    expect(isClosed(result.body)).toBe(true)
+    expect(countShells(result.body)).toBe(1)
+    expect(signedVolume(result.body)).toBeGreaterThan(0)
+    expect(result.handle).not.toBeNull()
+
+    const position = result.body.getAttribute('position')
+    let maxRadius = 0
+    for (let i = 0; i < position.count; i++) {
+      maxRadius = Math.max(maxRadius, Math.hypot(position.getX(i), position.getZ(i)))
+    }
+    expect(maxRadius).toBeGreaterThan(getOuterRadius(params) + 1.2 * 0.9)
+
+    disposeCanHolderResult(result)
+  })
+
+  it('solda as normais da emenda da textura depois do CSG', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.2,
+    }
+    const result = buildCanHolder(params, realFont())
+    const normal = result.body.getAttribute('normal')
+    const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+    const groups = seamGroups(result.body, params)
+
+    let pairs = 0
+    for (const indices of groups.values()) {
+      if (indices.length < 2) continue
+      const [a, b] = indices
+      expect(normal.getX(a)).toBeCloseTo(normal.getX(b), 3)
+      expect(normal.getY(a)).toBeCloseTo(normal.getY(b), 3)
+      expect(normal.getZ(a)).toBeCloseTo(normal.getZ(b), 3)
+      pairs += 1
+    }
+    const top = [...groups.keys()].filter(
+      (key) => Math.abs(Number(key) - wall.max) < 1e-3,
+    )
+    expect(top.length).toBeGreaterThan(0)
+    expect(pairs).toBeGreaterThan(50)
+    disposeCanHolderResult(result)
+  })
+
+  it('solda a emenda no extremo superior da parede', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.2,
+      bottomThickness: 3.3,
+      edgeRimWidth: 4,
+    }
+    const result = buildCanHolder(params, realFont())
+    const normal = result.body.getAttribute('normal')
+    const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+    const groups = seamGroups(result.body, params)
+    const topKey = [...groups.keys()].find(
+      (key) => Math.abs(Number(key) - wall.max) < 1e-3,
+    )
+
+    expect(topKey).toBeDefined()
+    const indices = groups.get(topKey!)!
+    expect(indices.length).toBeGreaterThanOrEqual(2)
+    const [a, b] = indices
+    expect(normal.getX(a)).toBeCloseTo(normal.getX(b), 3)
+    expect(normal.getY(a)).toBeCloseTo(normal.getY(b), 3)
+    expect(normal.getZ(a)).toBeCloseTo(normal.getZ(b), 3)
+    disposeCanHolderResult(result)
+  })
+
   it('sem texto devolve só o corpo de revolução com o furo', () => {
     const result = buildCanHolder({ ...defaultCanHolderParams, text: '' }, realFont())
     const height = getOuterHeight(defaultCanHolderParams)
@@ -148,7 +259,7 @@ describe('buildCanHolder', () => {
     disposeCanHolderResult(result)
   })
 
-  it.each([
+  it.each<{ name: string; params: Partial<CanHolderGeometryParams> }>([
     { name: 'cavidade rasa', params: { cavityDepth: 80 } },
     { name: 'cavidade profunda', params: { cavityDepth: 116 } },
     { name: 'folga mínima da lata', params: { canClearance: 0.5 } },
@@ -161,6 +272,8 @@ describe('buildCanHolder', () => {
       name: 'extremas combinadas',
       params: { wallThickness: 4, canClearance: 1.2, handleClearance: 0.5 },
     },
+    { name: 'textura de madeira', params: { textureStyle: 'wood', textureDepth: 1.2 } },
+    { name: 'textura pontiaguda', params: { textureStyle: 'spikes', textureDepth: 1.5 } },
   ])('fecha corpo e alça nos extremos ($name)', ({ params }) => {
     const result = buildCanHolder({ ...defaultCanHolderParams, ...params }, realFont())
 

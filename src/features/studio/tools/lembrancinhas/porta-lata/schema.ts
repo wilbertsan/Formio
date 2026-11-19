@@ -36,6 +36,17 @@ export const RELIEF_EMBED = 0.2
 export const FONT_STYLES = ['normal', 'bold', 'serif'] as const
 export type FontStyle = (typeof FONT_STYLES)[number]
 
+export const TEXTURE_STYLES = [
+  'none', 'wood', 'metal', 'scales', 'waves', 'stone', 'spikes',
+] as const
+export type TextureStyle = (typeof TEXTURE_STYLES)[number]
+
+export const TEXTURE_RADIAL_SEGMENTS = 256
+export const TEXTURE_STEP_MM = 1
+export const TEXTURE_EDGE_FADE_MM = 2
+export const TEXTURE_HANDLE_GAP_MM = 1
+export const TEXTURE_HANDLE_FADE_MM = 2
+
 export const canHolderParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),
   cavityDepth: z.number().min(80).max(116),
@@ -48,6 +59,9 @@ export const canHolderParamsSchema = z.object({
   edgeRimEnabled: z.boolean(),
   edgeRimProtrusion: z.number().min(0.4).max(1.5),
   edgeRimWidth: z.number().min(4).max(14),
+  textureStyle: z.enum(TEXTURE_STYLES),
+  textureDepth: z.number().min(0.4).max(1.5),
+  textureScale: z.number().min(4).max(16),
   handleEnabled: z.boolean(),
   handleHeight: z.number().min(35).max(85),
   handleGap: z.number().min(24).max(40),
@@ -89,6 +103,9 @@ export const defaultCanHolderParams: CanHolderParams = {
   edgeRimEnabled: true,
   edgeRimProtrusion: 1.0,
   edgeRimWidth: 6,
+  textureStyle: 'none',
+  textureDepth: 0.8,
+  textureScale: 8,
   handleEnabled: true,
   handleHeight: 60,
   handleGap: 30,
@@ -161,9 +178,24 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
   )
 }
 
-/** Diâmetro externo do corpo com os anéis decorativos (não inclui o relevo do texto). */
+/** Profundidade efetiva: limitada a um quarto da escala para manter os flancos ≤ 45°. */
+export function getEffectiveTextureDepth(params: CanHolderGeometryParams): number {
+  if (params.textureStyle === 'none') return 0
+  return Math.min(params.textureDepth, params.textureScale / 4)
+}
+
+/** Envelope radial da textura: 0 com `none`, senão a profundidade efetiva. */
+export function getTextureEnvelope(params: CanHolderGeometryParams): number {
+  return getEffectiveTextureDepth(params)
+}
+
+/** Diâmetro externo do corpo com o maior envelope (anel ou textura); não inclui o relevo do texto. */
 export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
-  return getOuterDiameter(params) + 2 * getEffectiveRingProtrusion(params)
+  const envelope = Math.max(
+    getEffectiveRingProtrusion(params),
+    getTextureEnvelope(params),
+  )
+  return getOuterDiameter(params) + 2 * envelope
 }
 
 export function getTopLand(params: CanHolderGeometryParams): number {

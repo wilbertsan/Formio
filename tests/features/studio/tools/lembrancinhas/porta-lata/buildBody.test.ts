@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { Vector2 } from 'three'
-import { buildBody } from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
+import {
+  buildBody,
+  findOuterWall,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
 import { bodyProfile, dedupePoints } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
   BASE_CHAMFER_MM,
   CAN_DIAMETER,
   MIN_TOP_LAND_MM,
+  TEXTURE_STYLES,
   defaultCanHolderParams,
   getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
@@ -14,11 +18,67 @@ import {
   getOuterHeight,
   getOuterRadius,
   getTopLand,
+  type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
 function pointsAtHeight(points: Vector2[], y: number): Vector2[] {
   return points.filter((point) => Math.abs(point.y - y) < 1e-6)
+}
+
+/** Maior inclinação (|ny| / horizontal) das facetas da parede externa. */
+function measureWallFacets(params: CanHolderGeometryParams): {
+  checked: number
+  maxRatio: number
+} {
+  const geometry = buildBody(params)
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+  const outerR = getOuterRadius(params)
+  const wallVertex = (i: number): boolean => {
+    const y = position.getY(i)
+    if (y < wall.min - 1e-3 || y > wall.max + 1e-3) return false
+    return Math.hypot(position.getX(i), position.getZ(i)) >= outerR - 1e-4
+  }
+  let checked = 0
+  let maxRatio = 0
+
+  const triangleAt = (a: number, b: number, c: number): void => {
+    if (!wallVertex(a) || !wallVertex(b) || !wallVertex(c)) return
+    const ax = position.getX(a)
+    const ay = position.getY(a)
+    const az = position.getZ(a)
+    const bx = position.getX(b)
+    const by = position.getY(b)
+    const bz = position.getZ(b)
+    const cx = position.getX(c)
+    const cy = position.getY(c)
+    const cz = position.getZ(c)
+    const abx = bx - ax
+    const aby = by - ay
+    const abz = bz - az
+    const acx = cx - ax
+    const acy = cy - ay
+    const acz = cz - az
+    const nx = aby * acz - abz * acy
+    const ny = abz * acx - abx * acz
+    const nz = abx * acy - aby * acx
+    const horizontal = Math.hypot(nx, nz)
+    if (horizontal < 1e-9) return
+    checked += 1
+    maxRatio = Math.max(maxRatio, Math.abs(ny) / horizontal)
+  }
+
+  if (index) {
+    for (let i = 0; i < index.count; i += 3) {
+      triangleAt(index.getX(i), index.getX(i + 1), index.getX(i + 2))
+    }
+  } else {
+    for (let i = 0; i < position.count; i += 3) triangleAt(i, i + 1, i + 2)
+  }
+  geometry.dispose()
+  return { checked, maxRatio }
 }
 
 describe('can holder body', () => {
@@ -158,6 +218,156 @@ describe('can holder body', () => {
     expect(isClosed(geometry)).toBe(true)
     expect(countShells(geometry)).toBe(1)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
+    geometry.dispose()
+  })
+
+  it('encontra a parede externa no perfil com e sem anéis', () => {
+    const params = defaultCanHolderParams
+    const innerRadius = getInnerDiameter(params) / 2
+    const withRings = findOuterWall(bodyProfile(params), innerRadius)
+    expect(withRings.min).toBeCloseTo(params.edgeRimWidth, 6)
+    expect(withRings.max).toBeCloseTo(getOuterHeight(params) - params.edgeRimWidth, 6)
+    expect(withRings.radius).toBeCloseTo(getOuterRadius(params), 6)
+
+    const withoutRings = { ...params, edgeRimEnabled: false }
+    const wall = findOuterWall(bodyProfile(withoutRings), getInnerDiameter(withoutRings) / 2)
+    expect(wall.radius).toBeCloseTo(getOuterRadius(withoutRings), 6)
+    expect(wall.max).toBeCloseTo(
+      getOuterHeight(withoutRings) - getEffectiveRimChamfer(withoutRings),
+      6,
+    )
+  })
+
+  it.each(TEXTURE_STYLES.filter((style) => style !== 'none'))(
+    'fecha o corpo texturizado (%s)',
+    (style) => {
+      const params = { ...defaultCanHolderParams, textureStyle: style, textureDepth: 1.5 }
+      const geometry = buildBody(params)
+      geometry.computeBoundingBox()
+      const box = geometry.boundingBox!
+      const outerR = getOuterRadius(params)
+      const position = geometry.getAttribute('position')
+      let maxRadius = 0
+
+      // `box.max.x` é ponderado por cos(θ): o pico do padrão não precisa estar
+      // no eixo X. O raio máximo mede o deslocamento radial real do padrão.
+      for (let i = 0; i < position.count; i++) {
+        maxRadius = Math.max(
+          maxRadius,
+          Math.hypot(position.getX(i), position.getZ(i)),
+        )
+      }
+
+      expect(isClosed(geometry)).toBe(true)
+      expect(countShells(geometry)).toBe(1)
+      expect(signedVolume(geometry)).toBeGreaterThan(0)
+      expect(box.max.y).toBeCloseTo(getOuterHeight(params), 3)
+      expect(maxRadius).toBeGreaterThan(outerR + 1.5 * 0.9)
+      expect(maxRadius).toBeLessThanOrEqual(outerR + 1.5 + 1e-3)
+      geometry.dispose()
+    },
+  )
+
+  it('mantém a faixa da abraçadeira lisa', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.5,
+    }
+    const geometry = buildBody(params)
+    const position = geometry.getAttribute('position')
+    const outerR = getOuterRadius(params)
+    const innerR = getInnerDiameter(params) / 2
+    const bandMin = params.handleHeight - params.handleWidth / 2
+    const bandMax = params.handleHeight + params.handleWidth / 2
+    let checked = 0
+
+    for (let i = 0; i < position.count; i++) {
+      const y = position.getY(i)
+      if (y <= bandMin || y >= bandMax) continue
+      const radius = Math.hypot(position.getX(i), position.getZ(i))
+      if (radius < innerR + 0.5) continue
+      checked += 1
+      expect.soft(radius, `vértice ${i} em y=${y}`).toBeCloseTo(outerR, 4)
+    }
+    expect(checked).toBeGreaterThan(500)
+    geometry.dispose()
+  })
+
+  it('mantém as facetas da parede abaixo de 45 graus', () => {
+    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+      for (const textureScale of [4, 6, 8]) {
+        const params = {
+          ...defaultCanHolderParams,
+          textureStyle: style,
+          textureDepth: 1.5,
+          textureScale,
+        }
+        const { checked, maxRatio } = measureWallFacets(params)
+        expect.soft(checked, `${style}/${textureScale}`).toBeGreaterThan(1000)
+        expect.soft(maxRatio, `${style}/${textureScale}`).toBeLessThanOrEqual(1 + 1e-2)
+      }
+    }
+
+    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+      const shoulder = {
+        ...defaultCanHolderParams,
+        textureStyle: style,
+        textureScale: 6,
+        textureDepth: 1.5,
+        handleHeight: 40,
+        handleWidth: 16,
+        cavityDepth: 116,
+        bottomThickness: 3.3,
+      }
+      const { checked, maxRatio } = measureWallFacets(shoulder)
+      expect.soft(checked, `${style}/ombro`).toBeGreaterThan(1000)
+      expect.soft(maxRatio, `${style}/ombro`).toBeLessThanOrEqual(1 + 1e-2)
+    }
+  })
+
+  it('mantém posições e normais contínuas na emenda da textura', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.2,
+    }
+    const geometry = buildBody(params)
+    const position = geometry.getAttribute('position')
+    const normal = geometry.getAttribute('normal')
+    const rows = new Map<
+      string,
+      { radius: number; normal: [number, number, number] }[]
+    >()
+
+    for (let i = 0; i < position.count; i++) {
+      const x = position.getX(i)
+      const z = position.getZ(i)
+      // O LatheGeometry fecha a emenda em φ = 0 e φ = 2π, isto é, x ≈ 0 e
+      // z > 0 (não no eixo X como a textura usa em θ = 0).
+      if (Math.abs(x) > 1e-4 || z <= 0) continue
+      const key = position.getY(i).toFixed(3)
+      const entry = rows.get(key) ?? []
+      entry.push({
+        radius: Math.hypot(x, z),
+        normal: [normal.getX(i), normal.getY(i), normal.getZ(i)],
+      })
+      rows.set(key, entry)
+    }
+
+    let pairs = 0
+    for (const entry of rows.values()) {
+      if (entry.length < 2) continue
+      // Em alturas repetidas no perfil, os dois maiores raios são o par da
+      // emenda, pois todo ponto do perfil aparece nas duas colunas.
+      const [a, b] = [...entry].sort((left, right) => right.radius - left.radius)
+      pairs += 1
+      expect(a.radius).toBeCloseTo(b.radius, 4)
+      expect(a.normal[0]).toBeCloseTo(b.normal[0], 4)
+      expect(a.normal[1]).toBeCloseTo(b.normal[1], 4)
+      expect(a.normal[2]).toBeCloseTo(b.normal[2], 4)
+    }
+    expect(pairs).toBeGreaterThan(50)
     geometry.dispose()
   })
 })

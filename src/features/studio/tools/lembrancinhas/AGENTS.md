@@ -11,7 +11,7 @@ lembrancinhas.
 | mini-vaso | planejada |
 | caixa-personalizada | implementada (v1) |
 | termoformador | implementada (v1: tela + suporte) |
-| porta-lata | implementada (v1) |
+| porta-lata | implementada (v3: texturas) |
 
 ## Regras do domínio
 
@@ -29,8 +29,11 @@ lembrancinhas.
   largura, coladas na base e no topo, com flancos a 45° (o anel inferior apoia
   na mesa e o superior imprime sem suporte); alça separada de abraçadeira com
   folga de 0,2–0,5 mm; corpo e alça impressos em pé, a alça apoiada na borda
-  inferior do laço, com suporte sob a abraçadeira de 200°. Não há capacidade em
-  ml: a capacidade é da lata
+  inferior do laço, com suporte sob a abraçadeira de 200°. Texturas de seis
+  estilos (madeira, metal, escamas, onduladas, pedra e pontiagudo) em relevo
+  positivo na parede, com profundidade efetiva `min(profundidade, escala/4)`,
+  faixa lisa na alça, texto 1 mm acima do envelope da textura e diâmetro máximo
+  considerando a textura. Não há capacidade em ml: a capacidade é da lata
 
 ## Invariantes
 

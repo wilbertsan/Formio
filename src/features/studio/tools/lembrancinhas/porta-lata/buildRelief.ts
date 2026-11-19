@@ -11,6 +11,7 @@ import {
   RELIEF_EMBED,
   getOuterRadius,
   getTextBand,
+  getTextureEnvelope,
   type CanHolderGeometryParams,
 } from './schema'
 
@@ -190,10 +191,17 @@ export function buildRelief(
   const shapes = textToShapes(font, params.text, params.textSize)
   if (shapes.length === 0) return null
 
-  // Extruda CONTENT_DEPTH visível + RELIEF_EMBED: depois do deslocamento de
-  // -RELIEF_EMBED a face de trás fica 0,2 mm dentro da parede e a frente a
-  // 1 mm acima dela, garantindo união CSG sem faces coplanares.
-  const rawFlat = shapesToGeometry(shapes, CONTENT_DEPTH + RELIEF_EMBED, false)
+  const envelope = getTextureEnvelope(params)
+
+  // Extruda CONTENT_DEPTH visível + RELIEF_EMBED + envelope da textura: depois
+  // do deslocamento de -RELIEF_EMBED a face de trás fica 0,2 mm dentro da
+  // parede e a frente fica 1 mm acima do envelope da textura, garantindo união
+  // CSG sem faces coplanares e sem o texto afundar no relevo da textura.
+  const rawFlat = shapesToGeometry(
+    shapes,
+    CONTENT_DEPTH + RELIEF_EMBED + envelope,
+    false,
+  )
   rawFlat.computeBoundingBox()
   const box = rawFlat.boundingBox!
   const width = box.max.x - box.min.x
@@ -203,7 +211,7 @@ export function buildRelief(
     return null
   }
 
-  const centerRadius = getOuterRadius(params)
+  const centerRadius = getOuterRadius(params) + envelope
   const scale = fitRelief(width, centerRadius)
   const centerX = ((box.min.x + box.max.x) / 2) * scale
   const centerY = ((box.min.y + box.max.y) / 2) * scale

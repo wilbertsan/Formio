@@ -42,6 +42,8 @@ const NUMERIC_RANGES: Partial<Record<keyof CanHolderParams, { min: number; max: 
   rimChamfer: { min: 0, max: 1.5 },
   edgeRimProtrusion: { min: 0.4, max: 1.5 },
   edgeRimWidth: { min: 4, max: 14 },
+  textureDepth: { min: 0.4, max: 1.5 },
+  textureScale: { min: 4, max: 16 },
   handleHeight: { min: 35, max: 85 },
   handleGap: { min: 24, max: 40 },
   handleReach: { min: 30, max: 50 },
@@ -140,7 +142,8 @@ export function useCanHolder(
   const {
     productType, cavityDepth, canClearance, wallThickness, bottomThickness,
     ventHoleDiameter, rimLeadIn, rimChamfer, edgeRimEnabled, edgeRimProtrusion,
-    edgeRimWidth, handleEnabled, handleHeight,
+    edgeRimWidth, textureStyle, textureDepth, textureScale,
+    handleEnabled, handleHeight,
     handleGap, handleReach, handleBand, handleWidth, handleClearance,
     text, textSize, fontStyle, textCenterY,
   } = params
@@ -148,13 +151,15 @@ export function useCanHolder(
   const buildParams = useMemo<CanHolderGeometryParams>(() => ({
     productType, cavityDepth, canClearance, wallThickness, bottomThickness,
     ventHoleDiameter, rimLeadIn, rimChamfer, edgeRimEnabled, edgeRimProtrusion,
-    edgeRimWidth, handleEnabled, handleHeight,
+    edgeRimWidth, textureStyle, textureDepth, textureScale,
+    handleEnabled, handleHeight,
     handleGap, handleReach, handleBand, handleWidth, handleClearance,
     text, textSize, fontStyle, textCenterY,
   }), [
     productType, cavityDepth, canClearance, wallThickness, bottomThickness,
     ventHoleDiameter, rimLeadIn, rimChamfer, edgeRimEnabled, edgeRimProtrusion,
-    edgeRimWidth, handleEnabled, handleHeight,
+    edgeRimWidth, textureStyle, textureDepth, textureScale,
+    handleEnabled, handleHeight,
     handleGap, handleReach, handleBand, handleWidth, handleClearance,
     text, textSize, fontStyle, textCenterY,
   ])

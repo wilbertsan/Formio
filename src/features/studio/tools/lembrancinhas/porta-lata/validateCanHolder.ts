@@ -63,6 +63,7 @@ export type CanHolderIssueCode =
   | 'can-wall'
   | 'can-bottom'
   | 'can-edge-rim'
+  | 'can-texture'
   | 'can-text-fit'
   | 'can-text-band'
   | 'can-handle-gap'
@@ -168,6 +169,18 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
         message: 'As bordas decorativas não cabem na altura do corpo.',
       })
     }
+  }
+
+  if (
+    params.textureStyle !== 'none' &&
+    params.textureDepth > params.textureScale / 4 + BOUNDARY_EPSILON
+  ) {
+    issues.push({
+      code: 'can-texture',
+      severity: 'warning',
+      message:
+        'A profundidade da textura é limitada a um quarto da escala para manter os flancos imprimíveis.',
+    })
   }
 
   if (text.length > 0) {

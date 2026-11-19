@@ -19,11 +19,14 @@ import {
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
+  TEXTURE_STYLES,
+  getEffectiveTextureDepth,
   getTextBand,
   getTopLand,
   type FontStyle,
   type CanHolderParams,
   type PlaColor,
+  type TextureStyle,
 } from './schema'
 import type { ValidationIssue } from './validateCanHolder'
 
@@ -45,6 +48,20 @@ const FONT_STYLE_LABELS: Record<FontStyle, string> = {
 
 function isFontStyle(value: string): value is FontStyle {
   return FONT_STYLES.some((style) => style === value)
+}
+
+const TEXTURE_STYLE_LABELS: Record<TextureStyle, string> = {
+  none: 'Nenhuma',
+  wood: 'Madeira',
+  metal: 'Metal',
+  scales: 'Escamas',
+  waves: 'Onduladas',
+  stone: 'Pedra',
+  spikes: 'Pontiagudo',
+}
+
+function isTextureStyle(value: string): value is TextureStyle {
+  return TEXTURE_STYLES.some((style) => style === value)
 }
 
 /** Número com vírgula decimal, como no restante da UI. */
@@ -142,6 +159,7 @@ export function StudioPanel({
   onReset,
 }: StudioPanelProps) {
   const textBand = getTextBand(params)
+  const effectiveTextureDepth = getEffectiveTextureDepth(params)
 
   return (
     <View
@@ -214,6 +232,48 @@ export function StudioPanel({
                 <Text fontSize="xs" color="font.secondary">
                   Ligue as bordas para ajustar os parâmetros.
                 </Text>
+              )}
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="textura">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">Textura</Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <SelectField
+                label="Estilo da textura"
+                value={params.textureStyle}
+                onChange={(event) => {
+                  if (isTextureStyle(event.target.value)) {
+                    onUpdateParam('textureStyle', event.target.value)
+                  }
+                }}
+              >
+                {TEXTURE_STYLES.map((style) => (
+                  <option key={style} value={style}>{TEXTURE_STYLE_LABELS[style]}</option>
+                ))}
+              </SelectField>
+              <LabeledSlider label="Profundidade da textura" value={params.textureDepth} min={0.4} max={1.5} step={0.1} isDisabled={params.textureStyle === 'none'} onChange={(value) => onUpdateParam('textureDepth', value)} />
+              <LabeledSlider label="Escala da textura" value={params.textureScale} min={4} max={16} step={1} isDisabled={params.textureStyle === 'none'} onChange={(value) => onUpdateParam('textureScale', value)} />
+              {params.textureStyle === 'none' ? (
+                <Text fontSize="xs" color="font.secondary">
+                  Escolha um estilo para ajustar os parâmetros.
+                </Text>
+              ) : (
+                <>
+                  <Text fontSize="xs" color="font.secondary">
+                    Relevo positivo. A faixa da alça fica lisa e o nome fica 1 mm acima da textura.
+                  </Text>
+                  {effectiveTextureDepth < params.textureDepth && (
+                    <Text fontSize="xs" color="font.secondary">
+                      Profundidade efetiva: {formatMm(effectiveTextureDepth)} mm (limitada pela escala).
+                    </Text>
+                  )}
+                </>
               )}
             </Flex>
           </Accordion.Content>

@@ -2,8 +2,9 @@
 
 ## Status
 
-Implementada (v1: corpo com anéis decorativos, furo de ventilação + relevo +
-alça de abraçadeira).
+Implementada (v3: seis texturas em relevo positivo no corpo). A v1 trouxe o
+corpo com anéis decorativos, furo de ventilação, relevo e alça de abraçadeira; a
+v2, as bordas decorativas.
 
 ## Objetivo
 
@@ -15,9 +16,14 @@ compartilhando salto e largura. O nome/idade fica em relevo de 1 mm no corpo, a
 180° da alça. A alça é uma peça separada de encaixe por pressão: uma abraçadeira
 em C de 200° com laço em D. São dois STLs independentes (`-corpo` e `-alca`).
 
+O corpo aceita seis texturas decorativas procedurais (madeira, metal, escamas,
+onduladas, pedra e pontiagudo), em relevo positivo, aplicadas apenas à parede
+cilíndrica entre os anéis. A faixa da abraçadeira fica lisa e o nome é elevado
+pelo envelope da textura.
+
 A lata não é modelada. As medidas abaixo são um preset fixo de referência; o
 usuário ajusta a folga, a profundidade da cavidade, as paredes, o furo, a borda,
-os anéis, a alça e o texto.
+os anéis, a textura, a alça e o texto.
 
 ## Preset da lata
 
@@ -58,6 +64,23 @@ com os anéis desligados e, senão, limita o salto a
 pelo schema. `TEXT_BAND_MARGIN_MM` (2 mm) é a margem em cada ponta da faixa do
 texto.
 
+### Textura
+
+| Parâmetro | Faixa | Default |
+|---|---|---|
+| `textureStyle` | `none`, `wood`, `metal`, `scales`, `waves`, `stone`, `spikes` | `none` |
+| `textureDepth` | 0,4–1,5 mm | 0,8 |
+| `textureScale` | 4–16 mm | 8 |
+
+`textureStyle: 'none'` devolve o corpo atual, sem detalhe e sem custo extra.
+`getEffectiveTextureDepth` devolve 0 com `none` e, senão,
+`min(textureDepth, textureScale / 4)`. `getTextureEnvelope` é a profundidade
+efetiva.
+
+Constantes: `TEXTURE_RADIAL_SEGMENTS` (256), `TEXTURE_STEP_MM` (1 mm),
+`TEXTURE_EDGE_FADE_MM` (2 mm), `TEXTURE_HANDLE_GAP_MM` (1 mm) e
+`TEXTURE_HANDLE_FADE_MM` (2 mm).
+
 ### Alça
 
 | Parâmetro | Faixa | Default |
@@ -86,8 +109,11 @@ texto.
 
 - Diâmetro interno: `CAN_DIAMETER + 2 * canClearance` → **67,8 mm**.
 - Diâmetro externo da parede: `innerDiameter + 2 * wallThickness` → **72,6 mm**.
-- Diâmetro externo com os anéis (`getMaxOuterDiameter`):
-  `72,6 + 2 * salto efetivo` → **74,6 mm**. Não inclui o relevo do texto.
+- Diâmetro externo máximo (`getMaxOuterDiameter`):
+  `72,6 + 2 * max(salto efetivo dos anéis, envelope da textura)` → **74,6 mm**
+  no default (o anel de 1,0 mm supera a textura de 0,8 mm). Não inclui o relevo
+  do texto. Com textura de 1,5 mm e escala ≥ 6 → **75,6 mm**; com escala 4 a
+  profundidade efetiva é 1,0 mm e o anel ainda define o máximo → **74,6 mm**.
 - Altura externa: `cavityDepth + bottomThickness` → **111,2 mm**.
 - Altura exposta da lata: `CAN_HEIGHT - cavityDepth` → **14,2 mm**.
 - Parede do topo (top land):
@@ -101,21 +127,21 @@ texto.
   margem.
 - Faixa útil do texto (`getTextBand`): **8,0–103,2 mm**, com 2 mm de margem em
   cada ponta.
-- Folga do laço da alça até o anel: **≥ 0,7 mm** na folga mínima da alça
-  (`handleClearance` 0,2), porque o salto máximo é 1,5 mm.
+- Folga do laço da alça até o anel ou o pico da textura: **≥ 0,7 mm** na folga
+  mínima da alça (`handleClearance` 0,2), porque o salto e o envelope máximos
+  são 1,5 mm.
 
-O painel mostra diâmetro externo (com anéis), altura externa, altura exposta e
-parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a partir de
-`getTextBand`. São 17 sliders no total e o status bar mostra
-**74.6 × 111.2 × 2.4 mm**. Não há capacidade em ml: a capacidade é da lata
-(350 ml).
+O painel mostra diâmetro máximo (anel ou textura), altura externa, altura
+exposta e parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a
+partir de `getTextBand`. O status bar mostra **74.6 × 111.2 × 2.4 mm** no
+default. Não há capacidade em ml: a capacidade é da lata (350 ml).
 
 ## Regras do domínio
 
 - 1 unidade Three.js = 1 mm.
 - O corpo é um sólido único, fechado e de gênero 1 (furo passante no fundo),
-  gerado por `LatheGeometry` (128 segmentos) a partir de um perfil 2D fechado.
-  Não há CSG no corpo além da união do relevo.
+  gerado por `LatheGeometry` (128 segmentos; 256 com textura) a partir de um
+  perfil 2D fechado. Não há CSG no corpo além da união do relevo.
 - Perfil do corpo no plano `(r, y)` com os anéis ligados:
 
   ```text
@@ -162,6 +188,40 @@ parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a partir de
     alivia a sucção, deixa o ar entrar e a condensação sair.
 - Os dois anéis são pontos do mesmo perfil de revolução: não há CSG, peça
   separada nem recorte onde a alça passa.
+- A textura é um campo de altura determinístico e periódico em θ, aplicado só à
+  parede externa entre os anéis. `findOuterWall` escolhe o segmento vertical
+  mais longo fora da cavidade (entre os anéis com eles ligados; da base ao
+  chanfro da borda sem anéis). A parede é subdividida em passos de
+  `TEXTURE_STEP_MM` (1 mm) e o `LatheGeometry` usa `TEXTURE_RADIAL_SEGMENTS`
+  (256) quando há textura; sem textura continuam o perfil e os 128 segmentos
+  originais.
+- O deslocamento é radial e só atinge vértices com raio ≈ `outerR` dentro da
+  faixa da parede: `r = outerR + h(θ, y) × máscara(y)`. Anéis, base, borda,
+  cavidade e furo ficam intactos; a topologia não muda e a parede continua
+  fechada e single-shell.
+- A máscara combina o fade de borda e a faixa lisa da abraçadeira. O fade de
+  borda é `max(2 mm, 3 × depthEfetivo)`, limitado a 1/4 do comprimento da
+  parede. Com a alça ligada, a faixa
+  `[handleHeight − handleWidth/2 − 1, handleHeight + handleWidth/2 + 1]` fica em
+  `outerR` (máscara 0), com fade de `max(2 mm, 3 × depthEfetivo)` nas duas
+  pontas. Assim `getBandInnerRadius`, a folga e a interferência da alça
+  continuam valendo.
+- O campo é determinístico: o hash é inteiro por célula (sem `Math.random`) e a
+  contagem de células em θ é inteira,
+  `max(3, round(circunferência / escala))` (~29 células de 7,87 mm na escala 8).
+  Isso fecha a emenda em θ = 0/2π; as normais das duas colunas da emenda são
+  soldadas depois de `computeVertexNormals` no `buildBody` e novamente no corpo
+  final depois do CSG do texto (que reindexa e recalcula as normais).
+- Estilos: **madeira** tem veios verticais senoidais (mínimo 3, ≥14 no schema) deformados por
+  um warp lento em `y`; **metal** é um knurl de dois senos diagonais cruzados;
+  **escamas** são calotas de 0,55 × escala em fileiras de 0,6 × escala,
+  alternadas, avaliando três fileiras para não criar degrau; **onduladas** são
+  senos horizontais modulados por um seno inteiro em θ; **pedra** é ruído de
+  valor de duas oitavas com interpolação suave; **pontiagudo** é um cone por
+  célula com meia-base `max(depthEfetivo, 0,3 × escala)`.
+- A profundidade efetiva é `min(textureDepth, textureScale / 4)`, o que mantém
+  os flancos nominais em ≤ 45° mesmo na profundidade máxima; é uma defesa
+  contra flancos mais íngremes que o imprimível.
 - `getEffectiveLeadIn` e `getEffectiveRimChamfer` limitam os valores pedidos
   para preservar `MIN_TOP_LAND_MM` (0,8 mm) de parede no topo. A validação
   `can-rim` usa a regra crua, antes do clamp do perfil.
@@ -171,9 +231,11 @@ parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a partir de
   `getEffectiveRingProtrusion` devolve 0 com os anéis desligados e limita o
   salto a `(edgeRimWidth - MIN_EDGE_RIM_FLAT_MM) / 2`; o clamp é defensivo e
   inalcançável pelo schema.
-- `getMaxOuterDiameter` é `(outerR + p) * 2` e não inclui o relevo do texto. É a
-  medida do painel, do status bar e do `fallbackFitRadius`. `getOuterRadius`
-  continua sendo o raio da parede, usado por alça, laço e relevo.
+- `getMaxOuterDiameter` é
+  `outerDiameter + 2 * max(salto efetivo dos anéis, envelope da textura)` e não
+  inclui o relevo do texto. É a medida do painel, do status bar e do
+  `fallbackFitRadius`. `getOuterRadius` continua sendo o raio da parede, usado
+  por alça, laço, textura e relevo.
 - `getTopLand` soma o salto efetivo dos anéis, então o painel expõe a parede
   real do topo (`2,0 mm` no default).
 - `getRingWallBand` é a faixa vertical entre os anéis, sem margem:
@@ -182,12 +244,14 @@ parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a partir de
   respeita `bottomThickness` e o chanfro efetivo e acrescenta
   `TEXT_BAND_MARGIN_MM` (2 mm) em cada ponta. `buildRelief.clampCenterY` e a
   validação usam o mesmo helper; `can-handle-band` usa `getRingWallBand`.
-- Como o relevo é curvado em `getOuterRadius` e fica entre os anéis, o texto não
-  sobe sobre o anel. O laço da alça fica a `handleClearance + HANDLE_LOOP_INSET`
-  da parede; com o salto máximo de 1,5 mm e a folga mínima de 0,2 mm, ainda
-  sobram ≥ 0,7 mm até o anel, então não há colisão.
-- O relevo do texto é positivo em 1 mm, unido ao corpo por CSG, e fica
-  centralizado no lado oposto à alça (180° a partir do +X).
+- Como o relevo é curvado em `outerR + envelope` e fica entre os anéis, o texto
+  não sobe sobre o anel. O laço da alça fica a
+  `handleClearance + HANDLE_LOOP_INSET` da parede; com o salto máximo de 1,5 mm,
+  a textura máxima de 1,5 mm e a folga mínima de 0,2 mm, ainda sobram ≥ 0,7 mm
+  até o anel ou o pico da textura, então não há colisão.
+- O relevo do texto é positivo em 1 mm acima do envelope da textura, unido ao
+  corpo por CSG, e fica centralizado no lado oposto à alça (180° a partir do
+  +X).
 - A alça é uma peça separada, montada por pressão **por baixo**, com abraçadeira
   em C de 200° centrada no +X e laço em D. `handleClearance` é a folga nominal no
   meio da banda; no topo a interferência é absoluta de 0,4 mm
@@ -216,9 +280,12 @@ parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a partir de
 - O texto não pode invadir a borda, o fundo, os anéis decorativos, o arco da
   abraçadeira nem a área do laço. A faixa `getTextBand` já aplica 2 mm de margem
   em cada ponta e o build clampa o centro nela.
-- O texto é curvado no raio externo do corpo na altura `textCenterY`; o arco
-  efetivo é calculado pelo comprimento do texto e limitado pelo auto-fit
-  (`MAX_TEXT_ARC`, 120°). O Zod limita apenas o comprimento e o tamanho.
+- `buildRelief` extruda `CONTENT_DEPTH + RELIEF_EMBED + envelope` (1 + 0,2 +
+  envelope), curva os vértices em `outerR + envelope` na altura `textCenterY` e
+  deixa a base do glifo em `outerR − 0,2`; a frente fica 1 mm acima do pico da
+  textura. A faixa `getTextBand` e o auto-fit (`MAX_TEXT_ARC`, 120°) não mudam.
+  O arco efetivo é calculado pelo comprimento do texto; o Zod limita apenas o
+  comprimento e o tamanho.
 - STL sempre manifold, fechado, sem auto-interseções e sem peças soltas. O corpo
   fica com casca única mesmo com o furo passante; a alça tem CSG interno
   (abraçadeira + laço), mas nenhum CSG no corpo.
@@ -230,11 +297,12 @@ parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a partir de
 ```text
 Parâmetros
   → schema + validação (main thread)
-  → dimensões derivadas (inner/outer/altura exposta/top land/faixa do texto)
+  → dimensões derivadas (inner/outer/altura exposta/top land/faixa do texto/envelope)
   → perfil do corpo com anéis decorativos e furo de ventilação
-  → buildBody (LatheGeometry + limpeza)
-  → textToShapes + curvatura no raio + subdivisão conforme
-  → CSG union(texto, corpo) com CDT
+  → findOuterWall + subdivisão da parede em passos de 1 mm
+  → buildBody (LatheGeometry 256 + texture.ts + deslocamento/máscaras + limpeza)
+  → textToShapes + curvatura em outerR + envelope + subdivisão conforme
+  → CSG union(texto elevado, corpo) com CDT
   → buildHandle (abraçadeira + laço + CSG interno)
   → buildCanHolder ({ body, handle })
   → worker + serialização (position/normal/index)
@@ -254,6 +322,22 @@ Parâmetros
 - O STL não carrega cor; o furo de ventilação faz parte do corpo e não há peça
   solta.
 
+## UI
+
+- Acordeões: Corpo, Bordas, Textura, Alça, Personalização, Aparência e Validação
+  (7 seções; 19 sliders no total).
+- **Textura** fica entre Bordas e Alça: `SelectField` "Estilo da textura"
+  (Nenhuma, Madeira, Metal, Escamas, Onduladas, Pedra, Pontiagudo) e os sliders
+  "Profundidade da textura" (0,4–1,5 mm, passo 0,1) e "Escala da textura"
+  (4–16 mm, passo 1), desabilitados com "Nenhuma".
+- Com estilo nenhum, a nota é "Escolha um estilo para ajustar os parâmetros.";
+  com estilo, "Relevo positivo. A faixa da alça fica lisa e o nome fica 1 mm
+  acima da textura." e, se a profundidade pedida passar da efetiva,
+  "Profundidade efetiva: X mm (limitada pela escala).".
+- O status bar mostra o diâmetro máximo de `getMaxOuterDiameter` (anel ou
+  textura), a altura externa e a espessura da parede:
+  **74,6 × 111,2 × 2,4 mm** no default.
+
 ## Validação
 
 | Código | Severidade | Regra |
@@ -265,6 +349,7 @@ Parâmetros
 | `can-wall` | error | parede abaixo de 1,8 mm (defensiva; a UI já limita) |
 | `can-bottom` | error | fundo abaixo de 2 mm (defensivo, inalcançável pelo schema) |
 | `can-edge-rim` | error | `2 × edgeRimProtrusion + MIN_EDGE_RIM_FLAT_MM > edgeRimWidth` (valores crus) ou, defensivo, `2 × edgeRimWidth + 4 mm > altura` |
+| `can-texture` | warning | profundidade acima de `textureScale / 4` (valores crus); o build usa a profundidade efetiva `min(textureDepth, textureScale / 4)` |
 | `can-text-fit` | warning | estimativa do texto (0,68 × tamanho por caractere) pode exceder o arco útil de 120°; o build usa a fonte real e faz auto-fit |
 | `can-text-band` | error | texto cruza a borda, o fundo ou os anéis decorativos; a faixa vem de `getTextBand` (`1,1 × textSize` já escalado pelo auto-fit, com 2 mm de margem) |
 | `can-handle-gap` | warning | abertura vertical da mão abaixo de 26 mm |
@@ -311,7 +396,8 @@ mostra erro no overlay.
 - **Limpeza de geometria:** `removeDegenerateTriangles` remove triângulos com
   vértices coincidentes na tolerância de 1e-4 mm (a mesma do verificador de
   manifold), preserva position/normal/uv e roda no corpo e no resultado do CSG.
-- **Relevo de 1 mm:** mantém a regra de personalização do domínio. A subdivisão
+- **Relevo de 1 mm acima do envelope:** mantém a regra de personalização do
+  domínio. A subdivisão
   conforme de arestas até 2,5 mm antes de curvar mantém 1 mm visível no centro
   de glifos largos (sag ≈ 0,02 mm); 0,2 mm ficam embutidos para a união. O
   auto-fit limita o arco a 120°, o que mantém o texto longe da abraçadeira.
@@ -336,8 +422,10 @@ mostra erro no overlay.
 - **Constantes fora dos sliders:** `handleWrap` (200°),
   `HANDLE_RING_THICKNESS` (3,5 mm), `HANDLE_FIT_INTERFERENCE` (0,4 mm),
   `HANDLE_LOOP_INSET` (2 mm), `HOLDER_SEGMENTS` (128), `BASE_CHAMFER_MM`
-  (0,4 mm), `MIN_EDGE_RIM_FLAT_MM` (1 mm), `TEXT_BAND_MARGIN_MM` (2 mm) e
-  `CONTENT_DEPTH` (1 mm).
+  (0,4 mm), `MIN_EDGE_RIM_FLAT_MM` (1 mm), `TEXT_BAND_MARGIN_MM` (2 mm),
+  `CONTENT_DEPTH` (1 mm), `TEXTURE_RADIAL_SEGMENTS` (256), `TEXTURE_STEP_MM`
+  (1 mm), `TEXTURE_EDGE_FADE_MM` (2 mm), `TEXTURE_HANDLE_GAP_MM` (1 mm) e
+  `TEXTURE_HANDLE_FADE_MM` (2 mm).
 - **Painel mostra a parede do topo:** `Parede do topo` usa `getTopLand` e expõe o
   valor efetivo depois dos clamps de borda, evitando um helper só de teste.
 
@@ -358,12 +446,54 @@ mostra erro no overlay.
 - **Clamp e validação defensivos:** o schema já garante a face plana de 1 mm e a
   altura suficiente; `getEffectiveRingProtrusion` e `can-edge-rim` só protegem
   objetos construídos fora do Zod.
-- **Medida nominal com anéis:** `getMaxOuterDiameter` inclui o salto e alimenta
-  painel, status bar e `fallbackFitRadius`; o relevo de 1 mm fica fora, como nas
-  demais medidas nominais.
+- **Medida nominal:** `getMaxOuterDiameter` usa o maior envelope (salto do anel
+  ou profundidade efetiva da textura) e alimenta painel, status bar e
+  `fallbackFitRadius`; o relevo de 1 mm fica fora, como nas demais medidas
+  nominais.
+
+### Decisões das texturas
+
+- **Sem textura, corpo idêntico:** `none` mantém o perfil, os 128 segmentos e a
+  bbox atuais; a subdivisão, os 256 segmentos e as máscaras só entram quando há
+  estilo escolhido.
+- **Campo de altura, não CSG:** a textura desloca radialmente só os vértices da
+  parede em `outerR`. A topologia do lathe é preservada, então a malha continua
+  fechada e single-shell, sem custo de união CSG para o padrão.
+- **Relevo positivo:** a parede nominal é a mínima e os picos somam até a
+  profundidade efetiva; não há entalhe nem risco de furar a parede.
+- **Faixa lisa na alça:** a região da abraçadeira fica em `outerR`, com fade de
+  2 mm ou `3 × depthEfetivo`, preservando `getBandInnerRadius`, a folga e a
+  interferência do encaixe.
+- **Envelope máximo:** `getMaxOuterDiameter` usa o maior entre o salto do anel e
+  o envelope da textura; o relevo do texto continua fora, como nas demais
+  medidas nominais.
+- **Resolução 256/1,0 mantida:** o build texturado completo mediu ~1,06 s de CPU
+  no default, dentro do gate de 4 s, então não foi preciso reduzir para 192
+  segmentos ou passo de 1,2 mm.
+- **Pedra e pontiagudo imprimíveis:** a pedra troca o bisel por interpolação
+  suave (smoothstep) e o pontiagudo usa cone com meia-base
+  `max(depthEfetivo, 0,3 × escala)`, mantendo os flancos próximos de 45°.
+
+## Riscos
+
+- **Custo de malha e CSG:** a parede texturada passa de ~25 mil quads; o build
+  completo mediu ~1,06 s de CPU no default texturado (gate de 4 s). Se um estilo
+  estourar o orçamento, reduzir para 192 segmentos ou passo de 1,2 mm.
+- **Aliasing em pedra e pontiagudo na escala 4:** o passo de 1 mm é o limite; a
+  pedra usa interpolação suave e o preview serve de revisão. O relevo positivo
+  mantém o pior caso imprimível.
+- **Emenda em θ:** a contagem de células é inteira e as funções são periódicas;
+  as normais das colunas duplicadas são soldadas no corpo final. O teste compara
+  alturas em 0 e 2π e as normais após o CSG.
+- **Flancos medidos:** as facetas da parede medem no máximo ~42,5° (spikes,
+  escala 6, profundidade 1,5, ombro da máscara), abaixo do limite de 45°; a
+  discretização de 1 mm × 256 segmentos é o que define o valor impresso.
 
 ## Fora de escopo
 
 Modelar a lata ou a curvatura do fundo/pescoço, tampa, parede dupla,
 isolamento térmico, canudo, base separada, outras latas (slim, 473 ml etc.),
-alça integrada, mais de uma linha de texto, ícone SVG, textura e 3MF/STEP.
+alça integrada, mais de uma linha de texto, ícone SVG e 3MF/STEP. Na textura:
+anéis, base, cavidade, borda e alça; relevo entalhado (negativo); textura no
+relevo do texto; textura por SVG ou imagem; material/bump no preview (o STL
+carrega só a geometria).
