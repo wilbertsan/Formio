@@ -30,6 +30,34 @@ function realFont(): Font {
   return new FontLoader().parse(helvetikerRegular as unknown as FontData)
 }
 
+const SEAM_EPSILON = 1e-3
+
+/** Vértices duplicados da emenda na faixa e no raio da parede externa. */
+function seamGroups(
+  geometry: BufferGeometry,
+  params: CanHolderGeometryParams,
+): Map<string, number[]> {
+  const position = geometry.getAttribute('position')
+  const outerR = getOuterRadius(params)
+  const envelope = getTextureEnvelope(params)
+  const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+  const groups = new Map<string, number[]>()
+
+  for (let i = 0; i < position.count; i++) {
+    if (Math.abs(position.getX(i)) > 1e-4 || position.getZ(i) <= 0) continue
+    const y = position.getY(i)
+    if (y < wall.min - SEAM_EPSILON || y > wall.max + SEAM_EPSILON) continue
+    const radius = Math.hypot(position.getX(i), position.getZ(i))
+    if (radius < outerR - 1e-4 || radius > outerR + envelope + 1e-3) continue
+    const key = y.toFixed(3)
+    const group = groups.get(key)
+    if (group) group.push(i)
+    else groups.set(key, [i])
+  }
+
+  return groups
+}
+
 /** Node < 22.15 não tem `threadCpuUsage`; cai no CPU do processo. */
 const readCpu =
   typeof process.threadCpuUsage === 'function'
@@ -158,24 +186,9 @@ describe('buildCanHolder', () => {
       textureDepth: 1.2,
     }
     const result = buildCanHolder(params, realFont())
-    const position = result.body.getAttribute('position')
     const normal = result.body.getAttribute('normal')
-    const outerR = getOuterRadius(params)
-    const envelope = getTextureEnvelope(params)
     const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
-    const groups = new Map<string, number[]>()
-
-    for (let i = 0; i < position.count; i++) {
-      if (Math.abs(position.getX(i)) > 1e-4 || position.getZ(i) <= 0) continue
-      const y = position.getY(i)
-      if (y < wall.min || y > wall.max) continue
-      const radius = Math.hypot(position.getX(i), position.getZ(i))
-      if (radius < outerR - 1e-4 || radius > outerR + envelope + 1e-3) continue
-      const key = y.toFixed(3)
-      const group = groups.get(key)
-      if (group) group.push(i)
-      else groups.set(key, [i])
-    }
+    const groups = seamGroups(result.body, params)
 
     let pairs = 0
     for (const indices of groups.values()) {
@@ -186,7 +199,37 @@ describe('buildCanHolder', () => {
       expect(normal.getZ(a)).toBeCloseTo(normal.getZ(b), 3)
       pairs += 1
     }
+    const top = [...groups.keys()].filter(
+      (key) => Math.abs(Number(key) - wall.max) < 1e-3,
+    )
+    expect(top.length).toBeGreaterThan(0)
     expect(pairs).toBeGreaterThan(50)
+    disposeCanHolderResult(result)
+  })
+
+  it('solda a emenda no extremo superior da parede', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.2,
+      bottomThickness: 3.3,
+      edgeRimWidth: 4,
+    }
+    const result = buildCanHolder(params, realFont())
+    const normal = result.body.getAttribute('normal')
+    const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+    const groups = seamGroups(result.body, params)
+    const topKey = [...groups.keys()].find(
+      (key) => Math.abs(Number(key) - wall.max) < 1e-3,
+    )
+
+    expect(topKey).toBeDefined()
+    const indices = groups.get(topKey!)!
+    expect(indices.length).toBeGreaterThanOrEqual(2)
+    const [a, b] = indices
+    expect(normal.getX(a)).toBeCloseTo(normal.getX(b), 3)
+    expect(normal.getY(a)).toBeCloseTo(normal.getY(b), 3)
+    expect(normal.getZ(a)).toBeCloseTo(normal.getZ(b), 3)
     disposeCanHolderResult(result)
   })
 

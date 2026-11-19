@@ -14,6 +14,8 @@ import {
   type CanHolderGeometryParams,
 } from './schema'
 
+const EDGE_EPSILON = 1e-3
+
 export interface CanHolderBuildResult {
   body: BufferGeometry
   handle: BufferGeometry | null
@@ -61,7 +63,7 @@ function weldSeamNormals(
     const y = position.getY(i)
     const z = position.getZ(i)
     if (Math.abs(x) > 1e-4 || z <= 0) continue
-    if (y < wall.min || y > wall.max) continue
+    if (y < wall.min - EDGE_EPSILON || y > wall.max + EDGE_EPSILON) continue
     const radius = Math.hypot(x, z)
     if (radius < outerR - 1e-4 || radius > outerR + envelope + 1e-3) continue
     const key = y.toFixed(3)

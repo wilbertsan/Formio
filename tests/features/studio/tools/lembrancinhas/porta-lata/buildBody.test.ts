@@ -238,28 +238,65 @@ describe('can holder body', () => {
     geometry.dispose()
   })
 
-  it('mantém os flancos do mesh abaixo de 45 graus', () => {
-    const limit = Math.sin((46 * Math.PI) / 180)
+  it('mantém as facetas da parede abaixo de 45 graus', () => {
     for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
-      const params = {
-        ...defaultCanHolderParams,
-        textureStyle: style,
-        textureDepth: 1.5,
-        textureScale: 4,
-      }
-      const geometry = buildBody(params)
-      const position = geometry.getAttribute('position')
-      const normal = geometry.getAttribute('normal')
-      const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
-      const outerR = getOuterRadius(params)
+      for (const textureScale of [4, 6, 8]) {
+        const params = {
+          ...defaultCanHolderParams,
+          textureStyle: style,
+          textureDepth: 1.5,
+          textureScale,
+        }
+        const geometry = buildBody(params)
+        const position = geometry.getAttribute('position')
+        const index = geometry.getIndex()
+        const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+        const outerR = getOuterRadius(params)
+        const wallVertex = (i: number): boolean => {
+          const y = position.getY(i)
+          if (y < wall.min - 1e-3 || y > wall.max + 1e-3) return false
+          return Math.hypot(position.getX(i), position.getZ(i)) >= outerR - 1e-4
+        }
+        let checked = 0
 
-      for (let i = 0; i < position.count; i++) {
-        const y = position.getY(i)
-        if (y < wall.min + 3 || y > wall.max - 3) continue
-        if (Math.hypot(position.getX(i), position.getZ(i)) < outerR - 1e-4) continue
-        expect.soft(Math.abs(normal.getY(i)), `${style} em y=${y}`).toBeLessThanOrEqual(limit)
+        const triangleAt = (a: number, b: number, c: number): void => {
+          if (!wallVertex(a) || !wallVertex(b) || !wallVertex(c)) return
+          const ax = position.getX(a)
+          const ay = position.getY(a)
+          const az = position.getZ(a)
+          const bx = position.getX(b)
+          const by = position.getY(b)
+          const bz = position.getZ(b)
+          const cx = position.getX(c)
+          const cy = position.getY(c)
+          const cz = position.getZ(c)
+          const abx = bx - ax
+          const aby = by - ay
+          const abz = bz - az
+          const acx = cx - ax
+          const acy = cy - ay
+          const acz = cz - az
+          const nx = aby * acz - abz * acy
+          const ny = abz * acx - abx * acz
+          const nz = abx * acy - aby * acx
+          const horizontal = Math.hypot(nx, nz)
+          if (horizontal < 1e-9) return
+          checked += 1
+          expect
+            .soft(Math.abs(ny) / horizontal, `${style}/${textureScale} em y=${ay}`)
+            .toBeLessThanOrEqual(1 + 1e-2)
+        }
+
+        if (index) {
+          for (let i = 0; i < index.count; i += 3) {
+            triangleAt(index.getX(i), index.getX(i + 1), index.getX(i + 2))
+          }
+        } else {
+          for (let i = 0; i < position.count; i += 3) triangleAt(i, i + 1, i + 2)
+        }
+        expect.soft(checked, `${style}/${textureScale}`).toBeGreaterThan(1000)
+        geometry.dispose()
       }
-      geometry.dispose()
     }
   })
 
