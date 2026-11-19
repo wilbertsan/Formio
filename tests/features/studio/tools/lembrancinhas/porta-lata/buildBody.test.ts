@@ -238,6 +238,31 @@ describe('can holder body', () => {
     geometry.dispose()
   })
 
+  it('mantém os flancos do mesh abaixo de 45 graus', () => {
+    const limit = Math.sin((46 * Math.PI) / 180)
+    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+      const params = {
+        ...defaultCanHolderParams,
+        textureStyle: style,
+        textureDepth: 1.5,
+        textureScale: 4,
+      }
+      const geometry = buildBody(params)
+      const position = geometry.getAttribute('position')
+      const normal = geometry.getAttribute('normal')
+      const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+      const outerR = getOuterRadius(params)
+
+      for (let i = 0; i < position.count; i++) {
+        const y = position.getY(i)
+        if (y < wall.min + 3 || y > wall.max - 3) continue
+        if (Math.hypot(position.getX(i), position.getZ(i)) < outerR - 1e-4) continue
+        expect.soft(Math.abs(normal.getY(i)), `${style} em y=${y}`).toBeLessThanOrEqual(limit)
+      }
+      geometry.dispose()
+    }
+  })
+
   it('mantém posições e normais contínuas na emenda da textura', () => {
     const params = {
       ...defaultCanHolderParams,

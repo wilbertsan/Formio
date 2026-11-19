@@ -13,11 +13,15 @@ import {
   buildCanHolder,
   disposeCanHolderResult,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/buildCanHolder'
+import { findOuterWall } from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
+import { bodyProfile } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
   defaultCanHolderParams,
+  getInnerDiameter,
   getMaxOuterDiameter,
   getOuterHeight,
   getOuterRadius,
+  getTextureEnvelope,
   type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
@@ -144,6 +148,45 @@ describe('buildCanHolder', () => {
     }
     expect(maxRadius).toBeGreaterThan(getOuterRadius(params) + 1.2 * 0.9)
 
+    disposeCanHolderResult(result)
+  })
+
+  it('solda as normais da emenda da textura depois do CSG', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.2,
+    }
+    const result = buildCanHolder(params, realFont())
+    const position = result.body.getAttribute('position')
+    const normal = result.body.getAttribute('normal')
+    const outerR = getOuterRadius(params)
+    const envelope = getTextureEnvelope(params)
+    const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+    const groups = new Map<string, number[]>()
+
+    for (let i = 0; i < position.count; i++) {
+      if (Math.abs(position.getX(i)) > 1e-4 || position.getZ(i) <= 0) continue
+      const y = position.getY(i)
+      if (y < wall.min || y > wall.max) continue
+      const radius = Math.hypot(position.getX(i), position.getZ(i))
+      if (radius < outerR - 1e-4 || radius > outerR + envelope + 1e-3) continue
+      const key = y.toFixed(3)
+      const group = groups.get(key)
+      if (group) group.push(i)
+      else groups.set(key, [i])
+    }
+
+    let pairs = 0
+    for (const indices of groups.values()) {
+      if (indices.length < 2) continue
+      const [a, b] = indices
+      expect(normal.getX(a)).toBeCloseTo(normal.getX(b), 3)
+      expect(normal.getY(a)).toBeCloseTo(normal.getY(b), 3)
+      expect(normal.getZ(a)).toBeCloseTo(normal.getZ(b), 3)
+      pairs += 1
+    }
+    expect(pairs).toBeGreaterThan(50)
     disposeCanHolderResult(result)
   })
 
