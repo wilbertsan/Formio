@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest'
 import { Vector2 } from 'three'
-import { buildBody } from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
+import {
+  buildBody,
+  findOuterWall,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/buildBody'
 import { bodyProfile, dedupePoints } from '@/features/studio/tools/lembrancinhas/porta-lata/shapes'
 import {
   BASE_CHAMFER_MM,
   CAN_DIAMETER,
   MIN_TOP_LAND_MM,
+  TEXTURE_STYLES,
   defaultCanHolderParams,
   getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
@@ -158,6 +162,76 @@ describe('can holder body', () => {
     expect(isClosed(geometry)).toBe(true)
     expect(countShells(geometry)).toBe(1)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
+    geometry.dispose()
+  })
+
+  it('encontra a parede externa no perfil com e sem anéis', () => {
+    const params = defaultCanHolderParams
+    const innerRadius = getInnerDiameter(params) / 2
+    const withRings = findOuterWall(bodyProfile(params), innerRadius)
+    expect(withRings.min).toBeCloseTo(params.edgeRimWidth, 6)
+    expect(withRings.max).toBeCloseTo(getOuterHeight(params) - params.edgeRimWidth, 6)
+    expect(withRings.radius).toBeCloseTo(getOuterRadius(params), 6)
+
+    const withoutRings = { ...params, edgeRimEnabled: false }
+    const wall = findOuterWall(bodyProfile(withoutRings), getInnerDiameter(withoutRings) / 2)
+    expect(wall.radius).toBeCloseTo(getOuterRadius(withoutRings), 6)
+    expect(wall.max).toBeCloseTo(
+      getOuterHeight(withoutRings) - getEffectiveRimChamfer(withoutRings),
+      6,
+    )
+  })
+
+  it.each(TEXTURE_STYLES.filter((style) => style !== 'none'))(
+    'fecha o corpo texturizado (%s)',
+    (style) => {
+      const params = { ...defaultCanHolderParams, textureStyle: style, textureDepth: 1.5 }
+      const geometry = buildBody(params)
+      geometry.computeBoundingBox()
+      const box = geometry.boundingBox!
+      const outerR = getOuterRadius(params)
+      const position = geometry.getAttribute('position')
+      let maxRadius = 0
+
+      // `box.max.x` é ponderado por cos(θ): o pico do padrão não precisa estar
+      // no eixo X. O raio máximo mede o deslocamento radial real do padrão.
+      for (let i = 0; i < position.count; i++) {
+        maxRadius = Math.max(
+          maxRadius,
+          Math.hypot(position.getX(i), position.getZ(i)),
+        )
+      }
+
+      expect(isClosed(geometry)).toBe(true)
+      expect(countShells(geometry)).toBe(1)
+      expect(signedVolume(geometry)).toBeGreaterThan(0)
+      expect(box.max.y).toBeCloseTo(getOuterHeight(params), 3)
+      expect(maxRadius).toBeGreaterThan(outerR + 1.5 * 0.9)
+      expect(maxRadius).toBeLessThanOrEqual(outerR + 1.5 + 1e-3)
+      geometry.dispose()
+    },
+  )
+
+  it('mantém a faixa da abraçadeira lisa', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'spikes' as const,
+      textureDepth: 1.5,
+    }
+    const geometry = buildBody(params)
+    const position = geometry.getAttribute('position')
+    const outerR = getOuterRadius(params)
+    const innerR = getInnerDiameter(params) / 2
+    const bandMin = params.handleHeight - params.handleWidth / 2
+    const bandMax = params.handleHeight + params.handleWidth / 2
+
+    for (let i = 0; i < position.count; i++) {
+      const y = position.getY(i)
+      if (y <= bandMin || y >= bandMax) continue
+      const radius = Math.hypot(position.getX(i), position.getZ(i))
+      if (radius < innerR + 0.5) continue
+      expect.soft(radius, `vértice ${i} em y=${y}`).toBeCloseTo(outerR, 4)
+    }
     geometry.dispose()
   })
 })
