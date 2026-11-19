@@ -186,7 +186,7 @@ export function textureMask(
   wallMax: number,
 ): number {
   const depth = getEffectiveTextureDepth(params)
-  const fade = Math.min(Math.max(TEXTURE_EDGE_FADE_MM, 2 * depth), (wallMax - wallMin) / 4)
+  const fade = Math.min(Math.max(TEXTURE_EDGE_FADE_MM, 3 * depth), (wallMax - wallMin) / 4)
   let mask = Math.min(
     smoothstep(wallMin, wallMin + fade, y),
     1 - smoothstep(wallMax - fade, wallMax, y),
@@ -194,7 +194,7 @@ export function textureMask(
   if (params.handleEnabled) {
     const bandMin = params.handleHeight - params.handleWidth / 2 - TEXTURE_HANDLE_GAP_MM
     const bandMax = params.handleHeight + params.handleWidth / 2 + TEXTURE_HANDLE_GAP_MM
-    const bandFade = Math.max(TEXTURE_HANDLE_FADE_MM, 2 * depth)
+    const bandFade = Math.max(TEXTURE_HANDLE_FADE_MM, 3 * depth)
     // 1 fora da faixa, 0 dentro dela, com transição suave nas duas pontas.
     mask *= Math.max(
       smoothstep(bandMax, bandMax + bandFade, y),

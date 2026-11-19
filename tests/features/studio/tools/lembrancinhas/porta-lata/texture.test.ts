@@ -89,7 +89,7 @@ describe('texturas do porta-lata', () => {
     // Com a alça desligada a faixa lisa (53–67 mm) não existe, então o meio da
     // parede (55,6 mm) não é mascarado.
     const params = withParams({ textureStyle: 'wood', handleEnabled: false })
-    const fade = Math.max(TEXTURE_EDGE_FADE_MM, 2 * params.textureDepth)
+    const fade = Math.max(TEXTURE_EDGE_FADE_MM, 3 * params.textureDepth)
     expect(textureMask(params, WALL_MIN, WALL_MIN, WALL_MAX)).toBe(0)
     expect(textureMask(params, WALL_MAX, WALL_MIN, WALL_MAX)).toBe(0)
     expect(textureMask(params, WALL_MIN + fade / 2, WALL_MIN, WALL_MAX)).toBeCloseTo(0.5, 2)

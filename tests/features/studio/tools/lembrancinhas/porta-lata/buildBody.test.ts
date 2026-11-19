@@ -18,11 +18,67 @@ import {
   getOuterHeight,
   getOuterRadius,
   getTopLand,
+  type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
 function pointsAtHeight(points: Vector2[], y: number): Vector2[] {
   return points.filter((point) => Math.abs(point.y - y) < 1e-6)
+}
+
+/** Maior inclinação (|ny| / horizontal) das facetas da parede externa. */
+function measureWallFacets(params: CanHolderGeometryParams): {
+  checked: number
+  maxRatio: number
+} {
+  const geometry = buildBody(params)
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
+  const outerR = getOuterRadius(params)
+  const wallVertex = (i: number): boolean => {
+    const y = position.getY(i)
+    if (y < wall.min - 1e-3 || y > wall.max + 1e-3) return false
+    return Math.hypot(position.getX(i), position.getZ(i)) >= outerR - 1e-4
+  }
+  let checked = 0
+  let maxRatio = 0
+
+  const triangleAt = (a: number, b: number, c: number): void => {
+    if (!wallVertex(a) || !wallVertex(b) || !wallVertex(c)) return
+    const ax = position.getX(a)
+    const ay = position.getY(a)
+    const az = position.getZ(a)
+    const bx = position.getX(b)
+    const by = position.getY(b)
+    const bz = position.getZ(b)
+    const cx = position.getX(c)
+    const cy = position.getY(c)
+    const cz = position.getZ(c)
+    const abx = bx - ax
+    const aby = by - ay
+    const abz = bz - az
+    const acx = cx - ax
+    const acy = cy - ay
+    const acz = cz - az
+    const nx = aby * acz - abz * acy
+    const ny = abz * acx - abx * acz
+    const nz = abx * acy - aby * acx
+    const horizontal = Math.hypot(nx, nz)
+    if (horizontal < 1e-9) return
+    checked += 1
+    maxRatio = Math.max(maxRatio, Math.abs(ny) / horizontal)
+  }
+
+  if (index) {
+    for (let i = 0; i < index.count; i += 3) {
+      triangleAt(index.getX(i), index.getX(i + 1), index.getX(i + 2))
+    }
+  } else {
+    for (let i = 0; i < position.count; i += 3) triangleAt(i, i + 1, i + 2)
+  }
+  geometry.dispose()
+  return { checked, maxRatio }
 }
 
 describe('can holder body', () => {
@@ -247,56 +303,26 @@ describe('can holder body', () => {
           textureDepth: 1.5,
           textureScale,
         }
-        const geometry = buildBody(params)
-        const position = geometry.getAttribute('position')
-        const index = geometry.getIndex()
-        const wall = findOuterWall(bodyProfile(params), getInnerDiameter(params) / 2)
-        const outerR = getOuterRadius(params)
-        const wallVertex = (i: number): boolean => {
-          const y = position.getY(i)
-          if (y < wall.min - 1e-3 || y > wall.max + 1e-3) return false
-          return Math.hypot(position.getX(i), position.getZ(i)) >= outerR - 1e-4
-        }
-        let checked = 0
-        let maxRatio = 0
-
-        const triangleAt = (a: number, b: number, c: number): void => {
-          if (!wallVertex(a) || !wallVertex(b) || !wallVertex(c)) return
-          const ax = position.getX(a)
-          const ay = position.getY(a)
-          const az = position.getZ(a)
-          const bx = position.getX(b)
-          const by = position.getY(b)
-          const bz = position.getZ(b)
-          const cx = position.getX(c)
-          const cy = position.getY(c)
-          const cz = position.getZ(c)
-          const abx = bx - ax
-          const aby = by - ay
-          const abz = bz - az
-          const acx = cx - ax
-          const acy = cy - ay
-          const acz = cz - az
-          const nx = aby * acz - abz * acy
-          const ny = abz * acx - abx * acz
-          const nz = abx * acy - aby * acx
-          const horizontal = Math.hypot(nx, nz)
-          if (horizontal < 1e-9) return
-          checked += 1
-          maxRatio = Math.max(maxRatio, Math.abs(ny) / horizontal)
-        }
-
-        if (index) {
-          for (let i = 0; i < index.count; i += 3) {
-            triangleAt(index.getX(i), index.getX(i + 1), index.getX(i + 2))
-          }
-        } else {
-          for (let i = 0; i < position.count; i += 3) triangleAt(i, i + 1, i + 2)
-        }
+        const { checked, maxRatio } = measureWallFacets(params)
         expect.soft(checked, `${style}/${textureScale}`).toBeGreaterThan(1000)
         expect.soft(maxRatio, `${style}/${textureScale}`).toBeLessThanOrEqual(1 + 1e-2)
-        geometry.dispose()
       }
+    }
+
+    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+      const shoulder = {
+        ...defaultCanHolderParams,
+        textureStyle: style,
+        textureScale: 6,
+        textureDepth: 1.5,
+        handleHeight: 40,
+        handleWidth: 16,
+        cavityDepth: 116,
+        bottomThickness: 3.3,
+      }
+      const { checked, maxRatio } = measureWallFacets(shoulder)
+      expect.soft(checked, `${style}/ombro`).toBeGreaterThan(1000)
+      expect.soft(maxRatio, `${style}/ombro`).toBeLessThanOrEqual(1 + 1e-2)
     }
   })
 
