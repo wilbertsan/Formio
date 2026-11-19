@@ -25,9 +25,10 @@ O código entregue prevalece sobre as seções históricas deste design.
   `max(profundidade efetiva, 0,3 × escala)`; o gradiente fica ≤ 1 em todas as
   direções.
 - **Pedra:** interpolação suave (smoothstep) em vez de bisel de 0,8 mm.
-- **Critério de impressão:** o campo tem componente vertical ≤ ~40°; o mesh de
-  1 mm × 256 mede no máximo ~41,5°. A soma analítica da rampa da máscara com o
-  flanco do padrão chega a ~52°, mas o artefato impresso é o mesh.
+- **Critério de impressão:** o campo tem componente vertical ≤ ~40°; as facetas
+  do mesh de 1 mm × 256 medem no máximo ~43,6° (spikes, escala 6, profundidade
+  1,5). A soma analítica da rampa da máscara com o flanco do padrão chega a
+  ~52°, mas o artefato impresso é o mesh.
 - **Célula real:** a escala não é a largura exata da célula; com
   `round(circunferência / escala)`, escala 8 → 29 células de 7,87 mm (−1,7%).
 - **Texto:** sobe pelo envelope efetivo, não pela profundidade pedida.

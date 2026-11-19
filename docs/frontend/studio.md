@@ -398,7 +398,8 @@ Textura:
   `max(profundidade efetiva, 0,3 × escala)`). Tudo determinístico e periódico em
   θ; a contagem de células é inteira (`max(3, round(circunferência / escala))`).
 - **Profundidade efetiva**: `min(textureDepth, textureScale / 4)`, limitando os
-  flancos a ~45°; o mesh de 1 mm × 256 segmentos mede no máximo ~41,5°.
+  flancos a ~45°; as facetas do mesh de 1 mm × 256 segmentos medem no máximo
+  ~43,6° (spikes, escala 6, profundidade 1,5).
 - **Máscaras**: fade de `max(2, 2 × profundidade efetiva)` nas bordas da parede
   e na faixa lisa da abraçadeira (`handleHeight ± (handleWidth / 2 + 1)`), com a
   mesma transição. Anéis, base, borda, cavidade e furo ficam intactos.

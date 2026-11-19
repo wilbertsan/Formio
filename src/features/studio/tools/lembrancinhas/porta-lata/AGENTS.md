@@ -485,9 +485,9 @@ mostra erro no overlay.
 - **Emenda em θ:** a contagem de células é inteira e as funções são periódicas;
   as normais das colunas duplicadas são soldadas no corpo final. O teste compara
   alturas em 0 e 2π e as normais após o CSG.
-- **Flancos medidos:** o flanco nominal de 45° mede ~41,5° na malha por causa da
-  discretização (passo de 1 mm e 256 segmentos), o que deixa margem para a
-  impressão.
+- **Flancos medidos:** as facetas da parede medem no máximo ~43,6° (spikes,
+  escala 6, profundidade 1,5), abaixo do limite de 45°; a discretização de
+  1 mm × 256 segmentos é o que define o valor impresso.
 
 ## Fora de escopo
 
