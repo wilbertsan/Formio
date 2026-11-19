@@ -13,6 +13,7 @@ import {
   getEffectiveLeadIn,
   getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
+  getEffectiveTextureDepth,
   getExposedHeight,
   getInnerDiameter,
   getMaxOuterDiameter,
@@ -209,6 +210,13 @@ describe('preset da lata e derivados', () => {
 
     const deep = { ...textured, textureDepth: 1.5 }
     expect(getMaxOuterDiameter(deep)).toBeCloseTo(75.6, 5)
+
+    // Escala 4 limita a profundidade efetiva a 1,0 mm: o envelope empata com o
+    // anel e o diâmetro não cresce.
+    const tight = { ...textured, textureDepth: 1.5, textureScale: 4 }
+    expect(getEffectiveTextureDepth(tight)).toBeCloseTo(1, 6)
+    expect(getTextureEnvelope(tight)).toBeCloseTo(1, 6)
+    expect(getMaxOuterDiameter(tight)).toBeCloseTo(74.6, 5)
 
     const off = { ...defaultCanHolderParams, textureStyle: 'none' as const, textureDepth: 1.5 }
     expect(getTextureEnvelope(off)).toBe(0)

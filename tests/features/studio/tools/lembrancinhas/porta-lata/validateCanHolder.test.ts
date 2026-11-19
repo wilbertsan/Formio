@@ -328,4 +328,14 @@ describe('validateCanHolder', () => {
       expect.objectContaining({ code: 'can-text-band', severity: 'error' }),
     )
   })
+
+  it('avisa quando a profundidade da textura é limitada pela escala', () => {
+    const clamped = withParams({ textureStyle: 'wood', textureDepth: 1.5, textureScale: 4 })
+    expect(validateCanHolder(clamped)).toContainEqual(
+      expect.objectContaining({ code: 'can-texture', severity: 'warning' }),
+    )
+    expect(validateCanHolder(defaultCanHolderParams).some((issue) => issue.code === 'can-texture')).toBe(false)
+    const boundary = withParams({ textureStyle: 'wood', textureDepth: 1, textureScale: 4 })
+    expect(validateCanHolder(boundary).some((issue) => issue.code === 'can-texture')).toBe(false)
+  })
 })

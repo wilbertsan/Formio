@@ -178,9 +178,15 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
   )
 }
 
-/** Envelope radial da textura: 0 com `none`, senão a profundidade. */
+/** Profundidade efetiva: limitada a um quarto da escala para manter os flancos ≤ 45°. */
+export function getEffectiveTextureDepth(params: CanHolderGeometryParams): number {
+  if (params.textureStyle === 'none') return 0
+  return Math.min(params.textureDepth, params.textureScale / 4)
+}
+
+/** Envelope radial da textura: 0 com `none`, senão a profundidade efetiva. */
 export function getTextureEnvelope(params: CanHolderGeometryParams): number {
-  return params.textureStyle === 'none' ? 0 : params.textureDepth
+  return getEffectiveTextureDepth(params)
 }
 
 /** Diâmetro externo do corpo com o maior envelope (anel ou textura); não inclui o relevo do texto. */

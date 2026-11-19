@@ -7,6 +7,7 @@ import {
 import {
   TEXTURE_STYLES,
   defaultCanHolderParams,
+  getEffectiveTextureDepth,
   type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 
@@ -55,11 +56,39 @@ describe('texturas do porta-lata', () => {
     expect(new Set(samples).size).toBe(samples.length)
   })
 
+  it('limita a profundidade efetiva a um quarto da escala', () => {
+    const params = withParams({ textureStyle: 'wood', textureDepth: 1.5, textureScale: 4 })
+    expect(getEffectiveTextureDepth(params)).toBeCloseTo(1, 6)
+    for (let i = 0; i < 24; i++) {
+      expect(textureHeight(params, (i / 24) * TAU, 60)).toBeLessThanOrEqual(1 + 1e-9)
+    }
+    expect(getEffectiveTextureDepth({ ...params, textureStyle: 'none' })).toBe(0)
+  })
+
+  it('mantém o campo contínuo e com flancos imprimíveis', () => {
+    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+      for (const textureScale of [4, 8, 16]) {
+        const params = withParams({ textureStyle: style, textureDepth: 1.5, textureScale })
+        let previous = textureHeight(params, 0.7, WALL_MIN + 0.5)
+        for (let y = WALL_MIN + 0.6; y <= WALL_MAX - 0.5; y += 0.1) {
+          const height = textureHeight(params, 0.7, y)
+          expect.soft(
+            Math.abs(height - previous) / 0.1,
+            `${style}/${textureScale} em y=${y}`,
+          ).toBeLessThanOrEqual(1.05)
+          previous = height
+        }
+      }
+    }
+  })
+
   it('zera a máscara nas bordas da parede', () => {
-    // Sem alça: o meio da parede (55,6 mm) cai na faixa da abraçadeira.
+    // Com a alça desligada a faixa lisa (53–67 mm) não existe, então o meio da
+    // parede (55,6 mm) não é mascarado.
     const params = withParams({ textureStyle: 'wood', handleEnabled: false })
     expect(textureMask(params, WALL_MIN, WALL_MIN, WALL_MAX)).toBe(0)
     expect(textureMask(params, WALL_MAX, WALL_MIN, WALL_MAX)).toBe(0)
+    expect(textureMask(params, WALL_MIN + 1, WALL_MIN, WALL_MAX)).toBeCloseTo(0.5, 2)
     expect(textureMask(params, (WALL_MIN + WALL_MAX) / 2, WALL_MIN, WALL_MAX)).toBeCloseTo(1, 6)
   })
 
@@ -70,6 +99,7 @@ describe('texturas do porta-lata', () => {
     expect(textureMask(params, bandMin, WALL_MIN, WALL_MAX)).toBe(0)
     expect(textureMask(params, bandMax, WALL_MIN, WALL_MAX)).toBe(0)
     expect(textureMask(params, 60, WALL_MIN, WALL_MAX)).toBe(0)
+    expect(textureDisplacement(params, 1, 60, WALL_MIN, WALL_MAX)).toBe(0)
 
     const noHandle = withParams({ ...params, handleEnabled: false })
     expect(textureMask(noHandle, 60, WALL_MIN, WALL_MAX)).toBeGreaterThan(0)
