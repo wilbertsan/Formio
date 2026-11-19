@@ -24,6 +24,8 @@ const SLIDER_RANGES = [
   { name: 'Chanfro da borda', min: 0, max: 1.5 },
   { name: 'Salto das bordas', min: 0.4, max: 1.5 },
   { name: 'Largura das bordas', min: 4, max: 14 },
+  { name: 'Profundidade da textura', min: 0.4, max: 1.5 },
+  { name: 'Escala da textura', min: 4, max: 16 },
   { name: 'Altura da alça', min: 35, max: 85 },
   { name: 'Abertura da mão', min: 24, max: 40 },
   { name: 'Alcance da alça', min: 30, max: 50 },
@@ -48,30 +50,34 @@ const HANDLE_DISABLED_HINT = 'Ligue a alça para ajustar os parâmetros.'
 const RIM_SLIDERS = ['Salto das bordas', 'Largura das bordas'] as const
 const RIM_DISABLED_HINT = 'Ligue as bordas para ajustar os parâmetros.'
 
+const TEXTURE_SLIDERS = ['Profundidade da textura', 'Escala da textura'] as const
+const TEXTURE_DISABLED_HINT = 'Escolha um estilo para ajustar os parâmetros.'
+
 describe('StudioPanel (porta-lata)', () => {
-  it('renderiza heading, restaurar e as seis seções', () => {
+  it('renderiza heading, restaurar e as sete seções', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.getByText('Porta-lata')).toBeDefined()
     expect(screen.getByText('Restaurar')).toBeDefined()
     expect(screen.getByText('Corpo')).toBeDefined()
     expect(screen.getByText('Bordas')).toBeDefined()
+    expect(screen.getByText('Textura')).toBeDefined()
     expect(screen.getByText('Alça')).toBeDefined()
     expect(screen.getByText('Personalização')).toBeDefined()
     expect(screen.getByText('Aparência')).toBeDefined()
     expect(screen.getByText('Validação')).toBeDefined()
   })
 
-  it('expõe nome acessível nos 17 sliders', () => {
+  it('expõe nome acessível nos 19 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getAllByRole('slider')).toHaveLength(17)
+    expect(screen.getAllByRole('slider')).toHaveLength(19)
     for (const { name } of SLIDER_RANGES) {
       expect.soft(screen.getByRole('slider', { name }), name).toBeDefined()
     }
   })
 
-  it('expõe aria-valuemin e aria-valuemax dos 17 sliders', () => {
+  it('expõe aria-valuemin e aria-valuemax dos 19 sliders', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(SLIDER_RANGES).toHaveLength(17)
+    expect(SLIDER_RANGES).toHaveLength(19)
     for (const { name, min, max } of SLIDER_RANGES) {
       const slider = screen.getByRole('slider', { name })
       expect.soft(slider, name).toHaveAttribute('aria-valuemin', String(min))
@@ -89,7 +95,13 @@ describe('StudioPanel (porta-lata)', () => {
 
   it('incrementa pelos passos decimais dos sliders', () => {
     const onUpdateParam = vi.fn()
-    render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, textureStyle: 'wood' }}
+        onUpdateParam={onUpdateParam}
+      />,
+    )
 
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Folga da lata' }), {
       key: 'ArrowRight',
@@ -120,6 +132,15 @@ describe('StudioPanel (porta-lata)', () => {
       key: 'ArrowRight',
     })
     expect(onUpdateParam).toHaveBeenLastCalledWith('edgeRimWidth', 7)
+
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Profundidade da textura' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('textureDepth', 0.9)
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Escala da textura' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).toHaveBeenLastCalledWith('textureScale', 9)
 
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Banda da alça' }), {
       key: 'ArrowRight',
@@ -152,7 +173,7 @@ describe('StudioPanel (porta-lata)', () => {
 
   it('usa vírgula decimal no valor dos sliders', () => {
     render(<StudioPanel {...defaultProps} />)
-    expect(screen.getByText('0,8 mm')).toBeDefined()
+    expect(screen.getAllByText('0,8 mm')).toHaveLength(2)
     expect(screen.getByText('2,4 mm')).toBeDefined()
     expect(screen.queryByText('0.8 mm')).toBeNull()
     expect(screen.queryByText('2.4 mm')).toBeNull()
@@ -281,6 +302,62 @@ describe('StudioPanel (porta-lata)', () => {
 
     fireEvent.keyDown(screen.getByRole('slider', { name: 'Largura das bordas' }), {
       key: 'ArrowRight',
+    })
+    expect(onUpdateParam).not.toHaveBeenCalled()
+  })
+
+  it('desabilita os sliders da textura sem estilo', () => {
+    const onUpdateParam = vi.fn()
+    const { rerender } = render(
+      <StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />,
+    )
+    for (const name of TEXTURE_SLIDERS) {
+      expect.soft(screen.getByRole('slider', { name }), name).toHaveAttribute('data-disabled')
+    }
+    expect(screen.getByText(TEXTURE_DISABLED_HINT)).toBeDefined()
+
+    fireEvent.change(screen.getByLabelText('Estilo da textura'), { target: { value: 'wood' } })
+    expect(onUpdateParam).toHaveBeenCalledWith('textureStyle', 'wood')
+
+    onUpdateParam.mockClear()
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, textureStyle: 'wood' }}
+        onUpdateParam={onUpdateParam}
+      />,
+    )
+    for (const name of TEXTURE_SLIDERS) {
+      expect.soft(screen.getByRole('slider', { name }), name).not.toHaveAttribute(
+        'data-disabled',
+      )
+    }
+    expect(screen.queryByText(TEXTURE_DISABLED_HINT)).toBeNull()
+    expect(screen.queryByText(/Profundidade efetiva/)).toBeNull()
+  })
+
+  it('mostra a profundidade efetiva quando limitada pela escala', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{
+          ...defaultCanHolderParams,
+          textureStyle: 'wood',
+          textureDepth: 1.5,
+          textureScale: 4,
+        }}
+      />,
+    )
+    expect(
+      screen.getByText('Profundidade efetiva: 1,0 mm (limitada pela escala).'),
+    ).toBeDefined()
+  })
+
+  it('ignora um estilo de textura desconhecido', () => {
+    const onUpdateParam = vi.fn()
+    render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+    fireEvent.change(screen.getByLabelText('Estilo da textura'), {
+      target: { value: 'sand' },
     })
     expect(onUpdateParam).not.toHaveBeenCalled()
   })
