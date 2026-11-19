@@ -311,22 +311,31 @@ Pipeline completo de geração do porta-lata 350 ml:
    cor. Também concentra os derivados `getInnerDiameter`, `getOuterRadius`,
    `getOuterDiameter`, `getOuterHeight`, `getExposedHeight`, `getTopLand`,
    `getEffectiveLeadIn`, `getEffectiveRimChamfer`,
-   `getEffectiveRingProtrusion`, `getMaxOuterDiameter`, `getRingWallBand` e
-   `getTextBand`; `MIN_EDGE_RIM_FLAT_MM` (1 mm) e `TEXT_BAND_MARGIN_MM` (2 mm)
-   são constantes.
+   `getEffectiveRingProtrusion`, `getMaxOuterDiameter`, `getRingWallBand`,
+   `getTextBand`, `getTextureEnvelope` e `getEffectiveTextureDepth`;
+   `MIN_EDGE_RIM_FLAT_MM` (1 mm), `TEXT_BAND_MARGIN_MM` (2 mm) e as constantes
+   de textura (`TEXTURE_RADIAL_SEGMENTS` 256, `TEXTURE_STEP_MM` 1,
+   `TEXTURE_EDGE_FADE_MM` 2, `TEXTURE_HANDLE_GAP_MM` 1,
+   `TEXTURE_HANDLE_FADE_MM` 2) são constantes.
 2. **shapes.ts** — Perfil fechado `(r, y)` com furo de ventilação e os dois
    anéis decorativos (face de apoio na mesa, chanfro de base, um flanco de 45°
    por anel, parede entre os anéis e borda com chanfro e lead-in), parede
    interna, fundo interno e parede do furo; também o contorno da abraçadeira de
    200° e o laço em D. Concentra `getBandInnerRadius`, `getLoopLeftX` e
    `getHandleMetrics`.
-3. **buildBody.ts** — `LatheGeometry` de 128 segmentos; o perfil não toca o
-   eixo, então não há leques degenerados, mas a limpeza de triângulos colapsados
-   roda como defesa e preserva position/normal/uv.
+3. **buildBody.ts** — `LatheGeometry` de 128 segmentos; com textura, a parede
+   externa é localizada por `findOuterWall`, subdividida em passos de 1 mm e o
+   lathe usa 256 segmentos; os vértices da parede são deslocados radialmente por
+   `textureDisplacement` e as normais da emenda θ=0/2π são soldadas. O perfil não
+   toca o eixo, então não há leques degenerados, mas a limpeza de triângulos
+   colapsados roda como defesa e preserva position/normal/uv.
 4. **buildRelief.ts** — `textToShapes`/`shapesToGeometry`, subdivisão conforme
    até 2,5 mm, auto-fit para 120°, curvatura no raio constante a 180° da alça e
    1 mm de relevo visível (0,2 mm embutido para a união); o centro do texto é
-   clampado entre os anéis por `getTextBand`.
+   clampado entre os anéis por `getTextBand`. Com textura, a extrusão soma o
+   envelope efetivo (`CONTENT_DEPTH + RELIEF_EMBED + envelope`) e a curvatura usa
+   `outerR + envelope`: a base continua em `outerR − 0,2` e a frente fica 1 mm
+   acima do pico.
 5. **buildHandle.ts** — Abraçadeira com perfil quadrático: folga nominal no
    meio, interferência absoluta de 0,4 mm no topo e folga +0,4 mm na base; a
    borda esquerda do laço é vertical, a `handleClearance + 2 mm` da parede.
@@ -337,7 +346,8 @@ Pipeline completo de geração do porta-lata 350 ml:
 7. **useCanHolder.ts** — Reducer + Zod, clamps, debounce de 250 ms, um worker
    por build, descarte de respostas obsoletas, snapshot `builtParams` e descarte
    da geometria anterior. Expõe `outerDiameter` (via `getMaxOuterDiameter`, com
-   os anéis), `outerHeight` e `exposedHeight`; não há capacidade em ml.
+   o maior envelope entre anéis e textura), `outerHeight` e `exposedHeight`; não
+   há capacidade em ml.
 8. **exportStl.ts** — Dois STLs binários: `<nome>-corpo.stl` e
    `<nome>-alca.stl`; cada peça é clonada e centralizada na mesa com a base em
    `y = 0`.
@@ -345,31 +355,56 @@ Pipeline completo de geração do porta-lata 350 ml:
 Parâmetros do corpo: `cavityDepth` 80–116/108, `canClearance` 0,5–1,2/0,8,
 `wallThickness` 1,8–4/2,4, `bottomThickness` 2–6/3,2, `ventHoleDiameter` 6–14/10,
 `rimLeadIn` 0,5–2/1,0 e `rimChamfer` 0–1,5/0,4 mm. Bordas: `edgeRimEnabled`
-(booleano), `edgeRimProtrusion` 0,4–1,5/1,0 e `edgeRimWidth` 4–14/6 mm. Na
-alça: `handleHeight` 35–85/60, `handleGap` 24–40/30, `handleReach` 30–50/40,
+(booleano), `edgeRimProtrusion` 0,4–1,5/1,0 e `edgeRimWidth` 4–14/6 mm.
+Textura: `textureStyle` none/wood/metal/scales/waves/stone/spikes (default
+none), `textureDepth` 0,4–1,5/0,8 e `textureScale` 4–16/8 mm. Na alça: `handleHeight` 35–85/60, `handleGap` 24–40/30, `handleReach` 30–50/40,
 `handleBand` 5–10/6,5, `handleWidth` 8–16/12 e `handleClearance` 0,2–0,5/0,3 mm.
 Personalização: `text` até 20 caracteres, `textSize` 6–18/10, `fontStyle`
 normal/bold/serif e `textCenterY` 20–90/60.
 
 Dimensões derivadas no default: interna **67,8 mm**, externa da parede
-**72,6 mm**, externa com anéis **74,6 mm**, altura externa **111,2 mm**, lata
+**72,6 mm**, externa máxima **74,6 mm** (maior envelope: anel 1,0 ou textura
+efetiva), altura externa **111,2 mm**, lata
 exposta **14,2 mm**, parede do topo **2,0 mm**, furo de ventilação **10 mm**,
 anel de apoio no fundo com **28,9 mm** de largura radial e faixa útil do texto
 **8,0–103,2 mm** (`getTextBand`; a faixa geométrica entre anéis é
-**6,0–105,2 mm**). O painel mostra diâmetro externo, altura externa, altura
-exposta, parede do topo e `Texto entre X e Y mm`; o status bar mostra
-**74.6 × 111.2 × 2.4 mm**.
+**6,0–105,2 mm**). Com textura de 1,5 mm e escala ≥ 6, o diâmetro externo vai a
+**75,6 mm**; com escala 4, a profundidade efetiva cai para 1,0 mm (anel ainda é
+o maior envelope) e o diâmetro fica **74,6 mm**. O painel mostra diâmetro
+externo, altura externa, altura exposta, parede do topo, `Texto entre X e Y mm`
+e, quando a escala limita a profundidade, `Profundidade efetiva: X mm (limitada
+pela escala).`; o status bar mostra **74.6 × 111.2 × 2.4 mm** no default.
 
 Validação por códigos: `can-cavity`, `can-clearance`, `can-vent`, `can-rim`,
-`can-wall`, `can-bottom`, `can-edge-rim`, `can-text-fit`, `can-text-band`,
+`can-wall`, `can-bottom`, `can-edge-rim`, `can-texture`, `can-text-fit`,
+`can-text-band`,
 `can-handle-gap`, `can-handle-reach`, `can-handle-fit` e `can-handle-band`.
-`can-edge-rim` é defensiva (`2 × salto + 1 mm > largura` e
+`can-texture` é um aviso: a profundidade pedida passa de `escala / 4` e o build
+usa a profundidade efetiva. `can-edge-rim` é defensiva (`2 × salto + 1 mm > largura` e
 `2 × largura + 4 mm > altura`) e inalcançável pelo schema. `can-text-band` usa
 `getTextBand`, que desconta os anéis e aplica 2 mm de margem. `can-handle-band`
 valida apenas a banda da abraçadeira (`handleHeight ± handleWidth / 2`) entre os
 anéis; o laço em D pode passar da borda superior do corpo. Falhas de runtime do
 worker usam `can-invalid`, `can-font`, `can-csg` e `can-build`. A validação é
 consultiva: avisos e erros não bloqueiam o build nem o export.
+
+Textura:
+
+- **Estilos** (`texture.ts`): madeira (veios verticais com warp lento), metal
+  (knurl diagonal cruzado), escamas (fileiras de 0,6 × escala com calotas de
+  0,55 × escala, avaliando três fileiras), ondas (seno horizontal modulado em
+  θ), pedra (ruído de valor em duas oitavas) e pontiagudo (cones com meia-base
+  `max(profundidade efetiva, 0,3 × escala)`). Tudo determinístico e periódico em
+  θ; a contagem de células é inteira (`max(3, round(circunferência / escala))`).
+- **Profundidade efetiva**: `min(textureDepth, textureScale / 4)`, limitando os
+  flancos a ~45°; o mesh de 1 mm × 256 segmentos mede no máximo ~41,5°.
+- **Máscaras**: fade de `max(2, 2 × profundidade efetiva)` nas bordas da parede
+  e na faixa lisa da abraçadeira (`handleHeight ± (handleWidth / 2 + 1)`), com a
+  mesma transição. Anéis, base, borda, cavidade e furo ficam intactos.
+- **Custo**: parede texturizada ~57k triângulos; build completo texturado
+  ~0,8–1,1 s de CPU (gate de 4 s), mantendo 256 segmentos e passo de 1 mm.
+- **Texto**: sobe pelo envelope efetivo, ficando 1 mm acima do pico; a base
+  permanece 0,2 mm dentro da parede.
 
 Detalhes:
 
@@ -434,7 +469,7 @@ Detalhes:
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 - **Caixa Personalizada:** Caixa 3D personalizável em cinco peças independentes (corpo, tampa, painel decorativo, puxador e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do puxador ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O puxador usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance`, raio interno derivado do canto do corpo e anel mínimo de 0,8 mm. O puxador fica em `left`/`right` na v1; `top`/`bottom` são reservados. A tampa externa assenta em `lidHeight = 0`; valores maiores exigem junta/suporte, e a tampa interna é um plugue sem flange. A montagem avisa colisões entre painel/base, painel/tampa e flange/base ou flange/tampa. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do puxador. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
 - **Termoformador (tela + suporte):** Duas peças independentes. A tela é um disco circular com aro sólido e malha hexagonal flat-top em `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada; favos limitados a 4.000, com abertura crescendo 15% ao exceder, e epsilon de 0,001 rad por favo evita caps abertos no Earcut. O suporte é um berço côncavo de `LatheGeometry` com perfil fechado, bacia esférica e fundo fechado, sem CSG e com os triângulos degenerados do eixo removidos. O diâmetro do suporte deriva da tela (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`); a tela apoia no degrau e fica nivelada com o topo. A profundidade efetiva da bacia é limitada para manter 0,8 mm de parede externa. Preview montado com a tela em `seatY`, cor única e export de dois STLs `-tela` e `-suporte`. `fitRadius` usa a esfera envolvente do suporte. Build em worker; a configuração máxima do schema leva ~7 s.
-- **Porta-lata:** Substitui a antiga caneca por um corpo de parede simples em `LatheGeometry` com cavidade reta para a lata de 66,2 × 122,2 mm, borda de entrada e furo central de ventilação de 10 mm; sem trilho. Dois anéis decorativos de 45° compartilham salto (0,4–1,5 mm) e largura (4–14 mm), ficam colados na base e no topo e são pontos do mesmo perfil; o inferior apoia na mesa e o superior imprime sem suporte. O diâmetro nominal (`getMaxOuterDiameter`, 74,6 mm no default) e o status bar incluem os anéis, mas não o relevo. O nome fica em relevo de 1 mm curvado no raio, a 180° da alça e entre os anéis, com faixa única em `getTextBand`; é unido por CSG com o splitter CDT. Alça separada de encaixe por pressão: abraçadeira em C de 200° com folga nominal no meio, interferência absoluta de 0,4 mm no topo e laço em D com borda esquerda vertical; abraçadeira e laço são unidos por CSG dentro da alça. A validação `can-handle-band` cobre só a banda da abraçadeira entre os anéis, então o laço pode passar da borda; `can-edge-rim` é defensiva. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A alça imprime em pé com suporte sob o arco; o corpo imprime em pé sem suporte. O relevo usa subdivisão conforme de 2,5 mm para manter 1 mm no centro de glifos largos.
+- **Porta-lata:** Substitui a antiga caneca por um corpo de parede simples em `LatheGeometry` com cavidade reta para a lata de 66,2 × 122,2 mm, borda de entrada e furo central de ventilação de 10 mm; sem trilho. Dois anéis decorativos de 45° compartilham salto (0,4–1,5 mm) e largura (4–14 mm), ficam colados na base e no topo e são pontos do mesmo perfil; o inferior apoia na mesa e o superior imprime sem suporte. O diâmetro nominal (`getMaxOuterDiameter`, 74,6 mm no default) e o status bar incluem os anéis, mas não o relevo. O nome fica em relevo de 1 mm curvado no raio, a 180° da alça e entre os anéis, com faixa única em `getTextBand`; é unido por CSG com o splitter CDT. Alça separada de encaixe por pressão: abraçadeira em C de 200° com folga nominal no meio, interferência absoluta de 0,4 mm no topo e laço em D com borda esquerda vertical; abraçadeira e laço são unidos por CSG dentro da alça. A validação `can-handle-band` cobre só a banda da abraçadeira entre os anéis, então o laço pode passar da borda; `can-edge-rim` é defensiva. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A alça imprime em pé com suporte sob o arco; o corpo imprime em pé sem suporte. O relevo usa subdivisão conforme de 2,5 mm para manter 1 mm no centro de glifos largos. As texturas são um campo de altura determinístico aplicado à parede (sem CSG): 256 segmentos, passo de 1 mm, relevo positivo, faixa lisa na abraçadeira e texto elevado pelo envelope efetivo.
 
 ## Próximos passos (fora de escopo desta fase)
 

@@ -17,6 +17,11 @@ parede. O `buildRelief` passa a extrudar o envelope da textura para o nome ficar
 
 **Design aprovado:** `docs/plans/2026-11-18-porta-lata-texturas-design.md`.
 
+**Status:** executado. Os desvios encontrados durante a revisão (profundidade
+efetiva, `can-texture`, fades proporcionais, escamas com três fileiras, cone no
+pontiagudo, normais da emenda) estão registrados em "Desvios da implementação"
+no design.
+
 **Regras do projeto:** 1 unidade = 1 mm; sem `any`; sem código morto; commits
 semânticos; malha fechada e single-shell; build em worker; cor não rebuilda.
 
