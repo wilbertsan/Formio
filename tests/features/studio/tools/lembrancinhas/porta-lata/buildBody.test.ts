@@ -258,6 +258,7 @@ describe('can holder body', () => {
           return Math.hypot(position.getX(i), position.getZ(i)) >= outerR - 1e-4
         }
         let checked = 0
+        let maxRatio = 0
 
         const triangleAt = (a: number, b: number, c: number): void => {
           if (!wallVertex(a) || !wallVertex(b) || !wallVertex(c)) return
@@ -282,9 +283,7 @@ describe('can holder body', () => {
           const horizontal = Math.hypot(nx, nz)
           if (horizontal < 1e-9) return
           checked += 1
-          expect
-            .soft(Math.abs(ny) / horizontal, `${style}/${textureScale} em y=${ay}`)
-            .toBeLessThanOrEqual(1 + 1e-2)
+          maxRatio = Math.max(maxRatio, Math.abs(ny) / horizontal)
         }
 
         if (index) {
@@ -295,6 +294,7 @@ describe('can holder body', () => {
           for (let i = 0; i < position.count; i += 3) triangleAt(i, i + 1, i + 2)
         }
         expect.soft(checked, `${style}/${textureScale}`).toBeGreaterThan(1000)
+        expect.soft(maxRatio, `${style}/${textureScale}`).toBeLessThanOrEqual(1 + 1e-2)
         geometry.dispose()
       }
     }
