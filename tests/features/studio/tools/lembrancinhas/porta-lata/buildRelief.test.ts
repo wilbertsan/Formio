@@ -332,6 +332,22 @@ describe('buildRelief', () => {
     geometry.dispose()
   })
 
+  it('eleva o relevo acima do envelope da textura', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'wood' as const,
+      textureDepth: 1.5,
+    }
+    const geometry = buildRelief(rectangleFont(10, 4), params)!
+    const position = geometry.getAttribute('position')
+    let maxRadius = 0
+    for (let i = 0; i < position.count; i++) {
+      maxRadius = Math.max(maxRadius, Math.hypot(position.getX(i), position.getZ(i)))
+    }
+    expect(maxRadius).toBeCloseTo(getOuterRadius(params) + 1.5 + 1, 5)
+    geometry.dispose()
+  })
+
   it('texto vazio não gera geometria', () => {
     expect(buildRelief(rectangleFont(10, 10), { ...defaultCanHolderParams, text: '   ' })).toBeNull()
   })
