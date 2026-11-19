@@ -316,6 +316,11 @@ describe('StudioPanel (porta-lata)', () => {
     }
     expect(screen.getByText(TEXTURE_DISABLED_HINT)).toBeDefined()
 
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Profundidade da textura' }), {
+      key: 'ArrowRight',
+    })
+    expect(onUpdateParam).not.toHaveBeenCalled()
+
     fireEvent.change(screen.getByLabelText('Estilo da textura'), { target: { value: 'wood' } })
     expect(onUpdateParam).toHaveBeenCalledWith('textureStyle', 'wood')
 
@@ -353,11 +358,11 @@ describe('StudioPanel (porta-lata)', () => {
     ).toBeDefined()
   })
 
-  it('ignora um estilo de textura desconhecido', () => {
+  it('ignora uma mudança de estilo inválida', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
     fireEvent.change(screen.getByLabelText('Estilo da textura'), {
-      target: { value: 'sand' },
+      target: { value: '' },
     })
     expect(onUpdateParam).not.toHaveBeenCalled()
   })
