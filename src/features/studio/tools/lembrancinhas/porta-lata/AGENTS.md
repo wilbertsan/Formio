@@ -210,8 +210,9 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   contagem de células em θ é inteira,
   `max(3, round(circunferência / escala))` (~29 células de 7,87 mm na escala 8).
   Isso fecha a emenda em θ = 0/2π; as normais das duas colunas da emenda são
-  soldadas depois de `computeVertexNormals`.
-- Estilos: **madeira** tem veios verticais senoidais (≥ 6 veios) deformados por
+  soldadas depois de `computeVertexNormals` no `buildBody` e novamente no corpo
+  final depois do CSG do texto (que reindexa e recalcula as normais).
+- Estilos: **madeira** tem veios verticais senoidais (mínimo 3, ≥14 no schema) deformados por
   um warp lento em `y`; **metal** é um knurl de dois senos diagonais cruzados;
   **escamas** são calotas de 0,55 × escala em fileiras de 0,6 × escala,
   alternadas, avaliando três fileiras para não criar degrau; **onduladas** são
@@ -482,8 +483,8 @@ mostra erro no overlay.
   pedra usa interpolação suave e o preview serve de revisão. O relevo positivo
   mantém o pior caso imprimível.
 - **Emenda em θ:** a contagem de células é inteira e as funções são periódicas;
-  as normais das colunas duplicadas são soldadas. O teste compara alturas em
-  0 e 2π.
+  as normais das colunas duplicadas são soldadas no corpo final. O teste compara
+  alturas em 0 e 2π e as normais após o CSG.
 - **Flancos medidos:** o flanco nominal de 45° mede ~41,5° na malha por causa da
   discretização (passo de 1 mm e 256 segmentos), o que deixa margem para a
   impressão.

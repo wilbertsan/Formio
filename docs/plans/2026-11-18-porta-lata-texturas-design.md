@@ -32,7 +32,9 @@ O código entregue prevalece sobre as seções históricas deste design.
   `round(circunferência / escala)`, escala 8 → 29 células de 7,87 mm (−1,7%).
 - **Texto:** sobe pelo envelope efetivo, não pela profundidade pedida.
 - **Emenda:** as normais das colunas duplicadas em θ=0/2π são soldadas no
-  `buildBody`, senão o preview texturizado mostra uma linha de sombreamento.
+  `buildBody` e novamente no corpo final (`buildCanHolder`), porque o CSG do
+  texto reindexa e recalcula as normais; sem isso o preview texturizado mostra
+  uma linha de sombreamento.
 - **Resolução:** 256 segmentos e passo de 1 mm mantidos; o build completo
   texturado mediu ~0,8–1,1 s de CPU, abaixo do limiar de 2,5 s.
 - **Painel:** 7 seções e 19 sliders; linha "Profundidade efetiva: X mm (limitada
@@ -102,8 +104,8 @@ células em θ é inteira (`round(circunferência / escala)`), então a emenda e
 θ = 0/2π fecha.
 
 - **wood** — veios verticais sinuosos: seno em `u = θ/2π` com
-  `grain = max(6, round(circunferência / escala))` veios, deformado por um seno
-  lento em `y`. Metade do período vira vale.
+  `grain = max(3, round(circunferência / escala))` veios (mínimo real ~14 no
+  schema), deformado por um seno lento em `y`. Metade do período vira vale.
 - **metal** — knurled: duas famílias de sulcos diagonais cruzados, com
   `n = round(circunferência / escala)` células por volta; soma normalizada de
   dois senos cruzados em `u·n ± y/escala`.

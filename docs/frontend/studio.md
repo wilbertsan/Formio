@@ -326,7 +326,8 @@ Pipeline completo de geração do porta-lata 350 ml:
 3. **buildBody.ts** — `LatheGeometry` de 128 segmentos; com textura, a parede
    externa é localizada por `findOuterWall`, subdividida em passos de 1 mm e o
    lathe usa 256 segmentos; os vértices da parede são deslocados radialmente por
-   `textureDisplacement` e as normais da emenda θ=0/2π são soldadas. O perfil não
+   `textureDisplacement` e as normais da emenda θ=0/2π são soldadas (de novo no
+   `buildCanHolder`, depois do CSG do texto). O perfil não
    toca o eixo, então não há leques degenerados, mas a limpeza de triângulos
    colapsados roda como defesa e preserva position/normal/uv.
 4. **buildRelief.ts** — `textToShapes`/`shapesToGeometry`, subdivisão conforme
