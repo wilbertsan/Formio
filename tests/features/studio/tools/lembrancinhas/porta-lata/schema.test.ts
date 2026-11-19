@@ -99,6 +99,10 @@ describe('porta-lata schema', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimProtrusion: 1.5 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 4 }).success).toBe(true)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, edgeRimWidth: 14 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 0.4 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 1.5 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 4 }).success).toBe(true)
+    expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 16 }).success).toBe(true)
   })
 
   it('valida o estilo e as faixas da textura', () => {
@@ -205,6 +209,13 @@ describe('preset da lata e derivados', () => {
 
     const deep = { ...textured, textureDepth: 1.5 }
     expect(getMaxOuterDiameter(deep)).toBeCloseTo(75.6, 5)
+
+    const off = { ...defaultCanHolderParams, textureStyle: 'none' as const, textureDepth: 1.5 }
+    expect(getTextureEnvelope(off)).toBe(0)
+    expect(getMaxOuterDiameter(off)).toBeCloseTo(74.6, 5)
+
+    const noRings = { ...defaultCanHolderParams, edgeRimEnabled: false, textureStyle: 'wood' as const, textureDepth: 1.5 }
+    expect(getMaxOuterDiameter(noRings)).toBeCloseTo(75.6, 5)
   })
 
   it('desliga os anéis sem alterar o diâmetro externo', () => {

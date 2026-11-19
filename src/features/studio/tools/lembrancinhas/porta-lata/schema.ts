@@ -183,7 +183,7 @@ export function getTextureEnvelope(params: CanHolderGeometryParams): number {
   return params.textureStyle === 'none' ? 0 : params.textureDepth
 }
 
-/** Diâmetro externo do corpo com anéis e textura (não inclui o relevo do texto). */
+/** Diâmetro externo do corpo com o maior envelope (anel ou textura); não inclui o relevo do texto. */
 export function getMaxOuterDiameter(params: CanHolderGeometryParams): number {
   const envelope = Math.max(
     getEffectiveRingProtrusion(params),
