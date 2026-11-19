@@ -15,6 +15,7 @@ import {
   getEffectiveRimChamfer,
   getOuterHeight,
   getOuterRadius,
+  getTextureEnvelope,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import {
   shapesToGeometry,
@@ -340,11 +341,19 @@ describe('buildRelief', () => {
     }
     const geometry = buildRelief(rectangleFont(10, 4), params)!
     const position = geometry.getAttribute('position')
+    const envelope = getTextureEnvelope(params)
+    let minRadius = Infinity
     let maxRadius = 0
     for (let i = 0; i < position.count; i++) {
-      maxRadius = Math.max(maxRadius, Math.hypot(position.getX(i), position.getZ(i)))
+      const radius = Math.hypot(position.getX(i), position.getZ(i))
+      minRadius = Math.min(minRadius, radius)
+      maxRadius = Math.max(maxRadius, radius)
     }
-    expect(maxRadius).toBeCloseTo(getOuterRadius(params) + 1.5 + 1, 5)
+    expect(maxRadius).toBeCloseTo(
+      getOuterRadius(params) + envelope + CONTENT_DEPTH,
+      5,
+    )
+    expect(minRadius).toBeCloseTo(getOuterRadius(params) - RELIEF_EMBED, 5)
     geometry.dispose()
   })
 
