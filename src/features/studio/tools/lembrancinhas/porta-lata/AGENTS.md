@@ -200,10 +200,10 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   cavidade e furo ficam intactos; a topologia não muda e a parede continua
   fechada e single-shell.
 - A máscara combina o fade de borda e a faixa lisa da abraçadeira. O fade de
-  borda é `max(2 mm, 2 × depthEfetivo)`, limitado a 1/4 do comprimento da
+  borda é `max(2 mm, 3 × depthEfetivo)`, limitado a 1/4 do comprimento da
   parede. Com a alça ligada, a faixa
   `[handleHeight − handleWidth/2 − 1, handleHeight + handleWidth/2 + 1]` fica em
-  `outerR` (máscara 0), com fade de `max(2 mm, 2 × depthEfetivo)` nas duas
+  `outerR` (máscara 0), com fade de `max(2 mm, 3 × depthEfetivo)` nas duas
   pontas. Assim `getBandInnerRadius`, a folga e a interferência da alça
   continuam valendo.
 - O campo é determinístico: o hash é inteiro por célula (sem `Math.random`) e a
@@ -462,7 +462,7 @@ mostra erro no overlay.
 - **Relevo positivo:** a parede nominal é a mínima e os picos somam até a
   profundidade efetiva; não há entalhe nem risco de furar a parede.
 - **Faixa lisa na alça:** a região da abraçadeira fica em `outerR`, com fade de
-  2 mm ou `2 × depthEfetivo`, preservando `getBandInnerRadius`, a folga e a
+  2 mm ou `3 × depthEfetivo`, preservando `getBandInnerRadius`, a folga e a
   interferência do encaixe.
 - **Envelope máximo:** `getMaxOuterDiameter` usa o maior entre o salto do anel e
   o envelope da textura; o relevo do texto continua fora, como nas demais
@@ -485,9 +485,9 @@ mostra erro no overlay.
 - **Emenda em θ:** a contagem de células é inteira e as funções são periódicas;
   as normais das colunas duplicadas são soldadas no corpo final. O teste compara
   alturas em 0 e 2π e as normais após o CSG.
-- **Flancos medidos:** as facetas da parede medem no máximo ~43,6° (spikes,
-  escala 6, profundidade 1,5), abaixo do limite de 45°; a discretização de
-  1 mm × 256 segmentos é o que define o valor impresso.
+- **Flancos medidos:** as facetas da parede medem no máximo ~42,5° (spikes,
+  escala 6, profundidade 1,5, ombro da máscara), abaixo do limite de 45°; a
+  discretização de 1 mm × 256 segmentos é o que define o valor impresso.
 
 ## Fora de escopo
 

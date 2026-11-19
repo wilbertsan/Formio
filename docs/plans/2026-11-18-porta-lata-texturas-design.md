@@ -14,7 +14,7 @@ O código entregue prevalece sobre as seções históricas deste design.
   `escala / 4`; a validação continua consultiva. O design dizia "nenhum código
   novo".
 - **Fades proporcionais:** borda e faixa da alça usam
-  `max(2, 2 × profundidade efetiva)` (2–3 mm), limitados a 1/4 da parede, em vez
+  `max(2, 3 × profundidade efetiva)` (2–4,5 mm), limitados a 1/4 da parede, em vez
   de 2 mm fixos. A faixa da alça tem margem de 1 mm e transição igual à da borda.
 - **Escamas:** fileiras de `0,6 × escala` (design dizia 0,75), calota de
   `0,55 × escala` e avaliação de três fileiras, para eliminar o degrau na
@@ -26,7 +26,7 @@ O código entregue prevalece sobre as seções históricas deste design.
   direções.
 - **Pedra:** interpolação suave (smoothstep) em vez de bisel de 0,8 mm.
 - **Critério de impressão:** o campo tem componente vertical ≤ ~40°; as facetas
-  do mesh de 1 mm × 256 medem no máximo ~43,6° (spikes, escala 6, profundidade
+  do mesh de 1 mm × 256 medem no máximo ~42,5° (spikes, escala 6, profundidade
   1,5). A soma analítica da rampa da máscara com o flanco do padrão chega a
   ~52°, mas o artefato impresso é o mesh.
 - **Célula real:** a escala não é a largura exata da célula; com
