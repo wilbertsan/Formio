@@ -17,6 +17,7 @@ import {
   defaultCanHolderParams,
   getMaxOuterDiameter,
   getOuterHeight,
+  getOuterRadius,
   type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
@@ -123,17 +124,26 @@ describe('buildCanHolder', () => {
     disposeCanHolderResult(withoutText)
   })
 
-  it('une o texto a um corpo texturizado sem perder casca', () => {
+  it('une o texto sobre os picos da textura sem perder casca', () => {
     const params = {
       ...defaultCanHolderParams,
       textureStyle: 'scales' as const,
       textureDepth: 1.2,
+      textCenterY: 30,
     }
     const result = buildCanHolder(params, realFont())
     expect(isClosed(result.body)).toBe(true)
     expect(countShells(result.body)).toBe(1)
     expect(signedVolume(result.body)).toBeGreaterThan(0)
     expect(result.handle).not.toBeNull()
+
+    const position = result.body.getAttribute('position')
+    let maxRadius = 0
+    for (let i = 0; i < position.count; i++) {
+      maxRadius = Math.max(maxRadius, Math.hypot(position.getX(i), position.getZ(i)))
+    }
+    expect(maxRadius).toBeGreaterThan(getOuterRadius(params) + 1.2 * 0.9)
+
     disposeCanHolderResult(result)
   })
 
