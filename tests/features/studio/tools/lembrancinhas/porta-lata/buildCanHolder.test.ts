@@ -17,6 +17,7 @@ import {
   defaultCanHolderParams,
   getMaxOuterDiameter,
   getOuterHeight,
+  type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
@@ -122,6 +123,20 @@ describe('buildCanHolder', () => {
     disposeCanHolderResult(withoutText)
   })
 
+  it('une o texto a um corpo texturizado sem perder casca', () => {
+    const params = {
+      ...defaultCanHolderParams,
+      textureStyle: 'scales' as const,
+      textureDepth: 1.2,
+    }
+    const result = buildCanHolder(params, realFont())
+    expect(isClosed(result.body)).toBe(true)
+    expect(countShells(result.body)).toBe(1)
+    expect(signedVolume(result.body)).toBeGreaterThan(0)
+    expect(result.handle).not.toBeNull()
+    disposeCanHolderResult(result)
+  })
+
   it('sem texto devolve só o corpo de revolução com o furo', () => {
     const result = buildCanHolder({ ...defaultCanHolderParams, text: '' }, realFont())
     const height = getOuterHeight(defaultCanHolderParams)
@@ -148,7 +163,7 @@ describe('buildCanHolder', () => {
     disposeCanHolderResult(result)
   })
 
-  it.each([
+  it.each<{ name: string; params: Partial<CanHolderGeometryParams> }>([
     { name: 'cavidade rasa', params: { cavityDepth: 80 } },
     { name: 'cavidade profunda', params: { cavityDepth: 116 } },
     { name: 'folga mínima da lata', params: { canClearance: 0.5 } },
@@ -161,6 +176,8 @@ describe('buildCanHolder', () => {
       name: 'extremas combinadas',
       params: { wallThickness: 4, canClearance: 1.2, handleClearance: 0.5 },
     },
+    { name: 'textura de madeira', params: { textureStyle: 'wood', textureDepth: 1.2 } },
+    { name: 'textura pontiaguda', params: { textureStyle: 'spikes', textureDepth: 1.5 } },
   ])('fecha corpo e alça nos extremos ($name)', ({ params }) => {
     const result = buildCanHolder({ ...defaultCanHolderParams, ...params }, realFont())
 
