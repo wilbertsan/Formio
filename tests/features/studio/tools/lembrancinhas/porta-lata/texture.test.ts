@@ -5,6 +5,7 @@ import {
   textureMask,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/texture'
 import {
+  TEXTURE_EDGE_FADE_MM,
   TEXTURE_STYLES,
   defaultCanHolderParams,
   getEffectiveTextureDepth,
@@ -69,14 +70,16 @@ describe('texturas do porta-lata', () => {
     for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
       for (const textureScale of [4, 8, 16]) {
         const params = withParams({ textureStyle: style, textureDepth: 1.5, textureScale })
-        let previous = textureHeight(params, 0.7, WALL_MIN + 0.5)
-        for (let y = WALL_MIN + 0.6; y <= WALL_MAX - 0.5; y += 0.1) {
-          const height = textureHeight(params, 0.7, y)
-          expect.soft(
-            Math.abs(height - previous) / 0.1,
-            `${style}/${textureScale} em y=${y}`,
-          ).toBeLessThanOrEqual(1.05)
-          previous = height
+        for (const theta of [0, 0.7, 1.9, 3.1, 4.4, 5.8]) {
+          let previous = textureHeight(params, theta, WALL_MIN + 0.5)
+          for (let y = WALL_MIN + 0.6; y <= WALL_MAX - 0.5; y += 0.1) {
+            const height = textureHeight(params, theta, y)
+            expect.soft(
+              Math.abs(height - previous) / 0.1,
+              `${style}/${textureScale} em θ=${theta}/y=${y}`,
+            ).toBeLessThanOrEqual(1)
+            previous = height
+          }
         }
       }
     }
@@ -86,9 +89,10 @@ describe('texturas do porta-lata', () => {
     // Com a alça desligada a faixa lisa (53–67 mm) não existe, então o meio da
     // parede (55,6 mm) não é mascarado.
     const params = withParams({ textureStyle: 'wood', handleEnabled: false })
+    const fade = Math.max(TEXTURE_EDGE_FADE_MM, 2 * params.textureDepth)
     expect(textureMask(params, WALL_MIN, WALL_MIN, WALL_MAX)).toBe(0)
     expect(textureMask(params, WALL_MAX, WALL_MIN, WALL_MAX)).toBe(0)
-    expect(textureMask(params, WALL_MIN + 1, WALL_MIN, WALL_MAX)).toBeCloseTo(0.5, 2)
+    expect(textureMask(params, WALL_MIN + fade / 2, WALL_MIN, WALL_MAX)).toBeCloseTo(0.5, 2)
     expect(textureMask(params, (WALL_MIN + WALL_MAX) / 2, WALL_MIN, WALL_MAX)).toBeCloseTo(1, 6)
   })
 

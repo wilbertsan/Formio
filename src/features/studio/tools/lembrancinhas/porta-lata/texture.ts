@@ -186,7 +186,7 @@ export function textureMask(
   wallMax: number,
 ): number {
   const depth = getEffectiveTextureDepth(params)
-  const fade = Math.max(TEXTURE_EDGE_FADE_MM, 2 * depth)
+  const fade = Math.min(Math.max(TEXTURE_EDGE_FADE_MM, 2 * depth), (wallMax - wallMin) / 4)
   let mask = Math.min(
     smoothstep(wallMin, wallMin + fade, y),
     1 - smoothstep(wallMax - fade, wallMax, y),
