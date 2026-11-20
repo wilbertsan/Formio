@@ -72,8 +72,8 @@ export function unwrapCylinder(
   mesh: StlMesh,
   options: UnwrapOptions = {},
 ): UnwrappedTexture {
-  const columns = options.columns ?? 192
-  const rows = options.rows ?? 96
+  const columns = options.columns ?? 512
+  const rows = options.rows ?? 256
   const wallBandMm = options.wallBandMm ?? 99.2
   if (
     !Number.isInteger(columns) ||

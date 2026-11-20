@@ -126,6 +126,13 @@ describe('textureImport', () => {
     expect(Math.max(...map.data) - Math.min(...map.data)).toBeGreaterThan(100)
   })
 
+  it('usa 512 × 256 por padrão', () => {
+    const map = unwrapCylinder(readBinaryStl(syntheticCylinder()))
+    expect(map.width).toBe(512)
+    expect(map.height).toBe(256)
+    expect(map.data).toHaveLength(512 * 256)
+  })
+
   it('falha em buffer que não é STL binário', () => {
     expect(() => readBinaryStl(new ArrayBuffer(100))).toThrow()
   })
