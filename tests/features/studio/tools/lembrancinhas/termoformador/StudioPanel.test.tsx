@@ -17,6 +17,7 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByText('Restaurar')).toBeDefined()
     expect(screen.getByText('Tela')).toBeDefined()
     expect(screen.getByText('Malha')).toBeDefined()
+    expect(screen.getByText('Macho')).toBeDefined()
     expect(screen.getByText('Aparência')).toBeDefined()
     expect(screen.getByText('Validação')).toBeDefined()
   })
@@ -55,6 +56,32 @@ describe('StudioPanel (termoformador)', () => {
       key: 'ArrowRight',
     })
     expect(onUpdateParam).toHaveBeenCalledWith('wallThickness', 4.5)
+  })
+
+  it('renderiza a seção Macho e o slider', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText('Macho')).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Altura do corpo' })).toBeDefined()
+  })
+
+  it('mostra as métricas do macho', () => {
+    render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByText(/Diâmetro 160\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Altura 46\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Pega Ø46\.8 × 28\.1 mm/)).toBeDefined()
+    expect(
+      screen.getByText(/A tela é exportada plana; aqueça e pressione/),
+    ).toBeDefined()
+  })
+
+  it('atualiza a altura do corpo do macho', () => {
+    const onUpdateParam = vi.fn()
+    render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+    fireEvent.keyDown(
+      screen.getByRole('slider', { name: 'Altura do corpo' }),
+      { key: 'ArrowRight' },
+    )
+    expect(onUpdateParam).toHaveBeenCalledWith('plugHeight', 27)
   })
 
   it('atualiza o diâmetro ao usar o teclado no slider', () => {

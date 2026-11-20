@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from '@aws-amplify/ui-react'
+import { getPlugDimensions } from './buildPlug'
 import { getSupportDimensions } from './buildSupport'
 import { PLA_COLORS, type ThermoformerParams } from './schema'
 import { computeScreenPattern } from './screenPattern'
@@ -94,6 +95,7 @@ export function StudioPanel({
 }: StudioPanelProps) {
   const pattern = computeScreenPattern(params)
   const supportDims = getSupportDimensions(params)
+  const plugDims = getPlugDimensions(params)
 
   return (
     <View
@@ -156,6 +158,28 @@ export function StudioPanel({
               <LabeledSlider label="Largura do degrau" value={params.stepWidth} min={2} max={15} step={0.5} onChange={(value) => onUpdateParam('stepWidth', value)} />
               <LabeledSlider label="Folga da tela" value={params.fitClearance} min={0.1} max={0.6} step={0.1} onChange={(value) => onUpdateParam('fitClearance', value)} />
               <LabeledSlider label="Chanfro do suporte" value={params.edgeChamfer} min={0} max={3} step={0.1} onChange={(value) => onUpdateParam('edgeChamfer', value)} />
+            </Flex>
+          </Accordion.Content>
+        </Accordion.Item>
+
+        <Accordion.Item value="macho">
+          <Accordion.Trigger>
+            <Heading level={3} fontSize="small">Macho</Heading>
+            <Accordion.Icon />
+          </Accordion.Trigger>
+          <Accordion.Content>
+            <Flex direction="column" gap="xs">
+              <Text fontSize="xs" color="font.secondary">
+                Diâmetro {params.diameter.toFixed(1)} mm · Altura{' '}
+                {plugDims.height.toFixed(1)} mm · Pega Ø
+                {(plugDims.gripRadius * 2).toFixed(1)} ×{' '}
+                {plugDims.gripDepth.toFixed(1)} mm
+              </Text>
+              <LabeledSlider label="Altura do corpo" value={params.plugHeight} min={10} max={40} step={1} onChange={(value) => onUpdateParam('plugHeight', value)} />
+              <Text fontSize="xs" color="font.tertiary">
+                A tela é exportada plana; aqueça e pressione com o macho para
+                conformá-la na bacia.
+              </Text>
             </Flex>
           </Accordion.Content>
         </Accordion.Item>
