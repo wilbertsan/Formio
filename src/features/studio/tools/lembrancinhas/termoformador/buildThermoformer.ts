@@ -2,6 +2,7 @@ import type { BufferGeometry } from 'three'
 import { buildScreen } from './buildScreen'
 import { buildSupport, getSupportDimensions } from './buildSupport'
 import { buildPlug } from './buildPlug'
+import { getShapeOutline } from './outline'
 import type { ThermoformerGeometryParams } from './schema'
 
 export interface BuildThermoformerResult {
@@ -14,8 +15,11 @@ export interface BuildThermoformerResult {
 export function buildThermoformer(
   params: ThermoformerGeometryParams,
 ): BuildThermoformerResult {
+  const outline = getShapeOutline(params)
+  if (!outline) throw new Error('Contorno inválido para a forma selecionada')
+
   return {
-    screen: buildScreen(params),
+    screen: buildScreen(params, outline),
     support: buildSupport(params),
     plug: buildPlug(params),
     seatY: getSupportDimensions(params).seatY,

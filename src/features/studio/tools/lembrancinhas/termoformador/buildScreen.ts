@@ -1,13 +1,15 @@
 import { ExtrudeGeometry, type BufferGeometry } from 'three'
-import { circleShape, hexagonPath } from './shapes'
+import { hexagonPath } from './shapes'
 import { computeScreenPattern } from './screenPattern'
+import type { ShapeOutline } from './outline'
 import { SCREEN_SEGMENTS, type ThermoformerGeometryParams } from './schema'
 
 export function buildScreen(
   params: ThermoformerGeometryParams,
+  outline: ShapeOutline,
 ): BufferGeometry {
-  const shape = circleShape(params.diameter / 2)
-  const pattern = computeScreenPattern(params)
+  const shape = outline.shape
+  const pattern = computeScreenPattern(params, outline)
 
   for (const cell of pattern.cells) {
     shape.holes.push(hexagonPath(cell.x, cell.y, cell.radius))

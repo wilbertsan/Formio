@@ -7,6 +7,7 @@ import {
   serializeThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
 import { buildScreen } from '@/features/studio/tools/lembrancinhas/termoformador/buildScreen'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import { buildThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import type { BuildThermoformerResult } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
@@ -35,7 +36,10 @@ describe('workerGeometry', () => {
   })
 
   it('faz round-trip de geometria sem índice (caminho do buildScreen)', () => {
-    const geometry = buildScreen(defaultThermoformerParams)
+    const geometry = buildScreen(
+      defaultThermoformerParams,
+      getShapeOutline(defaultThermoformerParams)!,
+    )
     const { data, transfer } = serializeGeometry(geometry)
 
     expect(data.index).toBeNull()
