@@ -1,4 +1,8 @@
-import { pathsBoundingBox } from '../../confeitaria/shared/textOutline'
+import ClipperLib from 'js-clipper'
+import {
+  pathsBoundingBox,
+  type ClipperPoint,
+} from '../../confeitaria/shared/textOutline'
 import {
   MINIMUM_DRAFT_ANGLE_DEG,
   MINIMUM_PYRAMID_TIP_MM,
@@ -7,7 +11,12 @@ import {
   PLUG_GRIP_MIN_MATERIAL_MM,
   type ThermoformerGeometryParams,
 } from './schema'
-import type { ShapeOutline } from './outline'
+import {
+  offsetOutlinePaths,
+  pointInPaths,
+  type OutlineJoin,
+  type ShapeOutline,
+} from './outline'
 
 export interface TrayDimensions {
   outerBounds: ReturnType<typeof pathsBoundingBox>
@@ -30,8 +39,52 @@ export interface TrayDimensions {
   guideHeight: number
   gripRadius: number
   gripDepth: number
+  gripX: number
+  gripY: number
+  gripEnabled: boolean
   plugHeight: number
   plugTotalHeight: number
+}
+
+/**
+ * Centro da pega que mantém o disco do raio inteiro dentro do material. O
+ * centro do envelope não serve para contornos côncavos (C, L), onde ele cai
+ * no vão. O maior pedaço do encolhimento garante espaço para o cone; quando o
+ * encolhimento colapsa, a pega é desabilitada.
+ */
+function getGripCenter(
+  paths: ClipperPoint[][],
+  gripRadius: number,
+  join: OutlineJoin,
+): { x: number; y: number } | null {
+  const inset = offsetOutlinePaths(paths, -gripRadius, join)
+  if (inset.length === 0) return null
+  let largest = inset[0]
+  for (const path of inset) {
+    if (
+      Math.abs(ClipperLib.Clipper.Area(path)) >
+      Math.abs(ClipperLib.Clipper.Area(largest))
+    ) {
+      largest = path
+    }
+  }
+  const bounds = pathsBoundingBox([largest])
+  const candidates: Array<[number, number]> = [[
+    (bounds.minX + bounds.maxX) / 2,
+    (bounds.minY + bounds.maxY) / 2,
+  ]]
+  for (let ix = 1; ix < 8; ix++) {
+    for (let iy = 1; iy < 8; iy++) {
+      candidates.push([
+        bounds.minX + (bounds.width * ix) / 8,
+        bounds.minY + (bounds.height * iy) / 8,
+      ])
+    }
+  }
+  for (const [x, y] of candidates) {
+    if (pointInPaths(x, y, [largest])) return { x, y }
+  }
+  return null
 }
 
 export function getTrayDimensions(
@@ -92,10 +145,18 @@ export function getTrayDimensions(
     minScreen * 0.35,
     PLUG_GRIP_MAX_MM,
   )
-  const gripDepth = Math.min(
-    gripRadius * 1.2,
-    effectiveDepth + params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
+  const gripCenter = getGripCenter(
+    outline.paths ?? [],
+    gripRadius,
+    outline.join,
   )
+  const gripEnabled = gripCenter !== null
+  const gripDepth = gripEnabled
+    ? Math.min(
+        gripRadius * 1.2,
+        effectiveDepth + params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
+      )
+    : 0
 
   return {
     outerBounds: pathsBoundingBox(outline.supportOuter ?? []),
@@ -118,6 +179,9 @@ export function getTrayDimensions(
     guideHeight: screenBounds.height,
     gripRadius,
     gripDepth,
+    gripX: gripCenter?.x ?? 0,
+    gripY: gripCenter?.y ?? 0,
+    gripEnabled,
     plugHeight: params.plugHeight,
     plugTotalHeight: effectiveDepth + params.plugHeight,
   }

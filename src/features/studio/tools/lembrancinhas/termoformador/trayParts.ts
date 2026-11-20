@@ -77,9 +77,14 @@ export function buildTrayPlug(
     dims.contactY,
   )
   const united = csg(body, [protrusion], ADDITION)
+  if (!dims.gripEnabled) return united
   const grip = new ConeGeometry(dims.gripRadius, dims.gripDepth, 64)
   grip.rotateX(Math.PI)
-  grip.translate(0, dims.bodyTop - dims.gripDepth / 2, 0)
+  grip.translate(
+    dims.gripX,
+    dims.bodyTop - dims.gripDepth / 2,
+    -dims.gripY,
+  )
   grip.computeVertexNormals()
   return csg(united, [grip], SUBTRACTION)
 }

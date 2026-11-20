@@ -6,8 +6,15 @@ import {
   Vector3,
   type BufferGeometry,
 } from 'three'
-import { buildTraySupport } from '@/features/studio/tools/lembrancinhas/termoformador/trayParts'
-import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
+import {
+  buildTrayPlug,
+  buildTraySupport,
+} from '@/features/studio/tools/lembrancinhas/termoformador/trayParts'
+import {
+  getShapeOutline,
+  pointInPaths,
+  type ShapeOutline,
+} from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import { getTrayDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
@@ -18,19 +25,44 @@ const starSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <polygon points="50,3 61,38 98,38 68,59 79,95 50,73 21,95 32,59 2,38 39,38" fill="#000"/>
 </svg>`
 
+// Arcos concêntricos em (50, 50): barra de 17 mm, sem orelhas finas nas pontas.
+const thickC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M80.31 32.5 A35 35 0 1 0 80.31 67.5 L65.59 59 A18 18 0 1 1 65.59 41 Z" fill="#000"/>
+</svg>`
+
+const thinC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M80 30 A35 35 0 1 0 80 70 L73 63 A27 27 0 1 1 73 37 Z" fill="#000"/>
+</svg>`
+
+function svgOutline(svg: string, overrides: Record<string, number> = {}) {
+  const params = {
+    ...defaultThermoformerParams,
+    shape: 'svg' as const,
+    svgSize: 100,
+    svg,
+    ...overrides,
+  }
+  return { params, outline: getShapeOutline(params, parseSvg(svg))! }
+}
+
 /**
  * Alturas das faces sob um raio vertical em (x, z). Um raio que passa na
  * aresta compartilhada por dois triângulos do mesmo cap conta os dois; a
  * altura é única.
  */
-function supportHits(
-  support: BufferGeometry,
+function verticalHits(
+  geometry: BufferGeometry,
   x: number,
   z: number,
+  fromBelow = false,
 ): number[] {
   const material = new MeshBasicMaterial()
-  const mesh = new Mesh(support, material)
-  const ray = new Raycaster(new Vector3(x, 100, z), new Vector3(0, -1, 0))
+  const mesh = new Mesh(geometry, material)
+  const direction = fromBelow ? 1 : -1
+  const ray = new Raycaster(
+    new Vector3(x, fromBelow ? -100 : 100, z),
+    new Vector3(0, direction, 0),
+  )
   const heights: number[] = []
   for (const hit of ray.intersectObject(mesh)) {
     if (!heights.some((height) => Math.abs(height - hit.point.y) < 1e-4)) {
@@ -75,9 +107,9 @@ describe('buildTraySupport', () => {
     const topX = (recessBounds.maxX + dims.outerBounds.maxX) / 2
 
     const support = buildTraySupport(params, outline)
-    expect(supportHits(support, 0, 0)).toEqual([params.bottomThickness])
-    expect(supportHits(support, stepX, 0)).toEqual([dims.seatY])
-    expect(supportHits(support, topX, 0)).toEqual([dims.height])
+    expect(verticalHits(support, 0, 0)).toEqual([params.bottomThickness])
+    expect(verticalHits(support, stepX, 0)).toEqual([dims.seatY])
+    expect(verticalHits(support, topX, 0)).toEqual([dims.height])
     support.dispose()
   })
 
@@ -140,8 +172,8 @@ describe('buildTraySupport', () => {
     )
     const inside = { x: tip.x, y: tip.y * 0.75 }
     const support = buildTraySupport(params, outline)
-    expect(supportHits(support, inside.x, -inside.y)).toHaveLength(1)
-    expect(supportHits(support, inside.x, inside.y)).toHaveLength(0)
+    expect(verticalHits(support, inside.x, -inside.y)).toHaveLength(1)
+    expect(verticalHits(support, inside.x, inside.y)).toHaveLength(0)
     support.dispose()
   })
 
@@ -150,5 +182,177 @@ describe('buildTraySupport', () => {
     expect(() =>
       buildTraySupport(params, getShapeOutline(params)!),
     ).toThrow(/poligonais/)
+  })
+})
+
+function interiorPoint(outline: ShapeOutline): { x: number; y: number } {
+  const bounds = outline.bounds
+  for (let ix = 1; ix < 8; ix++) {
+    for (let iy = 1; iy < 8; iy++) {
+      const x = bounds.minX + (bounds.width * ix) / 8
+      const y = bounds.minY + (bounds.height * iy) / 8
+      if (pointInPaths(x, y, outline.paths!)) return { x, y }
+    }
+  }
+  throw new Error('sem ponto interno no contorno')
+}
+
+describe('buildTrayPlug', () => {
+  it('macho quadrado ocupa o contorno da tela e apoia a coroa no contato', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 120,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const plug = buildTrayPlug(params, outline)
+    plug.computeBoundingBox()
+    const box = plug.boundingBox!
+    expect(box.min.y).toBeCloseTo(params.bottomThickness + params.thickness, 2)
+    expect(box.max.y).toBeCloseTo(dims.bodyTop, 2)
+    expect(box.min.x).toBeCloseTo(-60, 2)
+    expect(box.max.x).toBeCloseTo(60, 2)
+    expect(box.min.z).toBeCloseTo(-60, 2)
+    expect(box.max.z).toBeCloseTo(60, 2)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+    plug.dispose()
+  })
+
+  it('coroa de contato fica no aro e a protrusão desce no centro', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 120,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const plug = buildTrayPlug(params, outline)
+
+    // Fora da abertura da cavidade o corpo começa em contactY.
+    expect(verticalHits(plug, 57, 0, true)).toEqual([dims.contactY])
+    // No centro a protrusão desce até o fundo deslocado pela tela e a pega
+    // abre o topo até bodyTop - gripDepth.
+    expect(verticalHits(plug, 0, 0, true)).toEqual([
+      params.bottomThickness + params.thickness,
+    ])
+    expect(verticalHits(plug, 0, 0)).toHaveLength(1)
+    expect(verticalHits(plug, 0, 0)[0]).toBeCloseTo(
+      dims.bodyTop - dims.gripDepth,
+      2,
+    )
+    plug.dispose()
+  })
+
+  it('macho da estrela fecha e a pega fica no material', () => {
+    const { params, outline } = svgOutline(starSvg, { plugHeight: 10 })
+    const dims = getTrayDimensions(params, outline)
+    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+
+    const plug = buildTrayPlug(params, outline)
+    plug.computeBoundingBox()
+    expect(plug.boundingBox!.max.y).toBeCloseTo(dims.bodyTop, 2)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+
+    expect(verticalHits(plug, dims.gripX, -dims.gripY, true)).toEqual([
+      params.bottomThickness + params.thickness,
+    ])
+    const hits = verticalHits(plug, dims.gripX, -dims.gripY)
+    expect(hits).toHaveLength(1)
+    expect(hits[0]).toBeCloseTo(dims.bodyTop - dims.gripDepth, 2)
+    plug.dispose()
+  })
+
+  it('macho do C grosso fecha e tira a pega do vazio', () => {
+    const { params, outline } = svgOutline(thickC, {
+      frameWidth: 2,
+      stepWidth: 2,
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
+    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+
+    const plug = buildTrayPlug(params, outline)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+
+    // O centro do envelope do C é vazio; a pega segura fica na barra.
+    expect(verticalHits(plug, 0, 0)).toHaveLength(0)
+    expect(verticalHits(plug, dims.gripX, -dims.gripY, true)).toEqual([
+      params.bottomThickness + params.thickness,
+    ])
+    const hits = verticalHits(plug, dims.gripX, -dims.gripY)
+    expect(hits).toHaveLength(1)
+    expect(hits[0]).toBeCloseTo(dims.bodyTop - dims.gripDepth, 2)
+    plug.dispose()
+  })
+
+  it('macho do C fino constrói sem pega e com topo plano', () => {
+    const { params, outline } = svgOutline(thinC, {
+      frameWidth: 2,
+      stepWidth: 2,
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(false)
+
+    const plug = buildTrayPlug(params, outline)
+    plug.computeBoundingBox()
+    expect(plug.boundingBox!.max.y).toBeCloseTo(dims.bodyTop, 2)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+
+    const inside = interiorPoint(outline)
+    const hits = verticalHits(plug, inside.x, -inside.y)
+    expect(hits.length).toBeGreaterThan(0)
+    expect(hits[hits.length - 1]).toBeCloseTo(dims.bodyTop, 2)
+    plug.dispose()
+  })
+
+  it('macho da pirâmide fecha e ocupa o envelope', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'pyramid' as const,
+      width: 120,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const plug = buildTrayPlug(params, outline)
+    plug.computeBoundingBox()
+    expect(plug.boundingBox!.max.y).toBeCloseTo(dims.bodyTop, 2)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+    plug.dispose()
+  })
+
+  it('macho retangular fecha e ocupa o envelope assimétrico', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'rectangle' as const,
+      width: 120,
+      height: 80,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const plug = buildTrayPlug(params, outline)
+    plug.computeBoundingBox()
+    const box = plug.boundingBox!
+    expect(box.min.x).toBeCloseTo(-60, 2)
+    expect(box.max.x).toBeCloseTo(60, 2)
+    expect(box.min.z).toBeCloseTo(-40, 2)
+    expect(box.max.z).toBeCloseTo(40, 2)
+    expect(box.max.y).toBeCloseTo(dims.bodyTop, 2)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+    plug.dispose()
   })
 })

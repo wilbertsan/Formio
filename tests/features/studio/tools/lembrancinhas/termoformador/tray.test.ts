@@ -1,8 +1,38 @@
 import { describe, it, expect } from 'vitest'
 import { getTrayDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
-import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
+import {
+  getShapeOutline,
+  pointInPaths,
+} from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
+import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import { pathsBoundingBox } from '@/features/studio/tools/confeitaria/shared/textOutline'
+
+const starSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,3 61,38 98,38 68,59 79,95 50,73 21,95 32,59 2,38 39,38" fill="#000"/>
+</svg>`
+
+// Arcos concêntricos em (50, 50): barra de 17 mm, sem orelhas finas nas pontas.
+// O C do plano não compartilha o centro entre os arcos e a abertura da cavidade
+// se divide em duas ilhas no degrau.
+const thickC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M80.31 32.5 A35 35 0 1 0 80.31 67.5 L65.59 59 A18 18 0 1 1 65.59 41 Z" fill="#000"/>
+</svg>`
+
+const thinC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M80 30 A35 35 0 1 0 80 70 L73 63 A27 27 0 1 1 73 37 Z" fill="#000"/>
+</svg>`
+
+function svgOutline(svg: string, overrides: Record<string, number> = {}) {
+  const params = {
+    ...defaultThermoformerParams,
+    shape: 'svg' as const,
+    svgSize: 100,
+    svg,
+    ...overrides,
+  }
+  return { params, outline: getShapeOutline(params, parseSvg(svg))! }
+}
 
 describe('getTrayDimensions', () => {
   it('deriva bandeja quadrada com degrau efetivo', () => {
@@ -83,5 +113,66 @@ describe('getTrayDimensions', () => {
     const outline = getShapeOutline(defaultThermoformerParams)!
     expect(() => getTrayDimensions(defaultThermoformerParams, outline))
       .toThrow('getTrayDimensions só aceita contornos poligonais')
+  })
+})
+
+describe('getTrayDimensions pega', () => {
+  it('centraliza a pega no quadrado', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 120,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
+    expect(dims.gripX).toBeCloseTo(0, 5)
+    expect(dims.gripY).toBeCloseTo(0, 5)
+    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+  })
+
+  it('centraliza a pega no retângulo', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'rectangle' as const,
+      width: 120,
+      height: 80,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
+    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+  })
+
+  it('mantém a pega dentro da estrela', () => {
+    const { params, outline } = svgOutline(starSvg, { plugHeight: 10 })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
+    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+  })
+
+  it('move a pega do C grosso para a barra de material', () => {
+    const { params, outline } = svgOutline(thickC, {
+      frameWidth: 2,
+      stepWidth: 2,
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    const centerX = (outline.bounds.minX + outline.bounds.maxX) / 2
+    const centerY = (outline.bounds.minY + outline.bounds.maxY) / 2
+    expect(pointInPaths(centerX, centerY, outline.paths!)).toBe(false)
+    expect(dims.gripEnabled).toBe(true)
+    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+  })
+
+  it('desabilita a pega quando o C é fino demais para o raio', () => {
+    const { params, outline } = svgOutline(thinC, {
+      frameWidth: 2,
+      stepWidth: 2,
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(false)
+    expect(dims.gripDepth).toBe(0)
   })
 })
