@@ -439,7 +439,7 @@ O script deve:
 node scripts/texture-import.mjs
 ```
 
-Esperado: dois arquivos gerados; `importedTextureData.ts` com ~350 KB e
+Esperado: dois arquivos gerados; `importedTextureData.ts` com ~344 KB / 336 KiB e
 `importedTextures.ts` com 14 entradas.
 
 **Step 3: conferir**
@@ -1052,7 +1052,7 @@ aviso de 45° e laço deslocado.
 **Step 3: `docs/frontend/studio.md`**
 
 Atualizar a seção Porta-lata: 20 estilos, módulos gerados, amostragem, offset,
-validação, UI e performance. Citar o limite do asset (~350 KB) e que os STLs não
+validação, UI e performance. Citar o limite do asset (~344 KB / 336 KiB) e que os STLs não
 vão para o bundle.
 
 **Step 4: design**

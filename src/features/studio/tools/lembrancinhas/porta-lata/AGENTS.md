@@ -251,7 +251,7 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   `mapa × nativeDepth`, então o relevo radial preserva a profundidade medida no
   STL e o padrão é esticado para a parede entre os anéis (~99 mm no default). A
   distorção horizontal resultante é de ~1,4–2,4× (até ~2,6× nos vales); é o preço
-de fechar 360° sem
+  de fechar 360° sem
   emenda e está documentada nos riscos.
 - O campo procedural é determinístico: o hash é inteiro por célula (sem
   `Math.random`) e a contagem de células em θ é inteira,
@@ -387,7 +387,7 @@ Parâmetros
 - `scripts/texture-import.mjs` lê os 14 STLs binários de `files/` e gera
   `importedTextures.ts` (metadados: id, label, profundidade nativa, inclinação,
   dimensões) e `importedTextureData.ts` (mapas em base64, 192 × 96, ~344 KB /
-336 KiB). O
+  336 KiB). O
   primeiro é importado por schema e painel; o segundo só por `texture.ts`, que
   roda no chunk do worker.
 - `readBinaryStl` valida o cabeçalho (84 bytes + 50 por triângulo) e devolve só
@@ -400,7 +400,7 @@ Parâmetros
   interior vem do miolo (25–75%) e as pontas saem enquanto a mediana se afasta
   mais de 0,8 mm, no máximo metade da altura de cada lado. A faixa útil fica em
   ~63–107 mm (12 rolos em 97–107 mm; os dois curtos em 63–64 mm; `v` estica
-para a parede, 0,93–1,57× na vertical).
+  para a parede, 0,93–1,57× na vertical).
 - O filtro de furo descarta células abaixo de `0,78 × maior raio da faixa
   final`; nos 14 o corte efetivo fica em 0,720–0,780 do raio máximo e os furos
   reais em 0,1–0,3. Células vazias são preenchidas pela média dos vizinhos (até
@@ -611,7 +611,7 @@ mostra erro no overlay.
   que o clamp procedural de `escala/4`, que reduziria drasticamente o relevo.
 - **u/v normalizado:** `u = θ/2π` fecha a volta sem emenda e `v` preenche a
   parede entre os anéis; o padrão é esticado (~1,4–2,4× na horizontal, até ~2,6×
-nos vales), aceito
+  nos vales), aceito
   em troca de uma textura contínua em 360°.
 - **Trim por mediana:** cortar flange/lip/taper pela mediana do raio é mais
   estável que detectar variação em θ; a tolerância de 0,8 mm é apertada, mas os
