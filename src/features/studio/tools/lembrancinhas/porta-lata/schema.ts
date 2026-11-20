@@ -225,9 +225,9 @@ export function getTextureEnvelope(params: CanHolderGeometryParams): number {
 }
 
 /**
- * Deslocamento do laço da alça para manter `MIN_LOOP_GAP_MM` de folga do
- * envelope da textura. Zero quando a folga nominal (`handleClearance` +
- * `HANDLE_LOOP_INSET`) já cobre o envelope.
+ * Deslocamento do laço da alça para preservar `MIN_LOOP_GAP_MM` de folga até
+ * o envelope da textura. Zero quando a folga nominal (`handleClearance` +
+ * `HANDLE_LOOP_INSET`) já preserva essa margem.
  */
 export function getLoopOffset(params: CanHolderGeometryParams): number {
   return Math.max(

@@ -135,8 +135,9 @@ export function getBandInnerRadius(
  * `buildHandle`, então a espessura acompanha o raio interno escalado.
  *
  * O `getLoopOffset` engrossa a abraçadeira para fora junto com o laço. O
- * raio interno (encaixe) não muda, e a sobreposição de ~1,5 mm com o anel é
- * preservada, porque a escala acompanha o nominal acrescido do offset.
+ * raio interno (encaixe) não muda, e a sobreposição com o anel é preservada
+ * porque a escala acompanha o nominal acrescido do offset: ~1,5 mm no meio e
+ * ~0,7 mm no topo.
  */
 export function getBandOuterRadius(
   params: CanHolderGeometryParams,
