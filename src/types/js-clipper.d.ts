@@ -3,6 +3,7 @@ declare module 'js-clipper' {
     ClipperOffset: new () => {
       AddPaths: (paths: Array<{ X: number; Y: number }[]>, joinType: number, endType: number) => void
       Execute: (solution: Array<{ X: number; Y: number }[]>, delta: number) => void
+      MiterLimit: number
     }
     Clipper: (new () => {
       AddPaths: (paths: Array<{ X: number; Y: number }[]>, polyType: number, closed: boolean) => void

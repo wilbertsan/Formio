@@ -18,6 +18,7 @@ export interface ShapeOutline {
   shape: Shape
   points: Vector2[]
   bounds: PathsBounds
+  effectiveStep: number
   radius: number | null
   paths: ClipperPoint[][] | null
   perforated: ClipperPoint[][] | null
@@ -27,28 +28,13 @@ export interface ShapeOutline {
   join: OutlineJoin
 }
 
-/**
- * `MiterLimit` existe no ClipperOffset do js-clipper, mas falta na declaração
- * de tipos do módulo. O limite 2 é o padrão; declará-lo mantém o miter
- * previsível nos cantos.
- */
-interface ClipperOffsetHandle {
-  AddPaths: (
-    paths: ClipperPoint[][],
-    joinType: number,
-    endType: number,
-  ) => void
-  Execute: (solution: ClipperPoint[][], delta: number) => void
-  MiterLimit: number
-}
-
 export function offsetOutlinePaths(
   paths: ClipperPoint[][],
   mm: number,
   join: OutlineJoin,
 ): ClipperPoint[][] {
   if (paths.length === 0) return []
-  const offset = new ClipperLib.ClipperOffset() as ClipperOffsetHandle
+  const offset = new ClipperLib.ClipperOffset()
   const solution = new ClipperLib.Paths()
   offset.AddPaths(
     paths,
@@ -117,6 +103,7 @@ function polygonOutline(
     shape,
     points,
     bounds: pathsBoundingBox(paths),
+    effectiveStep,
     radius: null,
     paths,
     perforated,
@@ -146,6 +133,8 @@ export function getShapeOutline(
           width: radius * 2,
           height: radius * 2,
         },
+        // O círculo mantém o degrau da LatheGeometry, sem depender da moldura.
+        effectiveStep: params.stepWidth,
         radius,
         paths: null,
         perforated: null,
