@@ -4,9 +4,12 @@ import { bodyProfile } from './shapes'
 import { textureDisplacement } from './texture'
 import {
   HOLDER_SEGMENTS,
+  IMPORTED_TEXTURE_RADIAL_SEGMENTS,
+  IMPORTED_TEXTURE_STEP_MM,
   TEXTURE_RADIAL_SEGMENTS,
   TEXTURE_STEP_MM,
   getInnerDiameter,
+  isImportedTexture,
   type CanHolderGeometryParams,
 } from './schema'
 
@@ -41,8 +44,8 @@ export function findOuterWall(profile: Vector2[], innerRadius: number): OuterWal
   return wall
 }
 
-function subdivideWall(profile: Vector2[], wall: OuterWall): Vector2[] {
-  const steps = Math.max(1, Math.ceil((wall.max - wall.min) / TEXTURE_STEP_MM))
+function subdivideWall(profile: Vector2[], wall: OuterWall, step: number): Vector2[] {
+  const steps = Math.max(1, Math.ceil((wall.max - wall.min) / step))
   const direction = profile[wall.index + 1].y >= profile[wall.index].y ? 1 : -1
   const points: Vector2[] = []
 
@@ -85,9 +88,13 @@ function displaceWall(
 }
 
 /** As colunas duplicadas da emenda só veem metade do leque, então a normal unilateral precisa ser soldada. */
-function weldSeamNormals(geometry: BufferGeometry, pointCount: number): void {
+function weldSeamNormals(
+  geometry: BufferGeometry,
+  pointCount: number,
+  segments: number,
+): void {
   const normal = geometry.getAttribute('normal') as BufferAttribute
-  const last = TEXTURE_RADIAL_SEGMENTS * pointCount
+  const last = segments * pointCount
   for (let j = 0; j < pointCount; j++) {
     const a = j
     const b = last + j
@@ -111,10 +118,15 @@ export function buildBody(params: CanHolderGeometryParams): BufferGeometry {
 
   const profile = bodyProfile(params)
   const wall = findOuterWall(profile, getInnerDiameter(params) / 2)
-  const subdividedProfile = subdivideWall(profile, wall)
-  const geometry = new LatheGeometry(subdividedProfile, TEXTURE_RADIAL_SEGMENTS)
+  const imported = isImportedTexture(params.textureStyle)
+  const segments = imported
+    ? IMPORTED_TEXTURE_RADIAL_SEGMENTS
+    : TEXTURE_RADIAL_SEGMENTS
+  const step = imported ? IMPORTED_TEXTURE_STEP_MM : TEXTURE_STEP_MM
+  const subdividedProfile = subdivideWall(profile, wall, step)
+  const geometry = new LatheGeometry(subdividedProfile, segments)
   displaceWall(geometry, params, wall)
   geometry.computeVertexNormals()
-  weldSeamNormals(geometry, subdividedProfile.length)
+  weldSeamNormals(geometry, subdividedProfile.length, segments)
   return removeDegenerateTriangles(geometry)
 }
