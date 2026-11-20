@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { BoxGeometry, BufferGeometry } from 'three'
+import { buildPlug, getPlugDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
 import type { BuildThermoformerResult } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import {
   exportThermoformerStl,
+  preparePlugForPrint,
   prepareScreenForPrint,
   prepareSupportForPrint,
 } from '@/features/studio/tools/lembrancinhas/termoformador/exportStl'
+import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 
 const { parseMock } = vi.hoisted(() => ({
   parseMock: vi.fn(() => new DataView(new ArrayBuffer(84))),
@@ -91,7 +94,7 @@ afterEach(() => {
 })
 
 describe('exportThermoformerStl', () => {
-  it('baixa tela e suporte como STLs separados com o nome do projeto', () => {
+  it('baixa tela, suporte e macho como STLs separados com o nome do projeto', () => {
     const { anchors, appendChildSpy, removeChildSpy, revokeObjectURL } = setupDownloadMocks()
     parseMock.mockClear()
     const result = buildResult()
@@ -100,29 +103,32 @@ describe('exportThermoformerStl', () => {
 
     exportThermoformerStl(result, 'Minha Tela!')
 
-    expect(anchors).toHaveLength(2)
+    expect(anchors).toHaveLength(3)
     expect(anchors.map((anchor) => anchor.download)).toEqual([
       'Minha-Tela-tela.stl',
       'Minha-Tela-suporte.stl',
+      'Minha-Tela-macho.stl',
     ])
     for (const anchor of anchors) {
       expect(anchor.href).toBe('blob:mock-url')
       expect(anchor.click).toHaveBeenCalledTimes(1)
     }
-    expect(revokeObjectURL).toHaveBeenCalledTimes(2)
+    expect(revokeObjectURL).toHaveBeenCalledTimes(3)
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url')
-    expect(appendChildSpy).toHaveBeenCalledTimes(2)
-    expect(removeChildSpy).toHaveBeenCalledTimes(2)
-    expect(parseMock).toHaveBeenCalledTimes(2)
+    expect(appendChildSpy).toHaveBeenCalledTimes(3)
+    expect(removeChildSpy).toHaveBeenCalledTimes(3)
+    expect(parseMock).toHaveBeenCalledTimes(3)
     expect(parseMock).toHaveBeenCalledWith(expect.anything(), { binary: true })
 
     const clones = cloneSpy.mock.results.map(({ value }) => value as BufferGeometry)
-    expect(cloneSpy).toHaveBeenCalledTimes(2)
-    expect(disposeSpy).toHaveBeenCalledTimes(2)
+    expect(cloneSpy).toHaveBeenCalledTimes(3)
+    expect(disposeSpy).toHaveBeenCalledTimes(3)
     expect(disposeSpy.mock.instances[0]).toBe(clones[0])
     expect(disposeSpy.mock.instances[1]).toBe(clones[1])
+    expect(disposeSpy.mock.instances[2]).toBe(clones[2])
     expect(disposeSpy.mock.instances).not.toContain(result.screen)
     expect(disposeSpy.mock.instances).not.toContain(result.support)
+    expect(disposeSpy.mock.instances).not.toContain(result.plug)
 
     cloneSpy.mockRestore()
     disposeSpy.mockRestore()
@@ -134,6 +140,7 @@ describe('exportThermoformerStl', () => {
     expect(anchors.map((anchor) => anchor.download)).toEqual([
       'termoformador-tela.stl',
       'termoformador-suporte.stl',
+      'termoformador-macho.stl',
     ])
   })
 })
@@ -187,5 +194,31 @@ describe('prepareSupportForPrint', () => {
     cloneSpy.mockRestore()
     geometry.dispose()
     print.dispose()
+  })
+})
+
+describe('preparePlugForPrint', () => {
+  it('gira o macho com o topo na mesa e centraliza', () => {
+    const params = defaultThermoformerParams
+    const plug = buildPlug(params)
+    const dims = getPlugDimensions(params)
+    const print = preparePlugForPrint(plug)
+    print.computeBoundingBox()
+
+    expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
+    expect(print.boundingBox!.max.y).toBeCloseTo(dims.height, 3)
+
+    const position = print.getAttribute('position')
+    let atBed = 0
+    for (let index = 0; index < position.count; index++) {
+      if (Math.abs(position.getY(index)) < 1e-3) atBed++
+    }
+    expect(atBed).toBeGreaterThan(100)
+
+    const original = plug.getAttribute('position')
+    expect(original.getY(0)).toBeCloseTo(dims.domeCenterY, 3)
+
+    print.dispose()
+    plug.dispose()
   })
 })

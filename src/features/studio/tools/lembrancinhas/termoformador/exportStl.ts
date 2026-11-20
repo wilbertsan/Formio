@@ -56,11 +56,21 @@ export function prepareSupportForPrint(
   return centerOnBed(geometry.clone())
 }
 
+export function preparePlugForPrint(
+  geometry: BufferGeometry,
+): BufferGeometry {
+  const print = geometry.clone()
+  print.rotateX(Math.PI)
+  return centerOnBed(print)
+}
+
 /**
- * Serializa tela e suporte como STLs binários separados e dispara os downloads.
+ * Serializa tela, suporte e macho como STLs binários separados e dispara os
+ * downloads.
  *
  * Cada peça é clonada e centralizada na mesa antes de ser exportada, então as
- * geometrias recebidas permanecem intactas para o preview.
+ * geometrias recebidas permanecem intactas para o preview. O macho é girado
+ * 180° para apoiar o topo plano na mesa, com o domo para cima, sem suportes.
  */
 export function exportThermoformerStl(
   result: BuildThermoformerResult,
@@ -69,4 +79,5 @@ export function exportThermoformerStl(
   const name = sanitizeFilename(projectName)
   downloadStl(prepareScreenForPrint(result.screen), `${name}-tela.stl`)
   downloadStl(prepareSupportForPrint(result.support), `${name}-suporte.stl`)
+  downloadStl(preparePlugForPrint(result.plug), `${name}-macho.stl`)
 }
