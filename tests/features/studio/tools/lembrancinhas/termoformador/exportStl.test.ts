@@ -79,6 +79,7 @@ function buildResult(): BuildThermoformerResult {
   return {
     screen: new BoxGeometry(160, 3, 160),
     support: new BoxGeometry(168.6, 27, 168.6),
+    plug: new BoxGeometry(160, 46, 160),
     seatY: 24,
   }
 }

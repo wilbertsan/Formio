@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
+import { getPlugDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { isClosed } from './geometryTestUtils'
 
@@ -19,6 +20,7 @@ describe('buildThermoformer', () => {
       .toBeCloseTo(dims.height, 5)
     expect(result.screen).toBeDefined()
     expect(result.support).toBeDefined()
+    expect(result.plug).toBeDefined()
 
     result.screen.computeBoundingBox()
     expect(result.screen.boundingBox!.max.y - result.screen.boundingBox!.min.y)
@@ -28,10 +30,16 @@ describe('buildThermoformer', () => {
     expect(result.support.boundingBox!.max.y)
       .toBeCloseTo(dims.height, 3)
 
+    result.plug.computeBoundingBox()
+    expect(result.plug.boundingBox!.max.y)
+      .toBeCloseTo(getPlugDimensions(defaultThermoformerParams).bodyTop, 3)
+
     expect(isClosed(result.screen)).toBe(true)
     expect(isClosed(result.support)).toBe(true)
+    expect(isClosed(result.plug)).toBe(true)
 
     result.screen.dispose()
     result.support.dispose()
+    result.plug.dispose()
   })
 })

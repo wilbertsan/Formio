@@ -67,6 +67,7 @@ function serializedScreen(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new THREE.BoxGeometry(160, 3, 160),
     support: new THREE.BoxGeometry(168.6, 27, 168.6),
+    plug: new THREE.BoxGeometry(160, 46, 160),
     seatY: 24,
   }).data
 }

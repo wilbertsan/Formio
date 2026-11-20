@@ -16,6 +16,7 @@ function serializedResult(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new BoxGeometry(160, 3, 160),
     support: new BoxGeometry(168.6, 27, 168.6),
+    plug: new BoxGeometry(160, 46, 160),
     seatY: 24,
   }).data
 }
@@ -24,6 +25,7 @@ function serializedDisc(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new CylinderGeometry(80, 80, 3, 64),
     support: new CylinderGeometry(84.3, 84.3, 27, 64),
+    plug: new CylinderGeometry(80, 80, 46, 64),
     seatY: 24,
   }).data
 }
@@ -131,6 +133,7 @@ describe('useThermoformer', () => {
       serializeThermoformerResult({
         screen: new BoxGeometry(160, 3, 160),
         support: new BoxGeometry(180, 30, 140),
+        plug: new BoxGeometry(160, 46, 160),
         seatY: 27,
       }).data,
     )

@@ -46,6 +46,7 @@ export function deserializeGeometry(data: SerializedGeometry): BufferGeometry {
 export interface SerializedThermoformerResult {
   screen: SerializedGeometry
   support: SerializedGeometry
+  plug: SerializedGeometry
   seatY: number
 }
 
@@ -54,14 +55,16 @@ export function serializeThermoformerResult(
 ): { data: SerializedThermoformerResult; transfer: ArrayBuffer[] } {
   const screen = serializeGeometry(result.screen)
   const support = serializeGeometry(result.support)
+  const plug = serializeGeometry(result.plug)
 
   return {
     data: {
       screen: screen.data,
       support: support.data,
+      plug: plug.data,
       seatY: result.seatY,
     },
-    transfer: [...screen.transfer, ...support.transfer],
+    transfer: [...screen.transfer, ...support.transfer, ...plug.transfer],
   }
 }
 
@@ -71,6 +74,7 @@ export function deserializeThermoformerResult(
   return {
     screen: deserializeGeometry(data.screen),
     support: deserializeGeometry(data.support),
+    plug: deserializeGeometry(data.plug),
     seatY: data.seatY,
   }
 }

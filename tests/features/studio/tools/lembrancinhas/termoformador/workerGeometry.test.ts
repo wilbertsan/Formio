@@ -69,28 +69,33 @@ describe('workerGeometry', () => {
     restored.dispose()
   })
 
-  it('faz round-trip das duas peças e do assento', () => {
+  it('faz round-trip das três peças e do assento', () => {
     const result: BuildThermoformerResult = {
       screen: new BoxGeometry(160, 3, 160),
       support: new BoxGeometry(168.6, 27, 168.6),
+      plug: new BoxGeometry(160, 46, 160),
       seatY: 24,
     }
     const { data, transfer } = serializeThermoformerResult(result)
 
-    expect(transfer.length).toBeGreaterThanOrEqual(4)
+    expect(transfer.length).toBeGreaterThanOrEqual(6)
     expect(data.seatY).toBe(24)
 
     const restored = deserializeThermoformerResult(data)
     restored.screen.computeBoundingBox()
     restored.support.computeBoundingBox()
+    restored.plug.computeBoundingBox()
     expect(restored.screen.boundingBox!.max.x).toBeCloseTo(80, 5)
     expect(restored.support.boundingBox!.max.y).toBeCloseTo(13.5, 5)
+    expect(restored.plug.boundingBox!.max.y).toBeCloseTo(23, 5)
     expect(restored.seatY).toBe(24)
 
     result.screen.dispose()
     result.support.dispose()
+    result.plug.dispose()
     restored.screen.dispose()
     restored.support.dispose()
+    restored.plug.dispose()
   })
 
   it('serializa o conjunto real com buffers copiados e sem duplicatas', () => {
@@ -100,7 +105,8 @@ describe('workerGeometry', () => {
 
     expect(data.screen.index).toBeNull()
     expect(data.support.index).not.toBeNull()
-    expect(transfer).toHaveLength(5)
+    expect(data.plug.index).not.toBeNull()
+    expect(transfer).toHaveLength(8)
     expect(new Set(transfer).size).toBe(transfer.length)
     expect(data.screen.position.buffer).not.toBe(sourcePosition.buffer)
     expect(data.screen.position.buffer).toBe(transfer[0])
@@ -111,5 +117,6 @@ describe('workerGeometry', () => {
 
     result.screen.dispose()
     result.support.dispose()
+    result.plug.dispose()
   })
 })
