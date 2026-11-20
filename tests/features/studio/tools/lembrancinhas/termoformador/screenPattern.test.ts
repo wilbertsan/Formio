@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeScreenPattern } from '@/features/studio/tools/lembrancinhas/termoformador/screenPattern'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import {
   MAX_SCREEN_OPENINGS,
   defaultThermoformerParams,
@@ -16,7 +17,7 @@ describe('computeScreenPattern', () => {
 
     for (const cell of pattern.cells) {
       expect(Math.hypot(cell.x, cell.y) + cell.radius).toBeLessThanOrEqual(
-        pattern.innerRadius + 1e-6,
+        pattern.innerRadius! + 1e-6,
       )
     }
   })
@@ -71,8 +72,24 @@ describe('computeScreenPattern', () => {
     expect(pattern.spacing - pattern.effectiveOpening).toBeCloseTo(1.2, 5)
     for (const cell of pattern.cells) {
       expect(Math.hypot(cell.x, cell.y) + cell.radius).toBeLessThanOrEqual(
-        pattern.innerRadius + 1e-6,
+        pattern.innerRadius! + 1e-6,
       )
     }
+  })
+
+  it('gera favos dentro de um quadrado', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 120,
+    }
+    const outline = getShapeOutline(params)!
+    const pattern = computeScreenPattern(params, outline)
+    expect(pattern.cells.length).toBeGreaterThan(50)
+    expect(pattern.innerBounds.width).toBeCloseTo(108, 0)
+    expect(pattern.cells.every((cell) =>
+      Math.abs(cell.x) + cell.radius <= 54 &&
+      Math.abs(cell.y) + cell.radius <= 54,
+    )).toBe(true)
   })
 })

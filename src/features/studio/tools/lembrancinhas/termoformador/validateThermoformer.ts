@@ -50,7 +50,10 @@ export function validateThermoformer(
       severity: 'warning',
       message: 'Nenhum favo cabe na área interna com a abertura atual. Reduza a abertura ou o aro.',
     })
-  } else if (params.opening >= pattern.innerRadius) {
+  } else if (
+    pattern.innerRadius !== null &&
+    params.opening >= pattern.innerRadius
+  ) {
     issues.push({
       code: 'screen-opening',
       severity: 'warning',
