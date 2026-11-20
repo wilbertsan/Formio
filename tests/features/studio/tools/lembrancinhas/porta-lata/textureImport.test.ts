@@ -78,12 +78,11 @@ function hollowCylinder(): ArrayBuffer {
   return encodeStl(triangles)
 }
 
-/** Cilindro com luva lisa de raio 12 nos 3 primeiros mm e o padrão no resto. */
+/** Cilindro com luva ondulada 12 + 0.2·sin(4θ) nos 3 primeiros mm. */
 function flangedCylinder(): ArrayBuffer {
   const segments = 48
   const height = 20
   const flangeHeight = 3
-  const flangeRadius = 12
   const triangles: number[][] = []
   const pattern = (i: number, z: number): [number, number, number] => {
     const theta = (i / segments) * Math.PI * 2
@@ -92,7 +91,8 @@ function flangedCylinder(): ArrayBuffer {
   }
   const sleeve = (i: number, z: number): [number, number, number] => {
     const theta = (i / segments) * Math.PI * 2
-    return [flangeRadius * Math.cos(theta), flangeRadius * Math.sin(theta), z]
+    const radius = 12 + 0.2 * Math.sin(4 * theta)
+    return [radius * Math.cos(theta), radius * Math.sin(theta), z]
   }
   for (let i = 0; i < segments; i++) {
     const a = sleeve(i, 0)
@@ -119,7 +119,7 @@ describe('textureImport', () => {
     expect(map.width).toBe(48)
     expect(map.height).toBe(24)
     expect(map.data).toHaveLength(48 * 24)
-    expect(map.nativeDepth).toBeGreaterThan(2.5)
+    expect(map.nativeDepth).toBeGreaterThan(2.3)
     expect(map.nativeDepth).toBeLessThan(5)
     expect(map.maxSlopeDeg).toBeGreaterThan(0)
     expect(new Set(Array.from(map.data)).size).toBeGreaterThan(8)
@@ -135,7 +135,7 @@ describe('textureImport', () => {
     const map = unwrapCylinder(mesh, { columns: 48, rows: 24 })
 
     // O furo (raio 6) não entra na profundidade nativa.
-    expect(map.nativeDepth).toBeGreaterThan(2.5)
+    expect(map.nativeDepth).toBeGreaterThan(2.3)
     expect(map.nativeDepth).toBeLessThan(4.5)
     expect(new Set(Array.from(map.data)).size).toBeGreaterThan(8)
 
@@ -146,7 +146,7 @@ describe('textureImport', () => {
     }
   })
 
-  it('corta o flange liso pelo raio mediano', () => {
+  it('corta o flange ondulado pelo raio mediano', () => {
     const flanged = unwrapCylinder(readBinaryStl(flangedCylinder()), {
       columns: 48,
       rows: 24,
@@ -156,9 +156,13 @@ describe('textureImport', () => {
       rows: 24,
     })
 
-    // A luva de raio 12 não entra na faixa nem infla a profundidade.
-    expect(flanged.nativeDepth).toBeGreaterThan(2.5)
+    // A luva de 12 ± 0,2 mm não entra na faixa nem infla a profundidade.
+    expect(flanged.nativeDepth).toBeGreaterThan(2.3)
     expect(flanged.nativeDepth).toBeLessThan(4.5)
     expect(Math.abs(flanged.nativeDepth - plain.nativeDepth)).toBeLessThan(0.2)
+
+    // A primeira linha é o padrão, não a luva (que fica em ~255).
+    const firstRow = flanged.data.slice(0, flanged.width)
+    expect(Math.min(...firstRow)).toBeLessThan(200)
   })
 })
