@@ -122,6 +122,9 @@ describe('exportThermoformerStl', () => {
 
     const clones = cloneSpy.mock.results.map(({ value }) => value as BufferGeometry)
     expect(cloneSpy).toHaveBeenCalledTimes(3)
+    expect(cloneSpy.mock.instances[0]).toBe(result.screen)
+    expect(cloneSpy.mock.instances[1]).toBe(result.support)
+    expect(cloneSpy.mock.instances[2]).toBe(result.plug)
     expect(disposeSpy).toHaveBeenCalledTimes(3)
     expect(disposeSpy.mock.instances[0]).toBe(clones[0])
     expect(disposeSpy.mock.instances[1]).toBe(clones[1])
@@ -198,8 +201,51 @@ describe('prepareSupportForPrint', () => {
 })
 
 describe('preparePlugForPrint', () => {
-  it('gira o macho com o topo na mesa e centraliza', () => {
+  it('gira o macho com a face plana na mesa e o domo para cima', () => {
     const params = defaultThermoformerParams
+    const plug = buildPlug(params)
+    const dims = getPlugDimensions(params)
+    const original = positions(plug)
+    const print = preparePlugForPrint(plug)
+    print.computeBoundingBox()
+
+    expect(print).not.toBe(plug)
+    expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
+    expect(print.boundingBox!.max.y).toBeCloseTo(dims.height, 3)
+
+    const position = print.getAttribute('position')
+    let topIndex = 0
+    let bedMaxRadius = 0
+    for (let index = 0; index < position.count; index++) {
+      if (position.getY(index) > position.getY(topIndex)) topIndex = index
+      if (Math.abs(position.getY(index)) < 1e-3) {
+        bedMaxRadius = Math.max(
+          bedMaxRadius,
+          Math.hypot(position.getX(index), position.getZ(index)),
+        )
+      }
+    }
+
+    // O topo é o ápice do domo, no eixo: o macho está com o domo para cima.
+    expect(Math.hypot(position.getX(topIndex), position.getZ(topIndex)))
+      .toBeLessThan(1e-3)
+    // A mesa toca o anel plano externo, não o ápice.
+    expect(bedMaxRadius).toBeCloseTo(dims.guideRadius - dims.chamfer, 3)
+    expect(Array.from(plug.getAttribute('position').array)).toEqual(
+      Array.from(original),
+    )
+
+    print.dispose()
+    plug.dispose()
+  })
+
+  it('mantém a altura de impressão nos extremos', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      diameter: 60,
+      plugHeight: 10,
+      bowlDepth: 5,
+    }
     const plug = buildPlug(params)
     const dims = getPlugDimensions(params)
     const print = preparePlugForPrint(plug)
@@ -207,16 +253,6 @@ describe('preparePlugForPrint', () => {
 
     expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
     expect(print.boundingBox!.max.y).toBeCloseTo(dims.height, 3)
-
-    const position = print.getAttribute('position')
-    let atBed = 0
-    for (let index = 0; index < position.count; index++) {
-      if (Math.abs(position.getY(index)) < 1e-3) atBed++
-    }
-    expect(atBed).toBeGreaterThan(100)
-
-    const original = plug.getAttribute('position')
-    expect(original.getY(0)).toBeCloseTo(dims.domeCenterY, 3)
 
     print.dispose()
     plug.dispose()
