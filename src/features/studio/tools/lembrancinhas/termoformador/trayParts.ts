@@ -31,13 +31,15 @@ export function buildTraySupport(
   params: ThermoformerGeometryParams,
   outline: ShapeOutline,
 ): BufferGeometry {
+  // Antes dos contornos para o círculo reportar o erro de forma, não o de
+  // contorno (o círculo não tem caminhos poligonais).
+  const dims = getTrayDimensions(params, outline)
   const outerPaths = singleContour(outline.supportOuter, 'externo do suporte')
   const recessPaths = singleContour(outline.recess, 'do rebaixo')
   const cavityPaths = singleContour(
     outline.cavityOpening,
     'da abertura da cavidade',
   )
-  const dims = getTrayDimensions(params, outline)
   const outer = extrudeOutline(outerPaths, dims.height, 0)
   const recess = extrudeOutline(
     recessPaths,
