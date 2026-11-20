@@ -118,14 +118,17 @@ describe('useThermoformer', () => {
     expect(result.current.geometry).not.toBeNull()
     expect(result.current.geometry!.screen).toBeDefined()
     expect(result.current.geometry!.support).toBeDefined()
+    expect(result.current.geometry!.plug).toBeDefined()
     expect(result.current.seatY).toBe(24)
+    expect(result.current.plugLift).toBeCloseTo(28, 5)
     expect(result.current.dimensions).toEqual({
       width: 168.6,
       height: 27,
       thickness: 168.6,
     })
-    // Suporte BoxGeometry(168.6, 27, 168.6): esfera envolvente de hypot(84.3, 13.5, 84.3).
-    expect(result.current.fitRadius).toBeCloseTo(Math.hypot(84.3, 13.5, 84.3), 1)
+    // União do suporte Box(168.6,27,168.6) com o macho Box(160,46,160)
+    // suspenso em 28 mm: esfera envolvente a partir da origem.
+    expect(result.current.fitRadius).toBeCloseTo(142.25, 1)
   })
 
   it('usa a bounding box do suporte, não o fallback dos parâmetros', () => {
@@ -146,15 +149,15 @@ describe('useThermoformer', () => {
     expect(result.current.seatY).toBe(27)
   })
 
-  it('enquadra pelo raio da esfera, não pela diagonal da AABB', () => {
+  it('enquadra a união do suporte com o macho suspenso', () => {
     const { factory, respond } = makeWorkerFixture(serializedDisc)
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
 
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
-    expect(result.current.fitRadius).toBeCloseTo(85.4, 1)
-    expect(result.current.fitRadius).toBeLessThan(100)
+    expect(result.current.fitRadius).toBeCloseTo(142.25, 1)
+    expect(result.current.fitRadius).toBeLessThan(247)
   })
 
   it('não rebuilda ao trocar apenas a cor', () => {
@@ -240,6 +243,7 @@ describe('useThermoformer', () => {
     const first = result.current.geometry!
     const disposeScreen = vi.spyOn(first.screen, 'dispose')
     const disposeSupport = vi.spyOn(first.support, 'dispose')
+    const disposePlug = vi.spyOn(first.plug, 'dispose')
 
     act(() => { result.current.updateParam('diameter', 200) })
     act(() => { vi.advanceTimersByTime(260) })
@@ -247,6 +251,7 @@ describe('useThermoformer', () => {
 
     expect(disposeScreen).toHaveBeenCalledTimes(1)
     expect(disposeSupport).toHaveBeenCalledTimes(1)
+    expect(disposePlug).toHaveBeenCalledTimes(1)
     expect(result.current.geometry).not.toBe(first)
   })
 
@@ -259,11 +264,13 @@ describe('useThermoformer', () => {
     const geometry = result.current.geometry!
     const disposeScreen = vi.spyOn(geometry.screen, 'dispose')
     const disposeSupport = vi.spyOn(geometry.support, 'dispose')
+    const disposePlug = vi.spyOn(geometry.plug, 'dispose')
 
     unmount()
 
     expect(disposeScreen).toHaveBeenCalled()
     expect(disposeSupport).toHaveBeenCalled()
+    expect(disposePlug).toHaveBeenCalled()
     expect(terminate).toHaveBeenCalled()
   })
 })

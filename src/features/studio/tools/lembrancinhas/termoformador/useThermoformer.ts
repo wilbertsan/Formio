@@ -6,11 +6,12 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Box3, Vector3 } from 'three'
+import { Box3, Sphere, Vector3 } from 'three'
 import type { BuildThermoformerResult } from './buildThermoformer'
 import { getSupportDimensions } from './buildSupport'
 import {
   defaultThermoformerParams,
+  PLUG_PREVIEW_GAP_MM,
   thermoformerParamsSchema,
   type ThermoformerGeometryParams,
   type ThermoformerParams,
@@ -73,6 +74,7 @@ export interface UseThermoformerResult {
   params: ThermoformerParams
   geometry: BuildThermoformerResult | null
   seatY: number
+  plugLift: number
   isBuilding: boolean
   error: string | null
   issues: ValidationIssue[]
@@ -174,6 +176,7 @@ export function useThermoformer(
   useEffect(() => () => {
     geometry?.screen.dispose()
     geometry?.support.dispose()
+    geometry?.plug.dispose()
   }, [geometry])
 
   useEffect(() => () => {
@@ -189,6 +192,11 @@ export function useThermoformer(
   const supportDims = useMemo(
     () => getSupportDimensions(buildParams),
     [buildParams],
+  )
+
+  const plugLift = useMemo(
+    () => supportDims.effectiveBowlDepth + PLUG_PREVIEW_GAP_MM,
+    [supportDims.effectiveBowlDepth],
   )
 
   const fallbackDimensions = useMemo(() => ({
@@ -225,9 +233,20 @@ export function useThermoformer(
         ),
       )
     }
-    geometry.support.computeBoundingSphere()
-    return Math.max(1, geometry.support.boundingSphere?.radius ?? 1)
-  }, [geometry, fallbackDimensions])
+
+    geometry.support.computeBoundingBox()
+    geometry.plug.computeBoundingBox()
+    const box = new Box3()
+    if (geometry.support.boundingBox) box.union(geometry.support.boundingBox)
+    if (geometry.plug.boundingBox) {
+      const plugBox = geometry.plug.boundingBox.clone()
+      plugBox.translate(new Vector3(0, plugLift, 0))
+      box.union(plugBox)
+    }
+
+    const sphere = box.getBoundingSphere(new Sphere())
+    return Math.max(1, sphere.center.length() + sphere.radius)
+  }, [geometry, plugLift, fallbackDimensions])
 
   const cameraPosition = useMemo((): [number, number, number] => {
     const distance = fitRadius * 2.2
@@ -257,6 +276,7 @@ export function useThermoformer(
     params,
     geometry,
     seatY,
+    plugLift,
     isBuilding,
     error,
     issues,
