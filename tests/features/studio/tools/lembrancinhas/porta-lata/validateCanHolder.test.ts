@@ -338,4 +338,27 @@ describe('validateCanHolder', () => {
     const boundary = withParams({ textureStyle: 'wood', textureDepth: 1, textureScale: 4 })
     expect(validateCanHolder(boundary).some((issue) => issue.code === 'can-texture')).toBe(false)
   })
+
+  it('não aplica o limite de escala aos importados', () => {
+    const imported = withParams({ textureStyle: 'paralelepipedos', textureDepth: 1.5, textureScale: 4 })
+    expect(
+      validateCanHolder(imported).some((issue) => issue.code === 'can-texture'),
+    ).toBe(false)
+  })
+
+  it('avisa a abertura da mão com textura profunda e alcance curto', () => {
+    const imported = withParams({
+      textureStyle: 'pedra_hexagonal',
+      handleReach: 30,
+      handleBand: 10,
+    })
+    expect(
+      validateCanHolder(imported).some((issue) => issue.code === 'can-handle-reach'),
+    ).toBe(true)
+  })
+
+  it('não inventa avisos novos para importados nos defaults', () => {
+    const imported = withParams({ textureStyle: 'tijolos_limpos' })
+    expect(validateCanHolder(imported)).toHaveLength(0)
+  })
 })

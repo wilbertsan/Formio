@@ -13,6 +13,7 @@ import {
   getOuterRadius,
   getRingWallBand,
   getTextBand,
+  isProceduralTexture,
   type CanHolderGeometryParams,
 } from './schema'
 import { getHandleMetrics } from './shapes'
@@ -171,8 +172,10 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
     }
   }
 
+  // Importados usam a profundidade nativa do mapa, não a escala procedural.
   if (
     params.textureStyle !== 'none' &&
+    isProceduralTexture(params.textureStyle) &&
     params.textureDepth > params.textureScale / 4 + BOUNDARY_EPSILON
   ) {
     issues.push({
