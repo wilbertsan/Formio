@@ -127,7 +127,7 @@ describe('buildSupport', () => {
     geometry.dispose()
   })
 
-  it('limita a profundidade para não furar a parede externa', () => {
+  it('limita a profundidade à semi-esfera para o macho poder ser retirado', () => {
     const params = {
       ...defaultThermoformerParams,
       diameter: 60,
@@ -139,8 +139,9 @@ describe('buildSupport', () => {
     const dims = getSupportDimensions(params)
 
     expect(dims.bowlDepthLimited).toBe(true)
+    expect(dims.effectiveBowlDepth).toBeCloseTo(dims.cavityTopRadius, 5)
     expect(dims.effectiveBowlDepth).toBeLessThan(60)
-    expect(dims.cavityWall).toBeCloseTo(0.8, 2)
+    expect(dims.cavityWall).toBeCloseTo(4, 5)
 
     const geometry = buildSupport(params)
     geometry.computeBoundingBox()
@@ -148,5 +149,19 @@ describe('buildSupport', () => {
     expect(isClosed(geometry)).toBe(true)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
     geometry.dispose()
+  })
+
+  it('não deixa a bacia passar da abertura', () => {
+    const dims = getSupportDimensions({
+      ...defaultThermoformerParams,
+      diameter: 60,
+      stepWidth: 15,
+      fitClearance: 0.6,
+      bowlDepth: 60,
+    })
+
+    expect(dims.effectiveBowlDepth).toBeCloseTo(15.6, 5)
+    expect(dims.effectiveBowlDepth).toBeLessThanOrEqual(dims.cavityTopRadius + 1e-9)
+    expect(dims.seatY).toBeCloseTo(15.6 + defaultThermoformerParams.bottomThickness, 5)
   })
 })

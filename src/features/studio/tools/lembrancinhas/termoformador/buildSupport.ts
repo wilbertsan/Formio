@@ -38,7 +38,9 @@ export function getSupportDimensions(
     ? maxCavityRadius
       + Math.sqrt(Math.max(0, maxCavityRadius ** 2 - requestedTop ** 2))
     : requestedDepth
-  const effectiveBowlDepth = Math.min(requestedDepth, depthLimit)
+  // A bacia não pode passar da abertura: acima da semi-esfera ela vira
+  // sobrequeda e o macho não poderia ser inserido/retirado.
+  const effectiveBowlDepth = Math.min(requestedDepth, depthLimit, requestedTop)
   const bowlDepthLimited = effectiveBowlDepth < requestedDepth - 1e-9
 
   const seatY = effectiveBowlDepth + params.bottomThickness

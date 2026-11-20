@@ -124,7 +124,7 @@ export function validateThermoformer(
     issues.push({
       code: 'support-depth',
       severity: 'warning',
-      message: `A profundidade da bacia foi limitada a ${support.effectiveBowlDepth.toFixed(1)} mm para manter a parede mínima.`,
+      message: `A profundidade da bacia foi limitada a ${support.effectiveBowlDepth.toFixed(1)} mm para manter a parede e a forma imprimível da bacia.`,
     })
   } else if (params.bowlDepth <= 0) {
     issues.push({

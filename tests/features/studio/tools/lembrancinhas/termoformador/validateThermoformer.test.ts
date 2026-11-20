@@ -139,6 +139,6 @@ describe('validateThermoformer', () => {
     expect(issues).toContainEqual(expect.objectContaining({ code: 'support-depth' }))
     const depth = issues.find((issue) => issue.code === 'support-depth')
     expect(depth).toEqual(expect.objectContaining({ severity: 'warning' }))
-    expect(depth!.message).toContain('45.1 mm')
+    expect(depth!.message).toContain('28.1 mm')
   })
 })
