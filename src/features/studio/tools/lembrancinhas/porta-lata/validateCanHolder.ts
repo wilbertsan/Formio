@@ -226,7 +226,7 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
       issues.push({
         code: 'can-handle-reach',
         severity: 'warning',
-        message: 'O alcance da alça não deixa abertura suficiente para a mão.',
+        message: 'O alcance da alça ou a textura profunda não deixa abertura suficiente para a mão.',
       })
     }
     if (params.handleClearance > HANDLE_FIT_INTERFERENCE) {

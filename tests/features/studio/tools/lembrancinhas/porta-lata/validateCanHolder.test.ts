@@ -361,4 +361,16 @@ describe('validateCanHolder', () => {
     const imported = withParams({ textureStyle: 'tijolos_limpos' })
     expect(validateCanHolder(imported)).toHaveLength(0)
   })
+
+  it('conta o offset da textura na abertura da mão', () => {
+    const imported = withParams({
+      textureStyle: 'pedra_hexagonal',
+      handleReach: 30,
+      handleBand: 5,
+    })
+    // Com offset a abertura fica ~15,07 mm e avisa; sem offset ficaria 17,2.
+    expect(
+      validateCanHolder(imported).some((issue) => issue.code === 'can-handle-reach'),
+    ).toBe(true)
+  })
 })
