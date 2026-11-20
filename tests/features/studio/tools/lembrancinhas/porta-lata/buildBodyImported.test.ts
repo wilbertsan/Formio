@@ -10,8 +10,8 @@ import {
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
-// Arquivo separado: os 14 corpos importados somam minutos de CPU sob carga e,
-// no mesmo arquivo, estouravam o watchdog de RPC do Vitest (`onTaskUpdate`).
+// Os 14 builds importados somam ~12 s; ficam em arquivo separado para não
+// estourar o watchdog de 60 s do Vitest em máquinas lentas.
 describe('can holder body com texturas importadas', () => {
   it.each(IMPORTED_TEXTURE_IDS)('fecha o corpo importado (%s)', (style) => {
     const params = { ...defaultCanHolderParams, textureStyle: style }

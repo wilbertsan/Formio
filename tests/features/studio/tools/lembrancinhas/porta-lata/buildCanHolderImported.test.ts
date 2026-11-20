@@ -41,6 +41,7 @@ describe('buildCanHolder com texturas importadas', () => {
     expect(result.handle).not.toBeNull()
     expect(isClosed(result.handle!)).toBe(true)
     expect(countShells(result.handle!)).toBe(1)
+    expect(signedVolume(result.handle!)).toBeGreaterThan(0)
     disposeCanHolderResult(result)
   })
 })
