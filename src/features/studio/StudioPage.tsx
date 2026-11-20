@@ -1188,6 +1188,7 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
     params,
     geometry,
     seatY,
+    plugLift,
     isBuilding,
     error,
     issues,
@@ -1257,7 +1258,9 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
             <ThermoformerPreview
               screen={geometry?.screen ?? null}
               support={geometry?.support ?? null}
+              plug={geometry?.plug ?? null}
               seatY={seatY}
+              plugLift={plugLift}
               color={params.color}
             />
           </Suspense>

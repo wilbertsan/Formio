@@ -464,6 +464,7 @@ describe('StudioPage', () => {
       expect.objectContaining({
         screen: expect.anything(),
         support: expect.anything(),
+        plug: expect.anything(),
         seatY: 24,
       }),
       'Projeto sem título',
