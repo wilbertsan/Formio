@@ -2,19 +2,14 @@ import {
   BufferGeometry,
   ExtrudeGeometry,
   Float32BufferAttribute,
-  Shape,
   ShapeUtils,
   Vector2,
 } from 'three'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import {
   pathsToShapes,
   type ClipperPoint,
 } from '../../confeitaria/shared/textOutline'
-
-function shapeOf(paths: ClipperPoint[][]): Shape | null {
-  const shapes = pathsToShapes(paths)
-  return shapes.length === 1 ? shapes[0] : null
-}
 
 /**
  * Extruda um contorno fechado entre `y` e `y + depth`.
@@ -25,14 +20,29 @@ export function extrudeOutline(
   depth: number,
   y: number,
 ): BufferGeometry {
-  const shape = shapeOf(paths)
-  if (!shape) return new BufferGeometry()
+  const shapes = pathsToShapes(paths)
+  if (shapes.length === 0) return new BufferGeometry()
 
-  const geometry = new ExtrudeGeometry(shape, {
+  const geometries = shapes.map((shape) => new ExtrudeGeometry(shape, {
     depth,
     bevelEnabled: false,
     curveSegments: 48,
-  })
+  }))
+
+  let geometry: BufferGeometry
+  if (geometries.length === 1) {
+    geometry = geometries[0]
+  } else {
+    const merged = mergeGeometries(geometries)
+    if (merged) {
+      geometries.forEach((part) => part.dispose())
+      geometry = merged
+    } else {
+      geometries.slice(1).forEach((part) => part.dispose())
+      geometry = geometries[0]
+    }
+  }
+
   geometry.rotateX(-Math.PI / 2)
   geometry.translate(0, y, 0)
   geometry.computeVertexNormals()
@@ -63,7 +73,14 @@ export function loftOutline(
 ): BufferGeometry {
   const topPath = topPaths[0]
   const bottomPath = bottomPaths[0]
-  if (!topPath || !bottomPath) return new BufferGeometry()
+  if (
+    topPaths.length !== 1 ||
+    bottomPaths.length !== 1 ||
+    !topPath ||
+    !bottomPath
+  ) {
+    return new BufferGeometry()
+  }
 
   const topContour = dropClosingPoint(toContour(topPath))
   const bottomContour = dropClosingPoint(toContour(bottomPath))

@@ -38,15 +38,19 @@ export function getTrayDimensions(
   params: ThermoformerGeometryParams,
   outline: ShapeOutline,
 ): TrayDimensions {
-  const screenBounds = pathsBoundingBox(outline.paths ?? [])
-  const openingBounds = pathsBoundingBox(outline.perforated ?? [])
+  if (outline.kind !== 'polygon') {
+    throw new Error('getTrayDimensions só aceita contornos poligonais')
+  }
+
+  const screenBounds = outline.bounds
+  const cavityBounds = pathsBoundingBox(outline.cavityOpening ?? [])
   const minScreen = Math.max(
     1e-6,
     Math.min(screenBounds.width, screenBounds.height),
   )
   const minOpening = Math.max(
     1e-6,
-    Math.min(openingBounds.width, openingBounds.height),
+    Math.min(cavityBounds.width, cavityBounds.height),
   )
   // O degrau efetivo já considera a moldura; a bandeja não o recalcula.
   const effectiveStep = outline.effectiveStep
