@@ -368,7 +368,7 @@ describe('validateCanHolder', () => {
       handleReach: 30,
       handleBand: 5,
     })
-    // Com offset a abertura fica ~15,07 mm e avisa; sem offset ficaria 17,2.
+    // Com offset a abertura fica ~15,07 mm e avisa; sem offset ficaria 17,7.
     expect(
       validateCanHolder(imported).some((issue) => issue.code === 'can-handle-reach'),
     ).toBe(true)
