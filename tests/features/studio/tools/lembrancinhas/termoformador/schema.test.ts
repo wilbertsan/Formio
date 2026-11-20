@@ -11,6 +11,13 @@ describe('termoformador schema', () => {
     expect(thermoformerParamsSchema.safeParse(defaultThermoformerParams).success).toBe(true)
     expect(defaultThermoformerParams).toMatchObject({
       productType: 'termoformador',
+      shape: 'circle',
+      width: 160,
+      height: 100,
+      svgSize: 160,
+      draftAngle: 5,
+      pyramidTip: 0.1,
+      svg: '',
       diameter: 160,
       thickness: 3,
       frameWidth: 6,
@@ -47,6 +54,15 @@ describe('termoformador schema', () => {
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, opening: 2 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, frameWidth: 1 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, frameWidth: 31 }).success).toBe(false)
+  })
+
+  it('rejeita forma desconhecida e dimensões de forma fora da faixa', () => {
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, shape: 'star' as never }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, width: 39 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, height: 301 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, svgSize: 301 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, draftAngle: 16 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, pyramidTip: 0.04 }).success).toBe(false)
   })
 
   it('rejeita productType diferente de termoformador', () => {

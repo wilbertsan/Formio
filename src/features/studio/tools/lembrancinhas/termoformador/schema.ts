@@ -21,9 +21,38 @@ export const PLUG_GRIP_MIN_MATERIAL_MM = 6
 export const PLUG_DOME_SEGMENTS = 32
 export const PLUG_PREVIEW_GAP_MM = 8
 
+export const THERMOFORMER_SHAPES = [
+  'circle',
+  'square',
+  'rectangle',
+  'pyramid',
+  'svg',
+] as const
+
+export type ThermoformerShape = (typeof THERMOFORMER_SHAPES)[number]
+
+export const MINIMUM_SHAPE_MM = 40
+export const MAXIMUM_SHAPE_MM = 300
+export const MINIMUM_SVG_SIZE_MM = 40
+export const MAXIMUM_SVG_SIZE_MM = 300
+export const MINIMUM_TRAY_BOTTOM_SCALE = 0.05
+export const MINIMUM_PYRAMID_TIP = 0.05
+export const MAXIMUM_PYRAMID_TIP = 0.3
+export const MINIMUM_PYRAMID_TIP_MM = 3
+export const MINIMUM_DRAFT_ANGLE_DEG = 2
+export const SVG_MAX_LENGTH = 2_000_000
+export const PLUG_GRIP_MAX_MM = 30
+
 export const thermoformerParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),
+  shape: z.enum(THERMOFORMER_SHAPES),
   diameter: z.number().min(60).max(300),
+  width: z.number().min(MINIMUM_SHAPE_MM).max(MAXIMUM_SHAPE_MM),
+  height: z.number().min(MINIMUM_SHAPE_MM).max(MAXIMUM_SHAPE_MM),
+  svgSize: z.number().min(MINIMUM_SVG_SIZE_MM).max(MAXIMUM_SVG_SIZE_MM),
+  draftAngle: z.number().min(0).max(15),
+  pyramidTip: z.number().min(MINIMUM_PYRAMID_TIP).max(MAXIMUM_PYRAMID_TIP),
+  svg: z.string().max(SVG_MAX_LENGTH),
   thickness: z.number().min(1.2).max(6),
   frameWidth: z.number().min(2).max(30),
   lineWidth: z.number().min(0.4).max(4),
@@ -45,7 +74,14 @@ export type ThermoformerGeometryParams = Omit<ThermoformerParams, 'color'>
 
 export const defaultThermoformerParams: ThermoformerParams = {
   productType: PRODUCT_TYPE,
+  shape: 'circle',
   diameter: 160,
+  width: 160,
+  height: 100,
+  svgSize: 160,
+  draftAngle: 5,
+  pyramidTip: 0.1,
+  svg: '',
   thickness: 3,
   frameWidth: 6,
   lineWidth: 0.4,

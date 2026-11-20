@@ -11,6 +11,12 @@ import type { BuildThermoformerResult } from './buildThermoformer'
 import { getSupportDimensions } from './buildSupport'
 import {
   defaultThermoformerParams,
+  MAXIMUM_PYRAMID_TIP,
+  MAXIMUM_SHAPE_MM,
+  MAXIMUM_SVG_SIZE_MM,
+  MINIMUM_PYRAMID_TIP,
+  MINIMUM_SHAPE_MM,
+  MINIMUM_SVG_SIZE_MM,
   PLUG_PREVIEW_GAP_MM,
   thermoformerParamsSchema,
   type ThermoformerGeometryParams,
@@ -40,6 +46,11 @@ const NUMERIC_RANGES: Partial<Record<keyof ThermoformerParams, { min: number; ma
   fitClearance: { min: 0.1, max: 0.6 },
   edgeChamfer: { min: 0, max: 3 },
   plugHeight: { min: 10, max: 40 },
+  width: { min: MINIMUM_SHAPE_MM, max: MAXIMUM_SHAPE_MM },
+  height: { min: MINIMUM_SHAPE_MM, max: MAXIMUM_SHAPE_MM },
+  svgSize: { min: MINIMUM_SVG_SIZE_MM, max: MAXIMUM_SVG_SIZE_MM },
+  draftAngle: { min: 0, max: 15 },
+  pyramidTip: { min: MINIMUM_PYRAMID_TIP, max: MAXIMUM_PYRAMID_TIP },
 }
 
 function clampValue(key: keyof ThermoformerParams, value: number): number {
@@ -100,7 +111,14 @@ export function useThermoformer(
 
   const {
     productType,
+    shape,
     diameter,
+    width,
+    height,
+    svgSize,
+    draftAngle,
+    pyramidTip,
+    svg,
     thickness,
     frameWidth,
     lineWidth,
@@ -116,7 +134,14 @@ export function useThermoformer(
 
   const buildParams = useMemo<ThermoformerGeometryParams>(() => ({
     productType,
+    shape,
     diameter,
+    width,
+    height,
+    svgSize,
+    draftAngle,
+    pyramidTip,
+    svg,
     thickness,
     frameWidth,
     lineWidth,
@@ -130,7 +155,14 @@ export function useThermoformer(
     plugHeight,
   }), [
     productType,
+    shape,
     diameter,
+    width,
+    height,
+    svgSize,
+    draftAngle,
+    pyramidTip,
+    svg,
     thickness,
     frameWidth,
     lineWidth,

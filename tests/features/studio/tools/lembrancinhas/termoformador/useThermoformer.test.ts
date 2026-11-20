@@ -81,12 +81,16 @@ describe('useThermoformer', () => {
       result.current.updateParam('lineWidth', 9)
       result.current.updateParam('opening', 1)
       result.current.updateParam('plugHeight', 99)
+      result.current.updateParam('width', 999)
+      result.current.updateParam('draftAngle', -1)
     })
     expect(result.current.params.diameter).toBe(300)
     expect(result.current.params.thickness).toBe(1.2)
     expect(result.current.params.lineWidth).toBe(4)
     expect(result.current.params.opening).toBe(3)
     expect(result.current.params.plugHeight).toBe(40)
+    expect(result.current.params.width).toBe(300)
+    expect(result.current.params.draftAngle).toBe(0)
   })
 
   it('envia ao worker após o debounce e aplica a geometria', () => {
@@ -99,6 +103,13 @@ describe('useThermoformer', () => {
     expect(result.current.isBuilding).toBe(true)
     expect(getParams()).toEqual({
       productType: 'termoformador',
+      shape: 'circle',
+      width: 160,
+      height: 100,
+      svgSize: 160,
+      draftAngle: 5,
+      pyramidTip: 0.1,
+      svg: '',
       diameter: 160,
       thickness: 3,
       frameWidth: 6,
