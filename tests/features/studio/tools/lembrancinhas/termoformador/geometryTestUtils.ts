@@ -69,3 +69,37 @@ export function signedVolume(geometry: BufferGeometry): number {
 
   return volume
 }
+
+const ZERO_AREA_EPSILON = 1e-9
+
+/**
+ * Conta triângulos colineares (área ≤ 1e-9 mm²). O CSG e o reparo de
+ * T-junction não devem emitir triângulos sem área.
+ */
+export function countZeroAreaTriangles(geometry: BufferGeometry): number {
+  const position = geometry.getAttribute('position')
+  const index = geometry.getIndex()
+  const count = index ? index.count : position.count
+  let total = 0
+
+  for (let i = 0; i < count; i += 3) {
+    const ia = index ? index.getX(i) : i
+    const ib = index ? index.getX(i + 1) : i + 1
+    const ic = index ? index.getX(i + 2) : i + 2
+    const ax = position.getX(ia)
+    const ay = position.getY(ia)
+    const az = position.getZ(ia)
+    const ux = position.getX(ib) - ax
+    const uy = position.getY(ib) - ay
+    const uz = position.getZ(ib) - az
+    const vx = position.getX(ic) - ax
+    const vy = position.getY(ic) - ay
+    const vz = position.getZ(ic) - az
+    const cx = uy * vz - uz * vy
+    const cy = uz * vx - ux * vz
+    const cz = ux * vy - uy * vx
+    if (0.5 * Math.hypot(cx, cy, cz) <= ZERO_AREA_EPSILON) total++
+  }
+
+  return total
+}

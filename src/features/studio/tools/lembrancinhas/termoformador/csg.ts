@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry } from 'three'
+import { BufferAttribute, BufferGeometry, ShapeUtils, Vector2 } from 'three'
 import { ADDITION, Brush, SUBTRACTION } from 'three-bvh-csg'
 import { createConformingEvaluator } from '../shared/csg'
 import { removeDegenerateTriangles } from '../shared/geometryCleanup'
@@ -7,6 +7,7 @@ const POSITION_DECIMALS = 4
 const ZERO_EPSILON = 5e-5
 const ON_EDGE_TOLERANCE = 1e-4
 const ENDPOINT_EPSILON = 1e-4
+const AREA_EPSILON = 1e-9
 
 interface VertexPoint {
   index: number
@@ -15,11 +16,23 @@ interface VertexPoint {
   z: number
 }
 
+interface EdgeOwner {
+  triangle: number
+  fromKey: string
+  toKey: string
+}
+
 function assertNonEmpty(geometry: BufferGeometry, label: string): void {
   const position = geometry.getAttribute('position')
-  if (!position || position.count === 0) {
+  const index = geometry.getIndex()
+  const count = index ? index.count : (position?.count ?? 0)
+  if (!position || count < 3) {
     throw new Error(`csg: geometria vazia (${label})`)
   }
+}
+
+function edgeKey(a: string, b: string): string {
+  return a < b ? `${a}|${b}` : `${b}|${a}`
 }
 
 /**
@@ -28,11 +41,14 @@ function assertNonEmpty(geometry: BufferGeometry, label: string): void {
  * O splitter CDT preserva o cap inteiro de um lado e o divide do outro quando
  * uma aresta reta longa recebe um vértice intermediário (estrelas e SVGs
  * côncavos). A aresta longa fica sem par e a malha não fecha. Aqui os vértices
- * que estão sobre arestas abertas são inseridos no triângulo vizinho por um
- * leque, sem criar posições novas. A chave é a mesma de
+ * que estão sobre arestas abertas são inseridos no triângulo vizinho, sem criar
+ * posições novas e sem emitir triângulos colineares. A chave é a mesma de
  * `removeDegenerateTriangles` e do verificador de manifold (1e-4 mm).
+ *
+ * Arestas não manifold (mais de dois triângulos) não entram no reparo; o CSG
+ * não deve esconder esse defeito.
  */
-function splitTJunctions(geometry: BufferGeometry): void {
+export function splitTJunctions(geometry: BufferGeometry): void {
   const position = geometry.getAttribute('position')
   const index = geometry.getIndex()
   if (!index) return
@@ -53,26 +69,36 @@ function splitTJunctions(geometry: BufferGeometry): void {
     return key
   }
 
+  const triangleCount = Math.floor(index.count / 3)
   const edgeCounts = new Map<string, number>()
-  const edges = [[0, 1], [1, 2], [2, 0]] as const
-  for (let i = 0; i < index.count; i += 3) {
+  const edgeOwners = new Map<string, EdgeOwner>()
+  const corners = [[0, 1], [1, 2], [2, 0]] as const
+  for (let triangle = 0; triangle < triangleCount; triangle++) {
+    const base = triangle * 3
     const keys = [
-      keyAt(index.getX(i)),
-      keyAt(index.getX(i + 1)),
-      keyAt(index.getX(i + 2)),
+      keyAt(index.getX(base)),
+      keyAt(index.getX(base + 1)),
+      keyAt(index.getX(base + 2)),
     ]
-    for (const [from, to] of edges) {
-      const a = keys[from]
-      const b = keys[to]
-      const key = a < b ? `${a}|${b}` : `${b}|${a}`
+    for (const [from, to] of corners) {
+      const key = edgeKey(keys[from], keys[to])
       edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1)
+      if (!edgeOwners.has(key)) {
+        edgeOwners.set(key, {
+          triangle,
+          fromKey: keys[from],
+          toKey: keys[to],
+        })
+      }
     }
   }
 
   const candidateKeys = new Set<string>()
-  for (const [edge, count] of edgeCounts) {
-    if (count === 2) continue
-    const [a, b] = edge.split('|')
+  for (const [key, count] of edgeCounts) {
+    // Só arestas abertas; arestas com mais de dois triângulos (não manifold)
+    // ficam intactas.
+    if (count !== 1) continue
+    const [a, b] = key.split('|')
     candidateKeys.add(a)
     candidateKeys.add(b)
   }
@@ -84,12 +110,12 @@ function splitTJunctions(geometry: BufferGeometry): void {
     if (point) candidates.push({ ...point, key })
   }
 
-  const interior = (
+  const interiorPoints = (
     fromKey: string,
     toKey: string,
     from: VertexPoint,
     to: VertexPoint,
-  ): Array<{ point: VertexPoint; t: number }> => {
+  ): VertexPoint[] => {
     const dx = to.x - from.x
     const dy = to.y - from.y
     const dz = to.z - from.z
@@ -115,40 +141,161 @@ function splitTJunctions(geometry: BufferGeometry): void {
       found.push({ point: candidate, t })
     }
     found.sort((a, b) => a.t - b.t)
-    return found
+    return found.map((item) => item.point)
+  }
+
+  // Só os triângulos donos de uma aresta aberta longa entram no cálculo.
+  const insertions = new Map<number, Map<string, VertexPoint[]>>()
+  for (const [key, count] of edgeCounts) {
+    if (count !== 1) continue
+    const owner = edgeOwners.get(key)
+    if (!owner) continue
+    const from = points.get(owner.fromKey)
+    const to = points.get(owner.toKey)
+    if (!from || !to) continue
+    const pointsOnEdge = interiorPoints(owner.fromKey, owner.toKey, from, to)
+    if (pointsOnEdge.length === 0) continue
+    const perTriangle = insertions.get(owner.triangle) ?? new Map()
+    perTriangle.set(key, pointsOnEdge)
+    insertions.set(owner.triangle, perTriangle)
+  }
+  if (insertions.size === 0) return
+
+  const areaOf = (a: number, b: number, c: number): number => {
+    const ax = position.getX(a)
+    const ay = position.getY(a)
+    const az = position.getZ(a)
+    const ux = position.getX(b) - ax
+    const uy = position.getY(b) - ay
+    const uz = position.getZ(b) - az
+    const vx = position.getX(c) - ax
+    const vy = position.getY(c) - ay
+    const vz = position.getZ(c) - az
+    const cx = uy * vz - uz * vy
+    const cy = uz * vx - ux * vz
+    const cz = ux * vy - uy * vx
+    return 0.5 * Math.hypot(cx, cy, cz)
+  }
+
+  const normalOf = (
+    a: number,
+    b: number,
+    c: number,
+  ): [number, number, number] => {
+    const ax = position.getX(a)
+    const ay = position.getY(a)
+    const az = position.getZ(a)
+    const ux = position.getX(b) - ax
+    const uy = position.getY(b) - ay
+    const uz = position.getZ(b) - az
+    const vx = position.getX(c) - ax
+    const vy = position.getY(c) - ay
+    const vz = position.getZ(c) - az
+    return [
+      uy * vz - uz * vy,
+      uz * vx - ux * vz,
+      ux * vy - uy * vx,
+    ]
   }
 
   const result: number[] = []
-  for (let i = 0; i < index.count; i += 3) {
-    const ia = index.getX(i)
-    const ib = index.getX(i + 1)
-    const ic = index.getX(i + 2)
-    const ka = keyAt(ia)
-    const kb = keyAt(ib)
-    const kc = keyAt(ic)
-    const boundary: number[] = [ia]
-    const corners = [ia, ib, ic]
-    const cornerKeys = [ka, kb, kc]
-    for (let corner = 0; corner < 3; corner++) {
-      const next = (corner + 1) % 3
-      const from = points.get(cornerKeys[corner])!
-      const to = points.get(cornerKeys[next])!
-      for (const { point } of interior(
-        cornerKeys[corner],
-        cornerKeys[next],
-        from,
-        to,
-      )) {
-        boundary.push(point.index)
-      }
-      if (next !== 0) boundary.push(corners[next])
+  const pushTriangle = (
+    a: number,
+    b: number,
+    c: number,
+    faceNormal: [number, number, number],
+  ): void => {
+    if (areaOf(a, b, c) <= AREA_EPSILON) {
+      throw new Error('csg: T-junction gerou triângulo sem área')
     }
-    if (boundary.length === 3) {
-      result.push(boundary[0], boundary[1], boundary[2])
+    const normal = normalOf(a, b, c)
+    const dot =
+      normal[0] * faceNormal[0] +
+      normal[1] * faceNormal[1] +
+      normal[2] * faceNormal[2]
+    if (dot < 0) result.push(a, c, b)
+    else result.push(a, b, c)
+  }
+
+  for (let triangle = 0; triangle < triangleCount; triangle++) {
+    const base = triangle * 3
+    const indices = [
+      index.getX(base),
+      index.getX(base + 1),
+      index.getX(base + 2),
+    ]
+    const inserted = insertions.get(triangle)
+    if (!inserted) {
+      result.push(indices[0], indices[1], indices[2])
       continue
     }
-    for (let k = 1; k < boundary.length - 1; k++) {
-      result.push(boundary[0], boundary[k], boundary[k + 1])
+
+    const keys = indices.map(keyAt)
+    const faceNormal = normalOf(indices[0], indices[1], indices[2])
+
+    if (inserted.size === 1) {
+      // Uma única aresta subdividida: leque a partir do vértice oposto, sem
+      // triângulos colineares na própria aresta.
+      const [key, pointsOnEdge] = [...inserted.entries()][0]
+      let opposite = -1
+      let from = -1
+      let to = -1
+      for (let corner = 0; corner < 3; corner++) {
+        const next = (corner + 1) % 3
+        if (edgeKey(keys[corner], keys[next]) === key) {
+          opposite = indices[(corner + 2) % 3]
+          from = indices[corner]
+          to = indices[next]
+          break
+        }
+      }
+      if (opposite < 0 || from < 0 || to < 0) {
+        throw new Error('csg: aresta aberta sem triângulo dono')
+      }
+      let previous = from
+      for (const point of pointsOnEdge) {
+        pushTriangle(opposite, previous, point.index, faceNormal)
+        previous = point.index
+      }
+      pushTriangle(opposite, previous, to, faceNormal)
+      continue
+    }
+    // Pontos em mais de uma aresta: triangula o polígono projetado no eixo
+    // dominante da normal do triângulo.
+    const boundary: number[] = [indices[0]]
+    for (let corner = 0; corner < 3; corner++) {
+      const next = (corner + 1) % 3
+      const pointsOnEdge = inserted.get(edgeKey(keys[corner], keys[next]))
+      if (pointsOnEdge) {
+        for (const point of pointsOnEdge) boundary.push(point.index)
+      }
+      if (next !== 0) boundary.push(indices[next])
+    }
+
+    const [nx, ny, nz] = faceNormal
+    const absX = Math.abs(nx)
+    const absY = Math.abs(ny)
+    const absZ = Math.abs(nz)
+    const contour = boundary.map((vertex) => {
+      const x = position.getX(vertex)
+      const y = position.getY(vertex)
+      const z = position.getZ(vertex)
+      if (absX >= absY && absX >= absZ) return new Vector2(y, z)
+      if (absY >= absZ) return new Vector2(x, z)
+      return new Vector2(x, y)
+    })
+
+    const faces = ShapeUtils.triangulateShape(contour, [])
+    if (faces.length === 0) {
+      throw new Error('csg: T-junction sem triangulação')
+    }
+    for (const [a, b, c] of faces) {
+      pushTriangle(
+        boundary[a],
+        boundary[b],
+        boundary[c],
+        faceNormal,
+      )
     }
   }
 
@@ -174,6 +321,8 @@ export function csg(
   const pending = [...tools]
   let current = base
   let tool: BufferGeometry | null = null
+  let raw: BufferGeometry | null = null
+  let cleaned: BufferGeometry | null = null
   try {
     const evaluator = createConformingEvaluator()
     // `loftOutline` não gera UV e as peças são de material único; sem restringir
@@ -187,17 +336,21 @@ export function csg(
       const b = new Brush(tool)
       a.updateMatrixWorld()
       b.updateMatrixWorld()
-      const result = evaluator.evaluate(a, b, operation).geometry
-      const cleaned = removeDegenerateTriangles(result)
+      raw = evaluator.evaluate(a, b, operation).geometry
+      cleaned = removeDegenerateTriangles(raw)
+      raw = null
       splitTJunctions(cleaned)
       current.dispose()
       tool.dispose()
       current = cleaned
+      cleaned = null
       tool = null
     }
     current.computeVertexNormals()
     return current
   } catch (error) {
+    raw?.dispose()
+    cleaned?.dispose()
     current.dispose()
     tool?.dispose()
     for (const pendingTool of pending) pendingTool.dispose()

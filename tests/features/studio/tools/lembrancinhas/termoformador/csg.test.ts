@@ -1,20 +1,52 @@
 import { describe, it, expect, vi } from 'vitest'
-import { BoxGeometry, BufferGeometry } from 'three'
+import {
+  BoxGeometry,
+  BufferGeometry,
+  Float32BufferAttribute,
+} from 'three'
 import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import { buildTraySupport, buildTrayPlug } from '@/features/studio/tools/lembrancinhas/termoformador/trayParts'
-import { csg, unionParts } from '@/features/studio/tools/lembrancinhas/termoformador/csg'
+import {
+  csg,
+  splitTJunctions,
+  unionParts,
+} from '@/features/studio/tools/lembrancinhas/termoformador/csg'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
-import { isClosed, signedVolume } from './geometryTestUtils'
+import {
+  countZeroAreaTriangles,
+  isClosed,
+  signedVolume,
+} from './geometryTestUtils'
 
 const cases = [
-  { ...defaultThermoformerParams, shape: 'square' as const, width: 120 },
-  { ...defaultThermoformerParams, shape: 'pyramid' as const, width: 120 },
   {
-    ...defaultThermoformerParams,
-    shape: 'rectangle' as const,
-    width: 120,
-    height: 80,
+    params: {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 120,
+    },
+    supportVolume: 177090.22,
+    plugVolume: 584126.35,
+  },
+  {
+    params: {
+      ...defaultThermoformerParams,
+      shape: 'pyramid' as const,
+      width: 120,
+    },
+    supportVolume: 316578.28,
+    plugVolume: 444638.28,
+  },
+  {
+    params: {
+      ...defaultThermoformerParams,
+      shape: 'rectangle' as const,
+      width: 120,
+      height: 80,
+    },
+    supportVolume: 139025.6,
+    plugVolume: 372974.93,
   },
 ]
 
@@ -39,15 +71,17 @@ function svgOutline(svg: string) {
 }
 
 describe('CSG spike', () => {
-  for (const params of cases) {
+  for (const { params, supportVolume, plugVolume } of cases) {
     it(`fecha suporte e macho ${params.shape}`, () => {
       const outline = getShapeOutline(params)!
       const support = buildTraySupport(params, outline)
       const plug = buildTrayPlug(params, outline)
       expect(isClosed(support)).toBe(true)
-      expect(signedVolume(support)).toBeGreaterThan(0)
+      expect(signedVolume(support)).toBeCloseTo(supportVolume, 0)
       expect(isClosed(plug)).toBe(true)
-      expect(signedVolume(plug)).toBeGreaterThan(0)
+      expect(signedVolume(plug)).toBeCloseTo(plugVolume, 0)
+      expect(countZeroAreaTriangles(support)).toBe(0)
+      expect(countZeroAreaTriangles(plug)).toBe(0)
       support.dispose()
       plug.dispose()
     })
@@ -61,6 +95,8 @@ describe('CSG spike', () => {
     expect(signedVolume(support)).toBeGreaterThan(0)
     expect(isClosed(plug)).toBe(true)
     expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(support)).toBe(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
     support.dispose()
     plug.dispose()
   })
@@ -74,6 +110,56 @@ describe('CSG spike', () => {
     expect(() => buildTrayPlug(params, outline)).toThrow(
       'Contorno da abertura da cavidade precisa ser único',
     )
+  })
+})
+
+describe('splitTJunctions', () => {
+  it('não altera aresta não manifold', () => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute(
+      'position',
+      new Float32BufferAttribute(
+        [
+          0, 0, 0,
+          10, 0, 0,
+          0, 10, 0,
+          0, -10, 0,
+          3, 3, 5,
+        ],
+        3,
+      ),
+    )
+    const index = [0, 1, 2, 1, 0, 3, 0, 1, 4]
+    geometry.setIndex(index)
+    splitTJunctions(geometry)
+    expect(Array.from(geometry.getIndex()!.array)).toEqual(index)
+    geometry.dispose()
+  })
+
+  it('repara pontos em duas arestas sem triângulos sem área', () => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute(
+      'position',
+      new Float32BufferAttribute(
+        [
+          0, 0, 0,
+          10, 0, 0,
+          0, 10, 0,
+          5, 0, 0,
+          5, 5, 0,
+          5, 0, 5,
+          8, 3, 5,
+        ],
+        3,
+      ),
+    )
+    // O triângulo 0 tem P e Q sobre duas arestas abertas; os triângulos 1 e 2
+    // só mantêm P e Q como extremos de arestas abertas.
+    geometry.setIndex([0, 1, 2, 3, 5, 6, 4, 5, 6])
+    splitTJunctions(geometry)
+    expect(geometry.getIndex()!.count).toBe(5 * 3)
+    expect(countZeroAreaTriangles(geometry)).toBe(0)
+    geometry.dispose()
   })
 })
 
@@ -119,6 +205,23 @@ describe('csg', () => {
     const baseDispose = vi.spyOn(base, 'dispose')
     const emptyDispose = vi.spyOn(empty, 'dispose')
     expect(() => csg(base, [empty])).toThrow('csg: geometria vazia')
+    expect(baseDispose).toHaveBeenCalledTimes(1)
+    expect(emptyDispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejeita ferramenta com índice vazio e descarta a base', () => {
+    const base = new BoxGeometry(10, 10, 10)
+    const emptyIndex = new BufferGeometry()
+    emptyIndex.setAttribute(
+      'position',
+      new Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3),
+    )
+    emptyIndex.setIndex([])
+    const baseDispose = vi.spyOn(base, 'dispose')
+    const emptyDispose = vi.spyOn(emptyIndex, 'dispose')
+    expect(() => csg(base, [emptyIndex])).toThrow(
+      'csg: geometria vazia (ferramenta)',
+    )
     expect(baseDispose).toHaveBeenCalledTimes(1)
     expect(emptyDispose).toHaveBeenCalledTimes(1)
   })
