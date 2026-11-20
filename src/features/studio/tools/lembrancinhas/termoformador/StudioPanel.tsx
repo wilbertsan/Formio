@@ -170,8 +170,8 @@ export function StudioPanel({
           <Accordion.Content>
             <Flex direction="column" gap="xs">
               <Text fontSize="xs" color="font.secondary">
-                Diâmetro {params.diameter.toFixed(1)} mm · Altura{' '}
-                {plugDims.height.toFixed(1)} mm · Pega Ø
+                Diâmetro {(plugDims.guideRadius * 2).toFixed(1)} mm · Altura
+                total {plugDims.height.toFixed(1)} mm · Pega Ø
                 {(plugDims.gripRadius * 2).toFixed(1)} ×{' '}
                 {plugDims.gripDepth.toFixed(1)} mm
               </Text>

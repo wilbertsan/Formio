@@ -67,7 +67,7 @@ describe('StudioPanel (termoformador)', () => {
   it('mostra as métricas do macho', () => {
     render(<StudioPanel {...defaultProps} />)
     expect(screen.getByText(/Diâmetro 160\.0 mm/)).toBeDefined()
-    expect(screen.getByText(/Altura 46\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Altura total 46\.0 mm/)).toBeDefined()
     expect(screen.getByText(/Pega Ø46\.8 × 28\.1 mm/)).toBeDefined()
     expect(
       screen.getByText(/A tela é exportada plana; aqueça e pressione/),
@@ -82,6 +82,18 @@ describe('StudioPanel (termoformador)', () => {
       { key: 'ArrowRight' },
     )
     expect(onUpdateParam).toHaveBeenCalledWith('plugHeight', 27)
+  })
+
+  it('recalcula as métricas com a altura do corpo', () => {
+    const { rerender } = render(<StudioPanel {...defaultProps} />)
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultThermoformerParams, plugHeight: 40 }}
+      />,
+    )
+    expect(screen.getByText(/Altura total 60\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Pega Ø60\.0 × 36\.0 mm/)).toBeDefined()
   })
 
   it('atualiza o diâmetro ao usar o teclado no slider', () => {
