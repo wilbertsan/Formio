@@ -42,6 +42,14 @@ export interface UnwrappedTexture {
 const TAU = Math.PI * 2
 
 /**
+ * Fração do raio máximo abaixo da qual a célula é parede interna ou flange.
+ * Fica logo abaixo de 0,80 porque o corte em 0,80 também apagava vales
+ * legítimos de texturas profundas (o p1 subia e a profundidade caía).
+ * O furo/flange real fica bem abaixo deste corte — verificado nos 14 STLs.
+ */
+const BORE_RADIUS_RATIO = 0.78
+
+/**
  * Desenrola a superfície externa de um cilindro em um mapa de altura.
  *
  * A grade guarda o maior raio por célula: a parede externa vence a parede do
@@ -56,6 +64,14 @@ export function unwrapCylinder(
   const rows = options.rows ?? 96
   const wallBandMm = options.wallBandMm ?? 99.2
   const threshold = options.variationThresholdMm ?? 0.3
+  if (
+    !Number.isInteger(columns) ||
+    !Number.isInteger(rows) ||
+    columns < 1 ||
+    rows < 2
+  ) {
+    throw new Error('Dimensões do mapa inválidas')
+  }
 
   // 1. bounds, centro e maior raio
   let minX = Infinity
@@ -119,8 +135,11 @@ export function unwrapCylinder(
       if (Math.abs(det) < 1e-12) continue
       for (let row = Math.max(0, r0); row <= Math.min(rowCount - 1, r1); row++) {
         const zc = z0 + (row / (rowCount - 1)) * zSpan
-        for (let col = Math.max(0, c0); col <= Math.min(colCount - 1, c1); col++) {
-          const ac = -Math.PI + ((col + 0.5) / colCount) * TAU
+        // Percorre as colunas em coordenadas desenroladas: ângulos em
+        // (π, π+δ] ficam fora de [0, colCount) e não podem ser descartados
+        // nem presos ao limite — o índice da grade é o módulo.
+        for (let ci = c0; ci <= c1; ci++) {
+          const ac = -Math.PI + ((ci + 0.5) / colCount) * TAU
           const w1 =
             ((ac - angles[0]) * (zs[2] - zs[0]) - (angles[2] - angles[0]) * (zc - zs[0])) /
             det
@@ -130,6 +149,7 @@ export function unwrapCylinder(
           const w0 = 1 - w1 - w2
           if (w0 < -1e-6 || w1 < -1e-6 || w2 < -1e-6) continue
           const radius = w0 * r[0] + w1 * r[1] + w2 * r[2]
+          const col = ((ci % colCount) + colCount) % colCount
           const index = row * colCount + col
           if (radius > grid[index]) grid[index] = radius
         }
@@ -180,12 +200,20 @@ export function unwrapCylinder(
     bestStart = 1
     bestLength = coarseRows - 2
   }
+  // Um trecho de uma única linha não descreve um padrão.
+  if (bestLength < 2) throw new Error('Textura sem relevo')
   const rowStep = height / (coarseRows - 1)
-  const z0 = minZ + Math.max(0, bestStart - 1) * rowStep
-  const z1 = minZ + Math.min(coarseRows - 1, bestStart + bestLength) * rowStep
+  const z0 = minZ + bestStart * rowStep
+  const z1 = minZ + (bestStart + bestLength - 1) * rowStep
 
   // 3. mapa final, preenchimento dos vazios e normalização
   const grid = rasterize(z0, z1, rows, columns)
+  // A parede do furo tem raio muito menor que a externa: descartar essas
+  // células evita que o p1 caia para o furo e infle a profundidade nativa.
+  const minWallRadius = maxR * BORE_RADIUS_RATIO
+  for (let i = 0; i < grid.length; i++) {
+    if (grid[i] >= 0 && grid[i] < minWallRadius) grid[i] = -1
+  }
   const fill = (): void => {
     for (let iteration = 0; iteration < 8; iteration++) {
       for (let row = 0; row < rows; row++) {
