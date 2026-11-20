@@ -11,9 +11,11 @@ import type { BuildThermoformerResult } from './buildThermoformer'
 import { getSupportDimensions } from './buildSupport'
 import {
   defaultThermoformerParams,
+  MAXIMUM_DRAFT_ANGLE,
   MAXIMUM_PYRAMID_TIP,
   MAXIMUM_SHAPE_MM,
   MAXIMUM_SVG_SIZE_MM,
+  MINIMUM_DRAFT_ANGLE,
   MINIMUM_PYRAMID_TIP,
   MINIMUM_SHAPE_MM,
   MINIMUM_SVG_SIZE_MM,
@@ -49,7 +51,7 @@ const NUMERIC_RANGES: Partial<Record<keyof ThermoformerParams, { min: number; ma
   width: { min: MINIMUM_SHAPE_MM, max: MAXIMUM_SHAPE_MM },
   height: { min: MINIMUM_SHAPE_MM, max: MAXIMUM_SHAPE_MM },
   svgSize: { min: MINIMUM_SVG_SIZE_MM, max: MAXIMUM_SVG_SIZE_MM },
-  draftAngle: { min: 0, max: 15 },
+  draftAngle: { min: MINIMUM_DRAFT_ANGLE, max: MAXIMUM_DRAFT_ANGLE },
   pyramidTip: { min: MINIMUM_PYRAMID_TIP, max: MAXIMUM_PYRAMID_TIP },
 }
 

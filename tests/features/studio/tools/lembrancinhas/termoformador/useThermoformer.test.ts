@@ -82,7 +82,10 @@ describe('useThermoformer', () => {
       result.current.updateParam('opening', 1)
       result.current.updateParam('plugHeight', 99)
       result.current.updateParam('width', 999)
+      result.current.updateParam('height', 999)
+      result.current.updateParam('svgSize', 10)
       result.current.updateParam('draftAngle', -1)
+      result.current.updateParam('pyramidTip', 1)
     })
     expect(result.current.params.diameter).toBe(300)
     expect(result.current.params.thickness).toBe(1.2)
@@ -90,7 +93,23 @@ describe('useThermoformer', () => {
     expect(result.current.params.opening).toBe(3)
     expect(result.current.params.plugHeight).toBe(40)
     expect(result.current.params.width).toBe(300)
+    expect(result.current.params.height).toBe(300)
+    expect(result.current.params.svgSize).toBe(40)
     expect(result.current.params.draftAngle).toBe(0)
+    expect(result.current.params.pyramidTip).toBe(0.3)
+  })
+
+  it('envia forma e svg ao worker', () => {
+    const { factory, getParams } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'square')
+      result.current.updateParam('svg', '<svg/>')
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(getParams()).toMatchObject({ shape: 'square', svg: '<svg/>' })
   })
 
   it('envia ao worker após o debounce e aplica a geometria', () => {

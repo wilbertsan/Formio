@@ -39,6 +39,8 @@ export const MINIMUM_TRAY_BOTTOM_SCALE = 0.05
 export const MINIMUM_PYRAMID_TIP = 0.05
 export const MAXIMUM_PYRAMID_TIP = 0.3
 export const MINIMUM_PYRAMID_TIP_MM = 3
+export const MINIMUM_DRAFT_ANGLE = 0
+export const MAXIMUM_DRAFT_ANGLE = 15
 export const MINIMUM_DRAFT_ANGLE_DEG = 2
 export const SVG_MAX_LENGTH = 2_000_000
 export const PLUG_GRIP_MAX_MM = 30
@@ -50,7 +52,7 @@ export const thermoformerParamsSchema = z.object({
   width: z.number().min(MINIMUM_SHAPE_MM).max(MAXIMUM_SHAPE_MM),
   height: z.number().min(MINIMUM_SHAPE_MM).max(MAXIMUM_SHAPE_MM),
   svgSize: z.number().min(MINIMUM_SVG_SIZE_MM).max(MAXIMUM_SVG_SIZE_MM),
-  draftAngle: z.number().min(0).max(15),
+  draftAngle: z.number().min(MINIMUM_DRAFT_ANGLE).max(MAXIMUM_DRAFT_ANGLE),
   pyramidTip: z.number().min(MINIMUM_PYRAMID_TIP).max(MAXIMUM_PYRAMID_TIP),
   svg: z.string().max(SVG_MAX_LENGTH),
   thickness: z.number().min(1.2).max(6),
