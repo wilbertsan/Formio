@@ -16,6 +16,10 @@ mapa em `(u, v)` e move o laço/engrossa a abraçadeira pelo envelope da textura
 
 **Design aprovado:** `docs/plans/2026-11-20-porta-lata-texturas-importadas-design.md`.
 
+**Status:** executado. Desvios (profundidades medidas, faixa útil, corte de
+furo, ausência de `can-texture-slope`, resolução/tempos, testes importados em
+arquivos separados) estão registrados no design.
+
 **Regras:** 1 unidade = 1 mm; sem `any`; sem código morto; commits semânticos;
 `files/` fora do versionamento; asset gerado commitado.
 

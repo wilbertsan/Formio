@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-20
 **Ferramenta:** `lembrancinhas/porta-lata`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado
 
 ## Desvios da implementação
 
@@ -20,6 +20,19 @@
 - O exemplo `paralelepípedos` 3,6 mm do design estava superestimado; o valor
   real é 1,79 mm. `pedra_hexagonal` tem envelope 81,06 mm, offset do laço
   2,63 mm e abertura da mão ~22,1 mm.
+
+- A resolução final ficou **192 × 96**; o build completo importado mediu
+  ~1,6–2,2 s de CPU (até ~4,2 s em máquina lenta), sem redução.
+- `files/` está no `.gitignore`; os STLs não vão para o repositório. O script é
+  manual (Node 24) e o `--check` exige os STLs locais; não roda no CI.
+- O laço/abraçadeira usam o offset global; a sobreposição de ~1,5 mm (meio) e
+  ~0,7 mm (topo) vale no plano central. O canto lateral pode ficar levemente
+  negativo em combinações extremas; é cosmético e a peça continua 1 casca.
+- Os testes de build importados ficaram em arquivos separados
+  (`buildBodyImported.test.ts`, `buildCanHolderImported.test.ts`) para não
+  estourar o watchdog de 60 s do Vitest.
+- `can-texture-slope` não existe: todos os 14 importados medem 49–74° e a nota
+  de suporte fica no painel.
 
 ## Objetivo
 
