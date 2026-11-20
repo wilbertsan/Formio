@@ -5,7 +5,10 @@ import {
   textureHeight,
   textureMask,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/texture'
-import { IMPORTED_TEXTURES } from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
+import {
+  IMPORTED_TEXTURE_IDS,
+  IMPORTED_TEXTURES,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
 import {
   PROCEDURAL_TEXTURE_STYLES,
   TEXTURE_EDGE_FADE_MM,
@@ -156,6 +159,44 @@ describe('texturas do porta-lata', () => {
       importedTextureHeight('paralelepipedos', 0.3, 1),
       9,
     )
+  })
+
+  it('fecha o mapa importado em u com período de uma volta', () => {
+    for (const style of IMPORTED_TEXTURE_IDS) {
+      for (const v of [0, 0.3, 0.5, 0.8, 1]) {
+        expect(importedTextureHeight(style, 0, v)).toBeCloseTo(
+          importedTextureHeight(style, 1, v),
+          9,
+        )
+      }
+    }
+  })
+
+  it('mantém o deslocamento importado entre 0 e a profundidade nativa', () => {
+    for (const style of IMPORTED_TEXTURE_IDS) {
+      const params = withParams({ textureStyle: style })
+      const depth = IMPORTED_TEXTURES[style].nativeDepth
+      for (const theta of [0.2, 1.3, 3.4, 5.9]) {
+        for (const y of [9, 25, 45, 72, 100]) {
+          const height = textureDisplacement(params, theta, y, WALL_MIN, WALL_MAX)
+          expect.soft(height, `${style} em ${theta}/${y}`).toBeGreaterThanOrEqual(0)
+          expect
+            .soft(height, `${style} em ${theta}/${y}`)
+            .toBeLessThanOrEqual(depth + 1e-9)
+        }
+      }
+    }
+  })
+
+  it('deixa a altura procedural zerada nos estilos importados', () => {
+    for (const style of IMPORTED_TEXTURE_IDS) {
+      const params = withParams({ textureStyle: style })
+      for (const theta of [0, 1, 3]) {
+        for (const y of [10, 60, 100]) {
+          expect(textureHeight(params, theta, y)).toBe(0)
+        }
+      }
+    }
   })
 
   it('mantém a faixa da abraçadeira lisa com textura importada', () => {
