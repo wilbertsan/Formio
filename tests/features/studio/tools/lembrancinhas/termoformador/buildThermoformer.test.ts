@@ -42,4 +42,12 @@ describe('buildThermoformer', () => {
     result.support.dispose()
     result.plug.dispose()
   })
+
+  it('lança para SVG sem parsedSvg (estado intermediário do Task 11)', () => {
+    expect(() => buildThermoformer({
+      ...defaultThermoformerParams,
+      shape: 'svg',
+      svg: '<svg/>',
+    })).toThrow()
+  })
 })
