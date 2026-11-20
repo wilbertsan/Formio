@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { computeScreenPattern } from '@/features/studio/tools/lembrancinhas/termoformador/screenPattern'
-import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
+import {
+  getShapeOutline,
+  type ShapeOutline,
+} from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import {
   MAX_SCREEN_OPENINGS,
   defaultThermoformerParams,
@@ -91,5 +94,57 @@ describe('computeScreenPattern', () => {
       Math.abs(cell.x) + cell.radius <= 54 &&
       Math.abs(cell.y) + cell.radius <= 54,
     )).toBe(true)
+  })
+
+  it('respeita uma região côncava', () => {
+    const mm = (x: number, y: number) => ({ X: Math.round(x * 1000), Y: Math.round(y * 1000) })
+    const lShape = [[-30, -30], [30, -30], [30, -10], [-10, -10], [-10, 30], [-30, 30]].map(([x, y]) => mm(x, y))
+    const outline = {
+      kind: 'polygon',
+      join: 'miter',
+      perforated: [lShape],
+      cavityOpening: [lShape],
+      recess: [lShape],
+      supportOuter: [lShape],
+      paths: [lShape],
+    } as unknown as ShapeOutline
+    const pattern = computeScreenPattern({ ...defaultThermoformerParams, shape: 'square', width: 60 }, outline)
+    expect(pattern.innerRadius).toBeNull()
+    expect(pattern.cells.length).toBeGreaterThan(0)
+    expect(pattern.cells.every((cell) =>
+      cell.x + cell.radius <= -10 + 1e-6 || cell.y + cell.radius <= -10 + 1e-6,
+    )).toBe(true)
+  })
+
+  it('gera favos dentro de um retângulo', () => {
+    const params = { ...defaultThermoformerParams, shape: 'rectangle' as const, width: 120, height: 80 }
+    const pattern = computeScreenPattern(params, getShapeOutline(params)!)
+    expect(pattern.cells.length).toBeGreaterThan(50)
+    expect(pattern.cells.every((cell) =>
+      Math.abs(cell.x) + cell.radius <= 54 + 1e-6 &&
+      Math.abs(cell.y) + cell.radius <= 34 + 1e-6,
+    )).toBe(true)
+  })
+
+  it('devolve vazio quando o aro consome a forma', () => {
+    const params = { ...defaultThermoformerParams, shape: 'square' as const, width: 40, frameWidth: 30 }
+    const pattern = computeScreenPattern(params, getShapeOutline(params)!)
+    expect(pattern.cells).toHaveLength(0)
+    expect(pattern.innerRadius).toBeNull()
+  })
+
+  it('limita e amplia a abertura em formas grandes', () => {
+    const params = { ...defaultThermoformerParams, shape: 'square' as const, width: 300, frameWidth: 2, opening: 3 }
+    const pattern = computeScreenPattern(params, getShapeOutline(params)!)
+    expect(pattern.capped).toBe(true)
+    expect(pattern.cells.length).toBeLessThanOrEqual(4000)
+    expect(pattern.effectiveOpening).toBeGreaterThan(3)
+  })
+
+  it('preenche innerBounds no círculo', () => {
+    const pattern = computeScreenPattern(defaultThermoformerParams)
+    expect(pattern.innerRadius).toBeCloseTo(74, 5)
+    expect(pattern.innerBounds.width).toBeCloseTo(148, 5)
+    expect(pattern.innerBounds.height).toBeCloseTo(148, 5)
   })
 })
