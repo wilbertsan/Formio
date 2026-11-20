@@ -4,8 +4,8 @@ import { ADDITION, Brush } from 'three-bvh-csg'
 import { buildBody, findOuterWall } from './buildBody'
 import { buildHandle } from './buildHandle'
 import { buildRelief } from './buildRelief'
-import { createConformingEvaluator } from './csg'
-import { removeDegenerateTriangles } from './geometryCleanup'
+import { createConformingEvaluator } from '../shared/csg'
+import { removeDegenerateTriangles } from '../shared/geometryCleanup'
 import { bodyProfile } from './shapes'
 import {
   getInnerDiameter,

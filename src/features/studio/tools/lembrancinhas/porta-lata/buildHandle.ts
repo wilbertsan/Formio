@@ -1,7 +1,7 @@
 import { BufferGeometry, ExtrudeGeometry } from 'three'
 import { ADDITION, Brush } from 'three-bvh-csg'
-import { createConformingEvaluator } from './csg'
-import { removeDegenerateTriangles } from './geometryCleanup'
+import { createConformingEvaluator } from '../shared/csg'
+import { removeDegenerateTriangles } from '../shared/geometryCleanup'
 import {
   getBandInnerRadius,
   getBandOuterRadius,
