@@ -338,6 +338,12 @@ export function unwrapCylinder(
 npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/textureImport.test.ts
 ```
 
+Nota de execução: a detecção por variação em θ (`variationThresholdMm`) foi
+substituída na revisão pelo **corte de pontas pela mediana do raio** (threshold
+0,8 mm), porque tijolos/mosaico variaam pouco em θ e a faixa era recortada. A
+interface final não tem `variationThresholdMm`; ver "Desvios da implementação"
+no design.
+
 **Step 5: commit**
 
 ```bash

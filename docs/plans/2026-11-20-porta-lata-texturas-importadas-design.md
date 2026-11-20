@@ -4,6 +4,23 @@
 **Ferramenta:** `lembrancinhas/porta-lata`
 **Status:** design aprovado; implementação pendente
 
+## Desvios da implementação
+
+- As profundidades medidas ficaram em **1,21–4,23 mm** (não 1–5); o maior é
+  `pedra_hexagonal` (4,23 mm).
+- A detecção da faixa por variação em θ foi substituída pelo **corte de pontas
+  pela mediana do raio**; a faixa útil ficou em ~97–107 mm e o flange/lip/taper
+  sai. O threshold é 0,8 mm (a variação de mediana no limite do padrão chega a
+  0,78 mm; é apertado, mas estável nos 14).
+- O filtro do furo usa `0,78 × maior raio da faixa final`; nos 14 o corte
+  efetivo fica em 0,720–0,780 do raio máximo e os furos reais em 0,1–0,3.
+- `can-texture-slope` foi **removido** do plano: todos os 14 medem >45°
+  (49–74°), então o aviso por estilo virou uma nota única na seção Textura.
+- `variationThresholdMm` não existe na implementação final.
+- O exemplo `paralelepípedos` 3,6 mm do design estava superestimado; o valor
+  real é 1,79 mm. `pedra_hexagonal` tem envelope 81,06 mm, offset do laço
+  2,63 mm e abertura da mão ~22,1 mm.
+
 ## Objetivo
 
 Usar os 14 rolos de textura em `files/` como estilos de textura do porta-lata.
@@ -18,10 +35,13 @@ Incluído:
 - Conversão offline STL → mapa de altura normalizado (192 × 96) com metadados.
 - 14 estilos importados, com nomes em português, somados aos 6 procedurais e
   `none`.
-- Profundidade nativa por estilo (sem o clamp de escala dos procedurais).
+- Profundidade nativa por estilo (sem o clamp de escala dos procedurais);
+  medida nos 14 arquivos: **1,21–4,23 mm**.
 - Laço da alça deslocado pelo envelope da textura e abraçadeira engrossada para
   fora, preservando a sobreposição e o encaixe.
-- Aviso `can-texture-slope` quando a textura passa de 45°.
+- Nota no painel: texturas importadas mantêm a profundidade do arquivo e
+  podem exigir suporte (flancos medidos de 49–74°). Sem código de validação
+  novo, porque os 14 estilos passam de 45° e o aviso não discriminaria.
 - Painel com grupos Procedurais/Importadas e bloqueio dos sliders de
   profundidade/escala para importados.
 - Testes, docs e script de regeneração.
@@ -76,7 +96,9 @@ rótulos acima.
    `rBase`/`rTop` são os percentis 1/99 do mapa preenchido.
 5. Mede a **profundidade nativa** `rTop − rBase` (mm) e a **inclinação máxima**
    do mapa já mapeada para a parede nominal (99,2 mm): `depth × |Δv| / (99,2/95)`,
-   em graus.
+   em graus. A faixa do padrão é o intervalo entre as pontas, cortando flange/
+   lip/taper enquanto a mediana do raio da linha se afasta mais de 0,8 mm da
+   mediana interior (os 14 arquivos resultam em ~97–107 mm de faixa útil).
 6. Gera dois módulos:
    - `importedTextures.ts` — metadados (id, nome, profundidade, inclinação,
      dimensões), importado pelo schema/painel;
@@ -135,9 +157,9 @@ offset   = max(0, envelope − (handleClearance + HANDLE_LOOP_INSET − 0.7))
 
 - `can-texture` (warning) continua só para procedurais (profundidade limitada
   pela escala).
-- Novo `can-texture-slope` (warning): estilo importado com inclinação máxima
-  acima de 45° → "A textura {nome} tem flancos acima de 45° e pode exigir
-  suporte." Não bloqueia build/export.
+- **Nenhum código novo**: os 14 importados medem 49–74° e um aviso por estilo
+  não discriminaria; a nota fica no painel. `maxSlopeDeg` permanece na metadata
+  e é mostrado na seção Textura.
 - `can-handle-reach` considera a abertura reduzida pelo offset.
 - `can-handle-band`, `can-text-band` e `can-edge-rim` inalterados.
 
@@ -147,8 +169,8 @@ offset   = max(0, envelope − (handleClearance + HANDLE_LOOP_INSET − 0.7))
   (Nenhuma, Madeira, Metal, Escamas, Onduladas, Pedra, Pontiagudo) e
   **Importadas** (14).
 - Estilo importado: "Profundidade da textura" e "Escala da textura"
-  desabilitados; nota "Textura importada: profundidade X mm do arquivo." e, se
-  a inclinação passar de 45°, "Flancos acima de 45°: pode precisar de suporte.".
+  desabilitados; nota "Textura importada: profundidade X mm · flancos ~Y°.
+  Pode exigir suporte." e o nome do padrão.
 - Estilo procedural: comportamento atual (dica de estilo, profundidade
   efetiva etc.).
 - Continuam 7 seções e 19 sliders.
@@ -209,8 +231,8 @@ files/*.stl (fora do repo)
 
 ## Riscos e mitigação
 
-- **Overhangs de 3–4 mm**: aviso `can-texture-slope`; a impressão pode exigir
-  suporte. Build e STL continuam válidos.
+- **Overhangs de 1,2–4,2 mm**: nota no painel; a impressão pode exigir suporte.
+  Build e STL continuam válidos.
 - **Distorção u/v**: é o preço de fechar 360° sem emenda; documentada.
 - **Laço mais afastado**: abertura da mão menor; `can-handle-reach` avisa.
 - **Asset desatualizado**: `--check` e teste dos metadados.
