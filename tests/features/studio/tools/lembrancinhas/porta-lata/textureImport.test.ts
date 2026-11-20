@@ -153,6 +153,24 @@ describe('textureImport', () => {
     }
   })
 
+  it('fecha a emenda em θ na resolução de produção', () => {
+    const map = unwrapCylinder(readBinaryStl(hollowCylinder()))
+
+    expect(map.width).toBe(512)
+    expect(map.height).toBe(256)
+    // O furo (raio 6) não entra na profundidade nativa.
+    expect(map.nativeDepth).toBeGreaterThan(2.3)
+    expect(map.nativeDepth).toBeLessThan(4.5)
+
+    for (const row of [32, 128, 224]) {
+      const first = row * map.width
+      const seam = Math.abs(map.data[first] - map.data[first + 1])
+      expect(seam, `linha ${row}`).toBeLessThan(40)
+      const wrap = Math.abs(map.data[first - 1] - map.data[first])
+      expect(wrap, `linha ${row}`).toBeLessThan(40)
+    }
+  })
+
   it('corta o flange ondulado pelo raio mediano', () => {
     const flanged = unwrapCylinder(readBinaryStl(flangedCylinder()), {
       columns: 48,

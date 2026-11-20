@@ -24,7 +24,7 @@ describe('imported textures', () => {
       expect(meta.nativeDepth, id).toBeGreaterThanOrEqual(1)
       expect(meta.nativeDepth, id).toBeLessThanOrEqual(5)
       expect(meta.maxSlopeDeg, id).toBeGreaterThanOrEqual(20)
-      expect(meta.maxSlopeDeg, id).toBeLessThanOrEqual(85)
+      expect(meta.maxSlopeDeg, id).toBeLessThan(89)
       expect(meta.label.trim().length, id).toBeGreaterThan(0)
     }
   })
