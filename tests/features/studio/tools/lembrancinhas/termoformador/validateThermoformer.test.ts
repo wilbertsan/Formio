@@ -152,4 +152,18 @@ describe('validateThermoformer', () => {
       expect.objectContaining({ code: 'plug-guide', severity: 'error' }),
     )
   })
+
+  it('aponta coroa de largura zero no limite (defensivo)', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      diameter: 60,
+      stepWidth: 0.3,
+      fitClearance: 0.3,
+    })
+    const issue = issues.find((item) => item.code === 'plug-guide')
+    expect(issue).toEqual(
+      expect.objectContaining({ code: 'plug-guide', severity: 'error' }),
+    )
+    expect(issue!.message).toContain('Aumente a largura do degrau')
+  })
 })

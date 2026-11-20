@@ -138,12 +138,12 @@ export function validateThermoformer(
 
   const plug = getPlugDimensions(params)
 
-  if (plug.guideRadius <= plug.contactRadius || plug.contactRadius <= 0) {
+  if (plug.guideRadius - plug.contactRadius <= 0) {
     issues.push({
       code: 'plug-guide',
       severity: 'error',
       message:
-        'O macho não tem coroa de contato. Aumente o diâmetro da tela ou reduza a largura do degrau.',
+        'O macho não tem coroa de contato. Aumente a largura do degrau ou reduza a folga da tela.',
     })
   }
 
