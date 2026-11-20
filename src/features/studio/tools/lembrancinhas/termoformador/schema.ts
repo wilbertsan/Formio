@@ -15,6 +15,9 @@ export const MINIMUM_LINE_MM = 0.4
 export const MINIMUM_SUPPORT_MM = 0.8
 export const MAX_SCREEN_OPENINGS = 4000
 export const SCREEN_SEGMENTS = 128
+export const PLUG_CHAMFER_MM = 0.8
+export const PLUG_DOME_SEGMENTS = 32
+export const PLUG_PREVIEW_GAP_MM = 8
 
 export const thermoformerParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),
@@ -29,6 +32,7 @@ export const thermoformerParamsSchema = z.object({
   stepWidth: z.number().min(2).max(15),
   fitClearance: z.number().min(0.1).max(0.6),
   edgeChamfer: z.number().min(0).max(3),
+  plugHeight: z.number().min(10).max(40),
   color: z.enum(PLA_COLORS),
 })
 
@@ -50,6 +54,7 @@ export const defaultThermoformerParams: ThermoformerParams = {
   stepWidth: 5,
   fitClearance: 0.3,
   edgeChamfer: 0.6,
+  plugHeight: 26,
   color: '#14b8a6',
 }
 

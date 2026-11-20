@@ -22,6 +22,7 @@ describe('termoformador schema', () => {
       stepWidth: 5,
       fitClearance: 0.3,
       edgeChamfer: 0.6,
+      plugHeight: 26,
     })
   })
 
@@ -32,6 +33,11 @@ describe('termoformador schema', () => {
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, stepWidth: 16 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, fitClearance: 0.7 }).success).toBe(false)
     expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, edgeChamfer: 4 }).success).toBe(false)
+  })
+
+  it('rejeita altura do macho fora da faixa', () => {
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, plugHeight: 9 }).success).toBe(false)
+    expect(thermoformerParamsSchema.safeParse({ ...defaultThermoformerParams, plugHeight: 41 }).success).toBe(false)
   })
 
   it('rejeita dimensões fora da faixa', () => {

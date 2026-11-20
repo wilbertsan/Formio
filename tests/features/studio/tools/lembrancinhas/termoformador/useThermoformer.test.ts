@@ -78,11 +78,13 @@ describe('useThermoformer', () => {
       result.current.updateParam('thickness', 0.1)
       result.current.updateParam('lineWidth', 9)
       result.current.updateParam('opening', 1)
+      result.current.updateParam('plugHeight', 99)
     })
     expect(result.current.params.diameter).toBe(300)
     expect(result.current.params.thickness).toBe(1.2)
     expect(result.current.params.lineWidth).toBe(4)
     expect(result.current.params.opening).toBe(3)
+    expect(result.current.params.plugHeight).toBe(40)
   })
 
   it('envia ao worker após o debounce e aplica a geometria', () => {
@@ -106,6 +108,7 @@ describe('useThermoformer', () => {
       stepWidth: 5,
       fitClearance: 0.3,
       edgeChamfer: 0.6,
+      plugHeight: 26,
     })
 
     act(() => { respond() })

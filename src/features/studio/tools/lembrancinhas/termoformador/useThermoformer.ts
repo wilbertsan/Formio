@@ -38,6 +38,7 @@ const NUMERIC_RANGES: Partial<Record<keyof ThermoformerParams, { min: number; ma
   stepWidth: { min: 2, max: 15 },
   fitClearance: { min: 0.1, max: 0.6 },
   edgeChamfer: { min: 0, max: 3 },
+  plugHeight: { min: 10, max: 40 },
 }
 
 function clampValue(key: keyof ThermoformerParams, value: number): number {
@@ -108,6 +109,7 @@ export function useThermoformer(
     stepWidth,
     fitClearance,
     edgeChamfer,
+    plugHeight,
   } = params
 
   const buildParams = useMemo<ThermoformerGeometryParams>(() => ({
@@ -123,6 +125,7 @@ export function useThermoformer(
     stepWidth,
     fitClearance,
     edgeChamfer,
+    plugHeight,
   }), [
     productType,
     diameter,
@@ -136,6 +139,7 @@ export function useThermoformer(
     stepWidth,
     fitClearance,
     edgeChamfer,
+    plugHeight,
   ])
 
   useEffect(() => {
