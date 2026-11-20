@@ -141,4 +141,15 @@ describe('validateThermoformer', () => {
     expect(depth).toEqual(expect.objectContaining({ severity: 'warning' }))
     expect(depth!.message).toContain('28.1 mm')
   })
+
+  it('aponta macho sem coroa de contato (defensivo)', () => {
+    const issues = validateThermoformer({
+      ...defaultThermoformerParams,
+      diameter: 60,
+      stepWidth: -5,
+    })
+    expect(issues).toContainEqual(
+      expect.objectContaining({ code: 'plug-guide', severity: 'error' }),
+    )
+  })
 })

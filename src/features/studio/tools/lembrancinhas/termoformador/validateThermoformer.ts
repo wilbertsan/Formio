@@ -1,5 +1,6 @@
 import { computeScreenPattern } from './screenPattern'
 import { getSupportDimensions } from './buildSupport'
+import { getPlugDimensions } from './buildPlug'
 import {
   MAX_SCREEN_OPENINGS,
   MINIMUM_LINE_MM,
@@ -21,6 +22,7 @@ export type ThermoformerIssueCode =
   | 'support-bottom'
   | 'support-clearance'
   | 'support-depth'
+  | 'plug-guide'
 
 export interface ValidationIssue {
   code: ThermoformerIssueCode
@@ -131,6 +133,17 @@ export function validateThermoformer(
       code: 'support-depth',
       severity: 'warning',
       message: 'A profundidade da bacia precisa ser maior que zero.',
+    })
+  }
+
+  const plug = getPlugDimensions(params)
+
+  if (plug.guideRadius <= plug.contactRadius || plug.contactRadius <= 0) {
+    issues.push({
+      code: 'plug-guide',
+      severity: 'error',
+      message:
+        'O macho não tem coroa de contato. Aumente o diâmetro da tela ou reduza a largura do degrau.',
     })
   }
 
