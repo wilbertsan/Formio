@@ -267,12 +267,12 @@ export function StudioPanel({
                   }
                 }}
               >
-                <optgroup label="Procedurais" aria-label="Procedurais">
+                <optgroup label="Procedurais">
                   {PROCEDURAL_TEXTURE_STYLES.map((style) => (
                     <option key={style} value={style}>{textureStyleLabel(style)}</option>
                   ))}
                 </optgroup>
-                <optgroup label="Importadas" aria-label="Importadas">
+                <optgroup label="Importadas">
                   {IMPORTED_TEXTURE_IDS.map((style) => (
                     <option key={style} value={style}>{textureStyleLabel(style)}</option>
                   ))}

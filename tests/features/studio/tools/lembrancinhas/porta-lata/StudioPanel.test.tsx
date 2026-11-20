@@ -385,6 +385,23 @@ describe('StudioPanel (porta-lata)', () => {
     expect(screen.queryByText(TEXTURE_DISABLED_HINT)).toBeNull()
   })
 
+  it('não mostra a nota procedural no estilo importado', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{
+          ...defaultCanHolderParams,
+          textureStyle: 'paralelepipedos',
+          textureDepth: 1.5,
+          textureScale: 4,
+        }}
+      />,
+    )
+    expect(screen.queryByText(/limitada pela escala/)).toBeNull()
+    expect(screen.queryByText(/Relevo positivo/)).toBeNull()
+    expect(screen.getByText(/Textura importada: profundidade/)).toBeDefined()
+  })
+
   it('ignora uma mudança de estilo inválida', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
