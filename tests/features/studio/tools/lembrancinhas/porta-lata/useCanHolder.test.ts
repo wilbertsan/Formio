@@ -7,6 +7,7 @@ import {
   MAX_TEXT_LENGTH,
   type CanHolderGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
+import { IMPORTED_TEXTURES } from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
 import {
   serializeBuildResult,
   type CanHolderErrorCode,
@@ -227,6 +228,22 @@ describe('useCanHolder', () => {
       result.current.updateParam('textureDepth', 1.5)
     })
     expect(result.current.outerDiameter).toBeCloseTo(75.6, 5)
+  })
+
+  it('usa a profundidade nativa no diâmetro externo importado', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
+    act(() => { result.current.updateParam('textureStyle', 'paralelepipedos') })
+    const depth = IMPORTED_TEXTURES.paralelepipedos.nativeDepth
+    expect(result.current.outerDiameter).toBeCloseTo(72.6 + 2 * depth, 5)
+  })
+
+  it('envia o estilo importado ao worker', () => {
+    const { factory, getParams } = makeWorkerFixture()
+    const { result } = renderHook(() => useCanHolder({ workerFactory: factory }))
+    act(() => { result.current.updateParam('textureStyle', 'paralelepipedos') })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(getParams()?.textureStyle).toBe('paralelepipedos')
   })
 
   it('envia o estilo de textura ao worker', () => {

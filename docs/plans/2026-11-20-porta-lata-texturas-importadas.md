@@ -16,6 +16,10 @@ mapa em `(u, v)` e move o laço/engrossa a abraçadeira pelo envelope da textura
 
 **Design aprovado:** `docs/plans/2026-11-20-porta-lata-texturas-importadas-design.md`.
 
+**Status:** executado. Desvios (profundidades medidas, faixa útil, corte de
+furo, ausência de `can-texture-slope`, resolução/tempos, testes importados em
+arquivos separados) estão registrados no design.
+
 **Regras:** 1 unidade = 1 mm; sem `any`; sem código morto; commits semânticos;
 `files/` fora do versionamento; asset gerado commitado.
 
@@ -338,6 +342,12 @@ export function unwrapCylinder(
 npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/textureImport.test.ts
 ```
 
+Nota de execução: a detecção por variação em θ (`variationThresholdMm`) foi
+substituída na revisão pelo **corte de pontas pela mediana do raio** (threshold
+0,8 mm), porque tijolos/mosaico variaam pouco em θ e a faixa era recortada. A
+interface final não tem `variationThresholdMm`; ver "Desvios da implementação"
+no design.
+
 **Step 5: commit**
 
 ```bash
@@ -429,7 +439,7 @@ O script deve:
 node scripts/texture-import.mjs
 ```
 
-Esperado: dois arquivos gerados; `importedTextureData.ts` com ~350 KB e
+Esperado: dois arquivos gerados; `importedTextureData.ts` com ~344 KB / 336 KiB e
 `importedTextures.ts` com 14 entradas.
 
 **Step 3: conferir**
@@ -476,7 +486,7 @@ import {
     expect(TEXTURE_STYLES).toHaveLength(7 + 14)
     for (const id of IMPORTED_TEXTURE_IDS) {
       expect(isImportedTexture(id)).toBe(true)
-      expect(IMPORTED_TEXTURES[id].nativeDepth).toBeGreaterThan(0.2)
+      expect(IMPORTED_TEXTURES[id].nativeDepth).toBeGreaterThan(1)
       expect(IMPORTED_TEXTURES[id].nativeDepth).toBeLessThan(6)
       expect(IMPORTED_TEXTURES[id].label.length).toBeGreaterThan(0)
     }
@@ -810,7 +820,7 @@ git commit -m "feat: offset can holder loop for deep textures"
 
 ---
 
-## Task 6: Validação
+## Task 6: Validação e abertura da mão
 
 **Arquivos:**
 - Modificar: `src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts`
@@ -819,21 +829,6 @@ git commit -m "feat: offset can holder loop for deep textures"
 **Step 1: testes**
 
 ```ts
-  it('avisa quando a textura importada passa de 45°', () => {
-    const steep = Object.values(IMPORTED_TEXTURES).find((meta) => meta.maxSlopeDeg > 45)
-    expect(steep).toBeDefined()
-    const id = IMPORTED_TEXTURE_IDS.find((key) => IMPORTED_TEXTURES[key] === steep)!
-    const params = withParams({ textureStyle: id })
-    expect(validateCanHolder(params)).toContainEqual(
-      expect.objectContaining({ code: 'can-texture-slope', severity: 'warning' }),
-    )
-    expect(
-      validateCanHolder(defaultCanHolderParams).some(
-        (issue) => issue.code === 'can-texture-slope',
-      ),
-    ).toBe(false)
-  })
-
   it('não aplica o limite de escala aos importados', () => {
     const imported = withParams({ textureStyle: 'paralelepipedos', textureDepth: 1.5, textureScale: 4 })
     expect(
@@ -843,7 +838,7 @@ git commit -m "feat: offset can holder loop for deep textures"
 
   it('avisa a abertura da mão com textura profunda e alcance curto', () => {
     const imported = withParams({
-      textureStyle: 'paralelepipedos',
+      textureStyle: 'pedra_hexagonal',
       handleReach: 30,
       handleBand: 10,
     })
@@ -853,28 +848,16 @@ git commit -m "feat: offset can holder loop for deep textures"
   })
 ```
 
+Não há código novo de validação: os 14 importados medem 49–74°, então o aviso
+de 45° por estilo não discriminaria; a nota fica no painel (Task 7).
+
 **Step 2: implementar**
 
-- adicione `'can-texture-slope'` ao union;
-- importe `IMPORTED_TEXTURES`, `isImportedTexture`, `isProceduralTexture`;
+- importe `isProceduralTexture` de `schema`;
 - `can-texture` passa a exigir `isProceduralTexture(params.textureStyle)` e
   `params.textureStyle !== 'none'`;
-- adicione o bloco:
-
-```ts
-  if (isImportedTexture(params.textureStyle)) {
-    const meta = IMPORTED_TEXTURES[params.textureStyle]
-    if (meta.maxSlopeDeg > 45) {
-      issues.push({
-        code: 'can-texture-slope',
-        severity: 'warning',
-        message: `A textura ${meta.label} tem flancos acima de 45° e pode exigir suporte.`,
-      })
-    }
-  }
-```
-
-`can-handle-reach` já usa `getHandleMetrics`, que passa a incluir o offset.
+- nada mais muda: `can-handle-reach` já usa `getHandleMetrics`, que inclui o
+  offset do laço.
 
 **Step 3: rodar**
 
@@ -886,7 +869,7 @@ npx vitest run tests/features/studio/tools/lembrancinhas/porta-lata/validateCanH
 
 ```bash
 git add src/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.ts tests/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder.test.ts
-git commit -m "feat: warn about steep imported textures"
+git commit -m "fix: scope texture validation to procedural styles"
 ```
 
 ---
@@ -920,6 +903,7 @@ git commit -m "feat: warn about steep imported textures"
       expect.soft(screen.getByRole('slider', { name }), name).toHaveAttribute('data-disabled')
     }
     expect(screen.getByText(/Textura importada: profundidade/)).toBeDefined()
+    expect(screen.getByText(/Pode exigir suporte/)).toBeDefined()
     expect(screen.queryByText(TEXTURE_DISABLED_HINT)).toBeNull()
   })
 ```
@@ -937,7 +921,7 @@ git commit -m "feat: warn about steep imported textures"
 - sliders desabilitados com `params.textureStyle === 'none' || importedMeta !== null`;
 - textos:
   - procedural: comportamento atual;
-  - importado: `Textura importada: profundidade {formatMm(importedMeta.nativeDepth)} mm do arquivo.` e, se `maxSlopeDeg > 45`, `Flancos acima de 45°: pode precisar de suporte.`;
+  - importado: `Textura importada: profundidade {formatMm(importedMeta.nativeDepth)} mm · flancos ~{Math.round(importedMeta.maxSlopeDeg)}°. Pode exigir suporte.`;
   - nenhum: dica atual.
 - A linha de profundidade efetiva só aparece para procedurais.
 
@@ -1056,7 +1040,7 @@ git commit -m "test: cover imported can holder textures"
   `getTextureEnvelope`, `getMaxOuterDiameter`.
 - Offset do laço (`getLoopOffset`, 0,7 mm), engrossamento da abraçadeira,
   abertura da mão e `can-handle-reach`.
-- `can-texture-slope`; `can-texture` só procedural.
+- `can-texture` só procedural; nota de suporte no painel para importados.
 - UI com grupos, sliders bloqueados, notas.
 - Como regenerar (`node scripts/texture-import.mjs [--check]`).
 
@@ -1068,7 +1052,7 @@ aviso de 45° e laço deslocado.
 **Step 3: `docs/frontend/studio.md`**
 
 Atualizar a seção Porta-lata: 20 estilos, módulos gerados, amostragem, offset,
-validação, UI e performance. Citar o limite do asset (~350 KB) e que os STLs não
+validação, UI e performance. Citar o limite do asset (~344 KB / 336 KiB) e que os STLs não
 vão para o bundle.
 
 **Step 4: design**

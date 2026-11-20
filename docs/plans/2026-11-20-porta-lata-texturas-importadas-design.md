@@ -2,7 +2,36 @@
 
 **Data:** 2026-11-20
 **Ferramenta:** `lembrancinhas/porta-lata`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado
+
+## Desvios da implementação
+
+- As profundidades medidas ficaram em **1,21–4,23 mm** (não 1–5); o maior é
+  `pedra_hexagonal` (4,23 mm).
+- A detecção da faixa por variação em θ foi substituída pelo **corte de pontas
+  pela mediana do raio**; a faixa útil ficou em ~63–107 mm (12 rolos em
+  97–107 mm e os dois curtos em 63–64 mm) e o flange/lip/taper
+  sai. O threshold é 0,8 mm (a variação de mediana no limite do padrão chega a
+  0,78 mm; é apertado, mas estável nos 14).
+- O filtro do furo usa `0,78 × maior raio da faixa final`; nos 14 o corte
+  efetivo fica em 0,720–0,780 do raio máximo e os furos reais em 0,1–0,3.
+- `can-texture-slope` foi **removido** do plano: todos os 14 medem >45°
+  (49–74°), então o aviso por estilo virou uma nota única na seção Textura.
+- `variationThresholdMm` não existe na implementação final.
+- O exemplo `paralelepípedos` 3,6 mm do design estava superestimado; o valor
+  real é 1,79 mm. `pedra_hexagonal` tem envelope 81,06 mm, offset do laço
+  2,63 mm e abertura da mão ~22,1 mm.
+
+- A resolução final ficou **192 × 96**; o build completo importado mediu
+  ~1,6–2,2 s de CPU (até ~4,2 s em máquina lenta), sem redução.
+- `files/` está no `.gitignore`; os STLs não vão para o repositório. O script é
+  manual (Node 24) e o `--check` exige os STLs locais; não roda no CI.
+- O laço/abraçadeira usam o offset global; a sobreposição de ~1,5 mm (meio) e
+  ~0,7 mm (topo) vale no plano central. O canto lateral pode ficar levemente
+  negativo em combinações extremas; é cosmético e a peça continua 1 casca.
+- Os testes de build importados ficaram em arquivos separados
+  (`buildBodyImported.test.ts`, `buildCanHolderImported.test.ts`) para não
+  estourar o watchdog de 60 s do Vitest.
 
 ## Objetivo
 
@@ -18,10 +47,13 @@ Incluído:
 - Conversão offline STL → mapa de altura normalizado (192 × 96) com metadados.
 - 14 estilos importados, com nomes em português, somados aos 6 procedurais e
   `none`.
-- Profundidade nativa por estilo (sem o clamp de escala dos procedurais).
+- Profundidade nativa por estilo (sem o clamp de escala dos procedurais);
+  medida nos 14 arquivos: **1,21–4,23 mm**.
 - Laço da alça deslocado pelo envelope da textura e abraçadeira engrossada para
   fora, preservando a sobreposição e o encaixe.
-- Aviso `can-texture-slope` quando a textura passa de 45°.
+- Nota no painel: texturas importadas mantêm a profundidade do arquivo e
+  podem exigir suporte (flancos medidos de 49–74°). Sem código de validação
+  novo, porque os 14 estilos passam de 45° e o aviso não discriminaria.
 - Painel com grupos Procedurais/Importadas e bloqueio dos sliders de
   profundidade/escala para importados.
 - Testes, docs e script de regeneração.
@@ -36,7 +68,7 @@ Fora do escopo:
 
 ## Arquivos de origem
 
-Os 14 STLs em `files/` são rolos cilíndricos (eixo Z) de Ø34–59 mm e 66–115 mm de
+Os 14 STLs em `files/` são rolos cilíndricos (eixo Z) de Ø34–59 mm e 66–120 mm de
 altura, com o padrão no lado externo; o topo tem logo/flange e a parede interna
 tem um furo. `files/` fica no `.gitignore` (≈400 MB) e não vai para o
 repositório; só o asset gerado é commitado.
@@ -76,19 +108,24 @@ rótulos acima.
    `rBase`/`rTop` são os percentis 1/99 do mapa preenchido.
 5. Mede a **profundidade nativa** `rTop − rBase` (mm) e a **inclinação máxima**
    do mapa já mapeada para a parede nominal (99,2 mm): `depth × |Δv| / (99,2/95)`,
-   em graus.
+   em graus. A faixa do padrão é o intervalo entre as pontas, cortando flange/
+   lip/taper enquanto a mediana do raio da linha se afasta mais de 0,8 mm da
+   mediana interior (os 14 resultam em ~63–107 mm: 12 rolos em 97–107 mm e
+   `tijolos_pequenos`/`reboco_pequeno` em 63–64 mm; `v` estica para a parede,
+   0,93–1,57× na vertical).
 6. Gera dois módulos:
    - `importedTextures.ts` — metadados (id, nome, profundidade, inclinação,
      dimensões), importado pelo schema/painel;
    - `importedTextureData.ts` — mapas em base64, importado só por `texture.ts`
-     (worker), ~350 KB.
+     (worker), ~344 KB (336 KiB).
 7. `--check` regenera em memória e compara com os arquivos commitados (local,
    porque os STLs não ficam no repositório).
 
 O mapeamento usa `u = θ/2π` (volta completa, sem emenda) e
 `v = (y − paredeMin) / (paredeMax − paredeMin)`. O padrão é redimensionado para
 a parede entre os anéis (~99 mm no default), então a distorção horizontal é
-~1,5–2,1× e a vertical depende do rolo; o relevo radial é preservado.
+~1,4–2,4× (até ~2,6× nos vales) e a vertical 0,93–1,57×; o relevo radial é
+preservado.
 
 ## Parâmetros e derivados
 
@@ -100,7 +137,8 @@ a parede entre os anéis (~99 mm no default), então a distorção horizontal é
   - procedural → `min(textureDepth, textureScale / 4)`;
   - importado → `nativeDepth`.
 - `getMaxOuterDiameter = getOuterDiameter + 2 × envelope`.
-  Ex.: `paralelepipedos` 3,6 mm → 72,6 + 7,2 = **79,8 mm**.
+  Ex.: `paralelepipedos` 1,79 mm → **76,18 mm**; `pedra_hexagonal` 4,23 mm →
+  **81,06 mm**.
 - `getEffectiveTextureDepth` mantém o comportamento procedural; para importado
   devolve `nativeDepth` (o slider é ignorado).
 
@@ -114,7 +152,8 @@ offset   = max(0, envelope − (handleClearance + HANDLE_LOOP_INSET − 0.7))
 ```
 
 - Procedurais: envelope ≤ 1,5 → offset 0; a alça atual não muda.
-- `paralelepipedos` (3,6 mm): offset ≈ 2,0 mm; o laço fica a 0,7 mm do pico.
+- `paralelepipedos` (1,79 mm): offset ≈ 0,19 mm; `pedra_hexagonal` (4,23 mm):
+  offset ≈ 2,63 mm; o laço fica a 0,7 mm do pico.
 - `getLoopLeftX` soma o offset.
 - `getHandleMetrics.outerRadius` e `getBandOuterRadius` somam o offset; o anel
   engrossa **para fora** e o laço continua sobreposto à abraçadeira (≈1,5 mm).
@@ -135,9 +174,9 @@ offset   = max(0, envelope − (handleClearance + HANDLE_LOOP_INSET − 0.7))
 
 - `can-texture` (warning) continua só para procedurais (profundidade limitada
   pela escala).
-- Novo `can-texture-slope` (warning): estilo importado com inclinação máxima
-  acima de 45° → "A textura {nome} tem flancos acima de 45° e pode exigir
-  suporte." Não bloqueia build/export.
+- **Nenhum código novo**: os 14 importados medem 49–74° e um aviso por estilo
+  não discriminaria; a nota fica no painel. `maxSlopeDeg` permanece na metadata
+  e é mostrado na seção Textura.
 - `can-handle-reach` considera a abertura reduzida pelo offset.
 - `can-handle-band`, `can-text-band` e `can-edge-rim` inalterados.
 
@@ -147,8 +186,8 @@ offset   = max(0, envelope − (handleClearance + HANDLE_LOOP_INSET − 0.7))
   (Nenhuma, Madeira, Metal, Escamas, Onduladas, Pedra, Pontiagudo) e
   **Importadas** (14).
 - Estilo importado: "Profundidade da textura" e "Escala da textura"
-  desabilitados; nota "Textura importada: profundidade X mm do arquivo." e, se
-  a inclinação passar de 45°, "Flancos acima de 45°: pode precisar de suporte.".
+  desabilitados; nota "Textura importada: profundidade X mm · flancos ~Y°.
+  Pode exigir suporte." (o nome do padrão fica no select).
 - Estilo procedural: comportamento atual (dica de estilo, profundidade
   efetiva etc.).
 - Continuam 7 seções e 19 sliders.
@@ -163,7 +202,7 @@ src/features/studio/tools/lembrancinhas/porta-lata/
   texture.ts                 # amostragem procedural + importada
   schema.ts                  # enum, envelopes, loop offset
   shapes.ts                  # laço/abraçadeira com offset
-  validateCanHolder.ts       # can-texture-slope
+  validateCanHolder.ts       # can-texture só procedural
   StudioPanel.tsx            # grupos e estados importados
 scripts/
   texture-import.mjs         # conversão e --check
@@ -185,7 +224,7 @@ files/*.stl (fora do repo)
 
 ## Testes
 
-- Metadados: 14 estilos, ids/nomes únicos, profundidade 1–5 mm, inclinação
+- Metadados: 14 estilos, ids/nomes únicos, profundidade 1,21–4,23 mm, inclinação
   coerente, mapas 192 × 96.
 - Amostragem importada: bilinear, `u` periódico, `v` clampado, faixa
   `0..nativeDepth`, mapa não uniforme.
@@ -194,23 +233,24 @@ files/*.stl (fora do repo)
 - `buildHandle`: offset do laço e engrossamento do anel; sobreposição
   preservada; procedurais sem offset; abertura da mão > 0.
 - `buildCanHolder`: manifold com texto + importado; volume; custo.
-- Validação: `can-texture-slope` e `can-handle-reach`; procedurais sem
-  `can-texture-slope`.
+- Validação: `can-handle-reach` com o offset; `can-texture` só procedural; a
+  nota de suporte no painel.
 - Hook/painel: 21 opções em dois grupos, sliders desabilitados, notas,
   diâmetro externo com envelope importado.
 - Script: unwrap de um cilindro sintético; `--check` local.
 
 ## Performance
 
-- Mapas: 14 × 192 × 96 = 258 KB crus → ~350 KB base64, no chunk do worker.
+- Mapas: 14 × 192 × 96 = 258 KB crus → ~344 KB (336 KiB) base64, no chunk do
+  worker.
 - Amostragem bilinear por vértice (~25k) é barata; o build continua dominado
   pelo CSG (~1 s no default texturado).
 - O encode base64 é decodificado uma vez por build/worker.
 
 ## Riscos e mitigação
 
-- **Overhangs de 3–4 mm**: aviso `can-texture-slope`; a impressão pode exigir
-  suporte. Build e STL continuam válidos.
+- **Overhangs de 1,2–4,2 mm**: nota no painel; a impressão pode exigir suporte.
+  Build e STL continuam válidos.
 - **Distorção u/v**: é o preço de fechar 360° sem emenda; documentada.
 - **Laço mais afastado**: abertura da mão menor; `can-handle-reach` avisa.
 - **Asset desatualizado**: `--check` e teste dos metadados.
@@ -225,7 +265,7 @@ files/*.stl (fora do repo)
 - O laço fica ≥ 0,7 mm do pico e continua sobreposto à abraçadeira; estilos
   procedurais mantêm a alça atual.
 - Texto 1 mm acima do envelope; anéis, base, borda, cavidade e furo intactos.
-- `can-texture-slope` avisa nos estilos > 45°; nada bloqueia build/export.
+- A nota de suporte aparece nos importados; nada bloqueia build/export.
 - Painel com 19 sliders e sliders de profundidade/escala desabilitados nos
   importados.
 - Suíte, typecheck, lint e build passando.

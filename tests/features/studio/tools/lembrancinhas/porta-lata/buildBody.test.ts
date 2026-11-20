@@ -9,7 +9,7 @@ import {
   BASE_CHAMFER_MM,
   CAN_DIAMETER,
   MIN_TOP_LAND_MM,
-  TEXTURE_STYLES,
+  PROCEDURAL_TEXTURE_STYLES,
   defaultCanHolderParams,
   getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
@@ -238,7 +238,7 @@ describe('can holder body', () => {
     )
   })
 
-  it.each(TEXTURE_STYLES.filter((style) => style !== 'none'))(
+  it.each(PROCEDURAL_TEXTURE_STYLES.filter((style) => style !== 'none'))(
     'fecha o corpo texturizado (%s)',
     (style) => {
       const params = { ...defaultCanHolderParams, textureStyle: style, textureDepth: 1.5 }
@@ -295,7 +295,7 @@ describe('can holder body', () => {
   })
 
   it('mantém as facetas da parede abaixo de 45 graus', () => {
-    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+    for (const style of PROCEDURAL_TEXTURE_STYLES.filter((value) => value !== 'none')) {
       for (const textureScale of [4, 6, 8]) {
         const params = {
           ...defaultCanHolderParams,
@@ -309,7 +309,7 @@ describe('can holder body', () => {
       }
     }
 
-    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+    for (const style of PROCEDURAL_TEXTURE_STYLES.filter((value) => value !== 'none')) {
       const shoulder = {
         ...defaultCanHolderParams,
         textureStyle: style,

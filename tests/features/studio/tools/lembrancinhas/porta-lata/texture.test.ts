@@ -1,12 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import {
+  importedTextureHeight,
   textureDisplacement,
   textureHeight,
   textureMask,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/texture'
 import {
+  IMPORTED_TEXTURE_IDS,
+  IMPORTED_TEXTURES,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
+import {
+  PROCEDURAL_TEXTURE_STYLES,
   TEXTURE_EDGE_FADE_MM,
-  TEXTURE_STYLES,
   defaultCanHolderParams,
   getEffectiveTextureDepth,
   type CanHolderGeometryParams,
@@ -31,7 +36,7 @@ describe('texturas do porta-lata', () => {
   })
 
   it('mantém todos os estilos em 0..profundidade, periódicos e determinísticos', () => {
-    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+    for (const style of PROCEDURAL_TEXTURE_STYLES.filter((value) => value !== 'none')) {
       const params = withParams({ textureStyle: style, textureDepth: 1.5 })
       for (let i = 0; i < 24; i++) {
         const theta = (i / 24) * TAU
@@ -50,7 +55,7 @@ describe('texturas do porta-lata', () => {
   })
 
   it('gera padrões diferentes por estilo', () => {
-    const samples = TEXTURE_STYLES.filter((style) => style !== 'none').map((style) => {
+    const samples = PROCEDURAL_TEXTURE_STYLES.filter((style) => style !== 'none').map((style) => {
       const params = withParams({ textureStyle: style })
       return [20, 50, 80].map((y) => textureHeight(params, 1.3, y).toFixed(4)).join('|')
     })
@@ -67,7 +72,7 @@ describe('texturas do porta-lata', () => {
   })
 
   it('mantém o campo contínuo e com flancos imprimíveis', () => {
-    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+    for (const style of PROCEDURAL_TEXTURE_STYLES.filter((value) => value !== 'none')) {
       for (const textureScale of [4, 8, 16]) {
         const params = withParams({ textureStyle: style, textureDepth: 1.5, textureScale })
         for (const theta of [0, 0.7, 1.9, 3.1, 4.4, 5.8]) {
@@ -110,7 +115,7 @@ describe('texturas do porta-lata', () => {
   })
 
   it('nunca desloca mais que a profundidade', () => {
-    for (const style of TEXTURE_STYLES.filter((value) => value !== 'none')) {
+    for (const style of PROCEDURAL_TEXTURE_STYLES.filter((value) => value !== 'none')) {
       const params = withParams({ textureStyle: style, textureDepth: 1.5 })
       for (let i = 0; i < 48; i++) {
         const theta = (i / 48) * TAU
@@ -121,5 +126,81 @@ describe('texturas do porta-lata', () => {
         }
       }
     }
+  })
+
+  it('amostra o mapa importado com período em u e faixa nativa', () => {
+    const params = { ...defaultCanHolderParams, textureStyle: 'paralelepipedos' as const }
+    const meta = IMPORTED_TEXTURES.paralelepipedos
+    const a = textureDisplacement(params, 0.2, 40, WALL_MIN, WALL_MAX)
+    const b = textureDisplacement(params, 0.2 + TAU, 40, WALL_MIN, WALL_MAX)
+    const c = textureDisplacement(params, 0.2, 88, WALL_MIN, WALL_MAX)
+    expect(a).toBeCloseTo(b, 6)
+    expect(a).toBeGreaterThanOrEqual(0)
+    expect(a).toBeLessThanOrEqual(meta.nativeDepth + 1e-9)
+    expect(c).toBeGreaterThanOrEqual(0)
+    expect(c).toBeLessThanOrEqual(meta.nativeDepth + 1e-9)
+    expect(a).not.toBeCloseTo(c, 3)
+  })
+
+  it('mantém o amostrador importado periódico em u e clampado em v', () => {
+    const meta = IMPORTED_TEXTURES.paralelepipedos
+    for (const v of [0, 0.25, 0.5, 0.9, 1]) {
+      const height = importedTextureHeight('paralelepipedos', 0.3, v)
+      expect(height).toBeGreaterThanOrEqual(0)
+      expect(height).toBeLessThanOrEqual(meta.nativeDepth + 1e-9)
+      expect(importedTextureHeight('paralelepipedos', 1.3, v)).toBeCloseTo(height, 9)
+      expect(importedTextureHeight('paralelepipedos', -0.7, v)).toBeCloseTo(height, 9)
+    }
+    expect(importedTextureHeight('paralelepipedos', 0.3, -1)).toBeCloseTo(
+      importedTextureHeight('paralelepipedos', 0.3, 0),
+      9,
+    )
+    expect(importedTextureHeight('paralelepipedos', 0.3, 2)).toBeCloseTo(
+      importedTextureHeight('paralelepipedos', 0.3, 1),
+      9,
+    )
+  })
+
+  it('fecha o mapa importado em u com período de uma volta', () => {
+    for (const style of IMPORTED_TEXTURE_IDS) {
+      for (const v of [0, 0.3, 0.5, 0.8, 1]) {
+        expect(importedTextureHeight(style, 0, v)).toBeCloseTo(
+          importedTextureHeight(style, 1, v),
+          9,
+        )
+      }
+    }
+  })
+
+  it('mantém o deslocamento importado entre 0 e a profundidade nativa', () => {
+    for (const style of IMPORTED_TEXTURE_IDS) {
+      const params = withParams({ textureStyle: style })
+      const depth = IMPORTED_TEXTURES[style].nativeDepth
+      for (const theta of [0.2, 1.3, 3.4, 5.9]) {
+        for (const y of [9, 25, 45, 72, 100]) {
+          const height = textureDisplacement(params, theta, y, WALL_MIN, WALL_MAX)
+          expect.soft(height, `${style} em ${theta}/${y}`).toBeGreaterThanOrEqual(0)
+          expect
+            .soft(height, `${style} em ${theta}/${y}`)
+            .toBeLessThanOrEqual(depth + 1e-9)
+        }
+      }
+    }
+  })
+
+  it('deixa a altura procedural zerada nos estilos importados', () => {
+    for (const style of IMPORTED_TEXTURE_IDS) {
+      const params = withParams({ textureStyle: style })
+      for (const theta of [0, 1, 3]) {
+        for (const y of [10, 60, 100]) {
+          expect(textureHeight(params, theta, y)).toBe(0)
+        }
+      }
+    }
+  })
+
+  it('mantém a faixa da abraçadeira lisa com textura importada', () => {
+    const params = { ...defaultCanHolderParams, textureStyle: 'paralelepipedos' as const }
+    expect(textureDisplacement(params, 1, 60, WALL_MIN, WALL_MAX)).toBe(0)
   })
 })

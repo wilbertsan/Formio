@@ -10,4 +10,4 @@ amplify_outputs.json
 .amplify
 amplify/.amplify
 .worktrees
-files/
+files

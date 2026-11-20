@@ -9,6 +9,7 @@ import {
   getEffectiveRingProtrusion,
   getEffectiveRimChamfer,
   getInnerDiameter,
+  getLoopOffset,
   getOuterHeight,
   getOuterRadius,
   type CanHolderGeometryParams,
@@ -90,13 +91,19 @@ export interface HandleMetrics {
 
 /**
  * Borda esquerda do laço: o corpo é cilíndrico, então a borda é vertical, a
- * `handleClearance + HANDLE_LOOP_INSET` da parede.
+ * `handleClearance + HANDLE_LOOP_INSET` da parede mais o `getLoopOffset`.
+ *
+ * O offset afasta o laço do envelope de texturas importadas profundas,
+ * preservando `MIN_LOOP_GAP_MM` (0,7 mm) até o pico. A abraçadeira engrossa
+ * para fora pelo mesmo offset, então a sobreposição de ~1,5 mm com o anel é
+ * mantida e o raio interno (encaixe) não muda.
  */
 export function getLoopLeftX(params: CanHolderGeometryParams): number {
   return (
     getOuterRadius(params) +
     params.handleClearance +
-    HANDLE_LOOP_INSET
+    HANDLE_LOOP_INSET +
+    getLoopOffset(params)
   )
 }
 
@@ -126,6 +133,11 @@ export function getBandInnerRadius(
 /**
  * Raio externo efetivo da abraçadeira: a mesma escala radial aplicada em
  * `buildHandle`, então a espessura acompanha o raio interno escalado.
+ *
+ * O `getLoopOffset` engrossa a abraçadeira para fora junto com o laço. O
+ * raio interno (encaixe) não muda, e a sobreposição com o anel é preservada
+ * porque a escala acompanha o nominal acrescido do offset: ~1,5 mm no meio e
+ * ~0,7 mm no topo.
  */
 export function getBandOuterRadius(
   params: CanHolderGeometryParams,
@@ -133,14 +145,15 @@ export function getBandOuterRadius(
 ): number {
   const nominal = getOuterRadius(params) + params.handleClearance
   return (
-    (nominal + HANDLE_RING_THICKNESS) * (getBandInnerRadius(params, y) / nominal)
+    (nominal + HANDLE_RING_THICKNESS + getLoopOffset(params)) *
+    (getBandInnerRadius(params, y) / nominal)
   )
 }
 
 export function getHandleMetrics(params: CanHolderGeometryParams): HandleMetrics {
   const bodyRadius = getOuterRadius(params)
   const innerRadius = bodyRadius + params.handleClearance
-  const outerRadius = innerRadius + HANDLE_RING_THICKNESS
+  const outerRadius = innerRadius + HANDLE_RING_THICKNESS + getLoopOffset(params)
   const loopMinX = getLoopLeftX(params)
   const loopMaxX = bodyRadius + params.handleReach
   const handOpeningWidth = loopMaxX - loopMinX - 2 * params.handleBand
@@ -172,10 +185,15 @@ export function handleRingShape(metrics: HandleMetrics): Shape {
  * Laço em D no plano XY, com a abertura da mão como furo retangular.
  *
  * A borda esquerda é vertical na parede cilíndrica e fica dentro da espessura
- * efetiva da abraçadeira no topo por
+ * efetiva da abraçadeira: no meio sobram `HANDLE_RING_THICKNESS -
+ * HANDLE_LOOP_INSET` (1,5 mm) e no topo
  * `HANDLE_RING_THICKNESS - HANDLE_FIT_INTERFERENCE - handleClearance -
  * HANDLE_LOOP_INSET` (≈0,7 mm no default e ≈0,8 mm com folga 0,2 mm), o que
  * garante sobreposição sólida para o CSG em toda a altura.
+ *
+ * O `getLoopOffset` afasta o laço e engrossa a abraçadeira para fora pelo
+ * mesmo valor, então mantém 0,7 mm de folga até o envelope da textura e a
+ * sobreposição com o anel; o raio interno (encaixe) não muda.
  */
 export function handleLoopShape(params: CanHolderGeometryParams): Shape {
   const metrics = getHandleMetrics(params)

@@ -19,15 +19,19 @@ import {
   FONT_STYLES,
   MAX_TEXT_LENGTH,
   PLA_COLORS,
+  PROCEDURAL_TEXTURE_STYLES,
   TEXTURE_STYLES,
   getEffectiveTextureDepth,
   getTextBand,
   getTopLand,
+  isImportedTexture,
   type FontStyle,
   type CanHolderParams,
   type PlaColor,
+  type ProceduralTextureStyle,
   type TextureStyle,
 } from './schema'
+import { IMPORTED_TEXTURE_IDS, IMPORTED_TEXTURES } from './importedTextures'
 import type { ValidationIssue } from './validateCanHolder'
 
 interface StudioPanelProps {
@@ -50,7 +54,7 @@ function isFontStyle(value: string): value is FontStyle {
   return FONT_STYLES.some((style) => style === value)
 }
 
-const TEXTURE_STYLE_LABELS: Record<TextureStyle, string> = {
+const PROCEDURAL_TEXTURE_LABELS: Record<ProceduralTextureStyle, string> = {
   none: 'Nenhuma',
   wood: 'Madeira',
   metal: 'Metal',
@@ -58,6 +62,12 @@ const TEXTURE_STYLE_LABELS: Record<TextureStyle, string> = {
   waves: 'Onduladas',
   stone: 'Pedra',
   spikes: 'Pontiagudo',
+}
+
+function textureStyleLabel(style: TextureStyle): string {
+  return isImportedTexture(style)
+    ? IMPORTED_TEXTURES[style].label
+    : PROCEDURAL_TEXTURE_LABELS[style]
 }
 
 function isTextureStyle(value: string): value is TextureStyle {
@@ -159,7 +169,11 @@ export function StudioPanel({
   onReset,
 }: StudioPanelProps) {
   const textBand = getTextBand(params)
+  const importedMeta = isImportedTexture(params.textureStyle)
+    ? IMPORTED_TEXTURES[params.textureStyle]
+    : null
   const effectiveTextureDepth = getEffectiveTextureDepth(params)
+  const isTextureDisabled = params.textureStyle === 'none' || importedMeta !== null
 
   return (
     <View
@@ -253,17 +267,30 @@ export function StudioPanel({
                   }
                 }}
               >
-                {TEXTURE_STYLES.map((style) => (
-                  <option key={style} value={style}>{TEXTURE_STYLE_LABELS[style]}</option>
-                ))}
+                <optgroup label="Procedurais">
+                  {PROCEDURAL_TEXTURE_STYLES.map((style) => (
+                    <option key={style} value={style}>{textureStyleLabel(style)}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Importadas">
+                  {IMPORTED_TEXTURE_IDS.map((style) => (
+                    <option key={style} value={style}>{textureStyleLabel(style)}</option>
+                  ))}
+                </optgroup>
               </SelectField>
-              <LabeledSlider label="Profundidade da textura" value={params.textureDepth} min={0.4} max={1.5} step={0.1} isDisabled={params.textureStyle === 'none'} onChange={(value) => onUpdateParam('textureDepth', value)} />
-              <LabeledSlider label="Escala da textura" value={params.textureScale} min={4} max={16} step={1} isDisabled={params.textureStyle === 'none'} onChange={(value) => onUpdateParam('textureScale', value)} />
-              {params.textureStyle === 'none' ? (
+              <LabeledSlider label="Profundidade da textura" value={params.textureDepth} min={0.4} max={1.5} step={0.1} isDisabled={isTextureDisabled} onChange={(value) => onUpdateParam('textureDepth', value)} />
+              <LabeledSlider label="Escala da textura" value={params.textureScale} min={4} max={16} step={1} isDisabled={isTextureDisabled} onChange={(value) => onUpdateParam('textureScale', value)} />
+              {params.textureStyle === 'none' && (
                 <Text fontSize="xs" color="font.secondary">
                   Escolha um estilo para ajustar os parâmetros.
                 </Text>
-              ) : (
+              )}
+              {importedMeta !== null && (
+                <Text fontSize="xs" color="font.secondary">
+                  Textura importada: profundidade {formatMm(importedMeta.nativeDepth)} mm · flancos ~{Math.round(importedMeta.maxSlopeDeg)}°. Pode exigir suporte.
+                </Text>
+              )}
+              {params.textureStyle !== 'none' && importedMeta === null && (
                 <>
                   <Text fontSize="xs" color="font.secondary">
                     Relevo positivo. A faixa da alça fica lisa e o nome fica 1 mm acima da textura.

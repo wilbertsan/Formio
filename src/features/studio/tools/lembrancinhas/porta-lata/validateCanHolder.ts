@@ -13,6 +13,7 @@ import {
   getOuterRadius,
   getRingWallBand,
   getTextBand,
+  isProceduralTexture,
   type CanHolderGeometryParams,
 } from './schema'
 import { getHandleMetrics } from './shapes'
@@ -171,8 +172,10 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
     }
   }
 
+  // Importados usam a profundidade nativa do mapa, não a escala procedural.
   if (
     params.textureStyle !== 'none' &&
+    isProceduralTexture(params.textureStyle) &&
     params.textureDepth > params.textureScale / 4 + BOUNDARY_EPSILON
   ) {
     issues.push({
@@ -223,7 +226,7 @@ export function validateCanHolder(params: CanHolderGeometryParams): ValidationIs
       issues.push({
         code: 'can-handle-reach',
         severity: 'warning',
-        message: 'O alcance da alça não deixa abertura suficiente para a mão.',
+        message: 'O alcance da alça ou a textura profunda não deixa abertura suficiente para a mão.',
       })
     }
     if (params.handleClearance > HANDLE_FIT_INTERFERENCE) {

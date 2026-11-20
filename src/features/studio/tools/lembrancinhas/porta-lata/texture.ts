@@ -4,8 +4,12 @@ import {
   TEXTURE_HANDLE_GAP_MM,
   getEffectiveTextureDepth,
   getOuterRadius,
+  isImportedTexture,
   type CanHolderGeometryParams,
+  type ImportedTextureId,
 } from './schema'
+import { IMPORTED_TEXTURES } from './importedTextures'
+import { IMPORTED_TEXTURE_DATA } from './importedTextureData'
 
 const TAU = Math.PI * 2
 
@@ -27,6 +31,44 @@ function hash(x: number, y: number): number {
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
+}
+
+const decodedMaps = new Map<ImportedTextureId, Uint8Array>()
+
+function decodeMap(id: ImportedTextureId): Uint8Array {
+  const cached = decodedMaps.get(id)
+  if (cached) return cached
+  const binary = atob(IMPORTED_TEXTURE_DATA[id])
+  const data = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) data[i] = binary.charCodeAt(i)
+  decodedMaps.set(id, data)
+  return data
+}
+
+/**
+ * Altura importada em mm; `u` em voltas (periódico em 1) e `v` em 0..1 sobre a
+ * parede. Interpolação bilinear com `u` periódico e `v` clampado.
+ */
+export function importedTextureHeight(
+  style: ImportedTextureId,
+  u: number,
+  v: number,
+): number {
+  const meta = IMPORTED_TEXTURES[style]
+  const data = decodeMap(style)
+  const wrapped = ((u % 1) + 1) % 1
+  const x = wrapped * meta.width
+  const x0 = Math.floor(x) % meta.width
+  const x1 = (x0 + 1) % meta.width
+  const fx = x - Math.floor(x)
+  const y = Math.min(1, Math.max(0, v)) * (meta.height - 1)
+  const y0 = Math.floor(y)
+  const y1 = Math.min(meta.height - 1, y0 + 1)
+  const fy = y - y0
+  const at = (row: number, col: number): number => data[row * meta.width + col] / 255
+  const top = lerp(at(y0, x0), at(y0, x1), fx)
+  const bottom = lerp(at(y1, x0), at(y1, x1), fx)
+  return lerp(top, bottom, fy) * meta.nativeDepth
 }
 
 /** Número inteiro de células em volta do corpo, para fechar a emenda em θ. */
@@ -155,6 +197,8 @@ export function textureHeight(
   theta: number,
   y: number,
 ): number {
+  // O campo importado depende de (u, v) e é amostrado em `textureDisplacement`.
+  if (isImportedTexture(params.textureStyle)) return 0
   const depth = getEffectiveTextureDepth(params)
   switch (params.textureStyle) {
     case 'none':
@@ -185,8 +229,15 @@ export function textureMask(
   wallMin: number,
   wallMax: number,
 ): number {
+  const imported = isImportedTexture(params.textureStyle)
   const depth = getEffectiveTextureDepth(params)
-  const fade = Math.min(Math.max(TEXTURE_EDGE_FADE_MM, 3 * depth), (wallMax - wallMin) / 4)
+  // O fade dos importados fica limitado a 4 mm para não comer metade do padrão.
+  const cap = imported ? 4 : Number.POSITIVE_INFINITY
+  const fade = Math.min(
+    Math.max(TEXTURE_EDGE_FADE_MM, 3 * depth),
+    cap,
+    (wallMax - wallMin) / 4,
+  )
   let mask = Math.min(
     smoothstep(wallMin, wallMin + fade, y),
     1 - smoothstep(wallMax - fade, wallMax, y),
@@ -194,7 +245,7 @@ export function textureMask(
   if (params.handleEnabled) {
     const bandMin = params.handleHeight - params.handleWidth / 2 - TEXTURE_HANDLE_GAP_MM
     const bandMax = params.handleHeight + params.handleWidth / 2 + TEXTURE_HANDLE_GAP_MM
-    const bandFade = Math.max(TEXTURE_HANDLE_FADE_MM, 3 * depth)
+    const bandFade = Math.min(Math.max(TEXTURE_HANDLE_FADE_MM, 3 * depth), cap)
     // 1 fora da faixa, 0 dentro dela, com transição suave nas duas pontas.
     mask *= Math.max(
       smoothstep(bandMax, bandMax + bandFade, y),
@@ -213,5 +264,12 @@ export function textureDisplacement(
   wallMax: number,
 ): number {
   if (params.textureStyle === 'none') return 0
+  if (isImportedTexture(params.textureStyle)) {
+    const v = (y - wallMin) / (wallMax - wallMin)
+    return (
+      importedTextureHeight(params.textureStyle, theta / TAU, v) *
+      textureMask(params, y, wallMin, wallMax)
+    )
+  }
   return textureHeight(params, theta, y) * textureMask(params, y, wallMin, wallMax)
 }

@@ -19,12 +19,18 @@ import {
   handleRingShape,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/buildHandle'
 import {
+  IMPORTED_TEXTURE_IDS,
+  IMPORTED_TEXTURES,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
+import {
   HANDLE_FIT_INTERFERENCE,
   HANDLE_LOOP_INSET,
   HANDLE_RING_THICKNESS,
   HANDLE_WRAP,
   defaultCanHolderParams,
+  getLoopOffset,
   getOuterRadius,
+  getTextureEnvelope,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 
@@ -242,6 +248,81 @@ describe('buildHandle', () => {
       6,
     )
     expect(metrics.handOpeningMinWidth).toBeCloseTo(metrics.handOpeningWidth, 6)
+  })
+
+  it('afasta o laço e engrossa a abraçadeira pelo envelope importado', () => {
+    const imported = { ...defaultCanHolderParams, textureStyle: 'paralelepipedos' as const }
+    const meta = IMPORTED_TEXTURES.paralelepipedos
+    const offset = getLoopOffset(imported)
+    expect(offset).toBeCloseTo(
+      meta.nativeDepth - (imported.handleClearance + 2 - 0.7),
+      5,
+    )
+    expect(getLoopLeftX(imported)).toBeCloseTo(
+      getOuterRadius(imported) + imported.handleClearance + 2 + offset,
+      6,
+    )
+    const metrics = getHandleMetrics(imported)
+    expect(metrics.handOpeningWidth).toBeLessThan(
+      getHandleMetrics(defaultCanHolderParams).handOpeningWidth,
+    )
+    expect(metrics.handOpeningWidth).toBeGreaterThan(0)
+    const bandOuterTop = getBandOuterRadius(imported, imported.handleHeight + imported.handleWidth / 2)
+    expect(bandOuterTop - getLoopLeftX(imported)).toBeGreaterThan(0.5)
+  })
+
+  it('não muda a alça com textura procedural', () => {
+    const procedural = { ...defaultCanHolderParams, textureStyle: 'wood' as const, textureDepth: 1.5 }
+    expect(getLoopOffset(procedural)).toBe(0)
+    expect(getLoopLeftX(procedural)).toBeCloseTo(getLoopLeftX(defaultCanHolderParams), 6)
+    expect(getHandleMetrics(procedural).outerRadius).toBeCloseTo(
+      getHandleMetrics(defaultCanHolderParams).outerRadius,
+      6,
+    )
+  })
+
+  it('não muda a alça com textura importada rasa', () => {
+    const shallow = { ...defaultCanHolderParams, textureStyle: 'tijolos_limpos' as const }
+    expect(getLoopOffset(shallow)).toBe(0)
+    expect(getLoopLeftX(shallow)).toBeCloseTo(getLoopLeftX(defaultCanHolderParams), 6)
+    expect(getHandleMetrics(shallow).outerRadius).toBeCloseTo(
+      getHandleMetrics(defaultCanHolderParams).outerRadius,
+      6,
+    )
+
+    const shallowHandle = buildHandle(shallow)
+    const plainHandle = buildHandle(defaultCanHolderParams)
+    shallowHandle.computeBoundingBox()
+    const shallowBox = shallowHandle.boundingBox!
+    plainHandle.computeBoundingBox()
+    const plainBox = plainHandle.boundingBox!
+
+    for (const axis of ['x', 'y', 'z'] as const) {
+      expect(Math.abs(shallowBox.min[axis] - plainBox.min[axis])).toBeLessThanOrEqual(1e-4)
+      expect(Math.abs(shallowBox.max[axis] - plainBox.max[axis])).toBeLessThanOrEqual(1e-4)
+    }
+    shallowHandle.dispose()
+    plainHandle.dispose()
+  })
+
+  it.each(IMPORTED_TEXTURE_IDS)(
+    'mantém 0,7 mm de folga do envelope (%s)',
+    (style) => {
+      const params = { ...defaultCanHolderParams, textureStyle: style }
+      expect(getLoopOffset(params)).toBeGreaterThanOrEqual(0)
+      expect(
+        getLoopLeftX(params) - (getOuterRadius(params) + getTextureEnvelope(params)),
+      ).toBeGreaterThanOrEqual(0.7 - 1e-9)
+    },
+  )
+
+  it('gera a alça fechada com textura importada profunda', () => {
+    const params = { ...defaultCanHolderParams, textureStyle: 'pedra_hexagonal' as const }
+    const handle = buildHandle(params)
+    expect(isClosed(handle)).toBe(true)
+    expect(countShells(handle)).toBe(1)
+    expect(signedVolume(handle)).toBeGreaterThan(0)
+    handle.dispose()
   })
 
   it.each(extremes)(

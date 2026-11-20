@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest'
 import {
+  IMPORTED_TEXTURE_IDS,
+  IMPORTED_TEXTURES,
+} from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
+import {
   CAN_DIAMETER,
   CAN_HEIGHT,
   CAN_VOLUME_ML,
   CONTENT_DEPTH,
   HANDLE_RING_THICKNESS,
   MAX_TEXT_LENGTH,
+  PROCEDURAL_TEXTURE_STYLES,
   TEXTURE_STYLES,
   canHolderGeometryParamsSchema,
   canHolderParamsSchema,
@@ -16,11 +21,13 @@ import {
   getEffectiveTextureDepth,
   getExposedHeight,
   getInnerDiameter,
+  getLoopOffset,
   getMaxOuterDiameter,
   getOuterDiameter,
   getOuterHeight,
   getTextureEnvelope,
   getTopLand,
+  isImportedTexture,
   sanitizeFilename,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 
@@ -115,6 +122,32 @@ describe('porta-lata schema', () => {
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureDepth: 1.6 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 3.9 }).success).toBe(false)
     expect(canHolderParamsSchema.safeParse({ ...defaultCanHolderParams, textureScale: 16.1 }).success).toBe(false)
+  })
+
+  it('inclui os 14 estilos importados', () => {
+    expect(IMPORTED_TEXTURE_IDS).toHaveLength(14)
+    expect(TEXTURE_STYLES).toHaveLength(7 + 14)
+    for (const id of IMPORTED_TEXTURE_IDS) {
+      expect(isImportedTexture(id)).toBe(true)
+      expect(IMPORTED_TEXTURES[id].nativeDepth).toBeGreaterThan(1)
+      expect(IMPORTED_TEXTURES[id].nativeDepth).toBeLessThan(6)
+      expect(IMPORTED_TEXTURES[id].label.length).toBeGreaterThan(0)
+    }
+    for (const style of PROCEDURAL_TEXTURE_STYLES) {
+      expect(isImportedTexture(style)).toBe(false)
+    }
+    expect(
+      canHolderParamsSchema.safeParse({
+        ...defaultCanHolderParams,
+        textureStyle: 'paralelepipedos',
+      }).success,
+    ).toBe(true)
+    expect(
+      canHolderParamsSchema.safeParse({
+        ...defaultCanHolderParams,
+        textureStyle: 'nao-existe',
+      }).success,
+    ).toBe(false)
   })
 
   it('limita o texto por code points', () => {
@@ -224,6 +257,18 @@ describe('preset da lata e derivados', () => {
 
     const noRings = { ...defaultCanHolderParams, edgeRimEnabled: false, textureStyle: 'wood' as const, textureDepth: 1.5 }
     expect(getMaxOuterDiameter(noRings)).toBeCloseTo(75.6, 5)
+  })
+
+  it('usa a profundidade nativa e o offset do laço nos importados', () => {
+    const imported = { ...defaultCanHolderParams, textureStyle: 'paralelepipedos' as const }
+    const meta = IMPORTED_TEXTURES.paralelepipedos
+    expect(getTextureEnvelope(imported)).toBeCloseTo(meta.nativeDepth, 6)
+    expect(getMaxOuterDiameter(imported)).toBeCloseTo(72.6 + 2 * meta.nativeDepth, 5)
+    expect(getLoopOffset(imported)).toBeGreaterThan(0)
+
+    const procedural = { ...defaultCanHolderParams, textureStyle: 'wood' as const, textureDepth: 1.5 }
+    expect(getLoopOffset(procedural)).toBe(0)
+    expect(getTextureEnvelope(defaultCanHolderParams)).toBe(0)
   })
 
   it('desliga os anéis sem alterar o diâmetro externo', () => {
