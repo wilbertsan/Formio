@@ -2,7 +2,7 @@
 
 **Data:** 2026-11-20
 **Ferramenta:** `lembrancinhas/termoformador`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado
 
 ## Objetivo
 
@@ -66,10 +66,9 @@ Com `screenRadius = diameter/2`, `recessRadius = screenRadius + fitClearance`,
 - Raio da pega:
   `gripRadius = min(0.9 * plugHeight, 0.4 * guideRadius, 30)`.
 - Profundidade da pega:
-  `gripDepth = min(1.2 * gripRadius, effectiveBowlDepth + plugHeight - 6)`,
-  com piso de `0.8 * gripRadius`. O recesso é mais fundo que largo (parede entre
-  40° e 45°), garantindo impressão sem suporte e pelo menos 6 mm de material
-  sobre o domo.
+  `gripDepth = min(1.2 * gripRadius, effectiveBowlDepth + plugHeight - 6)`.
+  O recesso é mais fundo que largo (parede entre 40° e 45°), garantindo
+  impressão sem suporte e pelo menos 6 mm de material sobre o domo.
 - Altura total da peça (impressa): `effectiveBowlDepth + plugHeight`.
 - Diâmetro do macho: `diameter`.
 
