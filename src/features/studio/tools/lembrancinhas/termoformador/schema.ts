@@ -16,6 +16,8 @@ export const MINIMUM_SUPPORT_MM = 0.8
 export const MAX_SCREEN_OPENINGS = 4000
 export const SCREEN_SEGMENTS = 128
 export const PLUG_CHAMFER_MM = 0.8
+/** Material mínimo entre o ápice da pega e o polo do domo. */
+export const PLUG_GRIP_MIN_MATERIAL_MM = 6
 export const PLUG_DOME_SEGMENTS = 32
 export const PLUG_PREVIEW_GAP_MM = 8
 

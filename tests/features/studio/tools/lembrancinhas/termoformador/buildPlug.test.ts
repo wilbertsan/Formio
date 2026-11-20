@@ -7,6 +7,7 @@ import {
 import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
 import {
   PLUG_DOME_SEGMENTS,
+  PLUG_GRIP_MIN_MATERIAL_MM,
   defaultThermoformerParams,
 } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { isClosed, signedVolume } from './geometryTestUtils'
@@ -41,8 +42,11 @@ describe('getPlugDimensions', () => {
       bowlDepth: 5,
     })
 
-    expect(dims.bodyTop - dims.gripDepth).toBeGreaterThan(dims.domeCenterY + 1)
-    expect(dims.gripRadius).toBeLessThan(dims.guideRadius)
+    expect(dims.bodyTop - dims.gripDepth).toBeGreaterThanOrEqual(
+      dims.domeCenterY + PLUG_GRIP_MIN_MATERIAL_MM - 1e-9,
+    )
+    expect(dims.gripRadius).toBeLessThan(dims.contactRadius)
+    expect(dims.guideRadius - dims.contactRadius).toBeGreaterThanOrEqual(1.4 - 1e-9)
   })
 
   it('mantém o domo dentro do raio-guia nos extremos', () => {
@@ -56,7 +60,8 @@ describe('getPlugDimensions', () => {
     })
 
     expect(dims.contactRadius).toBeLessThanOrEqual(dims.guideRadius + 1e-9)
-    expect(dims.height).toBeGreaterThan(0)
+    expect(dims.height).toBeCloseTo(dims.bodyTop - dims.domeCenterY, 5)
+    expect(dims.guideRadius - dims.contactRadius).toBeGreaterThanOrEqual(1.4 - 1e-9)
   })
 })
 

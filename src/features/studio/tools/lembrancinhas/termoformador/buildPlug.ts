@@ -4,6 +4,7 @@ import { dedupeProfile, removeDegenerateTriangles } from './latheUtils'
 import {
   PLUG_CHAMFER_MM,
   PLUG_DOME_SEGMENTS,
+  PLUG_GRIP_MIN_MATERIAL_MM,
   SCREEN_SEGMENTS,
   type ThermoformerGeometryParams,
 } from './schema'
@@ -37,7 +38,7 @@ export function getPlugDimensions(
   )
   const gripDepth = Math.min(
     gripRadius * 1.2,
-    support.effectiveBowlDepth + params.plugHeight - 6,
+    support.effectiveBowlDepth + params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
   )
   const chamfer = Math.min(
     PLUG_CHAMFER_MM,
