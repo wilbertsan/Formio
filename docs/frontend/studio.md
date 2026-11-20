@@ -423,12 +423,14 @@ Texturas importadas:
   (não versionados, ~400 MB), desenrola a superfície externa com
   `unwrapCylinder` (grade 192 × 96, maior raio por célula, filtro de furo
   0,78 × maior raio, corte das pontas/flange pela mediana do raio) e grava
-  `importedTextures.ts` (metadados) e `importedTextureData.ts` (base64, ~337 KB,
+  `importedTextures.ts` (metadados) e `importedTextureData.ts` (base64, ~344 KB /
+  336 KiB,
   importado só pelo `texture.ts`/worker). `node scripts/texture-import.mjs
   --check` valida o asset; exige Node 24 e os STLs locais.
 - **Mapeamento**: `u = θ/2π` (volta completa, sem emenda) e
   `v = (y − paredeMin) / (paredeMax − paredeMin)`; o padrão preenche a parede
-  entre os anéis e é redimensionado (distorção horizontal ~1,5–2,1×). A
+  entre os anéis e é redimensionado (distorção horizontal ~1,4–2,4×, até ~2,6×
+  nos vales; vertical 0,93–1,57×). A
   profundidade radial é a nativa do arquivo.
 - **Alça**: `getLoopOffset = max(0, envelope − (handleClearance + 2 − 0,7))`;
   `getLoopLeftX` soma o offset e `getBandOuterRadius`/`getHandleMetrics`
@@ -440,7 +442,7 @@ Texturas importadas:
   profundidade e escala ficam desabilitados e aparece "Textura importada:
   profundidade X mm · flancos ~N°. Pode exigir suporte.".
 - **Custo**: 14 mapas normalizados/decodificados lazy; o chunk do worker cresce
-  ~337 KB; o build completo importado mediu ~1,6–2,2 s de CPU (até ~4,2 s em
+  ~344 KB / 336 KiB; o build completo importado mediu ~1,6–2,2 s de CPU (até ~4,2 s em
   máquina lenta), sem mudar a resolução 192×96.
 
 Detalhes:

@@ -250,7 +250,8 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   emenda na 0) e `v` é clampado em 0..1. A altura devolvida é
   `mapa × nativeDepth`, então o relevo radial preserva a profundidade medida no
   STL e o padrão é esticado para a parede entre os anéis (~99 mm no default). A
-  distorção horizontal resultante é de ~1,5–2,1×; é o preço de fechar 360° sem
+  distorção horizontal resultante é de ~1,4–2,4× (até ~2,6× nos vales); é o preço
+de fechar 360° sem
   emenda e está documentada nos riscos.
 - O campo procedural é determinístico: o hash é inteiro por célula (sem
   `Math.random`) e a contagem de células em θ é inteira,
@@ -385,7 +386,8 @@ Parâmetros
 
 - `scripts/texture-import.mjs` lê os 14 STLs binários de `files/` e gera
   `importedTextures.ts` (metadados: id, label, profundidade nativa, inclinação,
-  dimensões) e `importedTextureData.ts` (mapas em base64, 192 × 96, ~337 KB). O
+  dimensões) e `importedTextureData.ts` (mapas em base64, 192 × 96, ~344 KB /
+336 KiB). O
   primeiro é importado por schema e painel; o segundo só por `texture.ts`, que
   roda no chunk do worker.
 - `readBinaryStl` valida o cabeçalho (84 bytes + 50 por triângulo) e devolve só
@@ -397,7 +399,8 @@ Parâmetros
   raster grosseiro de ~1 linha/mm calcula a mediana de cada linha, a referência
   interior vem do miolo (25–75%) e as pontas saem enquanto a mediana se afasta
   mais de 0,8 mm, no máximo metade da altura de cada lado. A faixa útil fica em
-  ~97–107 mm nos 14 arquivos.
+  ~63–107 mm (12 rolos em 97–107 mm; os dois curtos em 63–64 mm; `v` estica
+para a parede, 0,93–1,57× na vertical).
 - O filtro de furo descarta células abaixo de `0,78 × maior raio da faixa
   final`; nos 14 o corte efetivo fica em 0,720–0,780 do raio máximo e os furos
   reais em 0,1–0,3. Células vazias são preenchidas pela média dos vizinhos (até
@@ -607,11 +610,12 @@ mostra erro no overlay.
   preservam a profundidade medida (1,21–4,23 mm). Fidelidade ao rolo vale mais
   que o clamp procedural de `escala/4`, que reduziria drasticamente o relevo.
 - **u/v normalizado:** `u = θ/2π` fecha a volta sem emenda e `v` preenche a
-  parede entre os anéis; o padrão é esticado (~1,5–2,1× na horizontal), aceito
+  parede entre os anéis; o padrão é esticado (~1,4–2,4× na horizontal, até ~2,6×
+nos vales), aceito
   em troca de uma textura contínua em 360°.
 - **Trim por mediana:** cortar flange/lip/taper pela mediana do raio é mais
   estável que detectar variação em θ; a tolerância de 0,8 mm é apertada, mas os
-  14 arquivos ficam em ~97–107 mm de faixa útil.
+  14 arquivos ficam em ~63–107 mm de faixa útil.
 - **Corte de furo em 0,78:** o maior raio da faixa final separa a casca externa
   da parede do furo. O valor fica logo abaixo de 0,80 para não apagar vales
   legítimos das texturas profundas.
@@ -644,7 +648,8 @@ mostra erro no overlay.
 - **Overhangs importados:** os 14 estilos medem 49–74° e a profundidade nativa
   chega a 4,23 mm; a impressão pode exigir suporte. A nota do painel avisa, mas
   build e STL continuam válidos e manifold.
-- **Distorção u/v:** o padrão é esticado ~1,5–2,1× na horizontal e a escala
+- **Distorção u/v:** o padrão é esticado ~1,4–2,4× na horizontal (até ~2,6× nos
+  vales) e a escala
   vertical depende da altura do rolo; é o preço de fechar 360° sem emenda. O
   relevo radial é fiel à profundidade.
 - **Laço mais afastado:** com `pedra_hexagonal` a abertura da mão cai para
