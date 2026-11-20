@@ -78,6 +78,38 @@ function hollowCylinder(): ArrayBuffer {
   return encodeStl(triangles)
 }
 
+/** Cilindro com luva lisa de raio 12 nos 3 primeiros mm e o padrão no resto. */
+function flangedCylinder(): ArrayBuffer {
+  const segments = 48
+  const height = 20
+  const flangeHeight = 3
+  const flangeRadius = 12
+  const triangles: number[][] = []
+  const pattern = (i: number, z: number): [number, number, number] => {
+    const theta = (i / segments) * Math.PI * 2
+    const radius = 10 + 1.5 * Math.sin(3 * theta) + 0.4 * Math.sin(z / 2)
+    return [radius * Math.cos(theta), radius * Math.sin(theta), z]
+  }
+  const sleeve = (i: number, z: number): [number, number, number] => {
+    const theta = (i / segments) * Math.PI * 2
+    return [flangeRadius * Math.cos(theta), flangeRadius * Math.sin(theta), z]
+  }
+  for (let i = 0; i < segments; i++) {
+    const a = sleeve(i, 0)
+    const b = sleeve(i + 1, 0)
+    const c = sleeve(i + 1, flangeHeight)
+    const d = sleeve(i, flangeHeight)
+    triangles.push([...a, ...b, ...c], [...a, ...c, ...d])
+
+    const e = pattern(i, flangeHeight)
+    const f = pattern(i + 1, flangeHeight)
+    const g = pattern(i + 1, height)
+    const h = pattern(i, height)
+    triangles.push([...e, ...f, ...g], [...e, ...g, ...h])
+  }
+  return encodeStl(triangles)
+}
+
 describe('textureImport', () => {
   it('lê STL binário e desenrola o cilindro', () => {
     const mesh = readBinaryStl(syntheticCylinder())
@@ -112,5 +144,21 @@ describe('textureImport', () => {
       const seam = Math.abs(map.data[row * map.width] - map.data[row * map.width + 1])
       expect(seam).toBeLessThan(40)
     }
+  })
+
+  it('corta o flange liso pelo raio mediano', () => {
+    const flanged = unwrapCylinder(readBinaryStl(flangedCylinder()), {
+      columns: 48,
+      rows: 24,
+    })
+    const plain = unwrapCylinder(readBinaryStl(syntheticCylinder()), {
+      columns: 48,
+      rows: 24,
+    })
+
+    // A luva de raio 12 não entra na faixa nem infla a profundidade.
+    expect(flanged.nativeDepth).toBeGreaterThan(2.5)
+    expect(flanged.nativeDepth).toBeLessThan(4.5)
+    expect(Math.abs(flanged.nativeDepth - plain.nativeDepth)).toBeLessThan(0.2)
   })
 })

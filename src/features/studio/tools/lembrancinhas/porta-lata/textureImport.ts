@@ -28,7 +28,6 @@ export interface UnwrapOptions {
   columns?: number
   rows?: number
   wallBandMm?: number
-  variationThresholdMm?: number
 }
 
 export interface UnwrappedTexture {
@@ -49,12 +48,25 @@ const TAU = Math.PI * 2
  */
 const BORE_RADIUS_RATIO = 0.78
 
+/** Desvio da mediana da linha que separa o padrão de flange, lip ou taper. */
+const MEDIAN_END_TOLERANCE_MM = 0.8
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null
+  const sorted = [...values].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[middle - 1] + sorted[middle]) / 2
+    : sorted[middle]
+}
+
 /**
  * Desenrola a superfície externa de um cilindro em um mapa de altura.
  *
  * A grade guarda o maior raio por célula: a parede externa vence a parede do
- * furo. As linhas com variação real delimitam a faixa do padrão; o mapa final é
- * normalizado em 0..255 e a profundidade nativa vem dos percentis 1 e 99.
+ * furo. As pontas com mediana de raio fora do padrão (flange, lip, taper) são
+ * cortadas; o mapa final é normalizado em 0..255 e a profundidade nativa vem
+ * dos percentis 1 e 99.
  */
 export function unwrapCylinder(
   mesh: StlMesh,
@@ -63,7 +75,6 @@ export function unwrapCylinder(
   const columns = options.columns ?? 192
   const rows = options.rows ?? 96
   const wallBandMm = options.wallBandMm ?? 99.2
-  const threshold = options.variationThresholdMm ?? 0.3
   if (
     !Number.isInteger(columns) ||
     !Number.isInteger(rows) ||
@@ -99,8 +110,9 @@ export function unwrapCylinder(
     maxR = Math.max(maxR, Math.hypot(p[i] - cx, p[i + 1] - cy))
   }
   if (!(maxR > 0)) throw new Error('STL sem raio')
+  const minWallRadius = maxR * BORE_RADIUS_RATIO
 
-  // 2. rasteriza o maior raio em (θ, z) e detecta a faixa ativa
+  // 2. rasteriza o maior raio em (θ, z) e corta as pontas pelo raio mediano
   const rasterize = (
     z0: number,
     z1: number,
@@ -158,61 +170,78 @@ export function unwrapCylinder(
     return grid
   }
 
-  const active = (
-    grid: Float32Array,
-    rowCount: number,
-    colCount: number,
-  ): boolean[] => {
-    const result: boolean[] = []
-    for (let row = 0; row < rowCount; row++) {
-      const values = Array.from(grid.slice(row * colCount, (row + 1) * colCount))
-        .filter((value) => value > maxR * 0.75)
-        .sort((a, b) => a - b)
-      if (values.length < colCount * 0.5) {
-        result.push(false)
-        continue
-      }
-      const low = values[Math.floor(values.length * 0.02)]
-      const high = values[Math.floor(values.length * 0.98)]
-      result.push(high - low > threshold)
-    }
-    return result
-  }
-
   const coarseRows = Math.max(32, Math.round(height))
   const coarse = rasterize(minZ, maxZ, coarseRows, columns)
-  const flags = active(coarse, coarseRows, columns)
-  let bestStart = 0
-  let bestLength = 0
-  let start = -1
-  for (let row = 0; row <= flags.length; row++) {
-    if (row < flags.length && flags[row]) {
-      if (start < 0) start = row
-    } else if (start >= 0) {
-      if (row - start > bestLength) {
-        bestLength = row - start
-        bestStart = start
-      }
-      start = -1
+  const rowStep = height / (coarseRows - 1)
+
+  const rowMedian = (row: number): number | null => {
+    const values: number[] = []
+    for (let col = 0; col < columns; col++) {
+      const value = coarse[row * columns + col]
+      if (value > minWallRadius) values.push(value)
+    }
+    return values.length >= columns * 0.5 ? median(values) : null
+  }
+
+  const medians: Array<number | null> = []
+  for (let row = 0; row < coarseRows; row++) {
+    medians.push(rowMedian(row))
+  }
+
+  // A mediana interior vem só do miolo (25%..75%) para não herdar as pontas.
+  const middleValues: number[] = []
+  const middleStart = Math.floor(coarseRows * 0.25)
+  const middleEnd = Math.ceil(coarseRows * 0.75)
+  for (let row = middleStart; row < middleEnd; row++) {
+    const value = medians[row]
+    if (value !== null) middleValues.push(value)
+  }
+  const interior =
+    median(middleValues) ??
+    median(medians.filter((value): value is number => value !== null))
+
+  // Corta flange/lip/taper nas duas pontas, no máximo metade da altura de cada
+  // lado. O padrão varia ~0.6 mm, abaixo da tolerância de 0.8 mm.
+  const maxTrim = Math.floor(coarseRows / 2)
+  let first = 0
+  let last = coarseRows - 1
+  if (interior !== null) {
+    while (first < maxTrim) {
+      const value = medians[first]
+      if (value !== null && Math.abs(value - interior) <= MEDIAN_END_TOLERANCE_MM) break
+      first += 1
+    }
+    while (last > coarseRows - 1 - maxTrim) {
+      const value = medians[last]
+      if (value !== null && Math.abs(value - interior) <= MEDIAN_END_TOLERANCE_MM) break
+      last -= 1
     }
   }
-  if (bestLength === 0) {
-    bestStart = 1
-    bestLength = coarseRows - 2
+
+  let z0: number
+  let z1: number
+  if (interior !== null && last - first + 1 >= 2) {
+    z0 = minZ + first * rowStep
+    z1 = minZ + last * rowStep
+  } else {
+    const margin = Math.min(1, height / 4)
+    z0 = minZ + margin
+    z1 = maxZ - margin
   }
-  // Um trecho de uma única linha não descreve um padrão.
-  if (bestLength < 2) throw new Error('Textura sem relevo')
-  const rowStep = height / (coarseRows - 1)
-  const z0 = minZ + bestStart * rowStep
-  const z1 = minZ + (bestStart + bestLength - 1) * rowStep
 
   // 3. mapa final, preenchimento dos vazios e normalização
   const grid = rasterize(z0, z1, rows, columns)
+  // O corte de furo/flange usa o raio externo da faixa: um flange já cortado
+  // não pode inflar o limite e apagar vales do padrão.
+  let bandMaxR = 0
+  for (let i = 0; i < grid.length; i++) {
+    if (grid[i] > bandMaxR) bandMaxR = grid[i]
+  }
+  const minBandRadius = (bandMaxR > 0 ? bandMaxR : maxR) * BORE_RADIUS_RATIO
   // A parede do furo tem raio muito menor que a externa: descartar essas
   // células evita que o p1 caia para o furo e infle a profundidade nativa.
-  const minWallRadius = maxR * BORE_RADIUS_RATIO
   for (let i = 0; i < grid.length; i++) {
-    if (grid[i] >= 0 && grid[i] < minWallRadius) grid[i] = -1
+    if (grid[i] >= 0 && grid[i] < minBandRadius) grid[i] = -1
   }
   const fill = (): void => {
     for (let iteration = 0; iteration < 8; iteration++) {
