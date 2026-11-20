@@ -358,6 +358,33 @@ describe('StudioPanel (porta-lata)', () => {
     ).toBeDefined()
   })
 
+  it('agrupa os estilos importados no select', () => {
+    render(<StudioPanel {...defaultProps} />)
+    const textureSelect = screen.getByLabelText('Estilo da textura')
+    expect(within(textureSelect).getAllByRole('option')).toHaveLength(21)
+    expect(within(textureSelect).getByRole('group', { name: 'Procedurais' })).toBeDefined()
+    expect(within(textureSelect).getByRole('group', { name: 'Importadas' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Paralelepípedos' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Pedra hexagonal' })).toBeDefined()
+  })
+
+  it('bloqueia profundidade/escala e mostra a nota no estilo importado', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...defaultCanHolderParams, textureStyle: 'paralelepipedos' }}
+      />,
+    )
+    for (const name of TEXTURE_SLIDERS) {
+      expect.soft(screen.getByRole('slider', { name }), name).toHaveAttribute('data-disabled')
+    }
+    expect(screen.getByText(/Textura importada: profundidade 1,8 mm/)).toBeDefined()
+    expect(screen.getByText(/flancos ~60°/)).toBeDefined()
+    expect(screen.getByText(/Pode exigir suporte/)).toBeDefined()
+    expect(screen.queryByText(/limitada pela escala/)).toBeNull()
+    expect(screen.queryByText(TEXTURE_DISABLED_HINT)).toBeNull()
+  })
+
   it('ignora uma mudança de estilo inválida', () => {
     const onUpdateParam = vi.fn()
     render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
