@@ -23,11 +23,14 @@ import {
   getEffectiveTextureDepth,
   getTextBand,
   getTopLand,
+  isImportedTexture,
   type FontStyle,
   type CanHolderParams,
   type PlaColor,
+  type ProceduralTextureStyle,
   type TextureStyle,
 } from './schema'
+import { IMPORTED_TEXTURES } from './importedTextures'
 import type { ValidationIssue } from './validateCanHolder'
 
 interface StudioPanelProps {
@@ -50,7 +53,7 @@ function isFontStyle(value: string): value is FontStyle {
   return FONT_STYLES.some((style) => style === value)
 }
 
-const TEXTURE_STYLE_LABELS: Record<TextureStyle, string> = {
+const PROCEDURAL_TEXTURE_LABELS: Record<ProceduralTextureStyle, string> = {
   none: 'Nenhuma',
   wood: 'Madeira',
   metal: 'Metal',
@@ -58,6 +61,12 @@ const TEXTURE_STYLE_LABELS: Record<TextureStyle, string> = {
   waves: 'Onduladas',
   stone: 'Pedra',
   spikes: 'Pontiagudo',
+}
+
+function textureStyleLabel(style: TextureStyle): string {
+  return isImportedTexture(style)
+    ? IMPORTED_TEXTURES[style].label
+    : PROCEDURAL_TEXTURE_LABELS[style]
 }
 
 function isTextureStyle(value: string): value is TextureStyle {
@@ -254,7 +263,7 @@ export function StudioPanel({
                 }}
               >
                 {TEXTURE_STYLES.map((style) => (
-                  <option key={style} value={style}>{TEXTURE_STYLE_LABELS[style]}</option>
+                  <option key={style} value={style}>{textureStyleLabel(style)}</option>
                 ))}
               </SelectField>
               <LabeledSlider label="Profundidade da textura" value={params.textureDepth} min={0.4} max={1.5} step={0.1} isDisabled={params.textureStyle === 'none'} onChange={(value) => onUpdateParam('textureDepth', value)} />

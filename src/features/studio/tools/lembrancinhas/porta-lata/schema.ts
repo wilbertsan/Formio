@@ -1,4 +1,11 @@
 import { z } from 'zod'
+import {
+  IMPORTED_TEXTURE_IDS,
+  IMPORTED_TEXTURES,
+  type ImportedTextureId,
+} from './importedTextures'
+
+export type { ImportedTextureId }
 
 export const PLA_COLORS = [
   '#14b8a6', '#ef4444', '#3b82f6', '#eab308', '#22c55e',
@@ -36,10 +43,32 @@ export const RELIEF_EMBED = 0.2
 export const FONT_STYLES = ['normal', 'bold', 'serif'] as const
 export type FontStyle = (typeof FONT_STYLES)[number]
 
-export const TEXTURE_STYLES = [
+export const PROCEDURAL_TEXTURE_STYLES = [
   'none', 'wood', 'metal', 'scales', 'waves', 'stone', 'spikes',
 ] as const
+export type ProceduralTextureStyle = (typeof PROCEDURAL_TEXTURE_STYLES)[number]
+
+export const TEXTURE_STYLES = [
+  ...PROCEDURAL_TEXTURE_STYLES,
+  ...IMPORTED_TEXTURE_IDS,
+] as const
 export type TextureStyle = (typeof TEXTURE_STYLES)[number]
+
+const IMPORTED_STYLE_SET = new Set<string>(IMPORTED_TEXTURE_IDS)
+
+/** Discrimina os estilos importados dos procedurais no motor de textura. */
+export function isImportedTexture(style: TextureStyle): style is ImportedTextureId {
+  return IMPORTED_STYLE_SET.has(style)
+}
+
+export function isProceduralTexture(
+  style: TextureStyle,
+): style is ProceduralTextureStyle {
+  return !isImportedTexture(style)
+}
+
+/** Folga mínima entre o laço da alça e o envelope da textura. */
+export const MIN_LOOP_GAP_MM = 0.7
 
 export const TEXTURE_RADIAL_SEGMENTS = 256
 export const TEXTURE_STEP_MM = 1
@@ -178,15 +207,34 @@ export function getEffectiveRingProtrusion(params: CanHolderGeometryParams): num
   )
 }
 
-/** Profundidade efetiva: limitada a um quarto da escala para manter os flancos ≤ 45°. */
+/**
+ * Profundidade efetiva: nos importados é a profundidade nativa do mapa; nos
+ * procedurais fica limitada a um quarto da escala para manter os flancos ≤ 45°.
+ */
 export function getEffectiveTextureDepth(params: CanHolderGeometryParams): number {
   if (params.textureStyle === 'none') return 0
+  if (isImportedTexture(params.textureStyle)) {
+    return IMPORTED_TEXTURES[params.textureStyle].nativeDepth
+  }
   return Math.min(params.textureDepth, params.textureScale / 4)
 }
 
 /** Envelope radial da textura: 0 com `none`, senão a profundidade efetiva. */
 export function getTextureEnvelope(params: CanHolderGeometryParams): number {
   return getEffectiveTextureDepth(params)
+}
+
+/**
+ * Deslocamento do laço da alça para manter `MIN_LOOP_GAP_MM` de folga do
+ * envelope da textura. Zero quando a folga nominal (`handleClearance` +
+ * `HANDLE_LOOP_INSET`) já cobre o envelope.
+ */
+export function getLoopOffset(params: CanHolderGeometryParams): number {
+  return Math.max(
+    0,
+    getTextureEnvelope(params) -
+      (params.handleClearance + HANDLE_LOOP_INSET - MIN_LOOP_GAP_MM),
+  )
 }
 
 /** Diâmetro externo do corpo com o maior envelope (anel ou textura); não inclui o relevo do texto. */
