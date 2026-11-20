@@ -1,6 +1,6 @@
 // Gera os assets das texturas importadas do porta-lata a partir dos STLs de files/.
 // Uso: node scripts/texture-import.mjs [--check]
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -199,7 +199,11 @@ if (check) {
   }
   console.log('assets atualizados')
 } else {
-  for (const file of files) writeFileSync(file.path, file.content)
+  for (const file of files) {
+    const temporary = `${file.path}.tmp`
+    writeFileSync(temporary, file.content)
+    renameSync(temporary, file.path)
+  }
   printTable(entries)
   console.log(`\n${files.length} arquivos gerados em ${relative(ROOT, TARGET_DIR)}`)
 }
