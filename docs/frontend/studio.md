@@ -13,7 +13,7 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 - **Rolo de Textura** — Rolos cilíndricos fechados (sem cabos) com padrão em relevo (geométrico, ondulado, floral ou SVG)
 - **Marcador de Página** — Marcadores 3D em duas peças (base + texto com encaixe em U)
 - **Caixa Personalizada** — Caixa 3D personalizável com tampa, painel decorativo, puxador lateral e base, em STLs separados
-- **Termoformador** — Tela circular perfurada com malha hexagonal, aro sólido e suporte côncavo, em STLs separados
+- **Termoformador** — Tela circular perfurada com malha hexagonal, aro sólido, suporte côncavo e macho convexo que conforma a tela, em três STLs separados
 - **Porta-lata** — Porta-lata 350 ml com cavidade para lata de 66,2 × 122,2 mm, anéis decorativos na base e no topo, furo de ventilação, nome em relevo de 1 mm e alça removível de abraçadeira, em dois STLs
 
 ### Componentes Genéricos
@@ -145,16 +145,18 @@ O Studio (`/studio`) é o ambiente de modelagem do 3DFormio. Ferramentas dispon�
 | Círculo e hexágono (Shape/Path e epsilon angular) | `src/features/studio/tools/lembrancinhas/termoformador/shapes.ts` |
 | Layout hexagonal (passo, cap de 4.000 e métricas) | `src/features/studio/tools/lembrancinhas/termoformador/screenPattern.ts` |
 | Build da tela (ExtrudeGeometry e rotação) | `src/features/studio/tools/lembrancinhas/termoformador/buildScreen.ts` |
-| Dimensões, perfil e LatheGeometry do suporte | `src/features/studio/tools/lembrancinhas/termoformador/buildSupport.ts` |
-| Orquestração tela + suporte + seatY | `src/features/studio/tools/lembrancinhas/termoformador/buildThermoformer.ts` |
+| Utilitários de lathe (dedupe e triângulos degenerados) | `src/features/studio/tools/lembrancinhas/termoformador/latheUtils.ts` |
+| Dimensões, perfil e LatheGeometry do suporte (limite de semi-esfera) | `src/features/studio/tools/lembrancinhas/termoformador/buildSupport.ts` |
+| Dimensões, perfil e LatheGeometry do macho | `src/features/studio/tools/lembrancinhas/termoformador/buildPlug.ts` |
+| Orquestração tela + suporte + macho + seatY | `src/features/studio/tools/lembrancinhas/termoformador/buildThermoformer.ts` |
 | Validação (issues e severidade) | `src/features/studio/tools/lembrancinhas/termoformador/validateThermoformer.ts` |
 | Worker + serialização | `src/features/studio/tools/lembrancinhas/termoformador/buildScreen.worker.ts` |
-| Serialização da geometria | `src/features/studio/tools/lembrancinhas/termoformador/workerGeometry.ts` |
+| Serialização das três peças | `src/features/studio/tools/lembrancinhas/termoformador/workerGeometry.ts` |
 | Interface do worker | `src/features/studio/tools/lembrancinhas/termoformador/workerClient.ts` |
 | Hook de estado | `src/features/studio/tools/lembrancinhas/termoformador/useThermoformer.ts` |
-| Painel de parâmetros | `src/features/studio/tools/lembrancinhas/termoformador/StudioPanel.tsx` |
-| Preview R3F (conjunto montado) | `src/features/studio/tools/lembrancinhas/termoformador/ThermoformerPreview.tsx` |
-| Exportar dois STLs | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
+| Painel de parâmetros (seção Macho) | `src/features/studio/tools/lembrancinhas/termoformador/StudioPanel.tsx` |
+| Preview R3F (conjunto montado, macho suspenso) | `src/features/studio/tools/lembrancinhas/termoformador/ThermoformerPreview.tsx` |
+| Exportar três STLs (macho girado) | `src/features/studio/tools/lembrancinhas/termoformador/exportStl.ts` |
 | **Porta-lata** | |
 | Schema + tipos (preset da lata, faixas, defaults, cores e constantes) | `src/features/studio/tools/lembrancinhas/porta-lata/schema.ts` |
 | Perfil do corpo com furo e geometria da alça | `src/features/studio/tools/lembrancinhas/porta-lata/shapes.ts` |
@@ -238,17 +240,20 @@ Detalhes de implementação:
 - Exportação: `-corpo`, `-tampa`, `-painel`, `-puxador` e `-base`. O corpo e a base saem como construídos; a tampa é invertida (placa na mesa, saia para cima); o painel é deitado com a face traseira na mesa; o puxador é girado de volta para ficar em pé sobre o flange. O `prepareHandleForPrint` usa o `builtParams` do build para desfazer a matriz de posicionamento e centralizar a peça. Até cinco downloads podem ser disparados e o navegador pode pedir permissão
 - `resetAzimuth=30` no `StudioViewport` porque o painel decorativo fica em +Z; a câmera inicial precisa olhar a face frontal
 
-## Termoformador (tela + suporte)
+## Termoformador (tela + suporte + macho)
 
-Pipeline completo de geração da tela circular e do suporte côncavo:
+Pipeline completo de geração da tela circular, do suporte côncavo e do macho
+convexo:
 
 **useThermoformer.ts** → **buildScreen.worker.ts** → **buildThermoformer.ts** →
-**buildScreen.ts** + **buildSupport.ts** → **exportStl.ts**
+**buildScreen.ts** + **buildSupport.ts** + **buildPlug.ts** → **exportStl.ts**
 
 1. **schema.ts** — Valida diâmetro, espessura, largura do aro, espessura da linha,
-   abertura do favo, parâmetros do suporte e cor PLA e concentra
-   `MINIMUM_LINE_MM`, `MINIMUM_SUPPORT_MM`, `MAX_SCREEN_OPENINGS` e
-   `SCREEN_SEGMENTS`
+   abertura do favo, parâmetros do suporte, altura do corpo do macho
+   (`plugHeight`) e cor PLA e concentra `MINIMUM_LINE_MM`,
+   `MINIMUM_SUPPORT_MM`, `MAX_SCREEN_OPENINGS`, `SCREEN_SEGMENTS`,
+   `PLUG_CHAMFER_MM`, `PLUG_GRIP_MIN_MATERIAL_MM`, `PLUG_DOME_SEGMENTS` e
+   `PLUG_PREVIEW_GAP_MM`
 2. **shapes.ts** — Cria o contorno circular e um `Path` hexagonal por favo, com
    `HEXAGON_ANGLE_EPSILON` para evitar vértices exatamente colineares que abrem
    os caps do Earcut
@@ -258,25 +263,33 @@ Pipeline completo de geração da tela circular e do suporte côncavo:
    por iteração
 4. **useThermoformer.ts** — Reducer + Zod com clamp dos sliders (debounce de
    250 ms), um worker por build com descarte de respostas obsoletas, validação
-   na main thread e `fitRadius` pela esfera envolvente do suporte
+   na main thread, `plugLift = effectiveBowlDepth + 8` e `fitRadius` pela
+   esfera envolvente da união suporte + macho suspenso
 5. **buildScreen.worker.ts** — Executa `buildThermoformer` fora da main thread;
-   `workerGeometry.ts` serializa as duas peças (position/normal/index) e o
+   `workerGeometry.ts` serializa as três peças (position/normal/index) e o
    `seatY` com transferência de buffers
-6. **buildThermoformer.ts** — Orquestra `buildScreen` e `buildSupport` e devolve
-   `{ screen, support, seatY }`, com `seatY = effectiveBowlDepth + bottomThickness`
+6. **buildThermoformer.ts** — Orquestra `buildScreen`, `buildSupport` e
+   `buildPlug` e devolve `{ screen, support, plug, seatY }`, com
+   `seatY = effectiveBowlDepth + bottomThickness`
 7. **buildScreen.ts** — `Shape` circular com furos hexagonais em
    `ExtrudeGeometry`, girado para deitar em XZ com espessura em +Y
 8. **buildSupport.ts** — Perfil 2D fechado no plano `(r, y)` (fundo, parede
    externa, aro, parede do rebaixo, degrau e arco esférico) convertido em
    `LatheGeometry` com `SCREEN_SEGMENTS`, sem CSG; os triângulos degenerados do
-   eixo são removidos
-9. **exportStl.ts** — Baixa dois STLs binários, `<nome>-tela.stl` e
-   `<nome>-suporte.stl`, cada peça centralizada na mesa
+   eixo são removidos por `latheUtils.ts`. A bacia é limitada à semi-esfera
+   (`cavityTopRadius`) para o macho poder ser retirado
+9. **buildPlug.ts** — Deriva o domo da bacia deslocada por `thickness`, a coroa
+   plana em `seatY + thickness`, a parede-guia em `diameter/2` com
+   `fitClearance` e a pega cônica; perfil 2D fechado convertido em
+   `LatheGeometry` com `SCREEN_SEGMENTS`, sem CSG
+10. **exportStl.ts** — Baixa três STLs binários, `<nome>-tela.stl`,
+    `<nome>-suporte.stl` e `<nome>-macho.stl`, cada peça centralizada na mesa; o
+    macho é girado 180° com o topo plano na mesa e o domo para cima
 
 Detalhes:
 
-- A tela é uma peça independente; o suporte é outra, com bacia esférica fechada
-  e fundo fechado. Corpo, tampa, pino e base ficam fora da v1.
+- A tela, o suporte e o macho são peças independentes; o suporte tem bacia
+  esférica fechada e fundo fechado. Corpo, tampa, pino e base ficam fora da v1.
 - O suporte deriva o diâmetro da tela:
   `recessRadius = diameter/2 + fitClearance` e
   `outerRadius = recessRadius + wallThickness`. O rebaixo tem a espessura da
@@ -285,15 +298,40 @@ Detalhes:
   `stepWidth - fitClearance` (mínimo 1,4 mm pelos limites do schema) e a
   validação `support-step` é defensiva.
 - A profundidade efetiva da bacia é limitada para manter 0,8 mm entre a bacia e
-  a parede externa; quando o clamp atua, `support-depth` avisa e `seatY` e
-  altura acompanham o valor efetivo.
+  a parede externa e para não passar de `cavityTopRadius` (no máximo uma
+  semi-esfera), o que permite inserir e retirar o macho; quando o clamp atua,
+  `support-depth` avisa e `seatY` e altura acompanham o valor efetivo.
+- O macho é derivado da bacia deslocada por `thickness`: no centro o domo fica
+  em `bottomThickness + thickness` e na borda em `seatY + thickness`
+  (`contactY`). A coroa plana cobre de `contactRadius` até
+  `guideRadius = diameter/2` e pressiona o aro sólido da tela; a parede-guia
+  sobe a partir daí e entra no rebaixo com `fitClearance`.
+- A pega é um recesso cônico central com parede entre 40° e 45°, mais fundo que
+  largo, para imprimir sem suporte e manter pelo menos 6 mm de material sobre o
+  domo. O topo do corpo é plano, com chanfro de 0,8 mm na borda externa.
+- O macho é um volume fechado, sem cavidade interna modelada; imprima com 10–15%
+  de preenchimento. Uma cavidade selada não seria imprimível e uma aberta
+  exigiria suporte no teto. A tela é exportada plana e conformada com o macho
+  pelo usuário.
+- No export, o macho é girado 180° para apoiar o topo plano na mesa, com o domo
+  para cima; assim imprime sem suporte e a face de contato não recebe marcas.
+- A validação `plug-guide` é defensiva para coroa de contato inválida ou
+  parede-guia menor que a coroa; a UI não a alcança.
+- O preview mostra a tela plana em `seatY` e o macho suspenso em
+  `plugLift = effectiveBowlDepth + 8 mm`, evidenciando a relação de encaixe.
+  `fitRadius` usa a esfera envolvente da união suporte + macho suspenso.
+- A status bar continua mostrando o envelope do suporte; as medidas do macho
+  ficam no painel.
+- A exportação baixa `<nome>-tela.stl`, `<nome>-suporte.stl` e
+  `<nome>-macho.stl`; a tela e o suporte saem como construídos e o macho girado.
+  Três downloads podem acionar a permissão de múltiplos arquivos do navegador.
 - A linha padrão é 0,4 mm, equivalente a uma extrusão de bico 0,4 mm; abaixo
   disso a malha fica frágil e a validação avisa.
 - O aro sólido tem `frameWidth`; favos parciais são descartados, então a borda
   efetiva pode chegar a `frameWidth + circunraio`.
 - Os testes validam a malha com `isClosed` (cada aresta em dois triângulos e
   winding coerente).
-- A cor não rebuilda a geometria e é única para as duas peças.
+- A cor não rebuilda a geometria e é única para as três peças.
 - Configurações extremas (~3.571 favos) levam ~7 s e rodam no worker para não
   travar a UI.
 
@@ -470,7 +508,7 @@ Detalhes:
 - **Carimbo Brigadeiro:** Corpo único em hiperboloide com cintura central (LatheGeometry; duas "folhas" visuais) — face de contato plana no diâmetro, cintura no meio e topo menor; imprime com a face para cima (overhang ≲ 45°). Conteúdo mutuamente exclusivo (`contentType`: texto ou ícone SVG) escolhido por RadioGroupField. Texto e ícone são auto-ajustados (X/Y) para caber no círculo do carimbo respeitando `CONTENT_MARGIN_MM`; a elevação do relevo é ajustável (`reliefElevation`, 0.5–3.0mm, padrão 1mm) e o conteúdo sobressai abaixo da face de contato. O ícone encaixa pelo vértice mais distante do centro (aproveita melhor a área em ícones redondos/irregulares). Traços finos são engrossados até a `iconLineWidth` selecionável (0.1–1.5mm) para impressão; como o SVGLoader não extrusa `stroke`, paths de linha são convertidos em contorno sólido via Clipper (mesma largura aplica-se a fills dilatados). Escala do ícone relativa ao encaixe (0.5–1.0). O ícone SVG é girado 180° no eixo Z para corrigir o Y para baixo do SVGLoader.
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 - **Caixa Personalizada:** Caixa 3D personalizável em cinco peças independentes (corpo, tampa, painel decorativo, puxador e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do puxador ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O puxador usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance`, raio interno derivado do canto do corpo e anel mínimo de 0,8 mm. O puxador fica em `left`/`right` na v1; `top`/`bottom` são reservados. A tampa externa assenta em `lidHeight = 0`; valores maiores exigem junta/suporte, e a tampa interna é um plugue sem flange. A montagem avisa colisões entre painel/base, painel/tampa e flange/base ou flange/tampa. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do puxador. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
-- **Termoformador (tela + suporte):** Duas peças independentes. A tela é um disco circular com aro sólido e malha hexagonal flat-top em `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada; favos limitados a 4.000, com abertura crescendo 15% ao exceder, e epsilon de 0,001 rad por favo evita caps abertos no Earcut. O suporte é um berço côncavo de `LatheGeometry` com perfil fechado, bacia esférica e fundo fechado, sem CSG e com os triângulos degenerados do eixo removidos. O diâmetro do suporte deriva da tela (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`); a tela apoia no degrau e fica nivelada com o topo. A profundidade efetiva da bacia é limitada para manter 0,8 mm de parede externa. Preview montado com a tela em `seatY`, cor única e export de dois STLs `-tela` e `-suporte`. `fitRadius` usa a esfera envolvente do suporte. Build em worker; a configuração máxima do schema leva ~7 s.
+- **Termoformador (tela + suporte + macho):** Três peças independentes. A tela é um disco circular com aro sólido e malha hexagonal flat-top em `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada; favos limitados a 4.000, com abertura crescendo 15% ao exceder, e epsilon de 0,001 rad por favo evita caps abertos no Earcut. O suporte é um berço côncavo de `LatheGeometry` com perfil fechado, bacia esférica e fundo fechado, sem CSG e com os triângulos degenerados do eixo removidos. O diâmetro do suporte deriva da tela (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`); a tela apoia no degrau e fica nivelada com o topo. A profundidade efetiva da bacia é limitada para manter 0,8 mm de parede externa e para não passar da semi-esfera (`cavityTopRadius`), garantindo a retirada do macho; `support-depth` avisa. O macho convexo é um sólido de revolução derivado da bacia deslocada por `thickness`: o domo copia a bacia, a coroa plana em `seatY + thickness` pressiona o aro, a parede-guia em `diameter/2` entra no rebaixo com `fitClearance` e a pega é um recesso cônico de 40–45°. A tela é exportada plana e conformada com o macho; a peça é um volume fechado impresso com 10–15% de infill, girado 180° no export com o topo na mesa. `plug-guide` é a validação defensiva da coroa. Preview montado com a tela em `seatY` e o macho suspenso em `plugLift = effectiveBowlDepth + 8`, cor única e export de três STLs `-tela`, `-suporte` e `-macho`. `fitRadius` usa a união do suporte com o macho suspenso; a status bar mantém o envelope do suporte. Build em worker; a configuração máxima do schema leva ~7 s.
 - **Porta-lata:** Substitui a antiga caneca por um corpo de parede simples em `LatheGeometry` com cavidade reta para a lata de 66,2 × 122,2 mm, borda de entrada e furo central de ventilação de 10 mm; sem trilho. Dois anéis decorativos de 45° compartilham salto (0,4–1,5 mm) e largura (4–14 mm), ficam colados na base e no topo e são pontos do mesmo perfil; o inferior apoia na mesa e o superior imprime sem suporte. O diâmetro nominal (`getMaxOuterDiameter`, 74,6 mm no default) e o status bar incluem os anéis, mas não o relevo. O nome fica em relevo de 1 mm curvado no raio, a 180° da alça e entre os anéis, com faixa única em `getTextBand`; é unido por CSG com o splitter CDT. Alça separada de encaixe por pressão: abraçadeira em C de 200° com folga nominal no meio, interferência absoluta de 0,4 mm no topo e laço em D com borda esquerda vertical; abraçadeira e laço são unidos por CSG dentro da alça. A validação `can-handle-band` cobre só a banda da abraçadeira entre os anéis, então o laço pode passar da borda; `can-edge-rim` é defensiva. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A alça imprime em pé com suporte sob o arco; o corpo imprime em pé sem suporte. O relevo usa subdivisão conforme de 2,5 mm para manter 1 mm no centro de glifos largos. As texturas são um campo de altura determinístico aplicado à parede (sem CSG): 256 segmentos, passo de 1 mm, relevo positivo, faixa lisa na abraçadeira e texto elevado pelo envelope efetivo.
 
 ## Próximos passos (fora de escopo desta fase)

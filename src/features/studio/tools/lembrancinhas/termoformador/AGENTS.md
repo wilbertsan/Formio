@@ -2,13 +2,15 @@
 
 ## Status
 
-Implementada (v1: tela + suporte).
+implementada (v1: tela + suporte + macho).
 
 ## Objetivo
 
-Gerar a tela circular e o suporte côncavo do termoformador: um disco plano com
-aro sólido e malha hexagonal vazada, e um berço circular côncavo com bacia
-esférica e rebaixo, onde a tela apoia e fica nivelada com o topo. As duas peças
+Gerar a tela circular, o suporte côncavo e o macho convexo do termoformador: um
+disco plano com aro sólido e malha hexagonal vazada, um berço circular côncavo
+com bacia esférica e rebaixo, onde a tela apoia e fica nivelada com o topo, e o
+molde convexo que conforma a tela plana aquecida na bacia. A tela permanece
+plana; o macho é a ferramenta de conformação. As três peças são independentes e
 saem em STLs separados. Corpo, tampa, pino lateral e base ficam para versões
 seguintes.
 
@@ -34,6 +36,12 @@ seguintes.
 | `fitClearance` | 0,1–0,6 mm | 0,3 |
 | `edgeChamfer` | 0–3 mm | 0,6 |
 
+### Macho
+
+| Parâmetro | Faixa | Default |
+|---|---|---|
+| `plugHeight` | 10–40 mm | 26 |
+
 ## Regras do domínio
 
 - 1 unidade Three.js = 1 mm
@@ -48,8 +56,17 @@ seguintes.
 - A tela apoia no degrau e fica nivelada com o topo.
 - O diâmetro do suporte é derivado do diâmetro da tela
   (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`).
-- A profundidade efetiva é limitada para manter 0,8 mm entre a bacia e a parede
-  externa.
+- O macho é derivado da bacia do suporte deslocada por `thickness`; a coroa de
+  contato fica em `seatY + thickness` e a parede-guia em `diameter/2`, entrando
+  no rebaixo com `fitClearance`.
+- A profundidade efetiva da bacia é limitada a `cavityTopRadius` (no máximo uma
+  semi-esfera) para o macho poder ser inserido e retirado; `support-depth` avisa
+  quando o limite atua.
+- A tela é exportada plana e conformada com o macho pelo usuário. O macho não
+  tem cavidade interna modelada: é um volume fechado, impresso com 10–15% de
+  preenchimento.
+- A pega é um recesso cônico central de parede entre 40° e 45°; o macho é
+  impresso girado 180°, com o topo plano na mesa e o domo para cima.
 - Sem CSG
 
 ## Pipeline
@@ -57,19 +74,25 @@ seguintes.
 ```text
 Parâmetros
   → schema + validação
+  → dimensões do suporte com limite de semi-esfera
   → layout hexagonal
-  → buildScreen (Shape circular + Paths hexagonais → ExtrudeGeometry)
-  → buildSupport (perfil 2D → LatheGeometry)
-  → buildThermoformer ({ screen, support, seatY })
-  → worker + serialização
-  → preview montado / export dos dois STLs
+  → buildScreen + buildSupport
+  → dimensões e perfil do macho
+  → buildPlug (perfil 2D → LatheGeometry)
+  → buildThermoformer ({ screen, support, plug, seatY })
+  → worker + serialização das três peças
+  → preview montado / export dos três STLs
 ```
 
 ## Exportação
 
-- Dois STLs binários: `<nome>-tela.stl` e `<nome>-suporte.stl`
+- Três STLs binários: `<nome>-tela.stl`, `<nome>-suporte.stl` e
+  `<nome>-macho.stl`
+- Tela e suporte saem como construídos; o macho é girado 180° com o topo plano
+  na mesa e o domo para cima
 - Cada peça sai centralizada na mesa, com a base em `y = 0`
 - O STL não carrega cor
+- Três downloads podem acionar a permissão de múltiplos arquivos do navegador
 
 ## Validação
 
@@ -84,33 +107,54 @@ Parâmetros
 - `support-wall`: parede abaixo de 0,8 mm (defensivo)
 - `support-bottom`: fundo abaixo de 0,8 mm (defensivo)
 - `support-clearance`: folga da tela abaixo de 0,2 mm
-- `support-depth`: profundidade da bacia limitada para manter a parede mínima
+- `support-depth`: profundidade efetiva limitada pela parede ou pela semi-esfera,
+  mantendo a parede e a forma imprimível da bacia
+- `plug-guide` (error, defensivo): coroa de contato inválida ou parede-guia
+  menor que a coroa; a UI não alcança
 
 ## Decisões da v1
 
 - `buildSupport` usa `LatheGeometry` com um perfil 2D fechado no plano `(r, y)`
   (fundo → parede externa → aro → parede do rebaixo → degrau → arco esférico →
   centro do fundo), sem CSG; os triângulos degenerados do eixo são removidos.
-- `buildThermoformer` orquestra `buildScreen` e `buildSupport` e devolve
-  `{ screen, support, seatY }`, onde `seatY = effectiveBowlDepth + bottomThickness`.
+- O limite de semi-esfera limita a bacia a `cavityTopRadius`; sem ele a bacia
+  viraria sobrequeda e o macho não poderia ser retirado.
+- `buildPlug` usa `LatheGeometry` com um perfil fechado no plano `(r, y)`:
+  polo do domo → domo (bacia deslocada por `thickness`) → coroa plana em
+  `seatY + thickness` → parede-guia em `diameter/2` → topo com chanfro → face
+  superior → recesso cônico → ápice da pega. Sem CSG; os triângulos degenerados
+  dos polos são removidos.
+- `buildThermoformer` orquestra `buildScreen`, `buildSupport` e `buildPlug` e
+  devolve `{ screen, support, plug, seatY }`, onde
+  `seatY = effectiveBowlDepth + bottomThickness`.
 - A profundidade efetiva é limitada (`effectiveBowlDepth`) até manter 0,8 mm de
-  parede entre a bacia e o raio externo; `support-depth` avisa quando o clamp
-  atua.
-- Suporte e tela são exportados separadamente, como as peças da Caixa.
+  parede entre a bacia e o raio externo e até a semi-esfera; `support-depth`
+  avisa quando o clamp atua.
+- Tela, suporte e macho são exportados separadamente, como as peças da Caixa.
+- A tela plana evita exportar uma calota que não corresponde ao estado impresso;
+  o macho é a ferramenta de conformação.
+- A pega cônica imprime sem suporte e mantém o topo plano na mesa, sem marcar a
+  face de contato.
+- O macho é um volume fechado; a leveza vem do preenchimento de 10–15% no
+  fatiador, já que o STL não carrega infill e uma cavidade selada não seria
+  imprimível.
 - `ExtrudeGeometry` com furos hexagonais nativos, validado por spike com ~1.200
   favos antes de seguir.
 - Cada favo é girado em 0,001 rad (`HEXAGON_ANGLE_EPSILON`) para evitar
   vértices exatamente colineares entre favos vizinhos; sem isso o Earcut deixa
   os caps abertos.
 - Favos parciais descartados; sem CSG.
-- Cor não rebuilda geometria; as duas peças usam a mesma cor PLA.
+- Cor não rebuilda geometria; as três peças usam a mesma cor PLA.
 - A linha padrão é 0,4 mm, equivalente a uma extrusão com bico de 0,4 mm; abaixo
   disso a malha fica frágil e a validação avisa.
-- `fitRadius` usa a esfera envolvente do suporte, não a diagonal da AABB.
+- O preview mostra a tela plana em `seatY` e o macho suspenso em
+  `plugLift = effectiveBowlDepth + 8 mm`; `fitRadius` usa a união suporte +
+  macho suspenso. A status bar continua mostrando o envelope do suporte.
 - O build roda em worker; configurações extremas (~3.571 favos) levam ~7 s.
-- Serialização local de duas peças, independente da Caixa.
+- Serialização local das três peças, independente da Caixa.
 
 ## Fora de escopo
 
-Corpo, tampa, pino lateral, base, curvatura, furo de vácuo, rosca, anel de
-retenção, 3MF/STEP e outros formatos.
+Tela conformada, cavidade interna modelada no macho, pega em relevo, furo de
+vácuo, corpo, tampa, pino lateral, base, rosca, anel de retenção, 3MF/STEP e
+outros formatos.
