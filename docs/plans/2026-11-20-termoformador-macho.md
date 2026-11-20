@@ -889,6 +889,29 @@ git commit -m "feat: orchestrate male mold geometry"
 
 **Step 1: Write the failing tests**
 
+Ancore as fixtures nas coordenadas reais de build (suporte assentado em
+`y = 0..27`, macho centrado em `y = 7..53`):
+
+```ts
+function serializedResult(): SerializedThermoformerResult {
+  return serializeThermoformerResult({
+    screen: new BoxGeometry(160, 3, 160),
+    support: new BoxGeometry(168.6, 27, 168.6).translate(0, 13.5, 0),
+    plug: new BoxGeometry(160, 46, 160).translate(0, 30, 0),
+    seatY: 24,
+  }).data
+}
+
+function serializedDisc(): SerializedThermoformerResult {
+  return serializeThermoformerResult({
+    screen: new CylinderGeometry(80, 80, 3, 64),
+    support: new CylinderGeometry(84.3, 84.3, 27, 64).translate(0, 13.5, 0),
+    plug: new CylinderGeometry(80, 80, 46, 64).translate(0, 30, 0),
+    seatY: 24,
+  }).data
+}
+```
+
 No teste "envia ao worker após o debounce e aplica a geometria", adicione:
 
 ```ts
@@ -899,9 +922,9 @@ No teste "envia ao worker após o debounce e aplica a geometria", adicione:
 E troque a expectativa de `fitRadius` por:
 
 ```ts
-    // União do suporte Box(168.6,27,168.6) com o macho Box(160,46,160)
-    // suspenso em 28 mm: esfera envolvente a partir da origem.
-    expect(result.current.fitRadius).toBeCloseTo(142.25, 1)
+    // Suporte assentado (y=0..27) + macho em y=7..53 suspenso 28 mm.
+    // Esfera centrada na origem: 40.5 + hypot(84.3, 40.5, 84.3) ≈ 166.41.
+    expect(result.current.fitRadius).toBeCloseTo(166.41, 1)
 ```
 
 No teste do disco:
@@ -914,8 +937,25 @@ No teste do disco:
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
-    expect(result.current.fitRadius).toBeCloseTo(142.25, 1)
+    expect(result.current.fitRadius).toBeCloseTo(166.41, 1)
     expect(result.current.fitRadius).toBeLessThan(247)
+  })
+```
+
+Adicione o caso de profundidade limitada:
+
+```ts
+  it('recalcula o afastamento com a profundidade efetiva', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('diameter', 60)
+      result.current.updateParam('bowlDepth', 60)
+    })
+
+    // D=60, degrau 5, folga 0,3: a bacia é limitada a 25,3 mm; +8 = 33,3.
+    expect(result.current.plugLift).toBeCloseTo(33.3, 1)
   })
 ```
 
@@ -1463,7 +1503,11 @@ git commit -m "docs: document thermoformer male mold"
 ## Pontos de atenção para o executor
 
 1. O teste de `buildPlug` foi escrito com `plugHeight` e `PLUG_DOME_SEGMENTS`; confira se os imports estão corretos.
-2. O `fitRadius` de 142,3 depende das fixtures `BoxGeometry(168.6, 27, 168.6)` e `BoxGeometry(160, 46, 160)` com `plugLift = 28`. Se as fixtures mudarem, recalcule a esfera envolvente da união.
+2. O `fitRadius` de 166,41 depende das fixtures ancoradas
+   `BoxGeometry(168.6, 27, 168.6).translate(0, 13.5, 0)` e
+   `BoxGeometry(160, 46, 160).translate(0, 30, 0)` com `plugLift = 28`. Se as
+   fixtures mudarem, recalcule a esfera envolvente da união. As fixtures antigas
+   centradas na origem escondiam o sinal do `plugLift`.
 3. O `preparePlugForPrint` usa `rotateX(Math.PI)`; não use `scale(1, -1, 1)`, que inverte o winding.
 4. O macho é um volume fechado; não modele cavidade interna. O infill de 10–15% é configuração de fatiamento, documentada.
 5. O `support-depth` agora cobre o limite de semi-esfera; a mensagem deve citar a forma imprimível.

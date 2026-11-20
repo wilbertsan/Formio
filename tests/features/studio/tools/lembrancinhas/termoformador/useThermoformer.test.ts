@@ -15,8 +15,8 @@ import type { ScreenWorker } from '@/features/studio/tools/lembrancinhas/termofo
 function serializedResult(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new BoxGeometry(160, 3, 160),
-    support: new BoxGeometry(168.6, 27, 168.6),
-    plug: new BoxGeometry(160, 46, 160),
+    support: new BoxGeometry(168.6, 27, 168.6).translate(0, 13.5, 0),
+    plug: new BoxGeometry(160, 46, 160).translate(0, 30, 0),
     seatY: 24,
   }).data
 }
@@ -24,8 +24,8 @@ function serializedResult(): SerializedThermoformerResult {
 function serializedDisc(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new CylinderGeometry(80, 80, 3, 64),
-    support: new CylinderGeometry(84.3, 84.3, 27, 64),
-    plug: new CylinderGeometry(80, 80, 46, 64),
+    support: new CylinderGeometry(84.3, 84.3, 27, 64).translate(0, 13.5, 0),
+    plug: new CylinderGeometry(80, 80, 46, 64).translate(0, 30, 0),
     seatY: 24,
   }).data
 }
@@ -126,9 +126,9 @@ describe('useThermoformer', () => {
       height: 27,
       thickness: 168.6,
     })
-    // União do suporte Box(168.6,27,168.6) com o macho Box(160,46,160)
-    // suspenso em 28 mm: esfera envolvente a partir da origem.
-    expect(result.current.fitRadius).toBeCloseTo(142.25, 1)
+    // Suporte assentado (y=0..27) + macho em y=7..53 suspenso 28 mm.
+    // Esfera centrada na origem: 40.5 + hypot(84.3, 40.5, 84.3) ≈ 166.41.
+    expect(result.current.fitRadius).toBeCloseTo(166.41, 1)
   })
 
   it('usa a bounding box do suporte, não o fallback dos parâmetros', () => {
@@ -156,8 +156,21 @@ describe('useThermoformer', () => {
     act(() => { vi.advanceTimersByTime(260) })
     act(() => { respond() })
 
-    expect(result.current.fitRadius).toBeCloseTo(142.25, 1)
+    expect(result.current.fitRadius).toBeCloseTo(166.41, 1)
     expect(result.current.fitRadius).toBeLessThan(247)
+  })
+
+  it('recalcula o afastamento com a profundidade efetiva', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('diameter', 60)
+      result.current.updateParam('bowlDepth', 60)
+    })
+
+    // D=60, degrau 5, folga 0,3: a bacia é limitada a 25,3 mm; +8 = 33,3.
+    expect(result.current.plugLift).toBeCloseTo(33.3, 1)
   })
 
   it('não rebuilda ao trocar apenas a cor', () => {
