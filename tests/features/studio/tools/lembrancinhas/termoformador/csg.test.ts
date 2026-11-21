@@ -27,7 +27,7 @@ const cases = [
       width: 120,
     },
     supportVolume: 177090.22,
-    plugVolume: 584290.48,
+    plugVolume: 584253.28,
   },
   {
     params: {
@@ -36,7 +36,7 @@ const cases = [
       width: 120,
     },
     supportVolume: 316578.28,
-    plugVolume: 444802.41,
+    plugVolume: 444072.79,
   },
   {
     params: {
@@ -46,7 +46,7 @@ const cases = [
       height: 80,
     },
     supportVolume: 139025.6,
-    plugVolume: 373139.08,
+    plugVolume: 373102.13,
   },
 ]
 

@@ -55,13 +55,14 @@ function svgOutline(svg: string, overrides: SvgOverrides = {}) {
 
 /**
  * A pega só é segura quando o disco do raio inteiro cabe no material; a margem
- * de 0,5 mm cobre o arredondamento do Clipper.
+ * de 0,5 mm cobre o arredondamento do Clipper. Formas sem pega são cobertas
+ * pelos testes de desabilitação.
  */
 function expectGripFits(
   outline: ShapeOutline,
   dims: TrayDimensions,
 ): void {
-  expect(dims.gripEnabled).toBe(true)
+  if (!dims.gripEnabled) return
   expect(pointInPaths(
     dims.gripX,
     dims.gripY,
@@ -164,6 +165,7 @@ describe('getTrayDimensions pega', () => {
     }
     const outline = getShapeOutline(params)!
     const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
     expect(dims.gripX).toBeCloseTo(0, 5)
     expect(dims.gripY).toBeCloseTo(0, 5)
     expect(dims.gripRadius).toBeCloseTo(23.4, 5)
@@ -180,12 +182,14 @@ describe('getTrayDimensions pega', () => {
     }
     const outline = getShapeOutline(params)!
     const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
     expectGripFits(outline, dims)
   })
 
   it('mantém a pega dentro da estrela sobre a cavidade', () => {
     const { params, outline } = svgOutline(starSvg, { plugHeight: 10 })
     const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
     expect(dims.gripDepth).toBeCloseTo(10.8, 5)
     expectGripFits(outline, dims)
   })
@@ -194,6 +198,7 @@ describe('getTrayDimensions pega', () => {
     const { params, outline } = svgOutline(starSvg)
     const dims = getTrayDimensions(params, outline)
     expect(dims.gripEnabled).toBe(false)
+    expect(dims.gripRadius).toBe(0)
     expect(dims.gripDepth).toBe(0)
   })
 
@@ -207,6 +212,7 @@ describe('getTrayDimensions pega', () => {
     const centerX = (outline.bounds.minX + outline.bounds.maxX) / 2
     const centerY = (outline.bounds.minY + outline.bounds.maxY) / 2
     expect(pointInPaths(centerX, centerY, outline.paths!)).toBe(false)
+    expect(dims.gripEnabled).toBe(true)
     expectGripFits(outline, dims)
   })
 
@@ -217,6 +223,7 @@ describe('getTrayDimensions pega', () => {
     const dims = getTrayDimensions(params, outline)
     // O encolhimento de 9 mm deixa uma faixa de 0,5 mm; a grade de 7×7 no
     // envelope não a encontra, o baricentro do maior triângulo encontra.
+    expect(dims.gripEnabled).toBe(true)
     expectGripFits(outline, dims)
   })
 
@@ -245,9 +252,16 @@ describe('getTrayDimensions pega', () => {
     })
     const dims = getTrayDimensions(params, outline)
     expect(dims.gripEnabled).toBe(false)
+    expect(dims.gripRadius).toBe(0)
     expect(dims.gripDepth).toBe(0)
+    // O raio pedido domina (9 mm < 10,5 mm do lado curto); o encolhimento por
+    // ele colapsa a barra fina.
     expect(
-      offsetOutlinePaths(outline.paths!, -dims.gripRadius, outline.join),
+      offsetOutlinePaths(
+        outline.paths!,
+        -(params.plugHeight * 0.9),
+        outline.join,
+      ),
     ).toHaveLength(0)
   })
 })

@@ -12,6 +12,7 @@ import {
   PLUG_GRIP_OVERLAP_MM,
   PLUG_GRIP_SEGMENTS,
   PLUG_GRIP_TIP_RADIUS_MM,
+  PLUG_PROTRUSION_OVERLAP_MM,
   type ThermoformerGeometryParams,
 } from './schema'
 
@@ -79,7 +80,7 @@ export function buildTrayPlug(
     cavityPaths,
     scalePaths(cavityPaths, dims.bottomScale),
     params.bottomThickness + params.thickness,
-    dims.contactY,
+    dims.contactY + PLUG_PROTRUSION_OVERLAP_MM,
   )
   const united = csg(body, [protrusion], ADDITION)
   if (!dims.gripEnabled) return united

@@ -199,7 +199,7 @@ export function getTrayDimensions(
     gripCenter !== null &&
     gripAllowance > 0 &&
     clampedGripRadius >= MINIMUM_GRIP_RADIUS_MM
-  const gripRadius = gripEnabled ? clampedGripRadius : requestedGripRadius
+  const gripRadius = gripEnabled ? clampedGripRadius : 0
   const gripDepth = gripEnabled ? clampedGripDepth : 0
 
   return {

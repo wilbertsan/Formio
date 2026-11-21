@@ -39,6 +39,18 @@ const thinC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <path d="M80 30 A35 35 0 1 0 80 70 L73 63 A27 27 0 1 1 73 37 Z" fill="#000"/>
 </svg>`
 
+// ro=50, ri=31.5, w=18.5: o encolhimento pelo raio da pega vira uma faixa de
+// 0,5 mm, que uma grade de 7×7 no envelope não encontra.
+const nearThresholdC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M93.3 25 A50 50 0 1 0 93.3 75 L77.28 65.75 A31.5 31.5 0 1 1 77.28 34.25 Z" fill="#000"/>
+</svg>`
+
+// Coroa assimétrica: bloco grosso perto de uma ponta (a cavidade sobrevive) e
+// braço fino comprido (a cavidade colapsa e a pega fica no braço).
+const crownSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="0,40 65,40 65,35 95,35 95,65 65,65 65,60 0,60" fill="#000"/>
+</svg>`
+
 type SvgOverrides = Partial<
   Omit<ThermoformerParams, 'productType' | 'shape' | 'svg'>
 >
@@ -320,6 +332,7 @@ describe('buildTrayPlug', () => {
       draftAngle: 2,
     })
     const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
     expect(dims.gripDepth).toBeLessThanOrEqual(
       params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
     )
@@ -331,13 +344,57 @@ describe('buildTrayPlug', () => {
 
     // Antes do limite a pega atravessava a face de contato e os dois raios
     // ficavam vazios. Agora o eixo tem topo (recesso) e fundo (material).
-    const inside = dims.gripEnabled
-      ? { x: dims.gripX, y: dims.gripY }
-      : interiorPoint(outline)
-    expect(verticalHits(plug, inside.x, -inside.y)).not.toHaveLength(0)
+    expect(verticalHits(plug, dims.gripX, -dims.gripY)).not.toHaveLength(0)
     expect(
-      verticalHits(plug, inside.x, -inside.y, true),
+      verticalHits(plug, dims.gripX, -dims.gripY, true),
     ).not.toHaveLength(0)
+    plug.dispose()
+  })
+
+  it('macho da coroa apoia a pega na face de contato', () => {
+    const { params, outline } = svgOutline(crownSvg, {
+      frameWidth: 2,
+      stepWidth: 12,
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
+    expect(dims.gripDepth).toBeLessThanOrEqual(
+      params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
+    )
+    // A pega fica no braço, fora da cavidade que sobrevive no bloco.
+    expect(
+      pointInPaths(dims.gripX, dims.gripY, outline.cavityOpening ?? []),
+    ).toBe(false)
+
+    const plug = buildTrayPlug(params, outline)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+
+    expect(verticalHits(plug, dims.gripX, -dims.gripY)).not.toHaveLength(0)
+    expectSingleHit(
+      verticalHits(plug, dims.gripX, -dims.gripY, true),
+      dims.contactY,
+    )
+    plug.dispose()
+  })
+
+  it('macho do C perto do limite fecha sem pega sobre a cavidade', () => {
+    const { params, outline } = svgOutline(nearThresholdC, {
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(true)
+    expect(dims.gripDepth).toBeGreaterThan(0)
+    expect(dims.gripDepth).toBeLessThanOrEqual(
+      params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
+    )
+
+    const plug = buildTrayPlug(params, outline)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
     plug.dispose()
   })
 

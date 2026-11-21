@@ -48,6 +48,11 @@ export const PLUG_GRIP_SEGMENTS = 64
 /** O cone sobe acima do topo para o CSG não cortar faces coplanares. */
 export const PLUG_GRIP_OVERLAP_MM = 0.1
 /**
+ * A protrusão sobe 0,1 mm dentro do corpo: o encontro exato em `contactY`
+ * deixava três arestas abertas na união.
+ */
+export const PLUG_PROTRUSION_OVERLAP_MM = 0.1
+/**
  * O ápice do `ConeGeometry` é uma coroa degenerada que deixa um triângulo
  * aberto no CSG quando a base passa do topo. Um frustum com ponta de 0,01 mm
  * mantém a mesma parede e fecha a malha.
