@@ -2,7 +2,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StudioPanel } from '@/features/studio/tools/lembrancinhas/termoformador/StudioPanel'
 import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
-import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
+import {
+  defaultThermoformerParams,
+  SVG_MAX_LENGTH,
+} from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 
 const defaultProps = {
   params: defaultThermoformerParams,
@@ -29,6 +32,15 @@ const pyramidParams = {
 const svgParams = {
   ...defaultThermoformerParams,
   shape: 'svg' as const,
+}
+
+function makeSvgFile(name: string, content: string) {
+  const file = new File([content], name, { type: 'image/svg+xml' })
+  // O jsdom ainda não implementa Blob.text(); simulamos a leitura do browser.
+  Object.defineProperty(file, 'text', {
+    value: () => Promise.resolve(content),
+  })
+  return file
 }
 
 describe('StudioPanel (termoformador)', () => {
@@ -95,6 +107,9 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByRole('slider', { name: 'Fundo da pirâmide' })).toBeDefined()
     expect(screen.queryByRole('slider', { name: 'Ângulo de saída' })).toBeNull()
     expect(screen.getByText(/10 %/)).toBeDefined()
+    expect(
+      screen.getByRole('slider', { name: 'Fundo da pirâmide' }),
+    ).toHaveAttribute('aria-valuetext', '10 %')
   })
 
   it('mostra o tamanho e o upload no SVG', () => {
@@ -130,19 +145,109 @@ describe('StudioPanel (termoformador)', () => {
         onSetSvg={onSetSvg}
       />,
     )
-    const file = new File(['<svg></svg>'], 'contorno.svg', {
-      type: 'image/svg+xml',
-    })
-    // O jsdom ainda não implementa Blob.text(); simulamos a leitura do browser.
-    Object.defineProperty(file, 'text', {
-      value: () => Promise.resolve('<svg></svg>'),
-    })
+    const file = makeSvgFile('contorno.svg', '<svg></svg>')
     fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
       target: { files: [file] },
     })
     await waitFor(() => expect(onSetSvg).toHaveBeenCalledWith('<svg></svg>'))
     expect(screen.getByText('contorno.svg')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Trocar SVG' })).toBeDefined()
+  })
+
+  it('mostra erro quando a leitura do arquivo falha', async () => {
+    const onSetSvg = vi.fn()
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    const file = new File(['<svg/>'], 'contorno.svg', {
+      type: 'image/svg+xml',
+    })
+    Object.defineProperty(file, 'text', {
+      value: () => Promise.reject(new Error('falha')),
+    })
+    fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
+      target: { files: [file] },
+    })
+    await waitFor(() =>
+      expect(screen.getByText('Não foi possível ler o arquivo.')).toBeDefined(),
+    )
+    expect(onSetSvg).not.toHaveBeenCalled()
+    expect(screen.queryByText('contorno.svg')).toBeNull()
+  })
+
+  it('rejeita arquivo que não é SVG', async () => {
+    const onSetSvg = vi.fn()
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    const file = new File(['png'], 'icone.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
+      target: { files: [file] },
+    })
+    await waitFor(() =>
+      expect(screen.getByText('Envie um arquivo SVG.')).toBeDefined(),
+    )
+    expect(onSetSvg).not.toHaveBeenCalled()
+    expect(screen.queryByText('icone.png')).toBeNull()
+  })
+
+  it('rejeita arquivo maior que 2 MB', async () => {
+    const onSetSvg = vi.fn()
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    const file = new File(['<svg/>'], 'grande.svg', {
+      type: 'image/svg+xml',
+    })
+    Object.defineProperty(file, 'size', {
+      value: 2 * 1024 * 1024 + 1,
+    })
+    fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
+      target: { files: [file] },
+    })
+    await waitFor(() =>
+      expect(
+        screen.getByText('O SVG deve ter no máximo 2 MB.'),
+      ).toBeDefined(),
+    )
+    expect(onSetSvg).not.toHaveBeenCalled()
+  })
+
+  it('rejeita texto acima do limite do schema', async () => {
+    const onSetSvg = vi.fn()
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    const file = makeSvgFile('grande.svg', 'a'.repeat(SVG_MAX_LENGTH + 1))
+    fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
+      target: { files: [file] },
+    })
+    await waitFor(() =>
+      expect(
+        screen.getByText('O SVG deve ter no máximo 2 MB.'),
+      ).toBeDefined(),
+    )
+    expect(onSetSvg).not.toHaveBeenCalled()
   })
 
   it('mostra o erro do SVG', () => {
@@ -161,9 +266,9 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByText('Não foi possível ler o SVG')).toBeDefined()
   })
 
-  it('remove o SVG carregado', () => {
+  it('remove o SVG carregado e esconde o upload', async () => {
     const onSetSvg = vi.fn()
-    render(
+    const { rerender } = render(
       <StudioPanel
         {...defaultProps}
         params={{ ...svgParams, svg: '<svg/>' }}
@@ -174,6 +279,48 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByText('SVG carregado')).toBeDefined()
     fireEvent.click(screen.getByRole('button', { name: 'Remover SVG' }))
     expect(onSetSvg).toHaveBeenCalledWith(null)
+
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Remover SVG' })).toBeNull(),
+    )
+    expect(screen.getByRole('button', { name: 'Enviar SVG' })).toBeDefined()
+  })
+
+  it('limpa o nome do arquivo quando o SVG é alterado externamente', async () => {
+    const onSetSvg = vi.fn()
+    const { rerender } = render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...svgParams, svg: '<svg/>' }}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
+      target: { files: [makeSvgFile('contorno.svg', '<svg></svg>')] },
+    })
+    await waitFor(() => expect(screen.getByText('contorno.svg')).toBeDefined())
+
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    await waitFor(() =>
+      expect(screen.queryByText('contorno.svg')).toBeNull(),
+    )
+    expect(screen.getByRole('button', { name: 'Enviar SVG' })).toBeDefined()
   })
 
   it('mostra as métricas da forma quadrada', () => {
@@ -196,6 +343,32 @@ describe('StudioPanel (termoformador)', () => {
     expect(
       screen.getByText(/A tela é exportada plana; aqueça e pressione/),
     ).toBeDefined()
+  })
+
+  it('mostra a contagem de favos própria do quadrado', () => {
+    const params = { ...squareParams, width: 120 }
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={params}
+        outline={getShapeOutline(params)}
+      />,
+    )
+    expect(screen.getByText(/295 favos/)).toBeDefined()
+    expect(screen.queryByText(/439 favos/)).toBeNull()
+  })
+
+  it('não mostra métricas do círculo sem contorno válido', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+      />,
+    )
+    expect(screen.getAllByText('Aguardando contorno válido.')).toHaveLength(2)
+    expect(screen.queryByText(/Diâmetro externo/)).toBeNull()
+    expect(screen.queryByText(/Diâmetro 160\.0 mm/)).toBeNull()
   })
 
   it('esconde a nota do degrau quando a largura já comporta a moldura', () => {

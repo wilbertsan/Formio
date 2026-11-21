@@ -1,4 +1,10 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react'
 import {
   Accordion,
   Alert,
@@ -15,12 +21,18 @@ import { getSupportDimensions } from './buildSupport'
 import type { ShapeOutline } from './outline'
 import {
   PLA_COLORS,
+  SVG_MAX_LENGTH,
   type ThermoformerGeometryParams,
   type ThermoformerParams,
 } from './schema'
 import { computeScreenPattern } from './screenPattern'
-import { getTrayDimensions, getTrayEnvelope } from './tray'
+import { getTrayDimensions } from './tray'
 import type { ValidationIssue } from './validateThermoformer'
+
+const MAX_SVG_BYTES = 2 * 1024 * 1024
+const SVG_EXTENSION_ERROR = 'Envie um arquivo SVG.'
+const SVG_SIZE_ERROR = 'O SVG deve ter no máximo 2 MB.'
+const SVG_READ_ERROR = 'Não foi possível ler o arquivo.'
 
 interface StudioPanelProps {
   params: ThermoformerParams
@@ -100,6 +112,7 @@ function LabeledSlider({
         max={max}
         step={step}
         value={value}
+        ariaValuetext={display}
         onChange={(next) => onChange(next as number)}
       />
     </>
@@ -176,13 +189,6 @@ export function StudioPanel({
     params.plugHeight,
   ])
 
-  const trayEnvelope = useMemo(
-    () => (outline?.kind === 'polygon'
-      ? getTrayEnvelope(trayParams, outline)
-      : null),
-    [trayParams, outline],
-  )
-
   const trayDimensions = useMemo(
     () => (outline?.kind === 'polygon'
       ? getTrayDimensions(trayParams, outline)
@@ -190,26 +196,52 @@ export function StudioPanel({
     [trayParams, outline],
   )
 
-  const supportDims = getSupportDimensions(params)
-  const plugDims = getPlugDimensions(params)
+  const circleSupportDims = useMemo(
+    () => (params.shape === 'circle' ? getSupportDimensions(params) : null),
+    [params],
+  )
+
+  const circlePlugDims = useMemo(
+    () => (params.shape === 'circle' ? getPlugDimensions(params) : null),
+    [params],
+  )
+
   const isDraftShape =
     params.shape === 'square' ||
     params.shape === 'rectangle' ||
     params.shape === 'svg'
   const hasSvg = params.svg.length > 0 || svgFileName !== null
 
+  useEffect(() => {
+    if (!params.svg) {
+      setSvgFileName(null)
+      setUploadError(null)
+    }
+  }, [params.svg])
+
   const handleSvgUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    if (!file.name.toLowerCase().endsWith('.svg')) {
+      setUploadError(SVG_EXTENSION_ERROR)
+      return
+    }
+    if (file.size > MAX_SVG_BYTES) {
+      setUploadError(SVG_SIZE_ERROR)
+      return
+    }
     try {
       const text = await file.text()
+      if (text.length > SVG_MAX_LENGTH) {
+        setUploadError(SVG_SIZE_ERROR)
+        return
+      }
       setSvgFileName(file.name)
       setUploadError(null)
       onSetSvg(text)
     } catch {
-      setSvgFileName(null)
-      setUploadError('Não foi possível ler o arquivo.')
+      setUploadError(SVG_READ_ERROR)
     }
   }
 
@@ -332,7 +364,7 @@ export function StudioPanel({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".svg"
+                    accept=".svg,image/svg+xml"
                     aria-label="Arquivo SVG"
                     onChange={handleSvgUpload}
                     style={{ display: 'none' }}
@@ -389,10 +421,10 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              {trayEnvelope && (
+              {trayDimensions && (
                 <Text fontSize="xs" color="font.secondary">
-                  Tela {trayEnvelope.screenBounds.width.toFixed(1)} ×{' '}
-                  {trayEnvelope.screenBounds.height.toFixed(1)} mm
+                  Tela {trayDimensions.screenBounds.width.toFixed(1)} ×{' '}
+                  {trayDimensions.screenBounds.height.toFixed(1)} mm
                 </Text>
               )}
               <LabeledSlider label="Espessura" value={params.thickness} min={1.2} max={6} step={0.1} onChange={(value) => onUpdateParam('thickness', value)} />
@@ -421,28 +453,32 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              {trayEnvelope && trayDimensions ? (
+              {trayDimensions ? (
                 <>
                   <Text fontSize="xs" color="font.secondary">
-                    Suporte {trayEnvelope.outerBounds.width.toFixed(1)} ×{' '}
-                    {trayEnvelope.outerBounds.height.toFixed(1)} mm · Altura{' '}
-                    {trayEnvelope.height.toFixed(1)} mm
+                    Suporte {trayDimensions.outerBounds.width.toFixed(1)} ×{' '}
+                    {trayDimensions.outerBounds.height.toFixed(1)} mm · Altura{' '}
+                    {trayDimensions.height.toFixed(1)} mm
                   </Text>
                   <Text fontSize="xs" color="font.secondary">
-                    Degrau efetivo {trayEnvelope.effectiveStep.toFixed(1)} mm ·
+                    Degrau efetivo {trayDimensions.effectiveStep.toFixed(1)} mm ·
                     Parede da cavidade {trayDimensions.cavityWall.toFixed(1)} mm
                   </Text>
-                  {trayEnvelope.stepClamped && (
+                  {trayDimensions.stepClamped && (
                     <Text fontSize="xs" color="font.tertiary">
                       O degrau efetivo é ampliado pela moldura da tela.
                     </Text>
                   )}
                 </>
-              ) : (
+              ) : circleSupportDims ? (
                 <Text fontSize="xs" color="font.secondary">
-                  Diâmetro externo {(supportDims.outerRadius * 2).toFixed(1)} mm · Altura{' '}
-                  {supportDims.height.toFixed(1)} mm · Parede da bacia{' '}
-                  {supportDims.cavityWall.toFixed(1)} mm
+                  Diâmetro externo {(circleSupportDims.outerRadius * 2).toFixed(1)} mm · Altura{' '}
+                  {circleSupportDims.height.toFixed(1)} mm · Parede da bacia{' '}
+                  {circleSupportDims.cavityWall.toFixed(1)} mm
+                </Text>
+              ) : (
+                <Text fontSize="xs" color="font.tertiary">
+                  Aguardando contorno válido.
                 </Text>
               )}
               <LabeledSlider label="Parede do suporte" value={params.wallThickness} min={2} max={10} step={0.5} onChange={(value) => onUpdateParam('wallThickness', value)} />
@@ -478,12 +514,16 @@ export function StudioPanel({
                       : 'Pega desabilitada'}
                   </Text>
                 </>
-              ) : (
+              ) : circlePlugDims ? (
                 <Text fontSize="xs" color="font.secondary">
-                  Diâmetro {(plugDims.guideRadius * 2).toFixed(1)} mm · Altura
-                  total {plugDims.height.toFixed(1)} mm · Pega Ø
-                  {(plugDims.gripRadius * 2).toFixed(1)} ×{' '}
-                  {plugDims.gripDepth.toFixed(1)} mm
+                  Diâmetro {(circlePlugDims.guideRadius * 2).toFixed(1)} mm · Altura
+                  total {circlePlugDims.height.toFixed(1)} mm · Pega Ø
+                  {(circlePlugDims.gripRadius * 2).toFixed(1)} ×{' '}
+                  {circlePlugDims.gripDepth.toFixed(1)} mm
+                </Text>
+              ) : (
+                <Text fontSize="xs" color="font.tertiary">
+                  Aguardando contorno válido.
                 </Text>
               )}
               <LabeledSlider label="Altura do corpo" value={params.plugHeight} min={10} max={40} step={1} onChange={(value) => onUpdateParam('plugHeight', value)} />
