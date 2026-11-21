@@ -1,13 +1,34 @@
 import { describe, it, expect, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { StudioPanel } from '@/features/studio/tools/lembrancinhas/termoformador/StudioPanel'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 
 const defaultProps = {
   params: defaultThermoformerParams,
+  outline: getShapeOutline(defaultThermoformerParams),
+  svgError: null,
   issues: [],
   onUpdateParam: vi.fn(),
+  onSetSvg: vi.fn(),
   onReset: vi.fn(),
+}
+
+const squareParams = {
+  ...defaultThermoformerParams,
+  shape: 'square' as const,
+}
+const rectangleParams = {
+  ...defaultThermoformerParams,
+  shape: 'rectangle' as const,
+}
+const pyramidParams = {
+  ...defaultThermoformerParams,
+  shape: 'pyramid' as const,
+}
+const svgParams = {
+  ...defaultThermoformerParams,
+  shape: 'svg' as const,
 }
 
 describe('StudioPanel (termoformador)', () => {
@@ -20,6 +41,174 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getByText('Macho')).toBeDefined()
     expect(screen.getByText('Aparência')).toBeDefined()
     expect(screen.getByText('Validação')).toBeDefined()
+  })
+
+  it('renderiza o acordeão Forma e as cinco opções', () => {
+    render(<StudioPanel {...defaultProps} />)
+    const select = screen.getByLabelText('Forma') as HTMLSelectElement
+    expect(select.value).toBe('circle')
+    expect(screen.getByRole('option', { name: 'Círculo' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Quadrado' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Retângulo' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'Pirâmide' })).toBeDefined()
+    expect(screen.getByRole('option', { name: 'SVG' })).toBeDefined()
+  })
+
+  it('mostra o diâmetro apenas no círculo', () => {
+    const { rerender } = render(<StudioPanel {...defaultProps} />)
+    expect(screen.getByRole('slider', { name: 'Diâmetro' })).toBeDefined()
+    expect(screen.queryByRole('slider', { name: 'Lado' })).toBeNull()
+
+    rerender(
+      <StudioPanel
+        {...defaultProps}
+        params={squareParams}
+        outline={getShapeOutline(squareParams)}
+      />,
+    )
+    expect(screen.queryByRole('slider', { name: 'Diâmetro' })).toBeNull()
+    expect(screen.getByRole('slider', { name: 'Lado' })).toBeDefined()
+  })
+
+  it('mostra largura e altura no retângulo', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={rectangleParams}
+        outline={getShapeOutline(rectangleParams)}
+      />,
+    )
+    expect(screen.getByRole('slider', { name: 'Largura' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Altura' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Ângulo de saída' })).toBeDefined()
+  })
+
+  it('mostra a base e o fundo da pirâmide', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={pyramidParams}
+        outline={getShapeOutline(pyramidParams)}
+      />,
+    )
+    expect(screen.getByRole('slider', { name: 'Lado da base' })).toBeDefined()
+    expect(screen.getByRole('slider', { name: 'Fundo da pirâmide' })).toBeDefined()
+    expect(screen.queryByRole('slider', { name: 'Ângulo de saída' })).toBeNull()
+    expect(screen.getByText(/10 %/)).toBeDefined()
+  })
+
+  it('mostra o tamanho e o upload no SVG', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+      />,
+    )
+    expect(screen.getByRole('slider', { name: 'Tamanho do SVG' })).toBeDefined()
+    expect(screen.getByLabelText('Arquivo SVG')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Enviar SVG' })).toBeDefined()
+    expect(screen.queryByRole('button', { name: 'Remover SVG' })).toBeNull()
+  })
+
+  it('atualiza a forma selecionada', () => {
+    const onUpdateParam = vi.fn()
+    render(<StudioPanel {...defaultProps} onUpdateParam={onUpdateParam} />)
+    fireEvent.change(screen.getByLabelText('Forma'), {
+      target: { value: 'square' },
+    })
+    expect(onUpdateParam).toHaveBeenCalledWith('shape', 'square')
+  })
+
+  it('lê o SVG enviado e chama onSetSvg', async () => {
+    const onSetSvg = vi.fn()
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    const file = new File(['<svg></svg>'], 'contorno.svg', {
+      type: 'image/svg+xml',
+    })
+    // O jsdom ainda não implementa Blob.text(); simulamos a leitura do browser.
+    Object.defineProperty(file, 'text', {
+      value: () => Promise.resolve('<svg></svg>'),
+    })
+    fireEvent.change(screen.getByLabelText('Arquivo SVG'), {
+      target: { files: [file] },
+    })
+    await waitFor(() => expect(onSetSvg).toHaveBeenCalledWith('<svg></svg>'))
+    expect(screen.getByText('contorno.svg')).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Trocar SVG' })).toBeDefined()
+  })
+
+  it('mostra o erro do SVG', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={svgParams}
+        outline={null}
+        svgError={{
+          code: 'svg-parse',
+          message: 'Não foi possível ler o SVG',
+        }}
+      />,
+    )
+    expect(screen.getByText('Erro no SVG')).toBeDefined()
+    expect(screen.getByText('Não foi possível ler o SVG')).toBeDefined()
+  })
+
+  it('remove o SVG carregado', () => {
+    const onSetSvg = vi.fn()
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={{ ...svgParams, svg: '<svg/>' }}
+        outline={null}
+        onSetSvg={onSetSvg}
+      />,
+    )
+    expect(screen.getByText('SVG carregado')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Remover SVG' }))
+    expect(onSetSvg).toHaveBeenCalledWith(null)
+  })
+
+  it('mostra as métricas da forma quadrada', () => {
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={squareParams}
+        outline={getShapeOutline(squareParams)}
+      />,
+    )
+    expect(screen.getByText(/Suporte 168\.6 × 168\.6 mm/)).toBeDefined()
+    expect(screen.getByText(/Altura 27\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Degrau efetivo 6\.3 mm/)).toBeDefined()
+    expect(screen.getByText(/ampliado pela moldura/)).toBeDefined()
+    expect(screen.getByText(/Parede da cavidade 10\.3 mm/)).toBeDefined()
+    expect(screen.getByText(/Tela 160\.0 × 160\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Guia 160\.0 × 160\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Altura total 46\.0 mm/)).toBeDefined()
+    expect(screen.getByText(/Pega Ø46\.8 × 28\.1 mm/)).toBeDefined()
+    expect(
+      screen.getByText(/A tela é exportada plana; aqueça e pressione/),
+    ).toBeDefined()
+  })
+
+  it('esconde a nota do degrau quando a largura já comporta a moldura', () => {
+    const params = { ...squareParams, stepWidth: 7 }
+    render(
+      <StudioPanel
+        {...defaultProps}
+        params={params}
+        outline={getShapeOutline(params)}
+      />,
+    )
+    expect(screen.getByText(/Degrau efetivo 7\.0 mm/)).toBeDefined()
+    expect(screen.queryByText(/ampliado pela moldura/)).toBeNull()
   })
 
   it('expõe nome acessível nos sliders', () => {
