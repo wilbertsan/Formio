@@ -3,6 +3,8 @@ import { BoxGeometry, BufferGeometry } from 'three'
 import { buildPlug, getPlugDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
 import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import type { BuildThermoformerResult } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
+import { buildTrayPlug, buildTraySupport } from '@/features/studio/tools/lembrancinhas/termoformador/trayParts'
+import { getTrayDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
 import {
   exportThermoformerStl,
   preparePlugForPrint,
@@ -88,6 +90,25 @@ function buildResult(): BuildThermoformerResult {
   }
 }
 
+function squareParams() {
+  return {
+    ...defaultThermoformerParams,
+    shape: 'square' as const,
+    width: 120,
+  }
+}
+
+function buildSquareResult(): BuildThermoformerResult {
+  const params = squareParams()
+  const outline = getShapeOutline(params)!
+  return {
+    screen: new BoxGeometry(120, 3, 120),
+    support: buildTraySupport(params, outline),
+    plug: buildTrayPlug(params, outline),
+    seatY: getTrayDimensions(params, outline).seatY,
+  }
+}
+
 afterEach(() => {
   restoreElementSpies?.()
   restoreElementSpies = null
@@ -147,6 +168,56 @@ describe('exportThermoformerStl', () => {
       'termoformador-macho.stl',
     ])
   })
+
+  it('exporta suporte e macho quadrados sem descartar nem mutar as peças', () => {
+    const { anchors, revokeObjectURL } = setupDownloadMocks()
+    parseMock.mockClear()
+    const result = buildSquareResult()
+    const originals = [result.screen, result.support, result.plug].map((geometry) =>
+      Array.from(positions(geometry)),
+    )
+    const cloneSpy = vi.spyOn(BufferGeometry.prototype, 'clone')
+    const disposeSpy = vi.spyOn(BufferGeometry.prototype, 'dispose')
+
+    exportThermoformerStl(result, 'Quadrado 120')
+
+    expect(anchors.map((anchor) => anchor.download)).toEqual([
+      'Quadrado-120-tela.stl',
+      'Quadrado-120-suporte.stl',
+      'Quadrado-120-macho.stl',
+    ])
+    for (const anchor of anchors) {
+      expect(anchor.href).toBe('blob:mock-url')
+      expect(anchor.click).toHaveBeenCalledTimes(1)
+    }
+    expect(revokeObjectURL).toHaveBeenCalledTimes(3)
+    expect(parseMock).toHaveBeenCalledTimes(3)
+    expect(parseMock).toHaveBeenCalledWith(expect.anything(), { binary: true })
+
+    const clones = cloneSpy.mock.results.map(({ value }) => value as BufferGeometry)
+    expect(cloneSpy).toHaveBeenCalledTimes(3)
+    expect(cloneSpy.mock.instances[0]).toBe(result.screen)
+    expect(cloneSpy.mock.instances[1]).toBe(result.support)
+    expect(cloneSpy.mock.instances[2]).toBe(result.plug)
+    expect(disposeSpy).toHaveBeenCalledTimes(3)
+    expect(disposeSpy.mock.instances[0]).toBe(clones[0])
+    expect(disposeSpy.mock.instances[1]).toBe(clones[1])
+    expect(disposeSpy.mock.instances[2]).toBe(clones[2])
+    expect(disposeSpy.mock.instances).not.toContain(result.screen)
+    expect(disposeSpy.mock.instances).not.toContain(result.support)
+    expect(disposeSpy.mock.instances).not.toContain(result.plug)
+
+    const after = [result.screen, result.support, result.plug].map((geometry) =>
+      Array.from(positions(geometry)),
+    )
+    expect(after).toEqual(originals)
+
+    cloneSpy.mockRestore()
+    disposeSpy.mockRestore()
+    result.screen.dispose()
+    result.support.dispose()
+    result.plug.dispose()
+  })
 })
 
 describe('prepareScreenForPrint', () => {
@@ -197,6 +268,32 @@ describe('prepareSupportForPrint', () => {
 
     cloneSpy.mockRestore()
     geometry.dispose()
+    print.dispose()
+  })
+
+  it('centraliza o suporte quadrado na mesa sem mutar o original', () => {
+    const params = squareParams()
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const support = buildTraySupport(params, outline)
+    const original = positions(support)
+
+    const print = prepareSupportForPrint(support)
+    print.computeBoundingBox()
+    const box = print.boundingBox!
+
+    expect(print).not.toBe(support)
+    expect(box.min.y).toBeCloseTo(0, 3)
+    expect(box.max.y).toBeCloseTo(dims.height, 3)
+    expect(box.min.x).toBeCloseTo(dims.outerBounds.minX, 3)
+    expect(box.max.x).toBeCloseTo(dims.outerBounds.maxX, 3)
+    expect(box.min.z).toBeCloseTo(-dims.outerBounds.maxY, 3)
+    expect(box.max.z).toBeCloseTo(-dims.outerBounds.minY, 3)
+    expect(Array.from(support.getAttribute('position').array)).toEqual(
+      Array.from(original),
+    )
+
+    support.dispose()
     print.dispose()
   })
 })
@@ -254,6 +351,45 @@ describe('preparePlugForPrint', () => {
 
     expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
     expect(print.boundingBox!.max.y).toBeCloseTo(dims.height, 3)
+
+    print.dispose()
+    plug.dispose()
+  })
+
+  it('gira o macho quadrado com a face plana na mesa', () => {
+    const params = squareParams()
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const plug = buildTrayPlug(params, outline)
+    const original = positions(plug)
+
+    const print = preparePlugForPrint(plug)
+    print.computeBoundingBox()
+
+    expect(print).not.toBe(plug)
+    expect(print.boundingBox!.min.y).toBeCloseTo(0, 3)
+    expect(print.boundingBox!.max.y).toBeCloseTo(dims.plugTotalHeight, 3)
+
+    const position = print.getAttribute('position')
+    let bedVertices = 0
+    let bedMaxRadius = 0
+    for (let index = 0; index < position.count; index++) {
+      if (Math.abs(position.getY(index)) < 1e-3) {
+        bedVertices++
+        bedMaxRadius = Math.max(
+          bedMaxRadius,
+          Math.hypot(position.getX(index), position.getZ(index)),
+        )
+      }
+    }
+
+    // O topo plano do corpo vira a mesa: a face tem muitos vértices em y = 0 e
+    // chega até os cantos do quadrado de 120 mm; a protrusão fica no alto.
+    expect(bedVertices).toBeGreaterThan(100)
+    expect(bedMaxRadius).toBeCloseTo(Math.hypot(60, 60), 3)
+    expect(Array.from(plug.getAttribute('position').array)).toEqual(
+      Array.from(original),
+    )
 
     print.dispose()
     plug.dispose()
