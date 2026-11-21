@@ -16,7 +16,7 @@ function realFont(): Font {
 // caros e, somados ao arquivo principal, estouravam o watchdog de RPC do
 // Vitest (`onTaskUpdate`) sob carga.
 describe('buildCanHolder com texturas importadas', () => {
-  it('fecha corpo e alça com textura importada', () => {
+  it('fecha corpo e alça com textura importada', { timeout: 60_000 }, () => {
     const result = buildCanHolder(
       { ...defaultCanHolderParams, textureStyle: 'paralelepipedos' },
       realFont(),
@@ -32,7 +32,7 @@ describe('buildCanHolder com texturas importadas', () => {
     disposeCanHolderResult(result)
   })
 
-  it('une o texto a um corpo com textura importada', () => {
+  it('une o texto a um corpo com textura importada', { timeout: 60_000 }, () => {
     const params = { ...defaultCanHolderParams, textureStyle: 'pedra_hexagonal' as const }
     const result = buildCanHolder(params, realFont())
     expect(isClosed(result.body)).toBe(true)

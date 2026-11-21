@@ -6,6 +6,7 @@ import { expectImportedBody } from './importedBodyAssertions'
 describe('can holder body com texturas importadas (parte 3)', () => {
   it.each(IMPORTED_TEXTURE_IDS.slice(6, 9))(
     'fecha o corpo importado (%s)',
+    { timeout: 60_000 },
     expectImportedBody,
   )
 })

@@ -44,8 +44,8 @@ export function findOuterWall(profile: Vector2[], innerRadius: number): OuterWal
   return wall
 }
 
-function subdivideWall(profile: Vector2[], wall: OuterWall, step: number): Vector2[] {
-  const steps = Math.max(1, Math.ceil((wall.max - wall.min) / step))
+function subdivideWall(profile: Vector2[], wall: OuterWall, stepMm: number): Vector2[] {
+  const steps = Math.max(1, Math.ceil((wall.max - wall.min) / stepMm))
   const direction = profile[wall.index + 1].y >= profile[wall.index].y ? 1 : -1
   const points: Vector2[] = []
 
@@ -122,8 +122,8 @@ export function buildBody(params: CanHolderGeometryParams): BufferGeometry {
   const segments = imported
     ? IMPORTED_TEXTURE_RADIAL_SEGMENTS
     : TEXTURE_RADIAL_SEGMENTS
-  const step = imported ? IMPORTED_TEXTURE_STEP_MM : TEXTURE_STEP_MM
-  const subdividedProfile = subdivideWall(profile, wall, step)
+  const stepMm = imported ? IMPORTED_TEXTURE_STEP_MM : TEXTURE_STEP_MM
+  const subdividedProfile = subdivideWall(profile, wall, stepMm)
   const geometry = new LatheGeometry(subdividedProfile, segments)
   displaceWall(geometry, params, wall)
   geometry.computeVertexNormals()
