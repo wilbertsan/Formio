@@ -32,6 +32,7 @@ import { exportBoxStl } from './tools/lembrancinhas/caixa-personalizada/exportSt
 import { useThermoformer } from './tools/lembrancinhas/termoformador/useThermoformer'
 import { exportThermoformerStl } from './tools/lembrancinhas/termoformador/exportStl'
 import { useCanHolder } from './tools/lembrancinhas/porta-lata/useCanHolder'
+import { isImportedTexture } from './tools/lembrancinhas/porta-lata/schema'
 import { exportCanHolderStl } from './tools/lembrancinhas/porta-lata/exportStl'
 
 const ChaveiroTool = lazy(() =>
@@ -1286,6 +1287,7 @@ function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
     outerDiameter,
     outerHeight,
     exposedHeight,
+    builtParams,
     cameraPosition,
     fitRadius,
     updateParam,
@@ -1364,6 +1366,9 @@ function CanHolderToolWrapper({ onBack }: { onBack: () => void }) {
                 handle={geometry?.handle ?? null}
                 bodyColor={params.bodyColor}
                 accentColor={params.accentColor}
+                flatShading={
+                  builtParams !== null && isImportedTexture(builtParams.textureStyle)
+                }
               />
             </Suspense>
           </StudioViewport>

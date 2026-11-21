@@ -5,6 +5,7 @@ interface CanHolderPreviewProps {
   handle: BufferGeometry | null
   bodyColor: string
   accentColor: string
+  flatShading?: boolean
 }
 
 export function CanHolderPreview({
@@ -12,6 +13,7 @@ export function CanHolderPreview({
   handle,
   bodyColor,
   accentColor,
+  flatShading = false,
 }: CanHolderPreviewProps) {
   if (!body && !handle) return null
 
@@ -19,7 +21,12 @@ export function CanHolderPreview({
     <group>
       {body && (
         <mesh geometry={body} castShadow receiveShadow>
-          <meshStandardMaterial color={bodyColor} metalness={0.05} roughness={0.5} />
+          <meshStandardMaterial
+            color={bodyColor}
+            metalness={0.05}
+            roughness={0.5}
+            {...(flatShading ? { flatShading } : {})}
+          />
         </mesh>
       )}
       {handle && (
