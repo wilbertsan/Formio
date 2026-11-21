@@ -19,10 +19,11 @@
   (~1,40 MB gzip), porque o chunk do worker o inclui; import dinâmico ou
   compressão ficam como follow-up.
 - **Testes**: 14 corpos importados em 5 arquivos; os builds completos foram
-  divididos em 3 arquivos (`buildCanHolder`, `...Textures`, `...Extremes`) com
-  timeout de 60 s para não estourar o RPC do Vitest. O utilitário de malha foi
-  otimizado (canonicalização + chaves numéricas) e a suíte completa fica em
-  1622 testes / ~95 s.
+  divididos em 6 arquivos (`buildCanHolder`, `...Textures`, `...Extremes`,
+  `...ExtremesTextures`, `...Imported`, `...ImportedDeep`) com timeout de 60 s
+  para não estourar o RPC do Vitest. O utilitário de malha foi otimizado
+  (canonicalização + chaves numéricas) e a suíte completa fica em 1622 testes /
+  ~66–72 s.
 - **Preview**: o R3F 9.7.0 não marca `needsUpdate` ao trocar `flatShading`;
   o material do corpo usa `key` (`flat`/`smooth`) para remontar e recompilar.
 
@@ -162,7 +163,7 @@ scripts/texture-import.mjs  # sem mudança de lógica; regenera
   reduz só ~19% do tempo; se for necessário, o próximo nível é 384/0,5.
 - **STL ~14,6 MB**: inerente ao detalhe; export binário.
 - **Asset ~2,4 MB**: lazy no worker; compressão como follow-up.
-- **GPU fraca**: 250k triângulos é modesto; flat shading não tem custo extra.
+- **GPU fraca**: 266k triângulos é modesto; flat shading não tem custo extra.
 - **Mapa 8 bits**: 0,016 mm por passo na profundidade máxima; não é o gargalo.
 - **Fonte**: campo de altura perde undercuts, agora com ~0,4 mm de amostra;
   abaixo disso o bico 0,4 mm não reproduz.

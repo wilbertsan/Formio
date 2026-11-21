@@ -531,14 +531,15 @@ mostra erro no overlay.
   (`buildBodyImported` + `part2`–`part5`), com 3 estilos por arquivo (o último
   com 2); a divisão mantém cada arquivo abaixo do watchdog do Vitest. Uma amostra
   (`azulejos`) cobre a emenda em 512 segmentos.
-- Os builds completos pesados ficam em arquivos próprios: `buildCanHolder`,
-  `buildCanHolderTextures` e `buildCanHolderExtremes` (a divisão do antigo
-  arquivo único), além de `buildCanHolderImported`, que cobre os importados com
-  texto e alça.
+- Os builds completos pesados ficam em seis arquivos próprios:
+  `buildCanHolder` (core), `buildCanHolderTextures`, `buildCanHolderExtremes`,
+  `buildCanHolderExtremesTextures`, `buildCanHolderImported` e
+  `buildCanHolderImportedDeep` (a divisão do antigo arquivo único).
 - Os casos caros usam timeout explícito de **60 s**; o helper
   `canHolderTestUtils` fornece `realFont`, `seamGroups`, `readCpu` e
-  `rayCrossings`. O gate de CPU do build default continua em 4 s.
-- Suíte completa: **1622/1622 testes**, 157 arquivos, exit 0, ~95 s.
+  `rayCrossings`. O gate de CPU do build default é de 15 s (só pega regressões
+  grandes; sob carga o default já mediu 7,3 s).
+- Suíte completa: **1622/1622 testes**, 159 arquivos, exit 0, ~66–72 s.
 
 ## Decisões da v1
 
@@ -588,7 +589,7 @@ mostra erro no overlay.
 - **Build em worker:** a primeira medição de CPU do build default ficou em
   ~0,8 s; com JIT quente, ~0,6 s. O pior caso do schema (20 caracteres em
   18 mm) ficou em ~1,1 s. O teste roda no processo do Vitest, inclui a fonte e
-  as asserções (~1,0 s no default) e usa gate de 4 s com
+  as asserções (~1,0 s no default) e usa gate de 15 s com
   `process.threadCpuUsage` (fallback `process.cpuUsage` em Node < 22.15), não
   relógio de parede — a suíte roda vários arquivos de geometria em paralelo.
 - **Export por snapshot:** o export usa as geometrias `body` e `handle` do build
@@ -644,7 +645,7 @@ mostra erro no overlay.
   o envelope da textura; o relevo do texto continua fora, como nas demais
   medidas nominais.
 - **Procedurais em 256/1,0:** o build procedural completo mediu ~1,06 s de CPU
-  no default, dentro do gate de 4 s, então não foi preciso reduzir para 192
+  no default, dentro do gate da época (4 s), então não foi preciso reduzir para 192
   segmentos ou passo de 1,2 mm. A alta definição (512/0,4) vale só para os
   importados.
 - **Pedra e pontiagudo imprimíveis:** a pedra troca o bisel por interpolação
@@ -661,7 +662,8 @@ mostra erro no overlay.
   0,4 mm (procedurais seguem 256/1 e `none` 128). O corpo importado tem 133.893
   vértices / 266.240 triângulos; com texto, até ~197 mil / 291.632, e o STL do
   corpo fica em ~14,6 MB. Não houve fallback para 448/0,45: o build completo
-  mediu 5,6–6,5 s de CPU, dentro do gate de ~8 s.
+  mediu 5,6–6,5 s de CPU em máquina ociosa (sob carga/CI chega a 10–14 s);
+  não houve fallback.
 - **Flat shading no preview importado:** o corpo usa `flatShading` porque as
   facetas de 0,4 mm são reais no STL; a alça continua suave. O flag vem de
   `builtParams` (snapshot exibido), não do slider em edição. O material leva
@@ -698,7 +700,8 @@ mostra erro no overlay.
 - **Custo de malha e CSG:** o corpo importado tem 133.893 vértices / 266.240
   triângulos; com texto chega a ~197 mil / 291.632 e o STL do corpo a ~14,6 MB.
   O `buildBody` importado leva 0,65–0,85 s (~1 s frio) e o build completo com
-  texto 5,6–6,5 s de CPU (paralelepípedos 5,6; pedra 5,8; frio 6,5); o default
+  texto 5,6–6,5 s de CPU em máquina ociosa (paralelepípedos 5,6; pedra 5,8;
+  frio 6,5; sob carga 10–14 s); o default
   `none` fica em ~1,3 s. Ficou dentro do gate de ~8 s, então não houve fallback
   para 448 segmentos / 0,45 mm. O worker mantém a UI livre e o preview mostra a
   geometria anterior enquanto o build novo chega.

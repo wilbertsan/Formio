@@ -455,7 +455,7 @@ Textura:
   e na faixa lisa da abraçadeira (`handleHeight ± (handleWidth / 2 + 1)`), com a
   mesma transição. Anéis, base, borda, cavidade e furo ficam intactos.
 - **Custo**: parede texturizada ~57k triângulos; build completo texturado
-  ~0,8–1,1 s de CPU (gate de 4 s), mantendo 256 segmentos e passo de 1 mm.
+  ~0,8–1,1 s de CPU (gate de 15 s), mantendo 256 segmentos e passo de 1 mm.
 - **Texto**: sobe pelo envelope efetivo, ficando 1 mm acima do pico; a base
   permanece 0,2 mm dentro da parede.
 
@@ -483,8 +483,9 @@ Texturas importadas:
 - **Painel**: select com os grupos Procedurais/Importadas; nos importados,
   profundidade e escala ficam desabilitados e aparece "Textura importada:
   profundidade X mm · flancos ~N°. Pode exigir suporte.".
-- **Custo**: 14 mapas normalizados/decodificados lazy; o chunk do worker cresce
-  2,4 MB / 2,33 MiB; o build completo importado mediu **5,6–6,5 s de CPU**
+- **Custo**: 14 mapas normalizados; o asset cresce 2,4 MB / 2,33 MiB e o chunk
+  do worker fica em ~2,88 MB raw / ~1,40 MB gzip (carregado no mount); o build
+  completo importado mediu **5,6–6,5 s de CPU**
   em máquina ociosa (frio 6,5 s; sob carga pode passar de 10 s) com 512/0,4,
   sem fallback.
 
@@ -503,9 +504,10 @@ Alta definição (importados):
   importado; a alça continua suave. O material do corpo tem
   `key={flatShading ? 'flat' : 'smooth'}` porque o R3F 9.7.0 não marca
   `needsUpdate` ao trocar `flatShading` e o program antigo seria reutilizado.
-- **Testes**: 14 corpos importados em 5 arquivos e os builds completos em 3
-  (`buildCanHolder`, `...Textures`, `...Extremes`), com timeout de 60 s; a suíte
-  completa fica em 1622 testes e ~95 s.
+- **Testes**: 14 corpos importados em 5 arquivos e os builds completos em 6
+  (`buildCanHolder`, `...Textures`, `...Extremes`, `...ExtremesTextures`,
+  `...Imported`, `...ImportedDeep`), com timeout de 60 s; a suíte completa fica
+  em 1622 testes e ~66–72 s.
 
 Detalhes:
 
@@ -526,7 +528,7 @@ Detalhes:
   STL não carrega cor.
 - Build padrão medido em ~0,8 s de CPU no primeiro build e ~0,6 s com JIT
   quente; 20 caracteres em 18 mm levam ~1,1 s. O teste roda no processo do
-  Vitest, inclui a fonte e as asserções (~1,0 s no default) e usa gate de 4 s
+  Vitest, inclui a fonte e as asserções (~1,0 s no default) e usa gate de 15 s
   com `process.threadCpuUsage` (fallback `process.cpuUsage`), não relógio de
   parede.
 
