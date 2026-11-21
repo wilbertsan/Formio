@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   getTrayDimensions,
+  getTrayEnvelope,
   type TrayDimensions,
 } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
 import {
@@ -153,6 +154,37 @@ describe('getTrayDimensions', () => {
     const outline = getShapeOutline(defaultThermoformerParams)!
     expect(() => getTrayDimensions(defaultThermoformerParams, outline))
       .toThrow('getTrayDimensions só aceita contornos poligonais')
+  })
+})
+
+describe('getTrayEnvelope', () => {
+  it('acompanha as dimensões da bandeja quadrada', () => {
+    const params = { ...defaultThermoformerParams, shape: 'square' as const, width: 120 }
+    const outline = getShapeOutline(params)!
+    const envelope = getTrayEnvelope(params, outline)
+    const dims = getTrayDimensions(params, outline)
+
+    expect(envelope.effectiveDepth).toBeCloseTo(dims.effectiveDepth, 5)
+    expect(envelope.outerBounds).toEqual(dims.outerBounds)
+    expect(envelope.height).toBeCloseTo(dims.height, 5)
+  })
+
+  it('acompanha as dimensões da bandeja piramidal', () => {
+    const params = { ...defaultThermoformerParams, shape: 'pyramid' as const, width: 120 }
+    const outline = getShapeOutline(params)!
+    const envelope = getTrayEnvelope(params, outline)
+    const dims = getTrayDimensions(params, outline)
+
+    expect(envelope.bottomScale).toBeCloseTo(dims.bottomScale, 5)
+    expect(envelope.effectiveDepth).toBeCloseTo(dims.effectiveDepth, 5)
+    expect(envelope.outerBounds).toEqual(dims.outerBounds)
+    expect(envelope.height).toBeCloseTo(dims.height, 5)
+  })
+
+  it('rejeita contorno circular', () => {
+    const outline = getShapeOutline(defaultThermoformerParams)!
+    expect(() => getTrayEnvelope(defaultThermoformerParams, outline))
+      .toThrow('getTrayEnvelope só aceita contornos poligonais')
   })
 })
 

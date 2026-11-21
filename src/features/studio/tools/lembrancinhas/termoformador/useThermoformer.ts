@@ -14,7 +14,7 @@ import {
 import type { BuildThermoformerResult } from './buildThermoformer'
 import { getSupportDimensions } from './buildSupport'
 import { getShapeOutline, type ShapeOutline } from './outline'
-import { getTrayDimensions } from './tray'
+import { getTrayEnvelope } from './tray'
 import {
   defaultThermoformerParams,
   MAXIMUM_DRAFT_ANGLE,
@@ -42,6 +42,11 @@ type ThermoformerAction =
   | { type: 'setSvg'; value: string | null }
   | { type: 'reset' }
 
+/**
+ * `parseSvg` devolve null tanto para XML ilegível quanto para um SVG legível
+ * sem formas. Distinguir os dois exigiria uma segunda leitura do XML na main
+ * thread, então ambos compartilham `svg-parse`.
+ */
 export type SvgErrorCode = 'svg-missing' | 'svg-parse' | 'svg-contour'
 
 export interface SvgError {
@@ -217,9 +222,40 @@ export function useThermoformer(
     return parsed
   }, [shape, svg])
 
+  // `getShapeOutline` só lê estes campos. Atualizamos o objeto apenas quando um
+  // deles muda para não repetir toda a cadeia de Clipper ao mexer em abertura,
+  // linha, espessura etc.
+  const outlineParamsRef = useRef<ThermoformerGeometryParams>(buildParams)
+  const outlineParams = useMemo<ThermoformerGeometryParams>(() => {
+    const next: ThermoformerGeometryParams = {
+      ...outlineParamsRef.current,
+      shape,
+      diameter,
+      width,
+      height,
+      svgSize,
+      frameWidth,
+      fitClearance,
+      stepWidth,
+      wallThickness,
+    }
+    outlineParamsRef.current = next
+    return next
+  }, [
+    shape,
+    diameter,
+    width,
+    height,
+    svgSize,
+    frameWidth,
+    fitClearance,
+    stepWidth,
+    wallThickness,
+  ])
+
   const outline = useMemo<ShapeOutline | null>(
-    () => getShapeOutline(buildParams, parsedSvg),
-    [buildParams, parsedSvg],
+    () => getShapeOutline(outlineParams, parsedSvg),
+    [outlineParams, parsedSvg],
   )
 
   const svgError = useMemo<SvgError | null>(() => {
@@ -258,7 +294,13 @@ export function useThermoformer(
         workerRef.current = worker
         setIsBuilding(true)
 
-        worker.build(buildParams, parsedSvg, (data: SerializedThermoformerResult) => {
+        // O worker recebe o SVG já achatado; o texto bruto só pesaria a
+        // clonagem da mensagem (até 2 MB).
+        const workerParams: ThermoformerGeometryParams = {
+          ...buildParams,
+          svg: '',
+        }
+        worker.build(workerParams, parsedSvg, (data: SerializedThermoformerResult) => {
           if (workerRef.current !== worker) return
           const next = deserializeThermoformerResult(data)
           setGeometry(next)
@@ -301,37 +343,41 @@ export function useThermoformer(
     [buildParams],
   )
 
-  const trayDims = useMemo(
+  const trayEnvelope = useMemo(
     () => (
       shape === 'circle' || outline?.kind !== 'polygon'
         ? null
-        : getTrayDimensions(buildParams, outline)
+        : getTrayEnvelope(buildParams, outline)
     ),
     [shape, buildParams, outline],
   )
 
   const plugLift = useMemo(() => {
-    const depth = shape === 'circle'
+    const depth = shape === 'circle' || !trayEnvelope
       ? supportDims.effectiveBowlDepth
-      : trayDims?.effectiveDepth ?? 0
+      : trayEnvelope.effectiveDepth
     return depth + PLUG_PREVIEW_GAP_MM
-  }, [shape, supportDims.effectiveBowlDepth, trayDims])
+  }, [shape, supportDims.effectiveBowlDepth, trayEnvelope])
 
   const fallbackDimensions = useMemo(() => {
-    if (!trayDims) {
+    if (shape === 'circle') {
       return {
         width: Number((supportDims.outerRadius * 2).toFixed(1)),
         height: Number(supportDims.height.toFixed(1)),
         thickness: Number((supportDims.outerRadius * 2).toFixed(1)),
       }
     }
+    if (!trayEnvelope) {
+      return { width: 0, height: 0, thickness: 0 }
+    }
     return {
-      width: Number(trayDims.outerBounds.width.toFixed(1)),
-      height: Number(trayDims.height.toFixed(1)),
-      thickness: Number(trayDims.outerBounds.height.toFixed(1)),
+      width: Number(trayEnvelope.outerBounds.width.toFixed(1)),
+      height: Number(trayEnvelope.height.toFixed(1)),
+      thickness: Number(trayEnvelope.outerBounds.height.toFixed(1)),
     }
   }, [
-    trayDims,
+    shape,
+    trayEnvelope,
     supportDims.outerRadius,
     supportDims.height,
   ])

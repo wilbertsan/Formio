@@ -22,6 +22,11 @@ const triangle = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
 
 const emptySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"></svg>`
 
+const disjointSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect x="5" y="5" width="25" height="25" fill="#000"/>
+  <rect x="70" y="70" width="25" height="25" fill="#000"/>
+</svg>`
+
 function serializedResult(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new BoxGeometry(160, 3, 160),
@@ -46,6 +51,7 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
   let calls = 0
   const pendings: Array<(data: SerializedThermoformerResult) => void> = []
   const failures: Array<(reason?: string) => void> = []
+  const parsedSvgs: Array<ParsedSvg | null | undefined> = []
   const terminate = vi.fn()
   const factory = (): ScreenWorker => {
     calls++
@@ -53,6 +59,7 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
       build: (params, parsedSvg, onResult, onError) => {
         lastParams = params
         lastParsedSvg = parsedSvg
+        parsedSvgs.push(parsedSvg)
         pendings.push(onResult)
         failures.push(onError ?? (() => undefined))
       },
@@ -68,6 +75,7 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
     fail: (reason?: string) => failures[failures.length - 1]?.(reason),
     getParams: () => lastParams,
     getParsedSvg: () => lastParsedSvg,
+    getParsedSvgAll: () => parsedSvgs,
   }
 }
 
@@ -112,7 +120,7 @@ describe('useThermoformer', () => {
     expect(result.current.params.pyramidTip).toBe(0.3)
   })
 
-  it('envia forma e svg ao worker', () => {
+  it('envia a forma ao worker sem o svg bruto', () => {
     const { factory, getParams } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
 
@@ -122,7 +130,7 @@ describe('useThermoformer', () => {
     })
     act(() => { vi.advanceTimersByTime(260) })
 
-    expect(getParams()).toMatchObject({ shape: 'square', svg: '<svg/>' })
+    expect(getParams()).toMatchObject({ shape: 'square', svg: '' })
   })
 
   it('envia a forma quadrada e expõe o contorno poligonal', () => {
@@ -147,6 +155,24 @@ describe('useThermoformer', () => {
     })
   })
 
+  it('usa largura e profundidade do contorno no retângulo', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'rectangle')
+      result.current.updateParam('width', 140)
+      result.current.updateParam('height', 80)
+    })
+
+    // 140 + 2 × 4,3 = 148,6 na largura; 80 + 8,6 = 88,6 na profundidade.
+    expect(result.current.dimensions).toEqual({
+      width: 148.6,
+      height: 27,
+      thickness: 88.6,
+    })
+  })
+
   it('parseia o svg na main thread e envia ao worker', () => {
     const { factory, respond, getParams, getParsedSvg } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
@@ -157,7 +183,7 @@ describe('useThermoformer', () => {
     })
     act(() => { vi.advanceTimersByTime(260) })
 
-    expect(getParams()).toMatchObject({ shape: 'svg', svg: triangle })
+    expect(getParams()).toMatchObject({ shape: 'svg', svg: '' })
     expect(getParsedSvg()).not.toBeNull()
     expect(getParsedSvg()).toEqual(parseSvg(triangle))
     expect(result.current.outline?.kind).toBe('polygon')
@@ -165,6 +191,44 @@ describe('useThermoformer', () => {
 
     act(() => { respond() })
     expect(result.current.geometry).not.toBeNull()
+  })
+
+  it('reutiliza o parse do mesmo svg entre builds', () => {
+    const { factory, respond, getParsedSvgAll, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(triangle)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+
+    act(() => { result.current.updateParam('svgSize', 200) })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    const parsed = getParsedSvgAll()
+    expect(getCalls()).toBe(2)
+    expect(parsed).toHaveLength(2)
+    expect(parsed[0]).not.toBeNull()
+    // Mesmo conteúdo: o cache devolve a mesma instância; o tamanho só rebuilda.
+    expect(parsed[0]).toBe(parsed[1])
+  })
+
+  it('sinaliza svg com contornos desconexos', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(disjointSvg)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(result.current.svgError?.code).toBe('svg-contour')
+    expect(result.current.outline).toBeNull()
+    expect(result.current.geometry).toBeNull()
+    expect(getCalls()).toBe(0)
   })
 
   it('não chama o worker enquanto o svg estiver ausente', () => {
@@ -177,6 +241,8 @@ describe('useThermoformer', () => {
     expect(result.current.svgError?.code).toBe('svg-missing')
     expect(result.current.outline).toBeNull()
     expect(result.current.geometry).toBeNull()
+    expect(result.current.dimensions).toEqual({ width: 0, height: 0, thickness: 0 })
+    expect(result.current.plugLift).toBeCloseTo(28, 5)
     expect(getCalls()).toBe(0)
   })
 
@@ -211,6 +277,25 @@ describe('useThermoformer', () => {
     expect(result.current.svgError?.code).toBe('svg-missing')
     expect(result.current.geometry).toBeNull()
     expect(getCalls()).toBe(0)
+  })
+
+  it('descarta o build em voo quando o svg é removido', () => {
+    const { factory, respond, terminate } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(triangle)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+    expect(result.current.isBuilding).toBe(true)
+
+    act(() => { result.current.setSvg(null) })
+    expect(terminate).toHaveBeenCalled()
+
+    act(() => { respond() })
+    expect(result.current.geometry).toBeNull()
+    expect(result.current.isBuilding).toBe(false)
   })
 
   it('descarta a geometria quando o svg fica inválido', () => {

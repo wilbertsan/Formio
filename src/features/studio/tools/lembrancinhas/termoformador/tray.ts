@@ -3,6 +3,7 @@ import ClipperLib from 'js-clipper'
 import {
   pathsBoundingBox,
   type ClipperPoint,
+  type PathsBounds,
 } from '../../confeitaria/shared/textOutline'
 import {
   MINIMUM_DRAFT_ANGLE_DEG,
@@ -19,6 +20,29 @@ import {
   type OutlineJoin,
   type ShapeOutline,
 } from './outline'
+
+/**
+ * Núcleo leve da bandeja: não calcula a pega (Clipper + triangulação) nem o
+ * corpo do macho. O hook usa `effectiveDepth`/`outerBounds`/`height` para
+ * enquadrar o preview; `getTrayDimensions` parte do restante para completar a
+ * peça.
+ */
+export interface TrayEnvelope {
+  effectiveDepth: number
+  outerBounds: PathsBounds
+  height: number
+  screenBounds: PathsBounds
+  cavityBounds: PathsBounds
+  effectiveStep: number
+  stepClamped: boolean
+  requestedDepth: number
+  bottomScale: number
+  depthLimited: boolean
+  seatY: number
+  bottomMin: number
+  draftLow: boolean
+  tipSmall: boolean
+}
 
 export interface TrayDimensions {
   outerBounds: ReturnType<typeof pathsBoundingBox>
@@ -107,20 +131,16 @@ function getGripCenter(
   return { x: best.x, y: best.y }
 }
 
-export function getTrayDimensions(
+export function getTrayEnvelope(
   params: ThermoformerGeometryParams,
   outline: ShapeOutline,
-): TrayDimensions {
+): TrayEnvelope {
   if (outline.kind !== 'polygon') {
-    throw new Error('getTrayDimensions só aceita contornos poligonais')
+    throw new Error('getTrayEnvelope só aceita contornos poligonais')
   }
 
   const screenBounds = outline.bounds
   const cavityBounds = pathsBoundingBox(outline.cavityOpening ?? [])
-  const minScreen = Math.max(
-    1e-6,
-    Math.min(screenBounds.width, screenBounds.height),
-  )
   const minOpening = Math.max(
     1e-6,
     Math.min(cavityBounds.width, cavityBounds.height),
@@ -152,14 +172,48 @@ export function getTrayDimensions(
 
   const seatY = effectiveDepth + params.bottomThickness
   const height = params.thickness + effectiveDepth + params.bottomThickness
-  const contactY = seatY + params.thickness
-  const bodyTop = contactY + params.plugHeight
   const bottomMin = bottomScale * minOpening
   const draftLow =
     params.shape !== 'pyramid' &&
     params.draftAngle < MINIMUM_DRAFT_ANGLE_DEG
   const tipSmall =
     params.shape === 'pyramid' && bottomMin < MINIMUM_PYRAMID_TIP_MM
+
+  return {
+    effectiveDepth,
+    outerBounds: pathsBoundingBox(outline.supportOuter ?? []),
+    height,
+    screenBounds,
+    cavityBounds,
+    effectiveStep,
+    stepClamped,
+    requestedDepth,
+    bottomScale,
+    depthLimited,
+    seatY,
+    bottomMin,
+    draftLow,
+    tipSmall,
+  }
+}
+
+export function getTrayDimensions(
+  params: ThermoformerGeometryParams,
+  outline: ShapeOutline,
+): TrayDimensions {
+  if (outline.kind !== 'polygon') {
+    throw new Error('getTrayDimensions só aceita contornos poligonais')
+  }
+
+  const envelope = getTrayEnvelope(params, outline)
+  const screenBounds = envelope.screenBounds
+  const minScreen = Math.max(
+    1e-6,
+    Math.min(screenBounds.width, screenBounds.height),
+  )
+  const effectiveStep = envelope.effectiveStep
+  const contactY = envelope.seatY + params.thickness
+  const bodyTop = contactY + params.plugHeight
   const requestedGripRadius = Math.min(
     params.plugHeight * 0.9,
     minScreen * 0.35,
@@ -203,21 +257,21 @@ export function getTrayDimensions(
   const gripDepth = gripEnabled ? clampedGripDepth : 0
 
   return {
-    outerBounds: pathsBoundingBox(outline.supportOuter ?? []),
+    outerBounds: envelope.outerBounds,
     screenBounds,
-    height,
-    seatY,
+    height: envelope.height,
+    seatY: envelope.seatY,
     contactY,
     bodyTop,
-    effectiveDepth,
-    requestedDepth,
-    bottomScale,
-    bottomMin,
+    effectiveDepth: envelope.effectiveDepth,
+    requestedDepth: envelope.requestedDepth,
+    bottomScale: envelope.bottomScale,
+    bottomMin: envelope.bottomMin,
     effectiveStep,
-    stepClamped,
-    depthLimited,
-    draftLow,
-    tipSmall,
+    stepClamped: envelope.stepClamped,
+    depthLimited: envelope.depthLimited,
+    draftLow: envelope.draftLow,
+    tipSmall: envelope.tipSmall,
     cavityWall: params.wallThickness + effectiveStep,
     guideWidth: screenBounds.width,
     guideHeight: screenBounds.height,
@@ -227,6 +281,6 @@ export function getTrayDimensions(
     gripY: gripCenter?.y ?? 0,
     gripEnabled,
     plugHeight: params.plugHeight,
-    plugTotalHeight: effectiveDepth + params.plugHeight,
+    plugTotalHeight: envelope.effectiveDepth + params.plugHeight,
   }
 }
