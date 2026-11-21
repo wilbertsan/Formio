@@ -14,7 +14,10 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./tests/setup.ts",
     globals: true,
-    testTimeout: 20000,
+    // A suíte tem builds de geometria/CSG pesados e o ambiente de CI é mais
+    // lento que o dev; o global cobre os arquivos leves e os testes caros
+    // declaram 60 s explicitamente.
+    testTimeout: 60_000,
     exclude: [...configDefaults.exclude, "**/.worktrees/**"],
   },
 });

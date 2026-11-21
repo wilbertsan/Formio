@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { StudioPanel } from '@/features/studio/tools/lembrancinhas/porta-lata/StudioPanel'
 import { defaultCanHolderParams } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
+import { IMPORTED_TEXTURES } from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
 import type { ValidationIssue } from '@/features/studio/tools/lembrancinhas/porta-lata/validateCanHolder'
 
 const defaultProps = {
@@ -379,7 +380,13 @@ describe('StudioPanel (porta-lata)', () => {
       expect.soft(screen.getByRole('slider', { name }), name).toHaveAttribute('data-disabled')
     }
     expect(screen.getByText(/Textura importada: profundidade 1,8 mm/)).toBeDefined()
-    expect(screen.getByText(/flancos ~60°/)).toBeDefined()
+    expect(
+      screen.getByText(
+        new RegExp(
+          `flancos ~${Math.round(IMPORTED_TEXTURES.paralelepipedos.maxSlopeDeg)}°`,
+        ),
+      ),
+    ).toBeDefined()
     expect(screen.getByText(/Pode exigir suporte/)).toBeDefined()
     expect(screen.queryByText(/limitada pela escala/)).toBeNull()
     expect(screen.queryByText(TEXTURE_DISABLED_HINT)).toBeNull()

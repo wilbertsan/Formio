@@ -72,6 +72,8 @@ export const MIN_LOOP_GAP_MM = 0.7
 
 export const TEXTURE_RADIAL_SEGMENTS = 256
 export const TEXTURE_STEP_MM = 1
+export const IMPORTED_TEXTURE_RADIAL_SEGMENTS = 512
+export const IMPORTED_TEXTURE_STEP_MM = 0.4
 export const TEXTURE_EDGE_FADE_MM = 2
 export const TEXTURE_HANDLE_GAP_MM = 1
 export const TEXTURE_HANDLE_FADE_MM = 2

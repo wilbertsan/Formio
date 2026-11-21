@@ -126,6 +126,13 @@ describe('textureImport', () => {
     expect(Math.max(...map.data) - Math.min(...map.data)).toBeGreaterThan(100)
   })
 
+  it('usa 512 × 256 por padrão', () => {
+    const map = unwrapCylinder(readBinaryStl(syntheticCylinder()))
+    expect(map.width).toBe(512)
+    expect(map.height).toBe(256)
+    expect(map.data).toHaveLength(512 * 256)
+  })
+
   it('falha em buffer que não é STL binário', () => {
     expect(() => readBinaryStl(new ArrayBuffer(100))).toThrow()
   })
@@ -143,6 +150,33 @@ describe('textureImport', () => {
     for (const row of [4, 8, 12, 16, 20]) {
       const seam = Math.abs(map.data[row * map.width] - map.data[row * map.width + 1])
       expect(seam).toBeLessThan(40)
+    }
+  })
+
+  it('fecha a emenda em θ na resolução de produção', () => {
+    const map = unwrapCylinder(readBinaryStl(hollowCylinder()))
+
+    expect(map.width).toBe(512)
+    expect(map.height).toBe(256)
+    // O furo (raio 6) não entra na profundidade nativa.
+    expect(map.nativeDepth).toBeGreaterThan(2.3)
+    expect(map.nativeDepth).toBeLessThan(4.5)
+
+    for (const row of [32, 128, 224]) {
+      const first = row * map.width
+      // A emenda é a coluna 511 contra a 0 da mesma linha. O limite é relativo
+      // ao maior degrau entre colunas vizinhas da linha: o padrão pode mudar
+      // rápido, mas a volta não pode abrir um furo maior que o próprio relevo.
+      let maxAdjacent = 0
+      for (let col = 0; col < map.width - 1; col++) {
+        maxAdjacent = Math.max(
+          maxAdjacent,
+          Math.abs(map.data[first + col + 1] - map.data[first + col]),
+        )
+      }
+      expect(maxAdjacent, `linha ${row}`).toBeLessThan(40)
+      const wrap = Math.abs(map.data[first + map.width - 1] - map.data[first])
+      expect(wrap, `linha ${row}`).toBeLessThanOrEqual(maxAdjacent + 2)
     }
   })
 

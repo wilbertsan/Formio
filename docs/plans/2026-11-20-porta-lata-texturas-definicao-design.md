@@ -2,7 +2,30 @@
 
 **Data:** 2026-11-20
 **Ferramenta:** `lembrancinhas/porta-lata`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado
+
+## Desvios da implementação
+
+- **512/0,4 mantido, sem fallback**: o pior caso de CPU em máquina ociosa foi
+  6,5 s (pedra hexagonal, build frio); sob carga/CI o build pode chegar a
+  10–14 s. O gate de teste do default foi para 15 s e o global para 60 s.
+- **Números finais**: parede importada 266.240 triângulos (133.893 vértices);
+  com o texto ~291.632 triângulos e STL do corpo ~14,6 MB.
+- **Mapa**: 512 × 256, 14 × 131.072 B; asset 2.447.258 B (~2,4 MB; gzip
+  ~1,28 MB); `--check` ~33 s / ~420 MB. `nativeDepth` 1,21–4,25 mm;
+  `maxSlopeDeg` 67,8–82,7° (medido só em Δv, na grade de 256 linhas; é um
+  limite inferior — a 1024×512 a pedra chega a ~85,75°).
+- **Worker**: o data é baixado no mount mesmo com `textureStyle: none`
+  (~1,40 MB gzip), porque o chunk do worker o inclui; import dinâmico ou
+  compressão ficam como follow-up.
+- **Testes**: 14 corpos importados em 5 arquivos; os builds completos foram
+  divididos em 6 arquivos (`buildCanHolder`, `...Textures`, `...Extremes`,
+  `...ExtremesTextures`, `...Imported`, `...ImportedDeep`) com timeout de 60 s
+  para não estourar o RPC do Vitest. O utilitário de malha foi otimizado
+  (canonicalização + chaves numéricas) e a suíte completa fica em 1622 testes /
+  ~66–72 s.
+- **Preview**: o R3F 9.7.0 não marca `needsUpdate` ao trocar `flatShading`;
+  o material do corpo usa `key` (`flat`/`smooth`) para remontar e recompilar.
 
 ## Objetivo
 
@@ -21,7 +44,7 @@ Incluído:
 
 - Regenerar os 14 mapas em 512 × 256 (~2,4 MB base64).
 - Parede dos estilos importados em 512 segmentos e passos de 0,4 mm
-  (~250k triângulos).
+  (266k triângulos; ~291,6k com texto).
 - `weldSeamNormals` parametrizado pelo número de segmentos.
 - Flat shading no corpo do preview quando a geometria é de um estilo importado.
 - Medição de CPU, gate de ~8 s e fallback 448 × 0,45 se necessário.
@@ -41,10 +64,10 @@ Fora do escopo:
 |---|---|---|
 | Mapa | 192 × 96 (1,2 × 1,0 mm) | **512 × 256 (0,45 × 0,39 mm)** |
 | Parede importada | 256 × 1 mm | **512 × 0,4 mm** |
-| Triângulos da parede | ~51k | **~250k** |
+| Triângulos da parede | ~51k | **266k** |
 | Asset | ~344 KB | **~2,4 MB base64** |
-| STL do corpo | ~3 MB | **~12 MB** |
-| Build importado | ~1,6–2,2 s | **~5–8 s (medir)** |
+| STL do corpo | ~3 MB | **~14,6 MB** (291,6k tris com texto) |
+| Build importado | ~1,6–2,2 s | **5,6–6,5 s de CPU** |
 
 Procedurais continuam 256/1; `none` continua 128. O detalhe útil para bico
 0,4 mm é ~0,4 mm, então 512 é o teto razoável.
@@ -78,7 +101,7 @@ export const IMPORTED_TEXTURE_STEP_MM = 0.4
 - `weldSeamNormals(geometry, pointCount, segments)` recebe o número de
   segmentos; hoje assume `TEXTURE_RADIAL_SEGMENTS`.
 - A malha continua fechada/single-shell; o mapa é amostrado por `u/v` como hoje.
-- O CSG do texto opera sobre ~250k triângulos; a medição define se o fallback
+- O CSG do texto opera sobre ~266k triângulos; a medição define se o fallback
   448 × 0,45 é necessário.
 
 ## Preview
@@ -135,10 +158,12 @@ scripts/texture-import.mjs  # sem mudança de lógica; regenera
 
 ## Riscos e mitigação
 
-- **Build 5–8 s**: worker + geometria anterior; fallback 448/0,45 se >8 s.
-- **STL ~12 MB**: inerente ao detalhe; export binário.
+- **Build**: 5,6–6,5 s de CPU em máquina ociosa; sob carga/CI pode passar de
+  10 s. O worker mantém a geometria anterior. O fallback 448/0,45 foi medido e
+  reduz só ~19% do tempo; se for necessário, o próximo nível é 384/0,5.
+- **STL ~14,6 MB**: inerente ao detalhe; export binário.
 - **Asset ~2,4 MB**: lazy no worker; compressão como follow-up.
-- **GPU fraca**: 250k triângulos é modesto; flat shading não tem custo extra.
+- **GPU fraca**: 266k triângulos é modesto; flat shading não tem custo extra.
 - **Mapa 8 bits**: 0,016 mm por passo na profundidade máxima; não é o gargalo.
 - **Fonte**: campo de altura perde undercuts, agora com ~0,4 mm de amostra;
   abaixo disso o bico 0,4 mm não reproduz.

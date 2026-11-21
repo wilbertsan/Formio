@@ -9,8 +9,13 @@ import {
   CAN_VOLUME_ML,
   CONTENT_DEPTH,
   HANDLE_RING_THICKNESS,
+  HOLDER_SEGMENTS,
+  IMPORTED_TEXTURE_RADIAL_SEGMENTS,
+  IMPORTED_TEXTURE_STEP_MM,
   MAX_TEXT_LENGTH,
   PROCEDURAL_TEXTURE_STYLES,
+  TEXTURE_RADIAL_SEGMENTS,
+  TEXTURE_STEP_MM,
   TEXTURE_STYLES,
   canHolderGeometryParamsSchema,
   canHolderParamsSchema,
@@ -183,6 +188,11 @@ describe('porta-lata schema', () => {
     expect(CONTENT_DEPTH).toBe(1)
     expect(HANDLE_RING_THICKNESS).toBe(3.5)
     expect(MAX_TEXT_LENGTH).toBe(20)
+    expect(HOLDER_SEGMENTS).toBe(128)
+    expect(TEXTURE_RADIAL_SEGMENTS).toBe(256)
+    expect(TEXTURE_STEP_MM).toBe(1)
+    expect(IMPORTED_TEXTURE_RADIAL_SEGMENTS).toBe(512)
+    expect(IMPORTED_TEXTURE_STEP_MM).toBe(0.4)
   })
 })
 

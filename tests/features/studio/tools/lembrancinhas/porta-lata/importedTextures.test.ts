@@ -6,8 +6,6 @@ import {
 } from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextures'
 import { IMPORTED_TEXTURE_DATA } from '@/features/studio/tools/lembrancinhas/porta-lata/importedTextureData'
 
-const MAP_BYTES = 192 * 96
-
 describe('imported textures', () => {
   it('lista 14 ids únicos e cobre a metadata e os dados', () => {
     expect(IMPORTED_TEXTURE_IDS).toHaveLength(14)
@@ -21,20 +19,21 @@ describe('imported textures', () => {
   it('mantém a metadata dentro do contrato', () => {
     for (const id of IMPORTED_TEXTURE_IDS) {
       const meta = IMPORTED_TEXTURES[id]
-      expect(meta.width, id).toBe(192)
-      expect(meta.height, id).toBe(96)
+      expect(meta.width, id).toBe(512)
+      expect(meta.height, id).toBe(256)
       expect(meta.nativeDepth, id).toBeGreaterThanOrEqual(1)
       expect(meta.nativeDepth, id).toBeLessThanOrEqual(5)
       expect(meta.maxSlopeDeg, id).toBeGreaterThanOrEqual(20)
-      expect(meta.maxSlopeDeg, id).toBeLessThanOrEqual(85)
+      expect(meta.maxSlopeDeg, id).toBeLessThan(89)
       expect(meta.label.trim().length, id).toBeGreaterThan(0)
     }
   })
 
-  it('decodifica cada mapa em 18.432 bytes não uniformes', () => {
+  it('decodifica cada mapa em 131.072 bytes não uniformes', () => {
     for (const id of IMPORTED_TEXTURE_IDS) {
+      const meta = IMPORTED_TEXTURES[id]
       const data = Buffer.from(IMPORTED_TEXTURE_DATA[id], 'base64')
-      expect(data.length, id).toBe(MAP_BYTES)
+      expect(data.length, id).toBe(meta.width * meta.height)
       expect(new Set(data).size, id).toBeGreaterThanOrEqual(20)
     }
   })
