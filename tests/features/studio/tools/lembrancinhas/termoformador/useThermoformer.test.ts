@@ -487,6 +487,43 @@ describe('useThermoformer', () => {
     )
   })
 
+  it('valida a forma com o contorno derivado', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { result.current.updateParam('shape', 'square') })
+
+    expect(result.current.outline?.kind).toBe('polygon')
+    expect(result.current.issues).toContainEqual(
+      expect.objectContaining({ code: 'support-step-clamped', severity: 'warning' }),
+    )
+  })
+
+  it('expõe o erro do SVG na validação', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { result.current.updateParam('shape', 'svg') })
+
+    expect(result.current.issues).toContainEqual(
+      expect.objectContaining({ code: 'svg-missing', severity: 'error' }),
+    )
+  })
+
+  it('expõe o contorno desconexo do SVG na validação', () => {
+    const { factory } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(disjointSvg)
+    })
+
+    expect(result.current.issues).toContainEqual(
+      expect.objectContaining({ code: 'svg-contour', severity: 'error' }),
+    )
+  })
+
   it('restaura os padrões', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))

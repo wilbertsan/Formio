@@ -334,8 +334,8 @@ export function useThermoformer(
   }, [])
 
   const issues = useMemo(
-    () => validateThermoformer(buildParams),
-    [buildParams],
+    () => validateThermoformer(buildParams, outline, svgError),
+    [buildParams, outline, svgError],
   )
 
   const supportDims = useMemo(
