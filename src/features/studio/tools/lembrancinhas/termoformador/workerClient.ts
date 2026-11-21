@@ -7,7 +7,7 @@ export interface ScreenWorker {
     params: ThermoformerGeometryParams,
     parsedSvg: ParsedSvg | null,
     onResult: (data: SerializedThermoformerResult) => void,
-    onError?: () => void,
+    onError?: (reason?: string) => void,
   ): void
   terminate(): void
 }
@@ -26,12 +26,12 @@ export function createScreenWorker(): ScreenWorker {
   return {
     build(params, parsedSvg, onResult, onError) {
       if (terminated) {
-        onError?.()
+        onError?.('terminated')
         return
       }
       worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         if ('error' in event.data) {
-          onError?.()
+          onError?.(event.data.error)
           return
         }
         onResult(event.data.data)

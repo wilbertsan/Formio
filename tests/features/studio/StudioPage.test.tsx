@@ -83,11 +83,7 @@ class WorkerMock {
   onmessage: ((event: MessageEvent) => void) | null = null
   onerror: (() => void) | null = null
   postMessage(message: unknown): void {
-    const request = message as {
-      id?: number
-      params?: { productType?: string }
-      parsedSvg?: unknown
-    }
+    const request = message as { id?: number; params?: { productType?: string } }
     const deliver = (data: unknown) => setTimeout(() => {
       this.onmessage?.({ data: { id: request.id, data } } as MessageEvent)
     }, 0)

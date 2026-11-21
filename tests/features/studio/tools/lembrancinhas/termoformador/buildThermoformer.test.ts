@@ -3,6 +3,8 @@ import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconSh
 import { buildThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
 import { getPlugDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
+import { getTrayDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { isClosed } from './geometryTestUtils'
 
@@ -54,14 +56,58 @@ describe('buildThermoformer', () => {
       shape: 'square' as const,
       width: 120,
     }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
     const result = buildThermoformer(params)
     expect(result).not.toBeNull()
     const built = result!
 
-    expect(built.seatY).toBeCloseTo(
-      params.bottomThickness + params.bowlDepth,
-      5,
+    expect(built.seatY).toBeCloseTo(dims.seatY, 5)
+    built.screen.computeBoundingBox()
+    built.support.computeBoundingBox()
+    built.plug.computeBoundingBox()
+    expect(
+      built.support.boundingBox!.max.x - built.support.boundingBox!.min.x,
+    ).toBeCloseTo(dims.outerBounds.width, 1)
+    expect(
+      built.screen.boundingBox!.max.x - built.screen.boundingBox!.min.x,
+    ).toBeCloseTo(params.width, 1)
+    expect(
+      built.plug.boundingBox!.max.x - built.plug.boundingBox!.min.x,
+    ).toBeCloseTo(params.width, 1)
+    expect(isClosed(built.screen)).toBe(true)
+    expect(isClosed(built.support)).toBe(true)
+    expect(isClosed(built.plug)).toBe(true)
+
+    built.screen.dispose()
+    built.support.dispose()
+    built.plug.dispose()
+  })
+
+  it('usa a profundidade efetiva da bandeja no assento', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 40,
+      bowlDepth: 60,
+      draftAngle: 15,
+    }
+    const outline = getShapeOutline(params)!
+    const dims = getTrayDimensions(params, outline)
+    const result = buildThermoformer(params)
+    expect(result).not.toBeNull()
+    const built = result!
+
+    expect(dims.depthLimited).toBe(true)
+    expect(built.seatY).toBeCloseTo(dims.seatY, 5)
+    expect(built.seatY).not.toBeCloseTo(
+      getSupportDimensions(params).seatY,
+      3,
     )
+    built.support.computeBoundingBox()
+    expect(
+      built.support.boundingBox!.max.x - built.support.boundingBox!.min.x,
+    ).toBeCloseTo(dims.outerBounds.width, 1)
     expect(isClosed(built.screen)).toBe(true)
     expect(isClosed(built.support)).toBe(true)
     expect(isClosed(built.plug)).toBe(true)

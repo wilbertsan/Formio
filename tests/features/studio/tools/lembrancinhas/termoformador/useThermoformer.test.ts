@@ -36,7 +36,7 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
   let lastParsedSvg: ParsedSvg | null | undefined
   let calls = 0
   const pendings: Array<(data: SerializedThermoformerResult) => void> = []
-  const failures: Array<() => void> = []
+  const failures: Array<(reason?: string) => void> = []
   const terminate = vi.fn()
   const factory = (): ScreenWorker => {
     calls++
