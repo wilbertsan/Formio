@@ -10,7 +10,7 @@ lembrancinhas.
 | porta-vela | planejada |
 | mini-vaso | planejada |
 | caixa-personalizada | implementada (v1) |
-| termoformador | implementada (v1: tela + suporte + macho) |
+| termoformador | implementada (v2: formas + SVG) |
 | porta-lata | implementada (v4: 20 texturas) |
 
 ## Regras do domínio
@@ -21,7 +21,10 @@ lembrancinhas.
 - PLA não é resistente ao calor: porta-vela orienta uso com vela LED/tea light
 - Mini-vaso estanque: paredes e fundo sem poros
 - Peças móveis (tampa, puxador e base da caixa; tela, suporte e macho do termoformador) exportadas separadamente
-- A tela do termoformador é exportada plana e conformada com o macho; a bacia do suporte não passa de uma semi-esfera para o macho poder ser retirado.
+- Termoformador: a forma (círculo, quadrado, retângulo, pirâmide ou SVG) define
+  tela, suporte e macho; as novas formas usam bandeja de paredes inclinadas, o
+  círculo mantém a bacia esférica limitada a uma semi-esfera e o SVG precisa ser
+  uma silhueta única, sem furos nem ilhas.
 - STL sempre manifold, fechado, sem auto-interseções
 - Caixa personalizada: paredes ≥ 0,8 mm, elementos e furos ≥ 0,8 mm
 - Porta-lata 350 ml: cavidade interna de 67,8 mm (folga 0,8 mm sobre a lata de
