@@ -155,8 +155,10 @@ export function StudioPanel({
   ])
 
   const pattern = useMemo(
-    () => computeScreenPattern(patternParams, outline),
-    [patternParams, outline],
+    () => (params.shape !== 'circle' && outline?.kind !== 'polygon'
+      ? null
+      : computeScreenPattern(patternParams, outline)),
+    [patternParams, outline, params.shape],
   )
 
   // `getTrayDimensions` calcula a pega com Clipper e triangulação; o snapshot
@@ -564,7 +566,7 @@ export function StudioPanel({
           </Accordion.Trigger>
           <Accordion.Content>
             <Flex direction="column" gap="xs">
-              {pattern.cells.length > 0 && (
+              {pattern && pattern.cells.length > 0 && (
                 <Text fontSize="xs" color="font.secondary">
                   {pattern.cells.length} favos · aro sólido até{' '}
                   {(params.frameWidth + pattern.cellRadius).toFixed(1)} mm

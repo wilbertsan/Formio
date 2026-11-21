@@ -369,6 +369,7 @@ describe('StudioPanel (termoformador)', () => {
     expect(screen.getAllByText('Aguardando contorno válido.')).toHaveLength(2)
     expect(screen.queryByText(/Diâmetro externo/)).toBeNull()
     expect(screen.queryByText(/Diâmetro 160\.0 mm/)).toBeNull()
+    expect(screen.queryByText(/favos/)).toBeNull()
   })
 
   it('esconde a nota do degrau quando a largura já comporta a moldura', () => {
