@@ -6,12 +6,21 @@ import {
   defaultThermoformerParams,
   type ThermoformerGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
-import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
+import {
+  parseSvg,
+  type ParsedSvg,
+} from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import {
   serializeThermoformerResult,
   type SerializedThermoformerResult,
 } from '@/features/studio/tools/lembrancinhas/termoformador/workerGeometry'
 import type { ScreenWorker } from '@/features/studio/tools/lembrancinhas/termoformador/workerClient'
+
+const triangle = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,5 95,95 5,95" fill="#000"/>
+</svg>`
+
+const emptySvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"></svg>`
 
 function serializedResult(): SerializedThermoformerResult {
   return serializeThermoformerResult({
@@ -56,7 +65,7 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
     getCalls: () => calls,
     respond: () => pendings[pendings.length - 1]?.(serialize()),
     respondFirst: () => pendings[0]?.(serialize()),
-    fail: () => failures[failures.length - 1]?.(),
+    fail: (reason?: string) => failures[failures.length - 1]?.(reason),
     getParams: () => lastParams,
     getParsedSvg: () => lastParsedSvg,
   }
@@ -114,6 +123,127 @@ describe('useThermoformer', () => {
     act(() => { vi.advanceTimersByTime(260) })
 
     expect(getParams()).toMatchObject({ shape: 'square', svg: '<svg/>' })
+  })
+
+  it('envia a forma quadrada e expõe o contorno poligonal', () => {
+    const { factory, getParams } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'square')
+      result.current.updateParam('width', 100)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(getParams()).toMatchObject({ shape: 'square', width: 100 })
+    expect(result.current.outline?.kind).toBe('polygon')
+    expect(result.current.svgError).toBeNull()
+    expect(result.current.plugLift).toBeCloseTo(28, 5)
+    // O envelope do suporte vem do contorno: 100 + 2 × (4 + 0,3) = 108,6.
+    expect(result.current.dimensions).toEqual({
+      width: 108.6,
+      height: 27,
+      thickness: 108.6,
+    })
+  })
+
+  it('parseia o svg na main thread e envia ao worker', () => {
+    const { factory, respond, getParams, getParsedSvg } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(triangle)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(getParams()).toMatchObject({ shape: 'svg', svg: triangle })
+    expect(getParsedSvg()).not.toBeNull()
+    expect(getParsedSvg()).toEqual(parseSvg(triangle))
+    expect(result.current.outline?.kind).toBe('polygon')
+    expect(result.current.svgError).toBeNull()
+
+    act(() => { respond() })
+    expect(result.current.geometry).not.toBeNull()
+  })
+
+  it('não chama o worker enquanto o svg estiver ausente', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { result.current.updateParam('shape', 'svg') })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(result.current.svgError?.code).toBe('svg-missing')
+    expect(result.current.outline).toBeNull()
+    expect(result.current.geometry).toBeNull()
+    expect(getCalls()).toBe(0)
+  })
+
+  it('sinaliza svg ilegível e não chama o worker', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(emptySvg)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(result.current.svgError?.code).toBe('svg-parse')
+    expect(result.current.outline).toBeNull()
+    expect(result.current.geometry).toBeNull()
+    expect(getCalls()).toBe(0)
+  })
+
+  it('sinaliza svg ausente ao remover o arquivo', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(triangle)
+    })
+    act(() => { result.current.setSvg(null) })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(result.current.params.svg).toBe('')
+    expect(result.current.svgError?.code).toBe('svg-missing')
+    expect(result.current.geometry).toBeNull()
+    expect(getCalls()).toBe(0)
+  })
+
+  it('descarta a geometria quando o svg fica inválido', () => {
+    const { factory, respond } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { respond() })
+    const first = result.current.geometry!
+    const disposeScreen = vi.spyOn(first.screen, 'dispose')
+    const disposeSupport = vi.spyOn(first.support, 'dispose')
+    const disposePlug = vi.spyOn(first.plug, 'dispose')
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(emptySvg)
+    })
+
+    expect(result.current.geometry).toBeNull()
+    expect(disposeScreen).toHaveBeenCalledTimes(1)
+    expect(disposeSupport).toHaveBeenCalledTimes(1)
+    expect(disposePlug).toHaveBeenCalledTimes(1)
+  })
+
+  it('traduz o erro de contorno inválido do worker', () => {
+    const { factory, fail } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => { vi.advanceTimersByTime(260) })
+    act(() => { fail('invalid-outline') })
+
+    expect(result.current.error).toBe('Contorno inválido para a forma selecionada')
+    expect(result.current.isBuilding).toBe(false)
   })
 
   it('envia ao worker após o debounce e aplica a geometria', () => {
@@ -276,10 +406,17 @@ describe('useThermoformer', () => {
     const { factory } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
 
-    act(() => { result.current.updateParam('diameter', 250) })
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(triangle)
+    })
     act(() => { result.current.reset() })
 
     expect(result.current.params).toEqual(defaultThermoformerParams)
+    expect(result.current.params.shape).toBe('circle')
+    expect(result.current.params.svg).toBe('')
+    expect(result.current.svgError).toBeNull()
+    expect(result.current.outline?.kind).toBe('circle')
   })
 
   it('descarta a geometria anterior ao aplicar uma nova', () => {

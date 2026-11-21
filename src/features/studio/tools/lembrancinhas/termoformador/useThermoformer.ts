@@ -7,8 +7,14 @@ import {
   useState,
 } from 'react'
 import { Box3, Sphere, Vector3 } from 'three'
+import {
+  parseSvg,
+  type ParsedSvg,
+} from '../../confeitaria/shared/svgToIconShape'
 import type { BuildThermoformerResult } from './buildThermoformer'
 import { getSupportDimensions } from './buildSupport'
+import { getShapeOutline, type ShapeOutline } from './outline'
+import { getTrayDimensions } from './tray'
 import {
   defaultThermoformerParams,
   MAXIMUM_DRAFT_ANGLE,
@@ -33,7 +39,15 @@ import { createScreenWorker, type ScreenWorker } from './workerClient'
 
 type ThermoformerAction =
   | { type: 'update'; key: keyof ThermoformerParams; value: number | string }
+  | { type: 'setSvg'; value: string | null }
   | { type: 'reset' }
+
+export type SvgErrorCode = 'svg-missing' | 'svg-parse' | 'svg-contour'
+
+export interface SvgError {
+  code: SvgErrorCode
+  message: string
+}
 
 const NUMERIC_RANGES: Partial<Record<keyof ThermoformerParams, { min: number; max: number }>> = {
   diameter: { min: 60, max: 300 },
@@ -74,6 +88,11 @@ function thermoformerReducer(
       const parsed = thermoformerParamsSchema.safeParse(next)
       return parsed.success ? next : state
     }
+    case 'setSvg': {
+      const next = { ...state, svg: action.value ?? '' }
+      const parsed = thermoformerParamsSchema.safeParse(next)
+      return parsed.success ? next : state
+    }
     case 'reset':
       return defaultThermoformerParams
   }
@@ -86,6 +105,8 @@ export interface UseThermoformerOptions {
 export interface UseThermoformerResult {
   params: ThermoformerParams
   geometry: BuildThermoformerResult | null
+  outline: ShapeOutline | null
+  svgError: SvgError | null
   seatY: number
   plugLift: number
   isBuilding: boolean
@@ -95,6 +116,7 @@ export interface UseThermoformerResult {
   cameraPosition: [number, number, number]
   fitRadius: number
   updateParam: (key: keyof ThermoformerParams, value: number | string) => void
+  setSvg: (svg: string | null) => void
   reset: () => void
 }
 
@@ -110,6 +132,7 @@ export function useThermoformer(
   const [error, setError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const workerRef = useRef<ScreenWorker | null>(null)
+  const svgCacheRef = useRef<{ svg: string; parsed: ParsedSvg | null } | null>(null)
 
   const {
     productType,
@@ -178,10 +201,56 @@ export function useThermoformer(
     plugHeight,
   ])
 
+  // O SVGLoader depende de DOMParser, que só existe na main thread. O parse é
+  // cacheado pelo conteúdo para não repetir a leitura a cada render.
+  const parsedSvg = useMemo<ParsedSvg | null>(() => {
+    if (shape !== 'svg' || svg.length === 0) return null
+    const cached = svgCacheRef.current
+    if (cached && cached.svg === svg) return cached.parsed
+    let parsed: ParsedSvg | null = null
+    try {
+      parsed = parseSvg(svg)
+    } catch {
+      parsed = null
+    }
+    svgCacheRef.current = { svg, parsed }
+    return parsed
+  }, [shape, svg])
+
+  const outline = useMemo<ShapeOutline | null>(
+    () => getShapeOutline(buildParams, parsedSvg),
+    [buildParams, parsedSvg],
+  )
+
+  const svgError = useMemo<SvgError | null>(() => {
+    if (shape !== 'svg') return null
+    if (svg.length === 0) {
+      return { code: 'svg-missing', message: 'Envie um SVG' }
+    }
+    if (!parsedSvg) {
+      return { code: 'svg-parse', message: 'Não foi possível ler o SVG' }
+    }
+    if (!outline) {
+      return {
+        code: 'svg-contour',
+        message: 'O SVG precisa ter um único contorno fechado',
+      }
+    }
+    return null
+  }, [shape, svg, parsedSvg, outline])
+
   useEffect(() => {
     workerRef.current?.terminate()
     workerRef.current = null
     clearTimeout(debounceRef.current)
+
+    if (svgError) {
+      setError(null)
+      setIsBuilding(false)
+      setGeometry(null)
+      return
+    }
+
     debounceRef.current = setTimeout(() => {
       setError(null)
       try {
@@ -189,15 +258,19 @@ export function useThermoformer(
         workerRef.current = worker
         setIsBuilding(true)
 
-        worker.build(buildParams, null, (data: SerializedThermoformerResult) => {
+        worker.build(buildParams, parsedSvg, (data: SerializedThermoformerResult) => {
           if (workerRef.current !== worker) return
           const next = deserializeThermoformerResult(data)
           setGeometry(next)
           setIsBuilding(false)
-        }, () => {
+        }, (reason?: string) => {
           if (workerRef.current !== worker) return
           setIsBuilding(false)
-          setError('Falha ao gerar a geometria')
+          setError(
+            reason === 'invalid-outline'
+              ? 'Contorno inválido para a forma selecionada'
+              : 'Falha ao gerar a geometria',
+          )
         })
       } catch {
         setIsBuilding(false)
@@ -205,7 +278,7 @@ export function useThermoformer(
       }
     }, 250)
     return () => clearTimeout(debounceRef.current)
-  }, [buildParams])
+  }, [buildParams, parsedSvg, svgError])
 
   useEffect(() => () => {
     geometry?.screen.dispose()
@@ -228,16 +301,40 @@ export function useThermoformer(
     [buildParams],
   )
 
-  const plugLift = useMemo(
-    () => supportDims.effectiveBowlDepth + PLUG_PREVIEW_GAP_MM,
-    [supportDims.effectiveBowlDepth],
+  const trayDims = useMemo(
+    () => (
+      shape === 'circle' || outline?.kind !== 'polygon'
+        ? null
+        : getTrayDimensions(buildParams, outline)
+    ),
+    [shape, buildParams, outline],
   )
 
-  const fallbackDimensions = useMemo(() => ({
-    width: Number((supportDims.outerRadius * 2).toFixed(1)),
-    height: Number(supportDims.height.toFixed(1)),
-    thickness: Number((supportDims.outerRadius * 2).toFixed(1)),
-  }), [supportDims.outerRadius, supportDims.height])
+  const plugLift = useMemo(() => {
+    const depth = shape === 'circle'
+      ? supportDims.effectiveBowlDepth
+      : trayDims?.effectiveDepth ?? 0
+    return depth + PLUG_PREVIEW_GAP_MM
+  }, [shape, supportDims.effectiveBowlDepth, trayDims])
+
+  const fallbackDimensions = useMemo(() => {
+    if (!trayDims) {
+      return {
+        width: Number((supportDims.outerRadius * 2).toFixed(1)),
+        height: Number(supportDims.height.toFixed(1)),
+        thickness: Number((supportDims.outerRadius * 2).toFixed(1)),
+      }
+    }
+    return {
+      width: Number(trayDims.outerBounds.width.toFixed(1)),
+      height: Number(trayDims.height.toFixed(1)),
+      thickness: Number(trayDims.outerBounds.height.toFixed(1)),
+    }
+  }, [
+    trayDims,
+    supportDims.outerRadius,
+    supportDims.height,
+  ])
 
   const bounds = useMemo(() => {
     if (!geometry) return null
@@ -300,6 +397,10 @@ export function useThermoformer(
     [],
   )
 
+  const setSvg = useCallback((next: string | null) => {
+    dispatch({ type: 'setSvg', value: next })
+  }, [])
+
   const reset = useCallback(() => {
     dispatch({ type: 'reset' })
   }, [])
@@ -309,6 +410,8 @@ export function useThermoformer(
   return {
     params,
     geometry,
+    outline,
+    svgError,
     seatY,
     plugLift,
     isBuilding,
@@ -318,6 +421,7 @@ export function useThermoformer(
     cameraPosition,
     fitRadius,
     updateParam,
+    setSvg,
     reset,
   }
 }
