@@ -8,40 +8,79 @@ function positionKey(x: number, y: number, z: number): string {
   return `${normalize(x).toFixed(4)},${normalize(y).toFixed(4)},${normalize(z).toFixed(4)}`
 }
 
+interface CanonicalPositions {
+  /** Id canônico (por posição) de cada vértice da attribute `position`. */
+  ids: Int32Array
+  /** Número de posições únicas. */
+  count: number
+}
+
+const canonicalCache = new WeakMap<BufferGeometry, CanonicalPositions>()
+
+/**
+ * Canoniza as posições uma única vez por geometria: vértices com a mesma
+ * `positionKey` recebem o mesmo id numérico. As verificações de malha trocam as
+ * chaves de aresta em string por índices numéricos, que são muito mais baratos
+ * em malhas de centenas de milhares de triângulos.
+ */
+function canonicalPositions(geometry: BufferGeometry): CanonicalPositions {
+  const cached = canonicalCache.get(geometry)
+  if (cached) return cached
+
+  const position = geometry.getAttribute('position')
+  const ids = new Int32Array(position.count)
+  const lookup = new Map<string, number>()
+  let count = 0
+
+  for (let i = 0; i < position.count; i++) {
+    const key = positionKey(position.getX(i), position.getY(i), position.getZ(i))
+    let id = lookup.get(key)
+    if (id === undefined) {
+      id = count
+      count += 1
+      lookup.set(key, id)
+    }
+    ids[i] = id
+  }
+
+  const canonical = { ids, count }
+  canonicalCache.set(geometry, canonical)
+  return canonical
+}
+
 /**
  * Considera fechada quando cada aresta aparece exatamente em 2 triângulos e as
  * arestas direcionadas aparecem uma única vez em cada sentido (winding coerente).
  */
 export function isClosed(geometry: BufferGeometry): boolean {
-  const position = geometry.getAttribute('position')
   const index = geometry.getIndex()
-  const edges = new Map<string, number>()
-  const directed = new Map<string, number>()
-  const count = index ? index.count : position.count
+  const { ids, count: positionCount } = canonicalPositions(geometry)
+  const count = index ? index.count : ids.length
+  // Bits 0–1 guardam as direções vistas (a→b e b→a); os bits acima, quantas
+  // vezes a aresta apareceu. Fechamento exige 2 ocorrências e as duas direções.
+  const edges = new Map<number, number>()
 
-  const vertex = (i: number): string => {
-    const idx = index ? index.getX(i) : i
-    return positionKey(position.getX(idx), position.getY(idx), position.getZ(idx))
+  const vertex = (i: number): number => ids[index ? index.getX(i) : i]
+  const addEdge = (p: number, q: number): void => {
+    const low = p < q ? p : q
+    const high = p < q ? q : p
+    const edge = low * positionCount + high
+    const direction = p === low ? 1 : 2
+    const value = edges.get(edge) ?? 0
+    edges.set(edge, ((value >> 2) + 1) * 4 + ((value & 3) | direction))
   }
-  const edge = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`)
 
   for (let i = 0; i < count; i += 3) {
     const a = vertex(i)
     const b = vertex(i + 1)
     const c = vertex(i + 2)
-    for (const [p, q] of [[a, b], [b, c], [c, a]] as const) {
-      const key = edge(p, q)
-      edges.set(key, (edges.get(key) ?? 0) + 1)
-      const direction = `${p}|${q}`
-      directed.set(direction, (directed.get(direction) ?? 0) + 1)
-    }
+    addEdge(a, b)
+    addEdge(b, c)
+    addEdge(c, a)
   }
 
-  for (const [key, value] of edges) {
-    if (value !== 2) return false
-    const [a, b] = key.split('|')
-    if ((directed.get(`${a}|${b}`) ?? 0) !== 1) return false
-    if ((directed.get(`${b}|${a}`) ?? 0) !== 1) return false
+  for (const value of edges.values()) {
+    if ((value >> 2) !== 2 || (value & 3) !== 3) return false
   }
   return true
 }
@@ -51,11 +90,12 @@ export function isClosed(geometry: BufferGeometry): boolean {
  * mesmo conjunto (union-find). Uma peça solta ou uma malha partida gera > 1.
  */
 export function countShells(geometry: BufferGeometry): number {
-  const position = geometry.getAttribute('position')
   const index = geometry.getIndex()
-  const count = index ? index.count : position.count
+  const { ids, count: positionCount } = canonicalPositions(geometry)
+  const count = index ? index.count : ids.length
   const triangleCount = Math.floor(count / 3)
-  const parent = Array.from({ length: triangleCount }, (_, i) => i)
+  const parent = new Int32Array(triangleCount)
+  for (let i = 0; i < triangleCount; i++) parent[i] = i
 
   const find = (triangle: number): number => {
     let root = triangle
@@ -75,28 +115,23 @@ export function countShells(geometry: BufferGeometry): number {
     if (rootA !== rootB) parent[rootB] = rootA
   }
 
-  const vertex = (i: number): string => {
-    const idx = index ? index.getX(i) : i
-    return positionKey(position.getX(idx), position.getY(idx), position.getZ(idx))
+  const vertex = (i: number): number => ids[index ? index.getX(i) : i]
+  const owners = new Map<number, number>()
+  const link = (p: number, q: number, triangle: number): void => {
+    const key = p < q ? p * positionCount + q : q * positionCount + p
+    const owner = owners.get(key)
+    if (owner === undefined) owners.set(key, triangle)
+    else union(owner, triangle)
   }
-  const edge = (a: string, b: string): string => (a < b ? `${a}|${b}` : `${b}|${a}`)
 
-  const owners = new Map<string, number>()
   for (let t = 0; t < triangleCount; t++) {
     const base = t * 3
-    const keys = [vertex(base), vertex(base + 1), vertex(base + 2)]
-    const pairs = [
-      [keys[0], keys[1]],
-      [keys[1], keys[2]],
-      [keys[2], keys[0]],
-    ] as const
-
-    for (const [p, q] of pairs) {
-      const key = edge(p, q)
-      const owner = owners.get(key)
-      if (owner === undefined) owners.set(key, t)
-      else union(owner, t)
-    }
+    const a = vertex(base)
+    const b = vertex(base + 1)
+    const c = vertex(base + 2)
+    link(a, b, t)
+    link(b, c, t)
+    link(c, a, t)
   }
 
   const roots = new Set<number>()
