@@ -1,10 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { getTrayDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
+import {
+  getTrayDimensions,
+  type TrayDimensions,
+} from '@/features/studio/tools/lembrancinhas/termoformador/tray'
 import {
   getShapeOutline,
+  offsetOutlinePaths,
   pointInPaths,
+  type ShapeOutline,
 } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
-import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
+import {
+  defaultThermoformerParams,
+  PLUG_GRIP_MIN_MATERIAL_MM,
+  type ThermoformerParams,
+} from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import { pathsBoundingBox } from '@/features/studio/tools/confeitaria/shared/textOutline'
 
@@ -23,7 +32,17 @@ const thinC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <path d="M80 30 A35 35 0 1 0 80 70 L73 63 A27 27 0 1 1 73 37 Z" fill="#000"/>
 </svg>`
 
-function svgOutline(svg: string, overrides: Record<string, number> = {}) {
+// ro=50, ri=31.5, w=18.5: o encolhimento pelo raio da pega vira uma faixa de
+// 0,5 mm, que uma grade de 7×7 no envelope não encontra.
+const nearThresholdC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <path d="M93.3 25 A50 50 0 1 0 93.3 75 L77.28 65.75 A31.5 31.5 0 1 1 77.28 34.25 Z" fill="#000"/>
+</svg>`
+
+type SvgOverrides = Partial<
+  Omit<ThermoformerParams, 'productType' | 'shape' | 'svg'>
+>
+
+function svgOutline(svg: string, overrides: SvgOverrides = {}) {
   const params = {
     ...defaultThermoformerParams,
     shape: 'svg' as const,
@@ -32,6 +51,26 @@ function svgOutline(svg: string, overrides: Record<string, number> = {}) {
     ...overrides,
   }
   return { params, outline: getShapeOutline(params, parseSvg(svg))! }
+}
+
+/**
+ * A pega só é segura quando o disco do raio inteiro cabe no material; a margem
+ * de 0,5 mm cobre o arredondamento do Clipper.
+ */
+function expectGripFits(
+  outline: ShapeOutline,
+  dims: TrayDimensions,
+): void {
+  expect(dims.gripEnabled).toBe(true)
+  expect(pointInPaths(
+    dims.gripX,
+    dims.gripY,
+    offsetOutlinePaths(
+      outline.paths!,
+      -(dims.gripRadius + 0.5),
+      outline.join,
+    ),
+  )).toBe(true)
 }
 
 describe('getTrayDimensions', () => {
@@ -117,7 +156,7 @@ describe('getTrayDimensions', () => {
 })
 
 describe('getTrayDimensions pega', () => {
-  it('centraliza a pega no quadrado', () => {
+  it('centraliza a pega no quadrado e mantém a profundidade', () => {
     const params = {
       ...defaultThermoformerParams,
       shape: 'square' as const,
@@ -125,10 +164,11 @@ describe('getTrayDimensions pega', () => {
     }
     const outline = getShapeOutline(params)!
     const dims = getTrayDimensions(params, outline)
-    expect(dims.gripEnabled).toBe(true)
     expect(dims.gripX).toBeCloseTo(0, 5)
     expect(dims.gripY).toBeCloseTo(0, 5)
-    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+    expect(dims.gripRadius).toBeCloseTo(23.4, 5)
+    expect(dims.gripDepth).toBeCloseTo(28.08, 5)
+    expectGripFits(outline, dims)
   })
 
   it('centraliza a pega no retângulo', () => {
@@ -140,15 +180,21 @@ describe('getTrayDimensions pega', () => {
     }
     const outline = getShapeOutline(params)!
     const dims = getTrayDimensions(params, outline)
-    expect(dims.gripEnabled).toBe(true)
-    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+    expectGripFits(outline, dims)
   })
 
-  it('mantém a pega dentro da estrela', () => {
+  it('mantém a pega dentro da estrela sobre a cavidade', () => {
     const { params, outline } = svgOutline(starSvg, { plugHeight: 10 })
     const dims = getTrayDimensions(params, outline)
-    expect(dims.gripEnabled).toBe(true)
-    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+    expect(dims.gripDepth).toBeCloseTo(10.8, 5)
+    expectGripFits(outline, dims)
+  })
+
+  it('desabilita a estrela quando o raio passa da nervura central', () => {
+    const { params, outline } = svgOutline(starSvg)
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripEnabled).toBe(false)
+    expect(dims.gripDepth).toBe(0)
   })
 
   it('move a pega do C grosso para a barra de material', () => {
@@ -161,8 +207,34 @@ describe('getTrayDimensions pega', () => {
     const centerX = (outline.bounds.minX + outline.bounds.maxX) / 2
     const centerY = (outline.bounds.minY + outline.bounds.maxY) / 2
     expect(pointInPaths(centerX, centerY, outline.paths!)).toBe(false)
+    expectGripFits(outline, dims)
+  })
+
+  it('acha a pega na faixa fina do C perto do limite', () => {
+    const { params, outline } = svgOutline(nearThresholdC, {
+      plugHeight: 10,
+    })
+    const dims = getTrayDimensions(params, outline)
+    // O encolhimento de 9 mm deixa uma faixa de 0,5 mm; a grade de 7×7 no
+    // envelope não a encontra, o baricentro do maior triângulo encontra.
+    expectGripFits(outline, dims)
+  })
+
+  it('encurta a pega fora da cavidade para não furar a face de contato', () => {
+    const { params, outline } = svgOutline(thickC, {
+      frameWidth: 2,
+      stepWidth: 12,
+      plugHeight: 10,
+      draftAngle: 2,
+    })
+    const dims = getTrayDimensions(params, outline)
     expect(dims.gripEnabled).toBe(true)
-    expect(pointInPaths(dims.gripX, dims.gripY, outline.paths!)).toBe(true)
+    expect(dims.gripDepth).toBeGreaterThan(0)
+    expect(dims.gripDepth).toBeLessThanOrEqual(
+      params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
+    )
+    expect(dims.gripRadius).toBeCloseTo(dims.gripDepth / 1.2, 5)
+    expectGripFits(outline, dims)
   })
 
   it('desabilita a pega quando o C é fino demais para o raio', () => {
@@ -174,5 +246,8 @@ describe('getTrayDimensions pega', () => {
     const dims = getTrayDimensions(params, outline)
     expect(dims.gripEnabled).toBe(false)
     expect(dims.gripDepth).toBe(0)
+    expect(
+      offsetOutlinePaths(outline.paths!, -dims.gripRadius, outline.join),
+    ).toHaveLength(0)
   })
 })

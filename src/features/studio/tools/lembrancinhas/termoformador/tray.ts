@@ -1,3 +1,4 @@
+import { ShapeUtils, Vector2 } from 'three'
 import ClipperLib from 'js-clipper'
 import {
   pathsBoundingBox,
@@ -5,6 +6,7 @@ import {
 } from '../../confeitaria/shared/textOutline'
 import {
   MINIMUM_DRAFT_ANGLE_DEG,
+  MINIMUM_GRIP_RADIUS_MM,
   MINIMUM_PYRAMID_TIP_MM,
   MINIMUM_TRAY_BOTTOM_SCALE,
   PLUG_GRIP_MAX_MM,
@@ -49,8 +51,12 @@ export interface TrayDimensions {
 /**
  * Centro da pega que mantém o disco do raio inteiro dentro do material. O
  * centro do envelope não serve para contornos côncavos (C, L), onde ele cai
- * no vão. O maior pedaço do encolhimento garante espaço para o cone; quando o
- * encolhimento colapsa, a pega é desabilitada.
+ * no vão.
+ *
+ * O centro do envelope é o caminho rápido. Quando ele cai fora (ou a faixa
+ * encolhida é fina demais para uma grade), o baricentro do maior triângulo da
+ * triangulação garante um ponto interior. Desabilita quando o encolhimento é
+ * vazio ou não sobra triângulo.
  */
 function getGripCenter(
   paths: ClipperPoint[][],
@@ -68,23 +74,37 @@ function getGripCenter(
       largest = path
     }
   }
+
   const bounds = pathsBoundingBox([largest])
-  const candidates: Array<[number, number]> = [[
-    (bounds.minX + bounds.maxX) / 2,
-    (bounds.minY + bounds.maxY) / 2,
-  ]]
-  for (let ix = 1; ix < 8; ix++) {
-    for (let iy = 1; iy < 8; iy++) {
-      candidates.push([
-        bounds.minX + (bounds.width * ix) / 8,
-        bounds.minY + (bounds.height * iy) / 8,
-      ])
+  const center = {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  }
+  if (pointInPaths(center.x, center.y, [largest])) return center
+
+  // ShapeUtils.triangulateShape espera mm; o Clipper guarda milésimos.
+  const contour = largest.map((point) => new Vector2(
+    point.X / 1000,
+    point.Y / 1000,
+  ))
+  let best: { x: number; y: number; area: number } | null = null
+  for (const [a, b, c] of ShapeUtils.triangulateShape(contour, [])) {
+    const pa = contour[a]
+    const pb = contour[b]
+    const pc = contour[c]
+    const area = Math.abs(
+      (pb.x - pa.x) * (pc.y - pa.y) - (pc.x - pa.x) * (pb.y - pa.y),
+    ) / 2
+    if (!best || area > best.area) {
+      best = {
+        x: (pa.x + pb.x + pc.x) / 3,
+        y: (pa.y + pb.y + pc.y) / 3,
+        area,
+      }
     }
   }
-  for (const [x, y] of candidates) {
-    if (pointInPaths(x, y, [largest])) return { x, y }
-  }
-  return null
+  if (!best || best.area <= 0) return null
+  return { x: best.x, y: best.y }
 }
 
 export function getTrayDimensions(
@@ -140,23 +160,47 @@ export function getTrayDimensions(
     params.draftAngle < MINIMUM_DRAFT_ANGLE_DEG
   const tipSmall =
     params.shape === 'pyramid' && bottomMin < MINIMUM_PYRAMID_TIP_MM
-  const gripRadius = Math.min(
+  const requestedGripRadius = Math.min(
     params.plugHeight * 0.9,
     minScreen * 0.35,
     PLUG_GRIP_MAX_MM,
   )
   const gripCenter = getGripCenter(
     outline.paths ?? [],
-    gripRadius,
+    requestedGripRadius,
     outline.join,
   )
-  const gripEnabled = gripCenter !== null
-  const gripDepth = gripEnabled
-    ? Math.min(
-        gripRadius * 1.2,
-        effectiveDepth + params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
-      )
-    : 0
+  // Sobre a cavidade a protrusão continua abaixo de contactY; fora dela a
+  // face de contato é o fundo e o cone não pode atravessá-la.
+  const overCavity = gripCenter !== null && pointInPaths(
+    gripCenter.x,
+    gripCenter.y,
+    offsetOutlinePaths(
+      outline.cavityOpening ?? [],
+      -requestedGripRadius,
+      outline.join,
+    ),
+  )
+  const gripFloorY = overCavity
+    ? params.bottomThickness + params.thickness
+    : contactY
+  const gripAllowance =
+    bodyTop - gripFloorY - PLUG_GRIP_MIN_MATERIAL_MM
+  const clampedGripDepth = Math.min(
+    requestedGripRadius * 1.2,
+    gripAllowance,
+  )
+  // Mantém a parede de 40–45° ao reduzir a profundidade.
+  const clampedGripRadius = Math.min(
+    requestedGripRadius,
+    clampedGripDepth / 1.2,
+  )
+  const gripEnabled =
+    gripCenter !== null &&
+    gripAllowance > 0 &&
+    clampedGripRadius >= MINIMUM_GRIP_RADIUS_MM
+  const gripRadius = gripEnabled ? clampedGripRadius : requestedGripRadius
+  const gripDepth = gripEnabled ? clampedGripDepth : 0
 
   return {
     outerBounds: pathsBoundingBox(outline.supportOuter ?? []),

@@ -44,6 +44,17 @@ export const MAXIMUM_DRAFT_ANGLE = 15
 export const MINIMUM_DRAFT_ANGLE_DEG = 2
 export const SVG_MAX_LENGTH = 2_000_000
 export const PLUG_GRIP_MAX_MM = 30
+export const PLUG_GRIP_SEGMENTS = 64
+/** O cone sobe acima do topo para o CSG não cortar faces coplanares. */
+export const PLUG_GRIP_OVERLAP_MM = 0.1
+/**
+ * O ápice do `ConeGeometry` é uma coroa degenerada que deixa um triângulo
+ * aberto no CSG quando a base passa do topo. Um frustum com ponta de 0,01 mm
+ * mantém a mesma parede e fecha a malha.
+ */
+export const PLUG_GRIP_TIP_RADIUS_MM = 0.01
+/** Abaixo disso a pega vira um furo frágil; o macho sai com topo plano. */
+export const MINIMUM_GRIP_RADIUS_MM = 0.5
 
 export const thermoformerParamsSchema = z.object({
   productType: z.literal(PRODUCT_TYPE),

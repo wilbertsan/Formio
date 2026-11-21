@@ -16,7 +16,12 @@ import {
   type ShapeOutline,
 } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import { getTrayDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/tray'
-import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
+import {
+  defaultThermoformerParams,
+  PLUG_GRIP_MIN_MATERIAL_MM,
+  PLUG_GRIP_OVERLAP_MM,
+  type ThermoformerParams,
+} from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import { pathsBoundingBox } from '@/features/studio/tools/confeitaria/shared/textOutline'
 import { isClosed, signedVolume, countZeroAreaTriangles } from './geometryTestUtils'
@@ -34,7 +39,11 @@ const thinC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <path d="M80 30 A35 35 0 1 0 80 70 L73 63 A27 27 0 1 1 73 37 Z" fill="#000"/>
 </svg>`
 
-function svgOutline(svg: string, overrides: Record<string, number> = {}) {
+type SvgOverrides = Partial<
+  Omit<ThermoformerParams, 'productType' | 'shape' | 'svg'>
+>
+
+function svgOutline(svg: string, overrides: SvgOverrides = {}) {
   const params = {
     ...defaultThermoformerParams,
     shape: 'svg' as const,
@@ -71,6 +80,12 @@ function verticalHits(
   }
   material.dispose()
   return heights.sort((a, b) => a - b)
+}
+
+/** Confere uma face única sem depender da precisão do float32 do STL. */
+function expectSingleHit(hits: number[], expected: number): void {
+  expect(hits).toHaveLength(1)
+  expect(hits[0]).toBeCloseTo(expected, 2)
 }
 
 describe('buildTraySupport', () => {
@@ -232,16 +247,16 @@ describe('buildTrayPlug', () => {
     const plug = buildTrayPlug(params, outline)
 
     // Fora da abertura da cavidade o corpo começa em contactY.
-    expect(verticalHits(plug, 57, 0, true)).toEqual([dims.contactY])
-    // No centro a protrusão desce até o fundo deslocado pela tela e a pega
-    // abre o topo até bodyTop - gripDepth.
-    expect(verticalHits(plug, 0, 0, true)).toEqual([
+    expectSingleHit(verticalHits(plug, 57, 0, true), dims.contactY)
+    // No centro a protrusão desce até o fundo deslocado pela tela; a pega abre
+    // o topo até a ponta do cone, que começa 0,1 mm acima de bodyTop no CSG.
+    expectSingleHit(
+      verticalHits(plug, 0, 0, true),
       params.bottomThickness + params.thickness,
-    ])
-    expect(verticalHits(plug, 0, 0)).toHaveLength(1)
-    expect(verticalHits(plug, 0, 0)[0]).toBeCloseTo(
-      dims.bodyTop - dims.gripDepth,
-      2,
+    )
+    expectSingleHit(
+      verticalHits(plug, 0, 0),
+      dims.bodyTop + PLUG_GRIP_OVERLAP_MM - dims.gripDepth,
     )
     plug.dispose()
   })
@@ -258,12 +273,14 @@ describe('buildTrayPlug', () => {
     expect(signedVolume(plug)).toBeGreaterThan(0)
     expect(countZeroAreaTriangles(plug)).toBe(0)
 
-    expect(verticalHits(plug, dims.gripX, -dims.gripY, true)).toEqual([
+    expectSingleHit(
+      verticalHits(plug, dims.gripX, -dims.gripY, true),
       params.bottomThickness + params.thickness,
-    ])
-    const hits = verticalHits(plug, dims.gripX, -dims.gripY)
-    expect(hits).toHaveLength(1)
-    expect(hits[0]).toBeCloseTo(dims.bodyTop - dims.gripDepth, 2)
+    )
+    expectSingleHit(
+      verticalHits(plug, dims.gripX, -dims.gripY),
+      dims.bodyTop + PLUG_GRIP_OVERLAP_MM - dims.gripDepth,
+    )
     plug.dispose()
   })
 
@@ -284,12 +301,43 @@ describe('buildTrayPlug', () => {
 
     // O centro do envelope do C é vazio; a pega segura fica na barra.
     expect(verticalHits(plug, 0, 0)).toHaveLength(0)
-    expect(verticalHits(plug, dims.gripX, -dims.gripY, true)).toEqual([
+    expectSingleHit(
+      verticalHits(plug, dims.gripX, -dims.gripY, true),
       params.bottomThickness + params.thickness,
-    ])
-    const hits = verticalHits(plug, dims.gripX, -dims.gripY)
-    expect(hits).toHaveLength(1)
-    expect(hits[0]).toBeCloseTo(dims.bodyTop - dims.gripDepth, 2)
+    )
+    expectSingleHit(
+      verticalHits(plug, dims.gripX, -dims.gripY),
+      dims.bodyTop + PLUG_GRIP_OVERLAP_MM - dims.gripDepth,
+    )
+    plug.dispose()
+  })
+
+  it('não fura a face de contato com a pega fora da cavidade', () => {
+    const { params, outline } = svgOutline(thickC, {
+      frameWidth: 2,
+      stepWidth: 12,
+      plugHeight: 10,
+      draftAngle: 2,
+    })
+    const dims = getTrayDimensions(params, outline)
+    expect(dims.gripDepth).toBeLessThanOrEqual(
+      params.plugHeight - PLUG_GRIP_MIN_MATERIAL_MM,
+    )
+
+    const plug = buildTrayPlug(params, outline)
+    expect(isClosed(plug)).toBe(true)
+    expect(signedVolume(plug)).toBeGreaterThan(0)
+    expect(countZeroAreaTriangles(plug)).toBe(0)
+
+    // Antes do limite a pega atravessava a face de contato e os dois raios
+    // ficavam vazios. Agora o eixo tem topo (recesso) e fundo (material).
+    const inside = dims.gripEnabled
+      ? { x: dims.gripX, y: dims.gripY }
+      : interiorPoint(outline)
+    expect(verticalHits(plug, inside.x, -inside.y)).not.toHaveLength(0)
+    expect(
+      verticalHits(plug, inside.x, -inside.y, true),
+    ).not.toHaveLength(0)
     plug.dispose()
   })
 

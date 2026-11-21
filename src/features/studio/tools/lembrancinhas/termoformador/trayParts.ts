@@ -1,4 +1,4 @@
-import { BufferGeometry, ConeGeometry } from 'three'
+import { BufferGeometry, CylinderGeometry } from 'three'
 import { ADDITION, SUBTRACTION } from 'three-bvh-csg'
 import {
   scalePaths,
@@ -8,7 +8,12 @@ import { extrudeOutline, loftOutline } from './loft'
 import { getTrayDimensions } from './tray'
 import { csg } from './csg'
 import type { ShapeOutline } from './outline'
-import type { ThermoformerGeometryParams } from './schema'
+import {
+  PLUG_GRIP_OVERLAP_MM,
+  PLUG_GRIP_SEGMENTS,
+  PLUG_GRIP_TIP_RADIUS_MM,
+  type ThermoformerGeometryParams,
+} from './schema'
 
 /**
  * O loft e o CSG só fecham com um contorno único. Um SVG côncavo pode dividir
@@ -78,13 +83,17 @@ export function buildTrayPlug(
   )
   const united = csg(body, [protrusion], ADDITION)
   if (!dims.gripEnabled) return united
-  const grip = new ConeGeometry(dims.gripRadius, dims.gripDepth, 64)
+  const grip = new CylinderGeometry(
+    PLUG_GRIP_TIP_RADIUS_MM,
+    dims.gripRadius,
+    dims.gripDepth,
+    PLUG_GRIP_SEGMENTS,
+  )
   grip.rotateX(Math.PI)
   grip.translate(
     dims.gripX,
-    dims.bodyTop - dims.gripDepth / 2,
+    dims.bodyTop + PLUG_GRIP_OVERLAP_MM - dims.gripDepth / 2,
     -dims.gripY,
   )
-  grip.computeVertexNormals()
   return csg(united, [grip], SUBTRACTION)
 }
