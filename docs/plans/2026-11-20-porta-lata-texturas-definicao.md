@@ -15,6 +15,10 @@ não muda.
 
 **Design aprovado:** `docs/plans/2026-11-20-porta-lata-texturas-definicao-design.md`.
 
+**Status:** executado. 512/0,4 mantidos (CPU 5,6–6,5 s), STL ~14,6 MB, 291,6k
+triângulos com texto; testes importados divididos em 5 arquivos e os builds
+completos em 3; flat shading com remount do material.
+
 **Regras:** 1 unidade = 1 mm; sem `any`; commits semânticos; assets gerados
 commitados; `files/` fora do repo.
 

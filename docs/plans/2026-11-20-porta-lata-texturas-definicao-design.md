@@ -2,7 +2,28 @@
 
 **Data:** 2026-11-20
 **Ferramenta:** `lembrancinhas/porta-lata`
-**Status:** design aprovado; implementação pendente
+**Status:** design aprovado; implementado
+
+## Desvios da implementação
+
+- **512/0,4 mantido, sem fallback**: o pior caso de CPU foi 6,5 s (pedra
+  hexagonal, build frio), abaixo do gate de 8 s.
+- **Números finais**: parede importada 266.240 triângulos (133.893 vértices);
+  com o texto ~291.632 triângulos e STL do corpo ~14,6 MB.
+- **Mapa**: 512 × 256, 14 × 131.072 B; asset 2.447.258 B (~2,4 MB; gzip
+  ~1,28 MB); `--check` ~33 s / ~420 MB. `nativeDepth` 1,21–4,25 mm;
+  `maxSlopeDeg` 67,8–82,7° (medido só em Δv, na grade de 256 linhas; é um
+  limite inferior — a 1024×512 a pedra chega a ~85,75°).
+- **Worker**: o data é baixado no mount mesmo com `textureStyle: none`
+  (~1,40 MB gzip), porque o chunk do worker o inclui; import dinâmico ou
+  compressão ficam como follow-up.
+- **Testes**: 14 corpos importados em 5 arquivos; os builds completos foram
+  divididos em 3 arquivos (`buildCanHolder`, `...Textures`, `...Extremes`) com
+  timeout de 60 s para não estourar o RPC do Vitest. O utilitário de malha foi
+  otimizado (canonicalização + chaves numéricas) e a suíte completa fica em
+  1622 testes / ~95 s.
+- **Preview**: o R3F 9.7.0 não marca `needsUpdate` ao trocar `flatShading`;
+  o material do corpo usa `key` (`flat`/`smooth`) para remontar e recompilar.
 
 ## Objetivo
 
@@ -41,10 +62,10 @@ Fora do escopo:
 |---|---|---|
 | Mapa | 192 × 96 (1,2 × 1,0 mm) | **512 × 256 (0,45 × 0,39 mm)** |
 | Parede importada | 256 × 1 mm | **512 × 0,4 mm** |
-| Triângulos da parede | ~51k | **~250k** |
+| Triângulos da parede | ~51k | **266k** |
 | Asset | ~344 KB | **~2,4 MB base64** |
-| STL do corpo | ~3 MB | **~12 MB** |
-| Build importado | ~1,6–2,2 s | **~5–8 s (medir)** |
+| STL do corpo | ~3 MB | **~14,6 MB** (291,6k tris com texto) |
+| Build importado | ~1,6–2,2 s | **5,6–6,5 s de CPU** |
 
 Procedurais continuam 256/1; `none` continua 128. O detalhe útil para bico
 0,4 mm é ~0,4 mm, então 512 é o teto razoável.

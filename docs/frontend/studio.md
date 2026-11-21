@@ -363,7 +363,8 @@ Pipeline completo de geração do porta-lata 350 ml:
    `getHandleMetrics`.
 3. **buildBody.ts** — `LatheGeometry` de 128 segmentos; com textura, a parede
    externa é localizada por `findOuterWall`, subdividida em passos de 1 mm e o
-   lathe usa 256 segmentos; os vértices da parede são deslocados radialmente por
+   lathe usa 256 segmentos (512 nos importados, com passo de 0,4 mm); os
+   vértices da parede são deslocados radialmente por
    `textureDisplacement` e as normais da emenda θ=0/2π são soldadas (de novo no
    `buildCanHolder`, depois do CSG do texto). O perfil não
    toca o eixo, então não há leques degenerados, mas a limpeza de triângulos
@@ -415,8 +416,8 @@ anel de apoio no fundo com **28,9 mm** de largura radial e faixa útil do texto
 **6,0–105,2 mm**). Com textura de 1,5 mm e escala ≥ 6, o diâmetro externo vai a
 **75,6 mm**; com escala 4, a profundidade efetiva cai para 1,0 mm (anel ainda é
 o maior envelope) e o diâmetro fica **74,6 mm**. Nos importados, a profundidade
-nativa medida é **1,21–4,23 mm**; `pedra_hexagonal` (4,23) leva o diâmetro a
-**81,1 mm** e o laço a um offset de 2,63 mm. O painel mostra diâmetro
+nativa medida é **1,21–4,25 mm**; `pedra_hexagonal` (4,25) leva o diâmetro a
+**81,1 mm** e o laço a um offset de 2,65 mm. O painel mostra diâmetro
 externo, altura externa, altura exposta, parede do topo, `Texto entre X e Y mm`
 e, quando a escala limita a profundidade, `Profundidade efetiva: X mm (limitada
 pela escala).`; o status bar mostra **74.6 × 111.2 × 2.4 mm** no default.
@@ -428,7 +429,8 @@ Validação por códigos: `can-cavity`, `can-clearance`, `can-vent`, `can-rim`,
 `can-texture` é um aviso **só para procedurais**: a profundidade pedida passa de
 `escala / 4` e o build usa a profundidade efetiva. Importados usam a
 profundidade nativa e não têm código de inclinação; a nota de suporte fica na
-seção Textura (todos medem 49–74°). `can-edge-rim` é defensiva (`2 × salto + 1 mm > largura` e
+seção Textura (todos medem 67,8–82,7° no mapa de 512×256; é um limite inferior,
+pois a inclinação cresce com a resolução). `can-edge-rim` é defensiva (`2 × salto + 1 mm > largura` e
 `2 × largura + 4 mm > altura`) e inalcançável pelo schema. `can-text-band` usa
 `getTextBand`, que desconta os anéis e aplica 2 mm de margem. `can-handle-band`
 valida apenas a banda da abraçadeira (`handleHeight ± handleWidth / 2`) entre os
@@ -445,8 +447,10 @@ Textura:
   `max(profundidade efetiva, 0,3 × escala)`). Tudo determinístico e periódico em
   θ; a contagem de células é inteira (`max(3, round(circunferência / escala))`).
 - **Profundidade efetiva**: `min(textureDepth, textureScale / 4)`, limitando os
-  flancos a ~45°; as facetas do mesh de 1 mm × 256 segmentos medem no máximo
-  ~42,5° (spikes, escala 6, profundidade 1,5).
+  flancos a ~45°; nos procedurais as facetas do mesh de 1 mm × 256 segmentos
+  medem no máximo ~42,5° (spikes, escala 6, profundidade 1,5). Nos importados a
+  parede de 512 segmentos × 0,4 mm expõe facetas de 68–83°, vindas do relevo
+  original; a nota de suporte do painel cobre.
 - **Máscaras**: fade de `max(2, 3 × profundidade efetiva)` nas bordas da parede
   e na faixa lisa da abraçadeira (`handleHeight ± (handleWidth / 2 + 1)`), com a
   mesma transição. Anéis, base, borda, cavidade e furo ficam intactos.
@@ -459,7 +463,7 @@ Texturas importadas:
 
 - **Geração offline**: `scripts/texture-import.mjs` lê os 14 STLs de `files/`
   (não versionados, ~400 MB), desenrola a superfície externa com
-  `unwrapCylinder` (grade 192 × 96, maior raio por célula, filtro de furo
+  `unwrapCylinder` (grade 512 × 256, maior raio por célula, filtro de furo
   0,78 × maior raio, corte das pontas/flange pela mediana do raio) e grava
   `importedTextures.ts` (metadados) e `importedTextureData.ts` (base64, ~344 KB /
   336 KiB,
@@ -480,8 +484,27 @@ Texturas importadas:
   profundidade e escala ficam desabilitados e aparece "Textura importada:
   profundidade X mm · flancos ~N°. Pode exigir suporte.".
 - **Custo**: 14 mapas normalizados/decodificados lazy; o chunk do worker cresce
-  ~344 KB / 336 KiB; o build completo importado mediu ~1,6–2,2 s de CPU (até ~4,2 s em
-  máquina lenta), sem mudar a resolução 192×96.
+  2,4 MB / 2,33 MiB; o build completo importado mediu **5,6–6,5 s de CPU**
+  (frio 6,5 s) com 512/0,4, sem fallback.
+
+Alta definição (importados):
+
+- **Mapa 512 × 256** (u ≈ 0,45 mm, v ≈ 0,39 mm); asset 2,4 MB (2,33 MiB, gzip
+  ~1,28 MB); worker chunk ~2,88 MB raw / ~1,40 MB gzip. O data é carregado no
+  mount do worker mesmo com `textureStyle: none`; import dinâmico/compressão
+  ficam como follow-up.
+- **Parede 512 segmentos × 0,4 mm** (266.240 triângulos; ~291,6k com o texto;
+  STL do corpo ~14,6 MB). Procedurais seguem 256/1 e `none` 128.
+- **Build** `buildBody` importado 0,65–0,85 s (~1 s frio); build completo com
+  texto 5,6–6,5 s de CPU (paralelepípedos 5,6; pedra 5,8; frio 6,5); default
+  `none` ~1,3 s.
+- **Preview**: flat shading no corpo quando o snapshot (`builtParams`) é
+  importado; a alça continua suave. O material do corpo tem
+  `key={flatShading ? 'flat' : 'smooth'}` porque o R3F 9.7.0 não marca
+  `needsUpdate` ao trocar `flatShading` e o program antigo seria reutilizado.
+- **Testes**: 14 corpos importados em 5 arquivos e os builds completos em 3
+  (`buildCanHolder`, `...Textures`, `...Extremes`), com timeout de 60 s; a suíte
+  completa fica em 1622 testes e ~95 s.
 
 Detalhes:
 
@@ -546,7 +569,7 @@ Detalhes:
 - **Cartão de Visita:** Peça retangular (50–90 × 30–60mm, 1–3mm de espessura) com cantos arredondados. Conteúdo livre de 1–3 itens texto/ícone SVG, com texto sem limite de caracteres e auto-fit à área útil de 3mm. Relevo fixo de 1mm. Build em Web Worker, editor 2D SVG com medidas reais e export STL binário. Sem argola.
 - **Caixa Personalizada:** Caixa 3D personalizável em cinco peças independentes (corpo, tampa, painel decorativo, puxador e base), sem CSG: corpo e tampa são lofts de anéis de retângulo arredondado, a base é um anel loftado e o painel usa `ExtrudeGeometry` com furos. O acabamento da v1 é apenas `edgeChamfer`; fillets 3D reais, janela frontal e furo passante do puxador ficam fora. O painel é montado na frente (+Z) com moldura sólida, furos recortados no retângulo interno e limite de 800 aberturas. A tampa externa tem o raio limitado pelo encaixe do corpo e o encaixe interno não passa do fundo. O puxador usa flange colado (sem furo), ponta limitada ao raio da haste e limpeza de triângulos degenerados. A base tem folga `printClearance`, raio interno derivado do canto do corpo e anel mínimo de 0,8 mm. O puxador fica em `left`/`right` na v1; `top`/`bottom` são reservados. A tampa externa assenta em `lidHeight = 0`; valores maiores exigem junta/suporte, e a tampa interna é um plugue sem flange. A montagem avisa colisões entre painel/base, painel/tampa e flange/base ou flange/tampa. Preview em duas cores (`bodyColor` e `accentColor`), export em cinco STLs separados com orientações de impressão e `builtParams` para o transform do puxador. `nozzleDiameter`, 3MF e STEP ficam fora da v1.
 - **Termoformador (tela + suporte + macho):** Três peças independentes. A tela é um disco circular com aro sólido e malha hexagonal flat-top em `ExtrudeGeometry` com furos hexagonais, sem CSG, validado por teste de malha fechada; favos limitados a 4.000, com abertura crescendo 15% ao exceder, e epsilon de 0,001 rad por favo evita caps abertos no Earcut. O suporte é um berço côncavo de `LatheGeometry` com perfil fechado, bacia esférica e fundo fechado, sem CSG e com os triângulos degenerados do eixo removidos. O diâmetro do suporte deriva da tela (`recessRadius = D/2 + fitClearance`, `outerRadius = recessRadius + wallThickness`); a tela apoia no degrau e fica nivelada com o topo. A profundidade efetiva da bacia é limitada para manter 0,8 mm de parede externa e para não passar da semi-esfera (`cavityTopRadius`), garantindo a retirada do macho; `support-depth` avisa. O macho convexo é um sólido de revolução derivado da bacia deslocada por `thickness`: o domo copia a bacia, a coroa plana em `seatY + thickness` pressiona o aro, a parede-guia em `diameter/2` entra no rebaixo com `fitClearance` e a pega é um recesso cônico de 40–45°. A tela é exportada plana e conformada com o macho; a peça é um volume fechado impresso com 10–15% de infill, girado 180° no export com o topo na mesa. `plug-guide` é a validação defensiva da coroa. Preview montado com a tela em `seatY` e o macho suspenso em `plugLift = effectiveBowlDepth + 8`, cor única e export de três STLs `-tela`, `-suporte` e `-macho`. `fitRadius` usa a união do suporte com o macho suspenso; a status bar mantém o envelope do suporte. Build em worker; a configuração máxima do schema leva ~7 s.
-- **Porta-lata:** Substitui a antiga caneca por um corpo de parede simples em `LatheGeometry` com cavidade reta para a lata de 66,2 × 122,2 mm, borda de entrada e furo central de ventilação de 10 mm; sem trilho. Dois anéis decorativos de 45° compartilham salto (0,4–1,5 mm) e largura (4–14 mm), ficam colados na base e no topo e são pontos do mesmo perfil; o inferior apoia na mesa e o superior imprime sem suporte. O diâmetro nominal (`getMaxOuterDiameter`, 74,6 mm no default) e o status bar incluem os anéis, mas não o relevo. O nome fica em relevo de 1 mm curvado no raio, a 180° da alça e entre os anéis, com faixa única em `getTextBand`; é unido por CSG com o splitter CDT. Alça separada de encaixe por pressão: abraçadeira em C de 200° com folga nominal no meio, interferência absoluta de 0,4 mm no topo e laço em D com borda esquerda vertical; abraçadeira e laço são unidos por CSG dentro da alça. A validação `can-handle-band` cobre só a banda da abraçadeira entre os anéis, então o laço pode passar da borda; `can-edge-rim` é defensiva. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A alça imprime em pé com suporte sob o arco; o corpo imprime em pé sem suporte. O relevo usa subdivisão conforme de 2,5 mm para manter 1 mm no centro de glifos largos. As texturas são um campo de altura determinístico aplicado à parede (sem CSG): 256 segmentos, passo de 1 mm, relevo positivo, faixa lisa na abraçadeira e texto elevado pelo envelope efetivo. Os 14 estilos importados vêm de mapas de altura gerados offline a partir dos STLs, preservam a profundidade nativa, usam o mesmo deslocamento e afastam o laço/engrossam a abraçadeira pelo envelope.
+- **Porta-lata:** Substitui a antiga caneca por um corpo de parede simples em `LatheGeometry` com cavidade reta para a lata de 66,2 × 122,2 mm, borda de entrada e furo central de ventilação de 10 mm; sem trilho. Dois anéis decorativos de 45° compartilham salto (0,4–1,5 mm) e largura (4–14 mm), ficam colados na base e no topo e são pontos do mesmo perfil; o inferior apoia na mesa e o superior imprime sem suporte. O diâmetro nominal (`getMaxOuterDiameter`, 74,6 mm no default) e o status bar incluem os anéis, mas não o relevo. O nome fica em relevo de 1 mm curvado no raio, a 180° da alça e entre os anéis, com faixa única em `getTextBand`; é unido por CSG com o splitter CDT. Alça separada de encaixe por pressão: abraçadeira em C de 200° com folga nominal no meio, interferência absoluta de 0,4 mm no topo e laço em D com borda esquerda vertical; abraçadeira e laço são unidos por CSG dentro da alça. A validação `can-handle-band` cobre só a banda da abraçadeira entre os anéis, então o laço pode passar da borda; `can-edge-rim` é defensiva. Duas cores (`bodyColor`/`accentColor`), dois STLs `-corpo` e `-alca`, build em worker. A alça imprime em pé com suporte sob o arco; o corpo imprime em pé sem suporte. O relevo usa subdivisão conforme de 2,5 mm para manter 1 mm no centro de glifos largos. As texturas são um campo de altura determinístico aplicado à parede (sem CSG): 256 segmentos/passo de 1 mm nos procedurais e 512/0,4 mm nos importados, relevo positivo, faixa lisa na abraçadeira e texto elevado pelo envelope efetivo. Os 14 estilos importados vêm de mapas 512×256 gerados offline a partir dos STLs, preservam a profundidade nativa, usam o mesmo deslocamento, afastam o laço/engrossam a abraçadeira pelo envelope e aparecem com flat shading no preview.
 
 ## Próximos passos (fora de escopo desta fase)
 
