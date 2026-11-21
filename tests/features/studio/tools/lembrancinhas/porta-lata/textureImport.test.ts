@@ -164,10 +164,19 @@ describe('textureImport', () => {
 
     for (const row of [32, 128, 224]) {
       const first = row * map.width
-      const seam = Math.abs(map.data[first] - map.data[first + 1])
-      expect(seam, `linha ${row}`).toBeLessThan(40)
-      const wrap = Math.abs(map.data[first - 1] - map.data[first])
-      expect(wrap, `linha ${row}`).toBeLessThan(40)
+      // A emenda é a coluna 511 contra a 0 da mesma linha. O limite é relativo
+      // ao maior degrau entre colunas vizinhas da linha: o padrão pode mudar
+      // rápido, mas a volta não pode abrir um furo maior que o próprio relevo.
+      let maxAdjacent = 0
+      for (let col = 0; col < map.width - 1; col++) {
+        maxAdjacent = Math.max(
+          maxAdjacent,
+          Math.abs(map.data[first + col + 1] - map.data[first + col]),
+        )
+      }
+      expect(maxAdjacent, `linha ${row}`).toBeLessThan(40)
+      const wrap = Math.abs(map.data[first + map.width - 1] - map.data[first])
+      expect(wrap, `linha ${row}`).toBeLessThanOrEqual(maxAdjacent + 2)
     }
   })
 

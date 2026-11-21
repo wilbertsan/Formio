@@ -1,16 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { FontLoader, type Font, type FontData } from 'three/examples/jsm/loaders/FontLoader.js'
-import helvetikerRegular from '@/assets/fonts/helvetiker_regular.typeface.json'
 import {
   buildCanHolder,
   disposeCanHolderResult,
 } from '@/features/studio/tools/lembrancinhas/porta-lata/buildCanHolder'
 import { defaultCanHolderParams } from '@/features/studio/tools/lembrancinhas/porta-lata/schema'
 import { countShells, isClosed, signedVolume } from './geometryTestUtils'
-
-function realFont(): Font {
-  return new FontLoader().parse(helvetikerRegular as unknown as FontData)
-}
+import { realFont, seamGroups } from './canHolderTestUtils'
 
 // Arquivo separado: os builds completos importados (corpo + texto + alça) são
 // caros e, somados ao arquivo principal, estouravam o watchdog de RPC do
@@ -42,6 +37,21 @@ describe('buildCanHolder com texturas importadas', () => {
     expect(isClosed(result.handle!)).toBe(true)
     expect(countShells(result.handle!)).toBe(1)
     expect(signedVolume(result.handle!)).toBeGreaterThan(0)
+
+    // O weld pós-CSG precisa soldar a emenda com os 512 segmentos importados.
+    const normal = result.body.getAttribute('normal')
+    const groups = seamGroups(result.body, params)
+    let pairs = 0
+    for (const indices of groups.values()) {
+      if (indices.length < 2) continue
+      const [a, b] = indices
+      expect(normal.getX(a)).toBeCloseTo(normal.getX(b), 3)
+      expect(normal.getY(a)).toBeCloseTo(normal.getY(b), 3)
+      expect(normal.getZ(a)).toBeCloseTo(normal.getZ(b), 3)
+      pairs += 1
+    }
+    expect(pairs).toBeGreaterThan(50)
+
     disposeCanHolderResult(result)
   })
 })

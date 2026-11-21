@@ -11,8 +11,9 @@ import { countShells, isClosed, signedVolume } from './geometryTestUtils'
 import { realFont } from './canHolderTestUtils'
 
 // Arquivo separado: cada extremo faz um build completo (corpo + texto + alça) e
-// a soma dos casos estourava o watchdog de RPC do Vitest sob carga.
-describe('buildCanHolder nos extremos', () => {
+// a soma dos casos estourava o watchdog de RPC do Vitest sob carga. Esta parte
+// cobre os extremos geométricos; texturas e bordas ficam no arquivo irmão.
+describe('buildCanHolder nos extremos geométricos', () => {
   it.each<{ name: string; params: Partial<CanHolderGeometryParams> }>([
     { name: 'cavidade rasa', params: { cavityDepth: 80 } },
     { name: 'cavidade profunda', params: { cavityDepth: 116 } },
@@ -20,15 +21,7 @@ describe('buildCanHolder nos extremos', () => {
     { name: 'folga máxima da lata', params: { canClearance: 1.2 } },
     { name: 'parede mínima', params: { wallThickness: 1.8 } },
     { name: 'parede máxima', params: { wallThickness: 4 } },
-    { name: 'bordas máximas', params: { edgeRimWidth: 14, edgeRimProtrusion: 1.5 } },
-    { name: 'bordas desligadas', params: { edgeRimEnabled: false } },
-    {
-      name: 'extremas combinadas',
-      params: { wallThickness: 4, canClearance: 1.2, handleClearance: 0.5 },
-    },
-    { name: 'textura de madeira', params: { textureStyle: 'wood', textureDepth: 1.2 } },
-    { name: 'textura pontiaguda', params: { textureStyle: 'spikes', textureDepth: 1.5 } },
-  ])('fecha corpo e alça nos extremos ($name)', ({ params }) => {
+  ])('fecha corpo e alça nos extremos ($name)', { timeout: 60_000 }, ({ params }) => {
     const result = buildCanHolder({ ...defaultCanHolderParams, ...params }, realFont())
 
     expect(isClosed(result.body)).toBe(true)

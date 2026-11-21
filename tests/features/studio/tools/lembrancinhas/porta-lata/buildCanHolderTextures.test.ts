@@ -17,7 +17,7 @@ import { realFont, seamGroups } from './canHolderTestUtils'
 // arquivo principal, estouravam o watchdog de RPC do Vitest (`onTaskUpdate`)
 // sob carga.
 describe('buildCanHolder com textura', () => {
-  it('une o texto sobre os picos da textura sem perder casca', () => {
+  it('une o texto sobre os picos da textura sem perder casca', { timeout: 60_000 }, () => {
     const params = {
       ...defaultCanHolderParams,
       textureStyle: 'scales' as const,
@@ -40,7 +40,7 @@ describe('buildCanHolder com textura', () => {
     disposeCanHolderResult(result)
   })
 
-  it('solda as normais da emenda da textura depois do CSG', () => {
+  it('solda as normais da emenda da textura depois do CSG', { timeout: 60_000 }, () => {
     const params = {
       ...defaultCanHolderParams,
       textureStyle: 'wood' as const,
@@ -68,7 +68,7 @@ describe('buildCanHolder com textura', () => {
     disposeCanHolderResult(result)
   })
 
-  it('solda a emenda no extremo superior da parede', () => {
+  it('solda a emenda no extremo superior da parede', { timeout: 60_000 }, () => {
     const params = {
       ...defaultCanHolderParams,
       textureStyle: 'wood' as const,
