@@ -189,7 +189,7 @@ export function useThermoformer(
         workerRef.current = worker
         setIsBuilding(true)
 
-        worker.build(buildParams, (data: SerializedThermoformerResult) => {
+        worker.build(buildParams, null, (data: SerializedThermoformerResult) => {
           if (workerRef.current !== worker) return
           const next = deserializeThermoformerResult(data)
           setGeometry(next)

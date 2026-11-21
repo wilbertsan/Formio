@@ -103,7 +103,7 @@ describe('workerGeometry', () => {
   })
 
   it('serializa o conjunto real com buffers copiados e sem duplicatas', () => {
-    const result = buildThermoformer(defaultThermoformerParams)
+    const result = buildThermoformer(defaultThermoformerParams)!
     const sourcePosition = result.screen.getAttribute('position').array
     const { data, transfer } = serializeThermoformerResult(result)
 

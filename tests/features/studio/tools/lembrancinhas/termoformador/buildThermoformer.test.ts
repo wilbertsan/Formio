@@ -1,13 +1,18 @@
 import { describe, it, expect } from 'vitest'
+import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import { buildThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
 import { getPlugDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
 import { defaultThermoformerParams } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
 import { isClosed } from './geometryTestUtils'
 
+const triangle = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,5 95,95 5,95" fill="#000"/>
+</svg>`
+
 describe('buildThermoformer', () => {
   it('coloca a tela nivelada no assento do suporte', () => {
-    const result = buildThermoformer(defaultThermoformerParams)
+    const result = buildThermoformer(defaultThermoformerParams)!
     const dims = getSupportDimensions(defaultThermoformerParams)
 
     // O assento é medido a partir da base, independente da espessura da tela.
@@ -43,11 +48,53 @@ describe('buildThermoformer', () => {
     result.plug.dispose()
   })
 
-  it('lança para SVG sem parsedSvg (estado intermediário do Task 11)', () => {
-    expect(() => buildThermoformer({
+  it('monta as três peças da forma quadrada', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'square' as const,
+      width: 120,
+    }
+    const result = buildThermoformer(params)
+    expect(result).not.toBeNull()
+    const built = result!
+
+    expect(built.seatY).toBeCloseTo(
+      params.bottomThickness + params.bowlDepth,
+      5,
+    )
+    expect(isClosed(built.screen)).toBe(true)
+    expect(isClosed(built.support)).toBe(true)
+    expect(isClosed(built.plug)).toBe(true)
+
+    built.screen.dispose()
+    built.support.dispose()
+    built.plug.dispose()
+  })
+
+  it('retorna null para SVG sem parsedSvg', () => {
+    expect(buildThermoformer({
       ...defaultThermoformerParams,
       shape: 'svg',
       svg: '<svg/>',
-    })).toThrow()
+    })).toBeNull()
+  })
+
+  it('monta as três peças de um SVG triangular', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'svg' as const,
+      svg: triangle,
+    }
+    const result = buildThermoformer(params, parseSvg(triangle))
+    expect(result).not.toBeNull()
+    const built = result!
+
+    expect(isClosed(built.screen)).toBe(true)
+    expect(isClosed(built.support)).toBe(true)
+    expect(isClosed(built.plug)).toBe(true)
+
+    built.screen.dispose()
+    built.support.dispose()
+    built.plug.dispose()
   })
 })

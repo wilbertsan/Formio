@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { BoxGeometry, BufferGeometry } from 'three'
 import { buildPlug, getPlugDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import type { BuildThermoformerResult } from '@/features/studio/tools/lembrancinhas/termoformador/buildThermoformer'
 import {
   exportThermoformerStl,
@@ -203,7 +204,7 @@ describe('prepareSupportForPrint', () => {
 describe('preparePlugForPrint', () => {
   it('gira o macho com a face plana na mesa e o domo para cima', () => {
     const params = defaultThermoformerParams
-    const plug = buildPlug(params)
+    const plug = buildPlug(params, getShapeOutline(params)!)
     const dims = getPlugDimensions(params)
     const original = positions(plug)
     const print = preparePlugForPrint(plug)
@@ -246,7 +247,7 @@ describe('preparePlugForPrint', () => {
       plugHeight: 10,
       bowlDepth: 5,
     }
-    const plug = buildPlug(params)
+    const plug = buildPlug(params, getShapeOutline(params)!)
     const dims = getPlugDimensions(params)
     const print = preparePlugForPrint(plug)
     print.computeBoundingBox()

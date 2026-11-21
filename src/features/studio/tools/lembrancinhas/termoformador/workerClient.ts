@@ -1,14 +1,20 @@
+import type { ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
 import type { ThermoformerGeometryParams } from './schema'
 import type { SerializedThermoformerResult } from './workerGeometry'
 
 export interface ScreenWorker {
   build(
     params: ThermoformerGeometryParams,
+    parsedSvg: ParsedSvg | null,
     onResult: (data: SerializedThermoformerResult) => void,
     onError?: () => void,
   ): void
   terminate(): void
 }
+
+type WorkerMessage =
+  | { data: SerializedThermoformerResult }
+  | { error: string }
 
 export function createScreenWorker(): ScreenWorker {
   const worker = new Worker(
@@ -18,17 +24,21 @@ export function createScreenWorker(): ScreenWorker {
   let terminated = false
 
   return {
-    build(params, onResult, onError) {
+    build(params, parsedSvg, onResult, onError) {
       if (terminated) {
         onError?.()
         return
       }
-      worker.onmessage = (event: MessageEvent<{ data: SerializedThermoformerResult }>) => {
+      worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+        if ('error' in event.data) {
+          onError?.()
+          return
+        }
         onResult(event.data.data)
       }
       worker.onerror = () => onError?.()
       worker.onmessageerror = () => onError?.()
-      worker.postMessage({ params })
+      worker.postMessage({ params, parsedSvg })
     },
     terminate() {
       terminated = true

@@ -1,8 +1,10 @@
 import type { BufferGeometry } from 'three'
+import type { ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
 import { buildScreen } from './buildScreen'
 import { buildSupport, getSupportDimensions } from './buildSupport'
 import { buildPlug } from './buildPlug'
 import { getShapeOutline } from './outline'
+import { getTrayDimensions } from './tray'
 import type { ThermoformerGeometryParams } from './schema'
 
 export interface BuildThermoformerResult {
@@ -14,14 +16,18 @@ export interface BuildThermoformerResult {
 
 export function buildThermoformer(
   params: ThermoformerGeometryParams,
-): BuildThermoformerResult {
-  const outline = getShapeOutline(params)
-  if (!outline) throw new Error('Contorno inválido para a forma selecionada')
+  parsedSvg?: ParsedSvg | null,
+): BuildThermoformerResult | null {
+  const outline = getShapeOutline(params, parsedSvg)
+  if (!outline) return null
+  const dims = params.shape === 'circle'
+    ? getSupportDimensions(params)
+    : getTrayDimensions(params, outline)
 
   return {
     screen: buildScreen(params, outline),
-    support: buildSupport(params),
-    plug: buildPlug(params),
-    seatY: getSupportDimensions(params).seatY,
+    support: buildSupport(params, outline),
+    plug: buildPlug(params, outline),
+    seatY: dims.seatY,
   }
 }

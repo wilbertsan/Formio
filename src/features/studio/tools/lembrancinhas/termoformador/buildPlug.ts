@@ -1,5 +1,7 @@
 import { BufferGeometry, LatheGeometry, Vector2 } from 'three'
 import { getSupportDimensions } from './buildSupport'
+import type { ShapeOutline } from './outline'
+import { buildTrayPlug } from './trayParts'
 import { dedupeProfile, removeDegenerateTriangles } from './latheUtils'
 import {
   PLUG_CHAMFER_MM,
@@ -88,10 +90,14 @@ export function buildPlugProfile(
 
 export function buildPlug(
   params: ThermoformerGeometryParams,
+  outline: ShapeOutline,
 ): BufferGeometry {
-  const geometry = new LatheGeometry(
-    buildPlugProfile(params),
-    SCREEN_SEGMENTS,
-  )
-  return removeDegenerateTriangles(geometry)
+  if (params.shape === 'circle') {
+    const geometry = new LatheGeometry(
+      buildPlugProfile(params),
+      SCREEN_SEGMENTS,
+    )
+    return removeDegenerateTriangles(geometry)
+  }
+  return buildTrayPlug(params, outline)
 }

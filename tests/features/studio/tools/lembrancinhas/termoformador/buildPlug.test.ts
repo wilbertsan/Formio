@@ -5,6 +5,7 @@ import {
   getPlugDimensions,
 } from '@/features/studio/tools/lembrancinhas/termoformador/buildPlug'
 import { getSupportDimensions } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import {
   PLUG_DOME_SEGMENTS,
   PLUG_GRIP_MIN_MATERIAL_MM,
@@ -107,7 +108,7 @@ describe('buildPlug', () => {
   it('ocupa o diâmetro e a altura de impressão', () => {
     const params = defaultThermoformerParams
     const dims = getPlugDimensions(params)
-    const geometry = buildPlug(params)
+    const geometry = buildPlug(params, getShapeOutline(params)!)
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
 
@@ -119,7 +120,10 @@ describe('buildPlug', () => {
   })
 
   it('gera malha fechada e volume positivo', () => {
-    const geometry = buildPlug(defaultThermoformerParams)
+    const geometry = buildPlug(
+      defaultThermoformerParams,
+      getShapeOutline(defaultThermoformerParams)!,
+    )
     expect(isClosed(geometry)).toBe(true)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
     geometry.dispose()
@@ -148,7 +152,7 @@ describe('buildPlug', () => {
     ]
 
     for (const params of extremes) {
-      const geometry = buildPlug(params)
+      const geometry = buildPlug(params, getShapeOutline(params)!)
       expect(isClosed(geometry)).toBe(true)
       expect(signedVolume(geometry)).toBeGreaterThan(0)
       geometry.dispose()

@@ -6,6 +6,7 @@ import {
   defaultThermoformerParams,
   type ThermoformerGeometryParams,
 } from '@/features/studio/tools/lembrancinhas/termoformador/schema'
+import type { ParsedSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import {
   serializeThermoformerResult,
   type SerializedThermoformerResult,
@@ -32,6 +33,7 @@ function serializedDisc(): SerializedThermoformerResult {
 
 function makeWorkerFixture(serialize: () => SerializedThermoformerResult = serializedResult) {
   let lastParams: ThermoformerGeometryParams | null = null
+  let lastParsedSvg: ParsedSvg | null | undefined
   let calls = 0
   const pendings: Array<(data: SerializedThermoformerResult) => void> = []
   const failures: Array<() => void> = []
@@ -39,8 +41,9 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
   const factory = (): ScreenWorker => {
     calls++
     return {
-      build: (params, onResult, onError) => {
+      build: (params, parsedSvg, onResult, onError) => {
         lastParams = params
+        lastParsedSvg = parsedSvg
         pendings.push(onResult)
         failures.push(onError ?? (() => undefined))
       },
@@ -55,6 +58,7 @@ function makeWorkerFixture(serialize: () => SerializedThermoformerResult = seria
     respondFirst: () => pendings[0]?.(serialize()),
     fail: () => failures[failures.length - 1]?.(),
     getParams: () => lastParams,
+    getParsedSvg: () => lastParsedSvg,
   }
 }
 
@@ -113,7 +117,7 @@ describe('useThermoformer', () => {
   })
 
   it('envia ao worker após o debounce e aplica a geometria', () => {
-    const { factory, respond, getParams, getCalls } = makeWorkerFixture()
+    const { factory, respond, getParams, getParsedSvg, getCalls } = makeWorkerFixture()
     const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
 
     act(() => { vi.advanceTimersByTime(200) })
@@ -142,6 +146,7 @@ describe('useThermoformer', () => {
       edgeChamfer: 0.6,
       plugHeight: 26,
     })
+    expect(getParsedSvg()).toBeNull()
 
     act(() => { respond() })
     expect(result.current.isBuilding).toBe(false)

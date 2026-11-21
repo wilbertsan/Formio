@@ -4,6 +4,7 @@ import {
   buildSupportProfile,
   getSupportDimensions,
 } from '@/features/studio/tools/lembrancinhas/termoformador/buildSupport'
+import { getShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
 import {
   MINIMUM_SUPPORT_MM,
   defaultThermoformerParams,
@@ -97,7 +98,10 @@ describe('buildSupportProfile', () => {
 
 describe('buildSupport', () => {
   it('ocupa as dimensões externas e fica apoiado na mesa', () => {
-    const geometry = buildSupport(defaultThermoformerParams)
+    const geometry = buildSupport(
+      defaultThermoformerParams,
+      getShapeOutline(defaultThermoformerParams)!,
+    )
     const dims = getSupportDimensions(defaultThermoformerParams)
     geometry.computeBoundingBox()
     const box = geometry.boundingBox!
@@ -112,14 +116,20 @@ describe('buildSupport', () => {
   })
 
   it('spike: malha fechada e volume positivo', () => {
-    const geometry = buildSupport(defaultThermoformerParams)
+    const geometry = buildSupport(
+      defaultThermoformerParams,
+      getShapeOutline(defaultThermoformerParams)!,
+    )
     expect(isClosed(geometry)).toBe(true)
     expect(signedVolume(geometry)).toBeGreaterThan(0)
     geometry.dispose()
   })
 
   it('mantém a parede entre a bacia e o exterior', () => {
-    const geometry = buildSupport(defaultThermoformerParams)
+    const geometry = buildSupport(
+      defaultThermoformerParams,
+      getShapeOutline(defaultThermoformerParams)!,
+    )
     const dims = getSupportDimensions(defaultThermoformerParams)
     geometry.computeBoundingBox()
     expect(geometry.boundingBox!.max.x).toBeCloseTo(dims.outerRadius, 1)
@@ -143,7 +153,7 @@ describe('buildSupport', () => {
     expect(dims.effectiveBowlDepth).toBeLessThan(60)
     expect(dims.cavityWall).toBeCloseTo(4, 5)
 
-    const geometry = buildSupport(params)
+    const geometry = buildSupport(params, getShapeOutline(params)!)
     geometry.computeBoundingBox()
     expect(geometry.boundingBox!.max.x).toBeCloseTo(dims.outerRadius, 1)
     expect(isClosed(geometry)).toBe(true)

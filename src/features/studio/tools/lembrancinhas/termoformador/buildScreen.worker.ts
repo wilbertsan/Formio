@@ -1,9 +1,11 @@
+import type { ParsedSvg } from '../../confeitaria/shared/svgToIconShape'
 import { buildThermoformer } from './buildThermoformer'
 import { serializeThermoformerResult } from './workerGeometry'
 import type { ThermoformerGeometryParams } from './schema'
 
 interface BuildRequest {
   params: ThermoformerGeometryParams
+  parsedSvg: ParsedSvg | null
 }
 
 const scope = self as unknown as {
@@ -12,7 +14,12 @@ const scope = self as unknown as {
 }
 
 scope.onmessage = (event) => {
-  const { params } = event.data
-  const { data, transfer } = serializeThermoformerResult(buildThermoformer(params))
+  const { params, parsedSvg } = event.data
+  const result = buildThermoformer(params, parsedSvg)
+  if (!result) {
+    scope.postMessage({ error: 'invalid-outline' })
+    return
+  }
+  const { data, transfer } = serializeThermoformerResult(result)
   scope.postMessage({ data }, transfer)
 }

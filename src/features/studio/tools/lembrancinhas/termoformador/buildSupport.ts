@@ -1,4 +1,6 @@
 import { BufferGeometry, LatheGeometry, Vector2 } from 'three'
+import type { ShapeOutline } from './outline'
+import { buildTraySupport } from './trayParts'
 import {
   MINIMUM_SUPPORT_MM,
   SCREEN_SEGMENTS,
@@ -122,10 +124,14 @@ export function buildSupportProfile(
 
 export function buildSupport(
   params: ThermoformerGeometryParams,
+  outline: ShapeOutline,
 ): BufferGeometry {
-  const geometry = new LatheGeometry(
-    buildSupportProfile(params),
-    SCREEN_SEGMENTS,
-  )
-  return removeDegenerateTriangles(geometry)
+  if (params.shape === 'circle') {
+    const geometry = new LatheGeometry(
+      buildSupportProfile(params),
+      SCREEN_SEGMENTS,
+    )
+    return removeDegenerateTriangles(geometry)
+  }
+  return buildTraySupport(params, outline)
 }
