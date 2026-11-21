@@ -6,7 +6,8 @@ Implementada (v4: 20 estilos de textura — 6 procedurais + 14 importados — e
 `none`). A v1 trouxe o corpo com anéis decorativos, furo de ventilação, relevo e
 alça de abraçadeira; a v2, as bordas decorativas; a v3, seis texturas
 procedurais em relevo positivo; a v4, 14 mapas de altura gerados dos STLs de
-rolos de textura.
+rolos de textura. Os importados passaram para alta definição: mapas 512 × 256,
+parede de 512 segmentos com passo de 0,4 mm e flat shading no corpo do preview.
 
 ## Objetivo
 
@@ -25,10 +26,12 @@ escamas, onduladas, pedra e pontiagudo) e 14 importados de rolos de textura
 fica fora do repositório (~400 MB, no `.gitignore`); a licença foi liberada pelo
 usuário e só os assets gerados (`importedTextures.ts` e
 `importedTextureData.ts`) são commitados. Eles preservam a profundidade nativa
-do arquivo (1,21–4,23 mm), podem exigir suporte (flancos de 49–74°) e ignoram os
-sliders de profundidade e escala. A faixa da abraçadeira fica lisa e o nome é
-elevado pelo envelope da textura; o laço da alça se afasta para não colidir com
-o relevo.
+do arquivo (1,21–4,25 mm), podem exigir suporte (flancos de 67,8–82,7° no mapa
+quantizado, um limite inferior) e ignoram os sliders de profundidade e escala.
+O mapa é 512 × 256 (~0,45 mm em `u` e ~0,39 mm em `v`) e a parede usa 512
+segmentos com passo de 0,4 mm. A faixa da abraçadeira fica lisa, o preview do
+corpo importado usa flat shading e o nome é elevado pelo envelope da textura; o
+laço da alça se afasta para não colidir com o relevo.
 
 A lata não é modelada. As medidas abaixo são um preset fixo de referência; o
 usuário ajusta a folga, a profundidade da cavidade, as paredes, o furo, a borda,
@@ -90,20 +93,25 @@ mapa e ignora ambos.
 
 | Id | Nome no painel | Profundidade | Flancos |
 |---|---|---|---|
-| `azulejos` | Azulejos 1" | 2,25 mm | ~65° |
-| `mosaico` | Mosaico | 3,17 mm | ~72° |
-| `tijolos_pequenos` | Tijolos pequenos | 1,59 mm | ~56° |
-| `reboco_pequeno` | Reboco quebrado pequeno | 2,26 mm | ~49° |
-| `tijolos_rusticos` | Tijolos rústicos | 2,40 mm | ~63° |
-| `reboco_quebrado` | Reboco quebrado | 2,08 mm | ~61° |
-| `tijolos_limpos` | Tijolos limpos | 1,21 mm | ~49° |
-| `paralelepipedos` | Paralelepípedos | 1,79 mm | ~60° |
-| `paralelepipedos_suaves` | Paralelepípedos suaves | 1,79 mm | ~60° |
-| `placa_diamantada` | Placa diamantada | 2,89 mm | ~70° |
-| `pedra_hexagonal` | Pedra hexagonal | 4,23 mm | ~73° |
-| `asfalto` | Asfalto | 2,54 mm | ~65° |
-| `hex_scifi` | Hex sci-fi | 3,88 mm | ~74° |
-| `hex_scifi_pequeno` | Hex sci-fi pequeno | 2,96 mm | ~71° |
+| `azulejos` | Azulejos 1" | 2,18 mm | ~78° |
+| `mosaico` | Mosaico | 3,15 mm | ~83° |
+| `tijolos_pequenos` | Tijolos pequenos | 1,54 mm | ~70° |
+| `reboco_pequeno` | Reboco quebrado pequeno | 2,28 mm | ~68° |
+| `tijolos_rusticos` | Tijolos rústicos | 2,29 mm | ~75° |
+| `reboco_quebrado` | Reboco quebrado | 2,07 mm | ~73° |
+| `tijolos_limpos` | Tijolos limpos | 1,21 mm | ~72° |
+| `paralelepipedos` | Paralelepípedos | 1,79 mm | ~78° |
+| `paralelepipedos_suaves` | Paralelepípedos suaves | 1,78 mm | ~78° |
+| `placa_diamantada` | Placa diamantada | 2,85 mm | ~81° |
+| `pedra_hexagonal` | Pedra hexagonal | 4,25 mm | ~81° |
+| `asfalto` | Asfalto | 2,40 mm | ~80° |
+| `hex_scifi` | Hex sci-fi | 3,91 mm | ~82° |
+| `hex_scifi_pequeno` | Hex sci-fi pequeno | 2,96 mm | ~83° |
+
+A coluna de flancos arredonda o `maxSlopeDeg` da metadata (duas casas,
+67,8–82,7°); o painel usa `Math.round` na nota. A inclinação é medida só em `v`,
+no mapa quantizado de 256 linhas, então é um **limite inferior**: a 1024 × 512 a
+`pedra_hexagonal` chega a ~85,75°.
 
 `textureStyle: 'none'` devolve o corpo atual, sem detalhe e sem custo extra.
 `getEffectiveTextureDepth` devolve 0 com `none`, `min(textureDepth,
@@ -111,8 +119,11 @@ textureScale / 4)` nos procedurais e a profundidade nativa nos importados.
 `getTextureEnvelope` é a profundidade efetiva (`nativeDepth` nos importados).
 
 Constantes: `TEXTURE_RADIAL_SEGMENTS` (256), `TEXTURE_STEP_MM` (1 mm),
+`IMPORTED_TEXTURE_RADIAL_SEGMENTS` (512), `IMPORTED_TEXTURE_STEP_MM` (0,4 mm),
 `TEXTURE_EDGE_FADE_MM` (2 mm), `TEXTURE_HANDLE_GAP_MM` (1 mm),
-`TEXTURE_HANDLE_FADE_MM` (2 mm) e `MIN_LOOP_GAP_MM` (0,7 mm).
+`TEXTURE_HANDLE_FADE_MM` (2 mm) e `MIN_LOOP_GAP_MM` (0,7 mm). Os segmentos e o
+passo importados só valem para os 14 estilos importados; os procedurais
+continuam em 256/1 mm e `none` em 128 segmentos sem subdivisão.
 
 ### Alça
 
@@ -148,7 +159,7 @@ Constantes: `TEXTURE_RADIAL_SEGMENTS` (256), `TEXTURE_STEP_MM` (1 mm),
   do texto. Com textura procedural de 1,5 mm e escala ≥ 6 → **75,6 mm**; com
   escala 4 a profundidade efetiva é 1,0 mm e o anel ainda define o máximo →
   **74,6 mm**. Com importada o envelope é a profundidade nativa: `paralelepípedos`
-  → **76,2 mm**; `pedra_hexagonal` (4,23 mm, o maior) → **81,1 mm**.
+  → **76,2 mm**; `pedra_hexagonal` (4,25 mm, o maior) → **81,1 mm**.
 - Altura externa: `cavityDepth + bottomThickness` → **111,2 mm**.
 - Altura exposta da lata: `CAN_HEIGHT - cavityDepth` → **14,2 mm**.
 - Parede do topo (top land):
@@ -166,7 +177,7 @@ Constantes: `TEXTURE_RADIAL_SEGMENTS` (256), `TEXTURE_STEP_MM` (1 mm),
   estilo. Nos procedurais o envelope é ≤ 1,5 mm e o offset é 0; nos importados o
   laço se afasta por `getLoopOffset` para preservar `MIN_LOOP_GAP_MM`.
 - Abertura da mão no default: **24,7 mm** sem textura; com `pedra_hexagonal` cai
-  para **22,07 mm** (offset de 2,63 mm), ainda acima do aviso de 16 mm.
+  para **22,05 mm** (offset de 2,65 mm), ainda acima do aviso de 16 mm.
 
 O painel mostra diâmetro máximo (anel ou textura), altura externa, altura
 exposta e parede do topo; a seção **Bordas** mostra `Texto entre X e Y mm` a
@@ -177,8 +188,14 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
 
 - 1 unidade Three.js = 1 mm.
 - O corpo é um sólido único, fechado e de gênero 1 (furo passante no fundo),
-  gerado por `LatheGeometry` (128 segmentos; 256 com textura) a partir de um
-  perfil 2D fechado. Não há CSG no corpo além da união do relevo.
+  gerado por `LatheGeometry` (128 segmentos sem textura, 256 nos procedurais e
+  512 nos importados) a partir de um perfil 2D fechado. Não há CSG no corpo além
+  da união do relevo.
+- Contagens de malha do corpo sozinho: importado 133.893 vértices / 266.240
+  triângulos; procedural `wood` no default 29.041 / 57.344; `none` 1.806 / 3.328.
+  Com o texto unido, o corpo importado profundo chega a ~197 mil vértices /
+  291.632 triângulos. `weldSeamNormals` recebe o número de segmentos (512 ou
+  256) e solda as colunas da emenda com `segments × pointCount`.
 - Perfil do corpo no plano `(r, y)` com os anéis ligados:
 
   ```text
@@ -227,12 +244,13 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   separada nem recorte onde a alça passa.
 - A textura é um campo de altura determinístico e periódico em θ, aplicado só à
   parede externa entre os anéis. Nos seis estilos procedurais o campo é
-  analítico; nos 14 importados vem de um mapa de altura 192 × 96 amostrado com
+  analítico; nos 14 importados vem de um mapa de altura 512 × 256 amostrado com
   `u = θ / 2π` e `v = (y − paredeMin) / (paredeMax − paredeMin)`.
   `findOuterWall` escolhe o segmento vertical mais longo fora da cavidade (entre
   os anéis com eles ligados; da base ao chanfro da borda sem anéis). A parede é
-  subdividida em passos de `TEXTURE_STEP_MM` (1 mm) e o `LatheGeometry` usa
-  `TEXTURE_RADIAL_SEGMENTS` (256) quando há textura; sem textura continuam o
+  subdividida em passos de `TEXTURE_STEP_MM` (1 mm) nos procedurais ou
+  `IMPORTED_TEXTURE_STEP_MM` (0,4 mm) nos importados, e o `LatheGeometry` usa
+  256 segmentos nos procedurais ou 512 nos importados; sem textura continuam o
   perfil e os 128 segmentos originais.
 - O deslocamento é radial e só atinge vértices com raio ≈ `outerR` dentro da
   faixa da parede: `r = outerR + h(θ, y) × máscara(y)`. Anéis, base, borda,
@@ -246,7 +264,7 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   `outerR` (máscara 0), com fade de `max(2 mm, 3 × depthEfetivo)` nas duas
   pontas (também limitado a 4 mm nos importados). Assim `getBandInnerRadius`, a
   folga e a interferência da alça continuam valendo.
-- Nos importados a amostragem é bilinear: `u` é periódico em 1 (a coluna 191
+- Nos importados a amostragem é bilinear: `u` é periódico em 1 (a coluna 511
   emenda na 0) e `v` é clampado em 0..1. A altura devolvida é
   `mapa × nativeDepth`, então o relevo radial preserva a profundidade medida no
   STL e o padrão é esticado para a parede entre os anéis (~99 mm no default). A
@@ -270,8 +288,11 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
 - A profundidade efetiva procedural é `min(textureDepth, textureScale / 4)`, o
   que mantém os flancos nominais em ≤ 45° mesmo na profundidade máxima; é uma
   defesa contra flancos mais íngremes que o imprimível. Nos importados não há
-  clamp: a profundidade nativa (1,21–4,23 mm) é preservada e os flancos medidos
-  ficam em 49–74°, cobertos pela nota de suporte do painel.
+  clamp: a profundidade nativa (1,21–4,25 mm) é preservada e os flancos medidos
+  ficam em 67,8–82,7° a 512 × 256, cobertos pela nota de suporte do painel. A
+  inclinação é medida só em `v` (Δv entre linhas) no mapa quantizado de 256
+  linhas e cresce com a resolução: é um limite inferior (a 1024 × 512 a
+  `pedra_hexagonal` chega a ~85,75°).
 - `getEffectiveLeadIn` e `getEffectiveRimChamfer` limitam os valores pedidos
   para preservar `MIN_TOP_LAND_MM` (0,8 mm) de parede no topo. A validação
   `can-rim` usa a regra crua, antes do clamp do perfil.
@@ -307,8 +328,8 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
   que o necessário em trechos rasos, mas nunca colide com o relevo.
 - O relevo do texto é positivo em 1 mm acima do envelope da textura, unido ao
   corpo por CSG, e fica centralizado no lado oposto à alça (180° a partir do
-  +X). Com importados profundos a frente do texto pode ficar até ~5,2 mm acima
-  da parede (1 mm + os 4,23 mm de `pedra_hexagonal`).
+  +X). Com importados profundos a frente do texto pode ficar até ~5,25 mm acima
+  da parede (1 mm + os 4,25 mm de `pedra_hexagonal`).
 - A alça é uma peça separada, montada por pressão **por baixo**, com abraçadeira
   em C de 200° centrada no +X e laço em D. `handleClearance` é a folga nominal no
   meio da banda; no topo a interferência é absoluta de 0,4 mm
@@ -364,7 +385,7 @@ default. Não há capacidade em ml: a capacidade é da lata (350 ml).
 files/*.stl (fora do repo, ~400 MB)
   → scripts/texture-import.mjs (manual)
   → importedTextures.ts (metadados)
-  → importedTextureData.ts (mapas 192 × 96 em base64)
+  → importedTextureData.ts (mapas 512 × 256 em base64)
 ```
 
 ```text
@@ -372,29 +393,31 @@ Parâmetros
   → schema + validação (main thread)
   → dimensões derivadas (inner/outer/altura exposta/top land/faixa do texto/envelope)
   → perfil do corpo com anéis decorativos e furo de ventilação
-  → findOuterWall + subdivisão da parede em passos de 1 mm
-  → buildBody (LatheGeometry 256 + texture.ts: procedural ou mapa importado + máscaras + limpeza)
+  → findOuterWall + subdivisão da parede em passos de 1 mm (procedural) ou 0,4 mm (importado)
+  → buildBody (LatheGeometry 256/512 + texture.ts: procedural ou mapa importado + máscaras + limpeza)
   → textToShapes + curvatura em outerR + envelope + subdivisão conforme
   → CSG union(texto elevado, corpo) com CDT
   → buildHandle (abraçadeira + laço + CSG interno, com offset do envelope)
   → buildCanHolder ({ body, handle })
   → worker + serialização (position/normal/index)
-  → preview montado / export dos dois STLs
+  → preview montado (flat shading no corpo importado) / export dos dois STLs
 ```
 
 ### Pipeline das texturas importadas
 
 - `scripts/texture-import.mjs` lê os 14 STLs binários de `files/` e gera
   `importedTextures.ts` (metadados: id, label, profundidade nativa, inclinação,
-  dimensões) e `importedTextureData.ts` (mapas em base64, 192 × 96, ~344 KB /
-  336 KiB). O
-  primeiro é importado por schema e painel; o segundo só por `texture.ts`, que
-  roda no chunk do worker.
+  dimensões) e `importedTextureData.ts` (mapas em base64, 512 × 256, 14 mapas de
+  131.072 B). O asset tem **2.447.258 B (~2,4 MB / 2,33 MiB; gzip ~1,28 MB)** e
+  entra no chunk do worker (~2,88 MB raw / ~1,40 MB gzip). O primeiro é
+  importado por schema e painel; o segundo só por `texture.ts`, que roda no
+  chunk do worker.
 - `readBinaryStl` valida o cabeçalho (84 bytes + 50 por triângulo) e devolve só
   as posições. `unwrapCylinder` usa Z como eixo do rolo, centra X/Y nos bounds e
-  rasteriza a superfície externa numa grade fixa de 192 colunas (θ) × 96 linhas
+  rasteriza a superfície externa numa grade fixa de 512 colunas (θ) × 256 linhas
   (v), guardando o **maior raio** por célula — a casca externa vence a parede do
-  furo.
+  furo. Com a parede de ~99,2 mm, o mapa amostra `u ≈ 0,45 mm` (circunferência)
+  e `v ≈ 0,39 mm`.
 - As pontas (flange, lip, taper) são cortadas pela **mediana do raio**: um
   raster grosseiro de ~1 linha/mm calcula a mediana de cada linha, a referência
   interior vem do miolo (25–75%) e as pontas saem enquanto a mediana se afasta
@@ -406,18 +429,21 @@ Parâmetros
   reais em 0,1–0,3. Células vazias são preenchidas pela média dos vizinhos (até
   8 passadas); o mapa precisa de ≥ 80% de cobertura.
 - A normalização usa os percentis **p1/p99** do mapa preenchido:
-  `nativeDepth = high − low` (1,21–4,23 mm) e cada célula vira 8 bits em 0..255.
+  `nativeDepth = high − low` (1,21–4,25 mm) e cada célula vira 8 bits em 0..255.
   A inclinação máxima é medida com o mapa já mapeado para a parede nominal de
-  99,2 mm (`depth × |Δv| / (99,2/95)`), em graus (49–74°).
+  99,2 mm (`depth × |Δv| / (99,2/255)`), em graus (67,8–82,7°). Só Δv é medido
+  (o gradiente horizontal não entra), e como o mapa é quantizado em 256 linhas o
+  valor é um limite inferior.
 - No runtime `importedTextureHeight` decodifica o base64 uma vez por worker e
   faz amostragem bilinear com `u` periódico e `v` clampado; o resultado é
   multiplicado por `nativeDepth` e pela máscara de `textureMask`.
 
 ### Regeneração
 
-- `node scripts/texture-import.mjs` regenera os dois assets e imprime a tabela
-  de id/profundidade/inclinação; `--check` regenera em memória e compara com os
-  arquivos commitados, saindo com erro na primeira diferença.
+- `node scripts/texture-import.mjs` regenera os dois assets (~33 s) e imprime a
+  tabela de id/profundidade/inclinação; `--check` regenera em memória e compara
+  com os arquivos commitados, saindo com erro na primeira diferença (~33 s e
+  ~420 MB de pico).
 - Requisitos: **Node 24** (o script importa `textureImport.ts` direto e depende
   do type stripping), `files/` local com os 14 STLs (~400 MB, fora do repo) e
   execução **manual** — o script não roda no CI, e o `--check` também exige os
@@ -427,6 +453,9 @@ Parâmetros
 ## Exportação
 
 - Dois STLs binários: `<nome>-corpo.stl` e `<nome>-alca.stl`.
+- O corpo importado com texto exporta 291.632 triângulos, ~14,6 MB em STL
+  binário; `none` fica em poucos milhares de triângulos. O tamanho é inerente ao
+  detalhe da parede de 512 segmentos / 0,4 mm e não muda o formato.
 - Cada peça é clonada pelo `exportStl` e centralizada na mesa, com a base em
   `y = 0`.
 - O corpo sai como construído (em pé), com o anel inferior como superfície de
@@ -452,7 +481,11 @@ Parâmetros
   acima da textura." e, se a profundidade pedida passar da efetiva,
   "Profundidade efetiva: X mm (limitada pela escala).".
 - Com importado, a nota é "Textura importada: profundidade X mm · flancos ~Y°.
-  Pode exigir suporte."; a linha "limitada pela escala" não aparece.
+  Pode exigir suporte."; `Y` é o `maxSlopeDeg` da metadata arredondado, um limite
+  inferior (medido em 256 linhas); a linha "limitada pela escala" não aparece.
+- No preview, o corpo importado usa **flat shading** (a alça continua suave e a
+  geometria anterior fica visível durante o build). Procedurais e `none`
+  continuam com normais suavizadas.
 - O status bar mostra o diâmetro máximo de `getMaxOuterDiameter` (anel ou
   textura, incluindo o envelope importado), a altura externa e a espessura da
   parede: **74,6 × 111,2 × 2,4 mm** no default.
@@ -476,12 +509,12 @@ Parâmetros
 | `can-handle-fit` | warning | folga nominal acima de `HANDLE_FIT_INTERFERENCE` (0,4 mm); a interferência no topo é sempre absoluta |
 | `can-handle-band` | error | a banda da abraçadeira (`handleHeight ± handleWidth / 2`) precisa ficar entre os anéis: `w + 2` até `min(altura - chanfro, altura - w) - 2`; o laço pode passar da borda |
 
-**Não existe `can-texture-slope`.** Os 14 importados medem 49–74° (todos acima
-de 45° em algum ponto), então um aviso por estilo não discriminaria; a nota
-"Pode exigir suporte." fica na seção Textura do painel e não bloqueia build nem
-export. `maxSlopeDeg` permanece na metadata e é exibido na nota. `can-handle-reach`
-continua sendo o único aviso que reage à textura importada, via abertura da mão
-reduzida.
+**Não existe `can-texture-slope`.** Os 14 importados medem 67,8–82,7° a
+512 × 256 (todos acima de 45° em algum ponto), então um aviso por estilo não
+discriminaria; a nota "Pode exigir suporte." fica na seção Textura do painel e
+não bloqueia build nem export. `maxSlopeDeg` permanece na metadata e é exibido
+na nota. `can-handle-reach` continua sendo o único aviso que reage à textura
+importada, via abertura da mão reduzida.
 
 `can-invalid`, `can-font`, `can-csg` e `can-build` não são códigos de validação:
 são falhas de runtime do worker para parâmetros inválidos, carga da fonte, união
@@ -491,6 +524,21 @@ hook traduz o código em mensagem amigável.
 Avisos e erros de validação não bloqueiam o build nem o export: a validação é
 consultiva e aparece no painel. Falha de CSG mantém a geometria anterior e
 mostra erro no overlay.
+
+## Testes
+
+- Os 14 corpos importados rodam em **5 arquivos** `buildBodyImported*`
+  (`buildBodyImported` + `part2`–`part5`), com 3 estilos por arquivo (o último
+  com 2); a divisão mantém cada arquivo abaixo do watchdog do Vitest. Uma amostra
+  (`azulejos`) cobre a emenda em 512 segmentos.
+- Os builds completos pesados ficam em arquivos próprios: `buildCanHolder`,
+  `buildCanHolderTextures` e `buildCanHolderExtremes` (a divisão do antigo
+  arquivo único), além de `buildCanHolderImported`, que cobre os importados com
+  texto e alça.
+- Os casos caros usam timeout explícito de **60 s**; o helper
+  `canHolderTestUtils` fornece `realFont`, `seamGroups`, `readCpu` e
+  `rayCrossings`. O gate de CPU do build default continua em 4 s.
+- Suíte completa: **1622/1622 testes**, 157 arquivos, exit 0, ~95 s.
 
 ## Decisões da v1
 
@@ -550,8 +598,10 @@ mostra erro no overlay.
   `HANDLE_LOOP_INSET` (2 mm), `HOLDER_SEGMENTS` (128), `BASE_CHAMFER_MM`
   (0,4 mm), `MIN_EDGE_RIM_FLAT_MM` (1 mm), `TEXT_BAND_MARGIN_MM` (2 mm),
   `CONTENT_DEPTH` (1 mm), `TEXTURE_RADIAL_SEGMENTS` (256), `TEXTURE_STEP_MM`
-  (1 mm), `TEXTURE_EDGE_FADE_MM` (2 mm), `TEXTURE_HANDLE_GAP_MM` (1 mm),
-  `TEXTURE_HANDLE_FADE_MM` (2 mm) e `MIN_LOOP_GAP_MM` (0,7 mm).
+  (1 mm), `IMPORTED_TEXTURE_RADIAL_SEGMENTS` (512),
+  `IMPORTED_TEXTURE_STEP_MM` (0,4 mm), `TEXTURE_EDGE_FADE_MM` (2 mm),
+  `TEXTURE_HANDLE_GAP_MM` (1 mm), `TEXTURE_HANDLE_FADE_MM` (2 mm) e
+  `MIN_LOOP_GAP_MM` (0,7 mm).
 - **Painel mostra a parede do topo:** `Parede do topo` usa `getTopLand` e expõe o
   valor efetivo depois dos clamps de borda, evitando um helper só de teste.
 
@@ -580,8 +630,8 @@ mostra erro no overlay.
 ### Decisões das texturas
 
 - **Sem textura, corpo idêntico:** `none` mantém o perfil, os 128 segmentos e a
-  bbox atuais; a subdivisão, os 256 segmentos e as máscaras só entram quando há
-  estilo escolhido.
+  bbox atuais; a subdivisão, os segmentos extras (256 nos procedurais, 512 nos
+  importados) e as máscaras só entram quando há estilo escolhido.
 - **Campo de altura, não CSG:** a textura desloca radialmente só os vértices da
   parede em `outerR`. A topologia do lathe é preservada, então a malha continua
   fechada e single-shell, sem custo de união CSG para o padrão.
@@ -593,9 +643,10 @@ mostra erro no overlay.
 - **Envelope máximo:** `getMaxOuterDiameter` usa o maior entre o salto do anel e
   o envelope da textura; o relevo do texto continua fora, como nas demais
   medidas nominais.
-- **Resolução 256/1,0 mantida:** o build texturado completo mediu ~1,06 s de CPU
+- **Procedurais em 256/1,0:** o build procedural completo mediu ~1,06 s de CPU
   no default, dentro do gate de 4 s, então não foi preciso reduzir para 192
-  segmentos ou passo de 1,2 mm.
+  segmentos ou passo de 1,2 mm. A alta definição (512/0,4) vale só para os
+  importados.
 - **Pedra e pontiagudo imprimíveis:** a pedra troca o bisel por interpolação
   suave (smoothstep) e o pontiagudo usa cone com meia-base
   `max(depthEfetivo, 0,3 × escala)`, mantendo os flancos próximos de 45°.
@@ -603,61 +654,86 @@ mostra erro no overlay.
 ### Decisões das texturas importadas
 
 - **Campo de altura, não STL no runtime:** o app não carrega os rolos nem
-  preserva a malha original; o script reduz cada um a um mapa 192 × 96 e o
-  runtime aplica como deslocamento radial. Assets pequenos, build determinístico
-  e nenhum parser STL no bundle.
+  preserva a malha original; o script reduz cada um a um mapa 512 × 256 e o
+  runtime aplica como deslocamento radial. Build determinístico, nenhum parser
+  STL no bundle e o detalhe útil fica em ~0,45 mm, perto do bico de 0,4 mm.
+- **Alta definição na parede:** os importados usam 512 segmentos e passo de
+  0,4 mm (procedurais seguem 256/1 e `none` 128). O corpo importado tem 133.893
+  vértices / 266.240 triângulos; com texto, até ~197 mil / 291.632, e o STL do
+  corpo fica em ~14,6 MB. Não houve fallback para 448/0,45: o build completo
+  mediu 5,6–6,5 s de CPU, dentro do gate de ~8 s.
+- **Flat shading no preview importado:** o corpo usa `flatShading` porque as
+  facetas de 0,4 mm são reais no STL; a alça continua suave. O flag vem de
+  `builtParams` (snapshot exibido), não do slider em edição. O material leva
+  `key={flatShading ? 'flat' : 'smooth'}` para forçar um program novo, já que o
+  R3F 9.7 não marca `needsUpdate` ao trocar `flatShading`.
 - **Profundidade nativa:** os importados ignoram `textureDepth`/`textureScale` e
-  preservam a profundidade medida (1,21–4,23 mm). Fidelidade ao rolo vale mais
+  preservam a profundidade medida (1,21–4,25 mm). Fidelidade ao rolo vale mais
   que o clamp procedural de `escala/4`, que reduziria drasticamente o relevo.
-- **u/v normalizado:** `u = θ/2π` fecha a volta sem emenda e `v` preenche a
-  parede entre os anéis; o padrão é esticado (~1,4–2,4× na horizontal, até ~2,6×
-  nos vales), aceito
-  em troca de uma textura contínua em 360°.
+- **u/v normalizado:** `u = θ/2π` fecha a volta sem emenda (a coluna 511 emenda
+  na 0) e `v` preenche a parede entre os anéis; o padrão é esticado (~1,4–2,4×
+  na horizontal, até ~2,6× nos vales), aceito em troca de uma textura contínua
+  em 360°.
 - **Trim por mediana:** cortar flange/lip/taper pela mediana do raio é mais
   estável que detectar variação em θ; a tolerância de 0,8 mm é apertada, mas os
   14 arquivos ficam em ~63–107 mm de faixa útil.
 - **Corte de furo em 0,78:** o maior raio da faixa final separa a casca externa
   da parede do furo. O valor fica logo abaixo de 0,80 para não apagar vales
   legítimos das texturas profundas.
-- **Sem `can-texture-slope`:** todos os 14 medem 49–74°, então o aviso
-  dispararia em todos e não ajudaria a escolher; a nota de suporte no painel
-  cobre o risco e mantém build/export livres.
+- **Sem `can-texture-slope`:** todos os 14 medem 67,8–82,7° a 512 × 256, então o
+  aviso dispararia em todos e não ajudaria a escolher; a nota de suporte no
+  painel cobre o risco e mantém build/export livres. A inclinação é medida só em
+  `v`, no mapa quantizado de 256 linhas, e é um limite inferior.
 - **Offset global conservador:** o laço usa o envelope máximo do estilo, não a
   altura local; pode sobrar espaço em trechos rasos, mas a garantia de 0,7 mm é
   simples e independente da amostragem.
 - **Assets gerados commitados:** `importedTextures.ts` e
-  `importedTextureData.ts` entram no repositório; `files/` (~400 MB) fica no
-  `.gitignore` e é necessário só para regenerar. O `--check` detecta asset
+  `importedTextureData.ts` entram no repositório; o data tem 2.447.258 B (~2,4 MB
+  / 2,33 MiB; gzip ~1,28 MB) e `files/` (~400 MB) fica no `.gitignore`, necessário
+  só para regenerar. O `--check` (~33 s, ~420 MB de pico) detecta asset
   desatualizado localmente.
 
 ## Riscos
 
-- **Custo de malha e CSG:** a parede texturada passa de ~25 mil quads; o build
-  completo mediu ~1,06 s de CPU no default texturado (gate de 4 s). Se um estilo
-  estourar o orçamento, reduzir para 192 segmentos ou passo de 1,2 mm.
+- **Custo de malha e CSG:** o corpo importado tem 133.893 vértices / 266.240
+  triângulos; com texto chega a ~197 mil / 291.632 e o STL do corpo a ~14,6 MB.
+  O `buildBody` importado leva 0,65–0,85 s (~1 s frio) e o build completo com
+  texto 5,6–6,5 s de CPU (paralelepípedos 5,6; pedra 5,8; frio 6,5); o default
+  `none` fica em ~1,3 s. Ficou dentro do gate de ~8 s, então não houve fallback
+  para 448 segmentos / 0,45 mm. O worker mantém a UI livre e o preview mostra a
+  geometria anterior enquanto o build novo chega.
 - **Aliasing em pedra e pontiagudo na escala 4:** o passo de 1 mm é o limite; a
   pedra usa interpolação suave e o preview serve de revisão. O relevo positivo
   mantém o pior caso imprimível.
 - **Emenda em θ (procedurais):** a contagem de células é inteira e as funções
   são periódicas; as normais das colunas duplicadas são soldadas no corpo final.
   O teste compara alturas em 0 e 2π e as normais após o CSG. Nos importados a
-  emenda é contínua porque `u` é periódico na amostragem bilinear.
+  emenda é contínua porque `u` é periódico (coluna 511 emenda na 0) na
+  amostragem bilinear.
 - **Flancos medidos:** as facetas da parede procedural medem no máximo ~42,5°
   (spikes, escala 6, profundidade 1,5, ombro da máscara), abaixo do limite de
   45°; a discretização de 1 mm × 256 segmentos é o que define o valor impresso.
-- **Overhangs importados:** os 14 estilos medem 49–74° e a profundidade nativa
-  chega a 4,23 mm; a impressão pode exigir suporte. A nota do painel avisa, mas
-  build e STL continuam válidos e manifold.
+- **Overhangs importados:** a 512 × 256 os 14 estilos medem 67,8–82,7° e a
+  profundidade nativa chega a 4,25 mm; a impressão pode exigir suporte. A
+  inclinação é medida só em `v`, no mapa quantizado de 256 linhas, então é um
+  limite inferior: a 1024 × 512 a `pedra_hexagonal` chega a ~85,75°. A nota do
+  painel avisa, mas build e STL continuam válidos e manifold.
 - **Distorção u/v:** o padrão é esticado ~1,4–2,4× na horizontal (até ~2,6× nos
   vales) e a escala
   vertical depende da altura do rolo; é o preço de fechar 360° sem emenda. O
   relevo radial é fiel à profundidade.
 - **Laço mais afastado:** com `pedra_hexagonal` a abertura da mão cai para
-  ~22 mm; `can-handle-reach` avisa abaixo de 16 mm. O offset não altera o raio
-  interno nem o encaixe.
-- **Asset desatualizado:** o `--check` compara os módulos gerados com os STLs
-  locais; sem `files/` ele não roda. Os testes de metadata e de mapa cobrem
-  contagem, dimensões e faixa de profundidade.
+  ~22,05 mm (offset de 2,65 mm); `can-handle-reach` avisa abaixo de 16 mm. O
+  offset não altera o raio interno nem o encaixe.
+- **Carga inicial do worker:** o chunk tem ~2,88 MB raw / ~1,40 MB gzip porque o
+  `importedTextureData.ts` entra inteiro no bundle do worker. O hook builda no
+  mount mesmo com `textureStyle: none`, então o data (~1,4 MB gzip) é baixado
+  sem o usuário ter escolhido textura. É o custo conhecido da alta definição;
+  follow-up possível: import dinâmico do estilo escolhido ou compressão
+  PNG/WebP do mapa.
+- **Asset desatualizado:** o `--check` (~33 s, ~420 MB de pico) compara os
+  módulos gerados com os STLs locais; sem `files/` ele não roda. Os testes de
+  metadata e de mapa cobrem contagem, dimensões e faixa de profundidade.
 - **Texturas parecidas:** são 14 opções, algumas próximas (`tijolos_*`,
   `reboco_*`, `paralelepipedos*` e `hex_scifi*`); os rótulos em português e o
   preview deixam a escolha clara.
@@ -669,5 +745,6 @@ isolamento térmico, canudo, base separada, outras latas (slim, 473 ml etc.),
 alça integrada, mais de uma linha de texto, ícone SVG e 3MF/STEP. Na textura:
 upload de STL/PNG em runtime; textura nos anéis, na base, na cavidade, na borda,
 na alça ou no relevo do texto; relevo entalhado (negativo); textura por SVG ou
-imagem; cor por textura; material/bump no preview (o STL carrega só a
-geometria).
+imagem; cor por textura; material/bump no preview além do flat shading dos
+importados (o STL carrega só a geometria). Compressão PNG/WebP dos mapas e
+import dinâmico do chunk do worker ficam como follow-ups, não entram na v4.

@@ -34,12 +34,15 @@ lembrancinhas.
   positivo na parede: seis procedurais (madeira, metal, escamas, onduladas,
   pedra e pontiagudo), com profundidade efetiva `min(profundidade, escala/4)`, e
   14 importadas de mapas de altura dos STLs de `files/` (`azulejos` a
-  `hex_scifi_pequeno`), com profundidade nativa de 1,21–4,23 mm e nota de
-  suporte no painel (flancos de 49–74°); os sliders de profundidade/escala só
-  valem nos procedurais e `can-texture` só avisa neles. Faixa lisa na alça,
-  texto 1 mm acima do envelope da textura e diâmetro máximo considerando a
-  textura; o laço da alça se afasta pelo envelope (`getLoopOffset`) para manter
-  ≥ 0,7 mm até o pico. Não há capacidade em ml: a capacidade é da lata
+  `hex_scifi_pequeno`), em alta definição: mapa 512 × 256 e parede de 512
+  segmentos com passo de 0,4 mm, profundidade nativa de 1,21–4,25 mm e nota de
+  suporte no painel (flancos de 67,8–82,7° no mapa quantizado, um limite
+  inferior). O corpo importado usa flat shading no preview, tem build completo
+  de ~6 s de CPU e STL de ~14,6 MB; os sliders de profundidade/escala só valem
+  nos procedurais e `can-texture` só avisa neles. Faixa lisa na alça, texto 1 mm
+  acima do envelope da textura e diâmetro máximo considerando a textura; o laço
+  da alça se afasta pelo envelope (`getLoopOffset`) para manter ≥ 0,7 mm até o
+  pico. Não há capacidade em ml: a capacidade é da lata
 
 ## Invariantes
 
