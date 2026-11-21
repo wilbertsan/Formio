@@ -465,8 +465,8 @@ Texturas importadas:
   (não versionados, ~400 MB), desenrola a superfície externa com
   `unwrapCylinder` (grade 512 × 256, maior raio por célula, filtro de furo
   0,78 × maior raio, corte das pontas/flange pela mediana do raio) e grava
-  `importedTextures.ts` (metadados) e `importedTextureData.ts` (base64, ~344 KB /
-  336 KiB,
+  `importedTextures.ts` (metadados) e `importedTextureData.ts` (base64, 2,4 MB /
+  2,33 MiB,
   importado só pelo `texture.ts`/worker). `node scripts/texture-import.mjs
   --check` valida o asset; exige Node 24 e os STLs locais.
 - **Mapeamento**: `u = θ/2π` (volta completa, sem emenda) e
@@ -477,7 +477,7 @@ Texturas importadas:
 - **Alça**: `getLoopOffset = max(0, envelope − (handleClearance + 2 − 0,7))`;
   `getLoopLeftX` soma o offset e `getBandOuterRadius`/`getHandleMetrics`
   engrossam a abraçadeira para fora. O raio interno/fit não muda; a abertura da
-  mão cai (ex.: 22,07 mm em `pedra_hexagonal`). A sobreposição de ~1,5 mm no
+  mão cai (ex.: 22,05 mm em `pedra_hexagonal`). A sobreposição de ~1,5 mm no
   meio e ~0,7 mm no topo vale no plano central; o canto lateral é cosmético e
   não solta a peça.
 - **Painel**: select com os grupos Procedurais/Importadas; nos importados,
@@ -485,7 +485,8 @@ Texturas importadas:
   profundidade X mm · flancos ~N°. Pode exigir suporte.".
 - **Custo**: 14 mapas normalizados/decodificados lazy; o chunk do worker cresce
   2,4 MB / 2,33 MiB; o build completo importado mediu **5,6–6,5 s de CPU**
-  (frio 6,5 s) com 512/0,4, sem fallback.
+  em máquina ociosa (frio 6,5 s; sob carga pode passar de 10 s) com 512/0,4,
+  sem fallback.
 
 Alta definição (importados):
 
@@ -496,8 +497,8 @@ Alta definição (importados):
 - **Parede 512 segmentos × 0,4 mm** (266.240 triângulos; ~291,6k com o texto;
   STL do corpo ~14,6 MB). Procedurais seguem 256/1 e `none` 128.
 - **Build** `buildBody` importado 0,65–0,85 s (~1 s frio); build completo com
-  texto 5,6–6,5 s de CPU (paralelepípedos 5,6; pedra 5,8; frio 6,5); default
-  `none` ~1,3 s.
+  texto 5,6–6,5 s de CPU em máquina ociosa (paralelepípedos 5,6; pedra 5,8;
+  frio 6,5; sob carga pode passar de 10 s); default `none` ~1,3 s.
 - **Preview**: flat shading no corpo quando o snapshot (`builtParams`) é
   importado; a alça continua suave. O material do corpo tem
   `key={flatShading ? 'flat' : 'smooth'}` porque o R3F 9.7.0 não marca

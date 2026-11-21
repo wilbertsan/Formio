@@ -279,7 +279,7 @@ medição vai para a Task 5/docs).
 
 **Step 1: atualizar**
 
-- Mapa 512 × 256 (~2,4 MB), parede 512/0,4 mm (~250k triângulos), STL ~12 MB.
+- Mapa 512 × 256 (~2,4 MB), parede 512/0,4 mm (266k triângulos; ~291,6k com texto), STL ~14,6 MB.
 - Flat shading no preview importado; alça suave; `builtParams`.
 - Build medido (valor real) e fallback se aplicado.
 - `--check` leva minutos e exige os STLs; manual.
