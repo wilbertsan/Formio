@@ -450,6 +450,33 @@ describe('StudioPage', () => {
     expect(screen.getByTestId('canvas-mock').closest('[aria-busy="true"]')).toBeInTheDocument()
   })
 
+  it('passa o contorno do hook ao painel e mostra as métricas do quadrado', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    await screen.findByRole('heading', { level: 2, name: 'Termoformador' }, LAZY_TIMEOUT)
+
+    fireEvent.change(screen.getByLabelText('Forma'), {
+      target: { value: 'square' },
+    })
+
+    expect(screen.getByText(/Suporte 168\.6 × 168\.6 mm/)).toBeInTheDocument()
+    expect(screen.getByText(/Tela 160\.0 × 160\.0 mm/)).toBeInTheDocument()
+    expect(screen.queryByText('Aguardando contorno válido.')).not.toBeInTheDocument()
+  })
+
+  it('passa o erro de SVG do hook ao painel', async () => {
+    renderStudioPage()
+    fireEvent.click(screen.getByRole('button', { name: /termoformador/i }))
+    await screen.findByRole('heading', { level: 2, name: 'Termoformador' }, LAZY_TIMEOUT)
+
+    fireEvent.change(screen.getByLabelText('Forma'), {
+      target: { value: 'svg' },
+    })
+
+    expect(screen.getByText('Erro no SVG')).toBeInTheDocument()
+    expect(screen.getByText('Envie um SVG')).toBeInTheDocument()
+  })
+
   it('exporta a tela do Termoformador', async () => {
     screenWorkerResponse = serializedScreen()
 

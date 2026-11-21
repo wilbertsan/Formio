@@ -59,7 +59,8 @@ describe('ToolSelector', () => {
     render(<ToolSelector onSelect={onSelect} />)
     const section = screen.getByRole('heading', { name: 'Lembrancinhas' }).closest('section')!
     const card = within(section).getByRole('button', { name: /termoformador/i })
-    expect(card).toHaveTextContent('Tela circular perfurada')
+    expect(card).toHaveTextContent('Tela perfurada em círculo, quadrado, retângulo, pirâmide ou SVG')
+    expect(card).toHaveTextContent('suporte e macho')
     await user.click(card)
     expect(onSelect).toHaveBeenCalledWith('termoformador')
   })

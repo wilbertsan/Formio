@@ -36,16 +36,12 @@ const SVG_READ_ERROR = 'Não foi possível ler o arquivo.'
 
 interface StudioPanelProps {
   params: ThermoformerParams
-  outline?: ShapeOutline | null
-  svgError?: { code: string; message: string } | null
+  outline: ShapeOutline | null
+  svgError: { code: string; message: string } | null
   issues: ValidationIssue[]
   onUpdateParam: (key: keyof ThermoformerParams, value: number | string) => void
-  onSetSvg?: (svg: string | null) => void
+  onSetSvg: (svg: string | null) => void
   onReset: () => void
-}
-
-function ignoreSvg() {
-  return undefined
 }
 
 function ColorSwatches({
@@ -121,11 +117,11 @@ function LabeledSlider({
 
 export function StudioPanel({
   params,
-  outline = null,
-  svgError = null,
+  outline,
+  svgError,
   issues,
   onUpdateParam,
-  onSetSvg = ignoreSvg,
+  onSetSvg,
   onReset,
 }: StudioPanelProps) {
   const [svgFileName, setSvgFileName] = useState<string | null>(null)

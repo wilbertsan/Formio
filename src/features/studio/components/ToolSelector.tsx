@@ -95,7 +95,7 @@ const TOOLS: ToolCard[] = [
   {
     id: 'termoformador',
     name: 'Termoformador',
-    description: 'Tela circular perfurada com malha hexagonal, aro sólido, suporte côncavo e macho convexo',
+    description: 'Tela perfurada em círculo, quadrado, retângulo, pirâmide ou SVG, com suporte e macho correspondentes',
     icon: '⬡',
     category: 'Lembrancinhas',
   },

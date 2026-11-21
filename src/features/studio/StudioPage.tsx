@@ -1188,6 +1188,8 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
   const {
     params,
     geometry,
+    outline,
+    svgError,
     seatY,
     plugLift,
     isBuilding,
@@ -1197,6 +1199,7 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
     cameraPosition,
     fitRadius,
     updateParam,
+    setSvg,
     reset,
   } = useThermoformer()
 
@@ -1243,8 +1246,11 @@ function ThermoformerToolWrapper({ onBack }: { onBack: () => void }) {
         <Suspense fallback={<div className="flex w-64 items-center justify-center border-l border-neutral-200 bg-white"><Loader /></div>}>
           <ThermoformerTool
             params={params}
+            outline={outline}
+            svgError={svgError}
             issues={issues}
             onUpdateParam={updateParam}
+            onSetSvg={setSvg}
             onReset={reset}
           />
         </Suspense>
