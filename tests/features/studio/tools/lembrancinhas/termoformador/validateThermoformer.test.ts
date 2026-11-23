@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { validateThermoformer } from '@/features/studio/tools/lembrancinhas/termoformador/validateThermoformer'
 import { getShapeOutline, type ShapeOutline } from '@/features/studio/tools/lembrancinhas/termoformador/outline'
+import { pathsBoundingBox } from '@/features/studio/tools/confeitaria/shared/textOutline'
 import { parseSvg } from '@/features/studio/tools/confeitaria/shared/svgToIconShape'
 import { computeScreenPattern } from '@/features/studio/tools/lembrancinhas/termoformador/screenPattern'
 import {
@@ -418,24 +419,45 @@ describe('validateThermoformer no SVG', () => {
     )
   })
 
-  it('sinaliza offsets que dividem a silhueta do SVG', () => {
+  it('sinaliza offsets que dividem a silhueta do SVG e bloqueia o resto', () => {
     const params = { ...defaultThermoformerParams, shape: 'svg' as const }
     const outline = polygonOutlineWithSvg(splitC, params)
 
     expect(outline.cavityOpening!.length).toBeGreaterThan(1)
-    expect(validateThermoformer(params, outline)).toContainEqual(
+    const issues = validateThermoformer(params, outline)
+    expect(issues.map((issue) => issue.code)).toEqual(['svg-feature'])
+    expect(issues[0]).toEqual(
       expect.objectContaining({ code: 'svg-feature', severity: 'error' }),
     )
   })
 
-  it('sinaliza envelope do SVG acima do máximo da forma', () => {
+  it('aceita a tela do SVG no máximo da forma', () => {
     const params = {
       ...defaultThermoformerParams,
       shape: 'svg' as const,
       svgSize: 300,
     }
     const outline = polygonOutlineWithSvg(triangle, params)
+    const outer = pathsBoundingBox(outline.supportOuter ?? [])
 
+    expect(Math.max(outline.bounds.width, outline.bounds.height)).toBeCloseTo(300, 1)
+    expect(Math.max(outer.width, outer.height)).toBeGreaterThan(300)
+    expect(
+      validateThermoformer(params, outline).some(
+        (issue) => issue.code === 'svg-size',
+      ),
+    ).toBe(false)
+  })
+
+  it('sinaliza tela do SVG acima do máximo da forma (defensivo)', () => {
+    const params = {
+      ...defaultThermoformerParams,
+      shape: 'svg' as const,
+      svgSize: 400,
+    }
+    const outline = polygonOutlineWithSvg(triangle, params)
+
+    expect(Math.max(outline.bounds.width, outline.bounds.height)).toBeGreaterThan(300)
     expect(validateThermoformer(params, outline)).toContainEqual(
       expect.objectContaining({ code: 'svg-size', severity: 'error' }),
     )

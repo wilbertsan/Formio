@@ -275,12 +275,25 @@ export function useThermoformer(
     return null
   }, [shape, svg, parsedSvg, outline])
 
+  const issues = useMemo(
+    () => validateThermoformer(buildParams, outline, svgError),
+    [buildParams, outline, svgError],
+  )
+
+  // `svg-feature`/`svg-size` impedem a geometria: o worker também recusaria o
+  // contorno dividido, então nem o chamamos.
+  const blockingSvg = shape === 'svg' && issues.some(
+    (issue) =>
+      (issue.code === 'svg-feature' || issue.code === 'svg-size') &&
+      issue.severity === 'error',
+  )
+
   useEffect(() => {
     workerRef.current?.terminate()
     workerRef.current = null
     clearTimeout(debounceRef.current)
 
-    if (svgError) {
+    if (svgError || blockingSvg) {
       setError(null)
       setIsBuilding(false)
       setGeometry(null)
@@ -320,7 +333,7 @@ export function useThermoformer(
       }
     }, 250)
     return () => clearTimeout(debounceRef.current)
-  }, [buildParams, parsedSvg, svgError])
+  }, [buildParams, parsedSvg, svgError, blockingSvg])
 
   useEffect(() => () => {
     geometry?.screen.dispose()
@@ -332,11 +345,6 @@ export function useThermoformer(
     workerRef.current?.terminate()
     workerRef.current = null
   }, [])
-
-  const issues = useMemo(
-    () => validateThermoformer(buildParams, outline, svgError),
-    [buildParams, outline, svgError],
-  )
 
   const supportDims = useMemo(
     () => getSupportDimensions(buildParams),

@@ -254,23 +254,25 @@ function validateShape(
   if (!outline || outline.kind !== 'polygon') return []
 
   const issues: ValidationIssue[] = []
-  const pattern = computeScreenPattern(params, outline)
-  const envelope = getTrayEnvelope(params, outline)
 
   if (params.shape === 'svg') {
     const feature = svgFeatureIssue(outline)
-    if (feature) issues.push(feature)
+    // Um contorno dividido também encarece o resto da validação; o erro já
+    // bloqueia o build, então não seguimos para o padrão e a bandeja.
+    if (feature) return [feature]
 
-    const outer = pathsBoundingBox(outline.supportOuter ?? [])
-    const span = Math.max(outer.width, outer.height)
-    if (span > MAXIMUM_SHAPE_MM + EPS) {
+    const screenSpan = Math.max(outline.bounds.width, outline.bounds.height)
+    if (screenSpan > MAXIMUM_SHAPE_MM + EPS) {
       issues.push({
         code: 'svg-size',
         severity: 'error',
-        message: `O envelope do suporte (${span.toFixed(1)} mm) passa do máximo de ${MAXIMUM_SHAPE_MM} mm. Reduza o tamanho do SVG.`,
+        message: `A tela do SVG (${screenSpan.toFixed(1)} mm) passa do máximo de ${MAXIMUM_SHAPE_MM} mm. Reduza o tamanho do SVG.`,
       })
     }
   }
+
+  const pattern = computeScreenPattern(params, outline)
+  const envelope = getTrayEnvelope(params, outline)
 
   const perforated = outline.perforated ?? []
   const perforatedBounds = pathsBoundingBox(perforated)

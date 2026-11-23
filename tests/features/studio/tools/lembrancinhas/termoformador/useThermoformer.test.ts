@@ -27,6 +27,10 @@ const disjointSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 10
   <rect x="70" y="70" width="25" height="25" fill="#000"/>
 </svg>`
 
+const splitSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="10,10 90,10 90,20 15,20 15,80 90,80 90,90 10,90" fill="#000"/>
+</svg>`
+
 function serializedResult(): SerializedThermoformerResult {
   return serializeThermoformerResult({
     screen: new BoxGeometry(160, 3, 160),
@@ -522,6 +526,43 @@ describe('useThermoformer', () => {
     expect(result.current.issues).toContainEqual(
       expect.objectContaining({ code: 'svg-contour', severity: 'error' }),
     )
+  })
+
+  it('bloqueia o build quando os offsets do SVG dividem a silhueta', () => {
+    const { factory, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.setSvg(splitSvg)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(result.current.issues).toContainEqual(
+      expect.objectContaining({ code: 'svg-feature', severity: 'error' }),
+    )
+    expect(result.current.geometry).toBeNull()
+    expect(getCalls()).toBe(0)
+  })
+
+  it('gera o SVG no tamanho máximo mesmo com o envelope do suporte maior', () => {
+    const { factory, respond, getCalls } = makeWorkerFixture()
+    const { result } = renderHook(() => useThermoformer({ workerFactory: factory }))
+
+    act(() => {
+      result.current.updateParam('shape', 'svg')
+      result.current.updateParam('svgSize', 300)
+      result.current.setSvg(triangle)
+    })
+    act(() => { vi.advanceTimersByTime(260) })
+
+    expect(
+      result.current.issues.some((issue) => issue.code === 'svg-size'),
+    ).toBe(false)
+    expect(getCalls()).toBe(1)
+
+    act(() => { respond() })
+    expect(result.current.geometry).not.toBeNull()
   })
 
   it('restaura os padrões', () => {
