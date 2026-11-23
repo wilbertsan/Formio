@@ -347,9 +347,9 @@ Detalhes:
   worker. O resultado precisa ser **uma silhueta única, fechada, sem furos e sem
   ilhas**: furos, ilhas ou vários contornos externos geram `svg-contour`. A
   escala é uniforme pela maior dimensão (`svgSize`), com centro na origem e Y
-  corrigido. SVG ausente gera `svg-missing`; ilegível, `svg-parse`; envelope do
-  suporte acima de 300 mm, `svg-size`; offset que se divide em ilhas ou contorno
-  acima de 1.500 pontos, `svg-feature`. O erro de SVG impede o build.
+  corrigido. SVG ausente gera `svg-missing`; ilegível, `svg-parse`; contorno da
+  tela acima de 300 mm (defensivo), `svg-size`; offset que se divide em ilhas ou
+  contorno acima de 1.500 pontos, `svg-feature`. O erro de SVG impede o build.
 - **CSG do suporte e do macho:** suporte = prisma externo − rebaixo − loft da
   cavidade; macho = corpo ∪ protrusão − pega. O CSG usa o avaliador com CDT do
   Porta-lata, limpa triângulos degenerados e repara T-junctions; os testes exigem
@@ -396,11 +396,11 @@ Detalhes:
   suporte; `plug-guide` é defensiva no círculo e `plug-grip` avisa a pega
   desabilitada nas novas formas; `svg-missing`, `svg-parse`, `svg-contour`,
   `svg-feature` e `svg-size` cobrem o SVG. A validação é consultiva e aparece na
-  seção **Validação**; erros de SVG impedem o build e uma recusa do worker
-  aparece no overlay.
+  seção **Validação**; os erros de SVG bloqueiam o build antes do worker, e uma
+  falha do worker aparece no overlay.
 - **Limitações conhecidas:** `svg-feature` é **error** no código, embora o design
-  previsse warning, porque o worker recusa offsets que não formam uma única
-  silhueta. Em um C com a barra logo acima do raio da pega, o suporte pode
+  previsse warning; o hook bloqueia o build antes do worker para offsets que não
+  formam uma única silhueta. Em um C com a barra logo acima do raio da pega, o suporte pode
   apresentar uma costura capilar e `isClosed` falso; o macho correspondente fecha
   e é o caso coberto por teste. A validação não sinaliza essa costura
   (`svg-feature` só pega ilhas ou contornos acima de 1.500 pontos), então evite

@@ -124,8 +124,9 @@ formas são prismas retos.
     do eixo Y do SVG; o Y do contorno vira -Z nas peças.
   - O SVG é usado pela tela, pelo suporte, pelo macho e pelo padrão.
   - SVG ausente (`svg-missing`) ou ilegível (`svg-parse`) não chama o worker.
-    `svg-size` avisa quando o envelope do suporte passa de 300 mm. `svg-feature`
-    é **error** quando algum offset deixa de ser uma única silhueta ou quando o
+    `svg-size` (**error**) bloqueia quando o contorno da tela passa de 300 mm
+    (defensivo; `svgSize` já é limitado a 300). `svg-feature` (**error**)
+    bloqueia quando algum offset deixa de ser uma única silhueta ou quando o
     contorno passa de 1.500 pontos.
 - Suporte das novas formas: prisma externo − prisma do rebaixo − loft da
   cavidade, com CSG. O rebaixo vai de `seatY` ao topo; a cavidade vai de
@@ -249,10 +250,11 @@ Novas formas:
 - `svg-contour`: não é uma silhueta única, sem furos ou ilhas.
 - `svg-feature`: offset do SVG dividido em ilhas ou contorno acima de 1.500
   pontos. É **error** no código (o design previa warning) e impede o build.
-- `svg-size`: envelope do suporte acima de 300 mm.
+- `svg-size`: contorno da tela acima de 300 mm (defensivo; o envelope do
+  suporte pode passar de 300 mm). É **error** e bloqueia o build.
 
-Avisos não bloqueiam o build. Erros de SVG impedem o build até corrigir; quando o
-worker recusa um contorno, o hook mostra o erro no overlay.
+Avisos não bloqueiam o build. Erros de SVG (`svg-feature`/`svg-size`) impedem o
+build antes do worker; uma falha de CSG ou do worker aparece no overlay.
 
 ## Decisões
 
